@@ -1,0 +1,30 @@
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+
+[tool.ruff.lint]
+select = [
+    "E",   # PyCodeStyle Errors
+    "W",   # PyCodeStyle Warnings
+    "F",   # PyFlakes (unused imports/vars, etc.)
+    "I",   # isort (import sorting via ruff)
+    "UP",  # pyupgrade rules
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "PERF" # performance lint
+]
+ignore = [
+  "E203", # space before : (black-compatible)
+  "E501", # line length: let black handle wrapping
+]
+[tool.ruff.lint.isort]
+# Keep imports grouped compatibly with black:
+force-single-line = true
+force-sort-within-sections = true
+known-first-party = ["pepper_ot"]  # set to your package/root
