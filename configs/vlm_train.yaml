@@ -1,0 +1,25 @@
+dataset_path: "../../data/out/sg/train.jsonl"
+system_prompt: "../../configs/sgg_system_prompt"
+
+lora:
+  r: 8
+  finetune_vision_layers: true
+  finetune_language_layers: true
+  finetune_attention_modules: true
+  finetune_mlp_modules: true
+  use_rslora: false
+
+training:
+  # I replaced "unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit" with "unsloth/Qwen2-VL-2B-Instruct-unsloth-bnb-4bit"
+  # for better (faster) local testing. But I will definitely FT & use unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit
+  base_model_id: "unsloth/Qwen2-VL-2B-Instruct-unsloth-bnb-4bit" #
+  output_dir: "../../data/out/vlm_test_run"
+  load_in_4bit: true
+  batch_size: 1
+  gradient_accumulation_steps: 1
+  max_steps: 5
+  warmup_steps: 1
+  learning_rate: 0.0002
+  weight_decay: 0.01
+  lr_scheduler_type: "linear"
+  report_to: "tensorboard"

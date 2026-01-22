@@ -15,6 +15,8 @@ class LoRAConfig(BaseModel):
     bias: str = "none"
     finetune_vision_layers: bool = True
     finetune_language_layers: bool = True
+    finetune_attention_modules: bool = True
+    finetune_mlp_modules: bool = True
     target_modules: list[str] = [
         "q_proj",
         "k_proj",
@@ -24,6 +26,7 @@ class LoRAConfig(BaseModel):
         "up_proj",
         "down_proj",
     ]
+    use_rslora: bool = False
 
 
 class UnslothTrainingConfig(BaseModel):
@@ -31,6 +34,7 @@ class UnslothTrainingConfig(BaseModel):
 
     base_model_id: str = "unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit"
     output_dir: str = "checkpoints"
+    load_in_4bit: bool = True
 
     # Training Loop
     batch_size: int = Field(2, gt=0)
@@ -43,6 +47,9 @@ class UnslothTrainingConfig(BaseModel):
     logging_steps: int = 1
     optim: str = "adamw_8bit"
     seed: int = 42
+    weight_decay: float = 0.01
+    lr_scheduler_type: str = "linear"
+    report_to: str = "tensorboard"
 
     # Export
     export_quantization: str = "q4_k_m"
@@ -65,6 +72,24 @@ class VLMTrainerConfig(BaseModel):
     dataset_path: Path = Field(
         ..., description="Path to jsonl dataset with generated scenegraphs"
     )
+    system_prompt: str | Path = Field(
+        """Output scene graph for this picture.
+        State relationships in one word predicate between labeled objects with their ID written in the picture.
+        Provide attributes of objects as predicates with itself.
+        Use ONLY one word underlined predicates.
+        Use ONLY labeled objects in the picture.
+        Output the result in json format of an array of objects: [{"subj": subid, "rel": sub_obj_rel, "obj": objid }, ...]
+        """,
+        description="Path to the system_prompt.txt or string",
+    )
+
+    @model_validator(mode="after")
+    def validate_system_prompt(self):
+        if (spf := Path(self.system_prompt)).exists() and spf.is_file():
+            with spf.open("r") as f:
+                self.system_prompt = f.read()
+        # else just take it as string...
+        return self
 
 
 class DetectorTrainerConfig(BaseModel):

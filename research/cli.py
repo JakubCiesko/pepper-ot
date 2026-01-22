@@ -4,6 +4,8 @@ import click
 
 from research.src.data_generation.distillation.distill import run_distillation
 from research.src.data_generation.scene_graph.generate import run_generation
+from research.src.training.detector import run_detector_training
+from research.src.training.vlm import run_vlm_training
 
 
 @click.group()
@@ -62,7 +64,7 @@ def train():
     show_default=True,
 )
 def cmd_train_detector(config):
-    pass
+    run_detector_training(config)
 
 
 @train.command(name="vlm")
@@ -74,7 +76,7 @@ def cmd_train_detector(config):
     show_default=True,
 )
 def cmd_train_vlm(config):
-    pass
+    run_vlm_training(config)
 
 
 if __name__ == "__main__":
