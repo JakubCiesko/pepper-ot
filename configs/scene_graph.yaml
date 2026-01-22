@@ -1,0 +1,26 @@
+paths:
+  input_dir: "../../data/in/"  # We will create this in the notebook
+  output_dir: "../../data/out/sg/"
+
+
+teacher:
+  device: "cuda"
+  box_threshold: 0.35
+  text_threshold: 0.25
+  ontology_config:
+    objects:
+      person: person
+      white coffee mug: cup
+      plastic water bottle: bottle
+      laptop computer: laptop
+      rolling office chair: chair
+    predicates:
+      - "holding"
+      - "on"
+      - "near"
+      - "using"
+
+llm_labeler:
+  model_id: "gpt-4o"
+  temperature: 0.0
+  max_tokens: 500
