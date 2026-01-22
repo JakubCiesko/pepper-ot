@@ -23,7 +23,7 @@ class SoMPainter:
         """
 
         # start with 1 because 0 is never displayed somehow
-        labels = [f"#{i + 1}" for i in range(len(detections))]
+        labels = [f"{i + 1}" for i in range(len(detections))]  # # was there
 
         annotated_image = (
             self.box_annotator.annotate(scene=image.copy(), detections=detections)

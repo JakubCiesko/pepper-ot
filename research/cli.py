@@ -75,3 +75,7 @@ def cmd_train_detector(config):
 )
 def cmd_train_vlm(config):
     pass
+
+
+if __name__ == "__main__":
+    cli()

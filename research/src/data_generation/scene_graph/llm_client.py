@@ -46,7 +46,7 @@ class SceneGraphGenerator:
         for attempt in range(max_retries + 1):
             try:
                 response = await self.client.chat.completions.create(
-                    model=self.config.model,
+                    model=self.config.model_id,
                     messages=[
                         {
                             "role": "system",

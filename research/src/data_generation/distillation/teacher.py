@@ -28,7 +28,7 @@ class KnowledgeDistiller:
         logger.info(
             f"Initializing Grounding DINO. Device: {self.config.teacher.device}"
         )
-        self.ontology = CaptionOntology(self.config.teacher.ontology.objects)
+        self.ontology = CaptionOntology(self.config.teacher.ontology_config.objects)
         self.model = GroundingDINO(ontology=self.ontology)
         logger.info("Preparing data directories")
         self.input_dir = self.config.paths.input_dir

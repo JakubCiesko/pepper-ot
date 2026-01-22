@@ -19,7 +19,7 @@ class OntologyConfig(BaseModel):
 
     @model_validator(mode="after")
     def check_at_least_one_ontology(self):
-        if self.objects and self.predicates:
+        if self.objects or self.predicates:
             return self
         raise ValueError(
             "At least one ontology is required (dict[str, str]). Specify objects or predicates (list[str])."
