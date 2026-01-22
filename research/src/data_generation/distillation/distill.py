@@ -2,25 +2,24 @@ from pathlib import Path
 import sys
 
 import click
-from src.distillation.teacher import KnowledgeDistiller
+
+from .teacher import KnowledgeDistiller
 
 
-@click.command()
-@click.option(
-    "--config",
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    default="../../configs/distillation_config.yaml",
-    help="Path to the distillation configuration YAML file.",
-    show_default=True,
-)
-def main(config: Path):
+def run_distillation(config_path: Path):
     """
+    The main entrypoint that the CLI will call.
+
     Run Knowledge Distillation Dataset Generation (Grounding DINO -> YOLO).
 
     This script loads a teacher configuration, runs the Grounding DINO model
     on raw images, and saves the detections in YOLO format for student training.
+
     """
-    config_path = config.resolve()
+    config_path = config_path.resolve()
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config not found at {config_path}")
+
     click.secho("Starting Distillation Data Generation Pipeline", fg="green", bold=True)
     click.echo(f"\tConfig path: {config_path}")
     try:
@@ -31,10 +30,6 @@ def main(config: Path):
         )
         distiller.distill()
     except Exception as e:
-        click.secho("\n❌ CRITICAL FAILURE during distillation:", fg="red", bold=True)
+        click.secho("\nCRITICAL FAILURE during distillation:", fg="red", bold=True)
         click.echo(e)
         sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
