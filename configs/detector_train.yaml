@@ -1,0 +1,12 @@
+base_model: "rtdetr-l.pt"
+project_name: "pepper_thesis_detector_test"
+
+dataset_yaml: "../../data/out/distilled/data.yaml"
+
+epochs: 5
+batch_size: 4
+imgsz: 640
+device: "0"          # "0" for GPU, "cpu" for CPU
+
+optimizer: "auto"
+lr0: 0.0001

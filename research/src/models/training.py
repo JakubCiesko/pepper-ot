@@ -62,7 +62,9 @@ class VLMTrainerConfig(BaseModel):
 
     lora: LoRAConfig
     training: UnslothTrainingConfig
-    dataset_path: Path = Field(..., "Path to jsonl dataset with generated scenegraphs")
+    dataset_path: Path = Field(
+        ..., description="Path to jsonl dataset with generated scenegraphs"
+    )
 
 
 class DetectorTrainerConfig(BaseModel):

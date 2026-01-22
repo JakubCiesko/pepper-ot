@@ -4,4 +4,7 @@ thesis-venv/
 **.pyc
 research/notebooks/private
 research/notebooks/data
+research/notebooks/runs
+research/notebooks/*.pt
+research/notebooks/unsloth*
 data/
