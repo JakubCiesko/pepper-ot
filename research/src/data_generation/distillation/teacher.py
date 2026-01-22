@@ -4,10 +4,11 @@ from pathlib import Path
 from autodistill.detection import CaptionOntology
 from autodistill_grounding_dino import GroundingDINO
 import cv2
-from src.models.data_generation import DataGenConfig
 import supervision as sv
 from tqdm import tqdm
 import yaml
+
+from research.src.models.data_generation import DataGenConfig
 
 logger = logging.getLogger(__name__)
 

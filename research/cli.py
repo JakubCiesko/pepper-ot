@@ -3,6 +3,7 @@ from pathlib import Path
 import click
 
 from research.src.data_generation.distillation.distill import run_distillation
+from research.src.data_generation.scene_graph.generate import run_generation
 
 
 @click.group()
@@ -43,7 +44,7 @@ def cmd_distill(config):
     show_default=True,
 )
 def cmd_scene_graph(config):
-    pass
+    run_generation(config)
 
 
 @cli.group()
