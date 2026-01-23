@@ -1,0 +1,27 @@
+topic: ~pepper-object-recognition()
+language: czc
+
+concept:(look) [
+    "co vidíš"
+    "co právě vidíš"
+    "co se kolem tebe děje"
+    "co je před tebou"
+    "co to tady máme"
+    "co vidíš kolem sebe"
+    "podívej se"
+    "koukni se"
+    "naskenuj"
+    "rozhlédni se"
+    "mrkni se"
+    "co je tady"
+    "co je tam"
+    "řekni co vidíš"
+    "vidíš něco"
+    "co vidíš před sebou"
+]
+
+
+u:(~look)
+    "Dej mi chvilku, jen se pořádně rozhlédnu"
+    ^sCall(PepperObjectRecognition.detect("cs"))
+    ^pCall(ALTabletService.showWebview("https://raye-uncontractile-attently.ngrok-free.dev/dashboard"))

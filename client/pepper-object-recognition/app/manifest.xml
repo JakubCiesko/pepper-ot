@@ -1,0 +1,38 @@
+<package uuid="pepper-object-recognition" version="0.0.8">
+  <names>
+    <name lang="en_US">pepper-object-recognition</name>
+    <name lang="cs_CZ">pepper-object-recognition</name>
+    </names>
+  <descriptions>
+    <description lang="en_US">A simple app consisting of a collaborative dialogue talking to a service which runs image recognition using remote GPU-powered machine.</description>
+    <description lang="cs_CZ">A simple app consisting of a collaborative dialogue talking to a service which runs image recognition using remote GPU-powered machine.</description>
+    </descriptions>
+  <supportedLanguages>
+    <language>en_US</language>
+    <language>cs_CZ</language>
+    </supportedLanguages>
+  <descriptionLanguages>
+    <language>en_US</language>
+    <language>cs_CZ</language>
+    </descriptionLanguages>
+  <contents>
+    <behaviorContent path="testrun">
+      <nature>interactive</nature>
+      <descriptions>
+        <description lang="en_US">Launch this to test your collaborative dialog in isolation (easier for debugging)</description>
+        </descriptions>
+      <permissions />
+      </behaviorContent>
+    <dialogContent topicName="pepper-object-recognition" typeVersion="1.0">
+      <topic language="cs_CZ" path="pepper-object-recognition/pepper-object-recognition_czc.top" />
+      <topic language="en_US" path="pepper-object-recognition/pepper-object-recognition_enu.top" />
+      </dialogContent>
+    </contents>
+  <requirements>
+    <naoqiRequirement maxVersion="2.5" minVersion="2.5" />
+    <robotRequirement model="JULIETTE_Y20" />
+    </requirements>
+  <services>
+    <service autorun="true" execStart="/usr/bin/python2 scripts/pepperobjectrecognition.py" name="pepperobjectrecognition" />
+    </services>
+  </package>

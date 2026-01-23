@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pepper Object Detection Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/png" href="/static/pepper_icon.png"/>
+    <script src="/static/js/dashboard_ws.js" defer></script>
+    <script src="/static/js/dashboard_config.js" defer></script>
+    <script src="/static/js/dashboard_utils.js" defer></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-6">
+
+    <h1 class="text-3xl font-bold mb-6">Pepper Live Object Detection Dashboard</h1>
+
+
+
+    <div class="w-full max-w-3xl bg-white rounded shadow p-4 mb-6" id="settings">
+        <h2 class="font-bold text-xl cursor-pointer flex justify-between items-center" onclick="toggleSection('settings-content')">
+            Detection Settings
+            <span id="settings-arrow">▼</span>
+        </h2>
+        <div id="settings-content" class="mt-2 hidden">
+            <div id="status-message" class="mt-2 text-sm text-green-600 hidden"></div>
+            <!-- Confidence Threshold -->
+            <div class="w-full bg-gray-50 rounded shadow p-4 mb-4">
+                <label class="font-bold">Confidence Threshold</label>
+                <div class="flex items-center gap-4 mt-2">
+                    <input type="range" id="threshold-slider" min="0" max="1" step="0.01" value="0.25" class="flex-1">
+                    <input type="number" id="threshold-input" min="0" max="1" step="0.01" value="0.25" class="w-20 border rounded px-2 py-1">
+                </div>
+            </div>
+            <!-- Model Selection -->
+            <div class="w-full bg-gray-50 rounded shadow p-4 mb-4">
+                <label class="font-bold">Detection Model</label>
+                <select id="model-select" class="w-full border rounded px-2 py-1 mt-2">
+                    <option>Loading models...</option>
+                </select>
+                <button id="change-model" class="mt-2 px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">Change Model</button>
+            </div>
+            <!-- Language selection -->
+            <div class="w-full bg-gray-50 rounded shadow p-4 mb-4">
+                <label class="font-bold">Label Language</label>
+                <select id="language-select" class="w-full border rounded px-2 py-1 mt-2">
+                    <option value="en">English</option>
+                    <option value="cs">Czech</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="es">Spanish</option>
+                </select>
+                <button id="change-language" class="mt-2 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-600">Change Language</button>
+            </div>
+        </div>
+    </div>
+    <!-- Annotated Image - default it just random ai generted image -->
+    <div class="w-full max-w-3xl relative">
+        <img id="annotated-image" class="w-full h-auto rounded border border-gray-300 shadow" src="/static/pepper_icon.png" alt="Annotated Detection Image">
+    </div>
+    <div id="sentences" class="w-full max-w-3xl bg-white rounded shadow p-4 mb-6">
+        <h3 class="font-bold text-lg">
+            Pepper Says
+        </h3>
+        <div id="sentences-content" class="mt-2 space-y-2">
+            <p class="text-gray-500">No messages yet...</p>
+        </div>
+    </div>
+    <!-- Detection Text Info -->
+    <div id="detections" class="w-full max-w-3xl bg-white rounded shadow p-4 mb-6">
+        <h3 class="font-bold text-lg cursor-pointer flex justify-between items-center" onclick="toggleSection('detections-content')">
+            Detected Objects
+            <span id="detections-arrow">▲</span>
+        </h3>
+        <div id="detections-content" class="mt-2">
+            <p class="text-gray-500">No detections yet...</p>
+        </div>
+    </div>
+
+</body>
+</html>

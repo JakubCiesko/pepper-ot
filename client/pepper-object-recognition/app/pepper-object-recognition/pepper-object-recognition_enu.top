@@ -1,0 +1,40 @@
+topic: ~pepper-object-recognition()
+language: enu
+
+concept:(look) [
+    "what do you see"
+    "do you see"
+    "what do you see right now"
+    "what can you see around you"
+	"what is happening around you"
+	"what is happening"
+    "what's happening around you"
+    "what's in front of you"
+    "what is in front of you"
+    "what do we have here"
+    "look around"
+    "look around you"
+    "look in front of you"
+    "scan"
+    "scan the area"
+    "take a look"
+    "take look"
+    "take a good look"
+    "take good look"
+    "check around"
+    "tell me what you see"
+    "do you see anything"
+    "what is here"
+    "what is there"
+    "what do you see in front of you"
+    "what do you see around here"
+    "look carefully"
+    "observe"
+    "recognize objects"
+    "what objects do you see"
+    "do you see anything"
+]
+
+u:(~look)
+    "Alright, let me take a look."
+    ^sCall(PepperObjectRecognition.detect("en"))
