@@ -1,0 +1,10 @@
+# Scene-Aware Dialogue for the Pepper Robot Using Object Tracking and Large Language Models
+The goal of the thesis is to design and implement a dialogue interface system for natural communication with the Pepper robot, based on its visual perception of its surroundings. The student will build upon an existing object detection solution and extend it with multi-frame video object tracking and the construction of a dynamic semantic scene model. The work will include detecting spatial relationships between objects (such as occlusion or relative position) and integrating these findings with the robot's internal modules (specifically ALPeoplePerception). The resulting structured representation of the environment will serve as a dynamic information source for the dialogue manager. The dialogue system will be implemented using Large Language Models (LLMs) and Retrieval-Augmented Generation (RAG) techniques, where the model uses the current scene context to conduct fluid and factually supported conversation about the objects and persons the robot sees in its surroundings.
+
+
+The final submission will consist of a textual part with overviews of related technologies and approaches and a detailed description of the implementation, evaluation and testing, as well as a working implementation of vision recognition and dialog with the Pepper robot about its surroundings.
+
+- Grassi, Lucrezia, et al. "Grounding conversational robots on vision through dense captioning and large language models." 2024 IEEE International Conference on Robotics and Automation (ICRA). IEEE, 2024.
+- Sun, Jiangeng. "Intelligible dialogue manager for social robots: An AI dialogue robot solution based on Rasa open-source framework and Pepper robot." (2023).
+- Abdel Hafez, Raneem. "Enhancing Human-Robot Interaction: Integrating Large Language Models and Advanced Speech Recognition into the Pepper Robot." (2024).
+- Mascaro, Ruben, and Margarita Chli. "Scene representations for robotic spatial perception." Annual Review of Control, Robotics, and Autonomous Systems 8.1 (2025): 351-377.
