@@ -10,3 +10,4 @@ research/notebooks/unsloth*
 data/
 server/detection_models/*.pt
 server/detection_models/*.json
+experiments/
