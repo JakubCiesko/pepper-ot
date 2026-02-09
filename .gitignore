@@ -11,3 +11,5 @@ data/
 server/detection_models/*.pt
 server/detection_models/*.json
 experiments/
+public_html/
+plans/
