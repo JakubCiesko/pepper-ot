@@ -13,3 +13,5 @@ server/detection_models/*.json
 experiments/
 public_html/
 plans/
+detection_models/
+**.pth

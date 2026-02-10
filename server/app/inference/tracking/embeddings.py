@@ -52,6 +52,7 @@ class FeatureExtractor:
 
             summary, _ = self.model(pixel_values)
             # Normalize for cosine similarity
+            # TODO: ACTUALLY COSINE IS NOT NEEDED I CAN JUST DOT PRODUCT
             summary = summary / summary.norm(p=2, dim=-1, keepdim=True)
 
         return summary.cpu().numpy()
