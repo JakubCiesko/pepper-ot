@@ -1,7 +1,60 @@
-from app.models.robot import RobotMetadata
+from dataclasses import dataclass
+from dataclasses import field
+import re
+import time
+from typing import Any
+
 import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
+from pydantic import BaseModel
+from pydantic import Field
+
+from ..models.robot import RobotMetadata
+
+
+class DetectionObject(BaseModel):
+    class_id: int = Field(..., description="Class ID")
+    label: str = Field(..., description="Object label")
+    confidence: float = Field(..., description="Detection confidence")
+    bbox: list[float] = Field(..., description="[x1, y1, x2, y2]")
+    object_id: int | None = Field(None, description="Persistent tracking ID")
+
+
+@dataclass
+class TrackedObject:
+    """The persistent identity of a detected entity."""
+
+    id: int
+    label: str
+    embedding: np.ndarray
+    bbox: list[float]
+    confidence: float
+
+    # State
+    last_seen: float = field(default_factory=time.time)
+    first_seen: float = field(default_factory=time.time)
+    hits: int = 1
+    frames_since_seen: int = 0
+
+    @property
+    def center(self):
+        """Returns (x_center, y_center)"""
+        return ((self.bbox[0] + self.bbox[2]) / 2, (self.bbox[1] + self.bbox[3]) / 2)
+
+    def update(self, det: DetectionObject, embedding: np.ndarray):
+        """Update state with new observation."""
+        self.bbox = det.bbox
+        self.confidence = det.confidence
+
+        # Smooth embedding (Exponential Moving Average) to stabilize identity
+        # We give 10% weight to the new look, 90% to history
+        self.embedding = 0.9 * self.embedding + 0.1 * embedding
+        self.embedding /= np.linalg.norm(self.embedding)  # Re-normalize
+
+        self.last_seen = time.time()
+        self.hits += 1
+        self.frames_since_seen = 0
 
 
 class BoundingBox:
@@ -69,3 +122,105 @@ class FrameContext:
         self.metadata = metadata
         self.detections: list[InternalDetection] = []
         self.timestamp = metadata.head_yaw  # Example usage
+
+
+@dataclass
+class SceneGraphEdge:
+    sub: str
+    rel: str
+    obj: str
+
+    def __hash__(self):
+        return hash((self.sub, self.rel, self.obj))
+
+    def __eq__(self, other):
+        if not isinstance(other, SceneGraphEdge):
+            return NotImplemented
+        return (self.sub, self.rel, self.obj) == (other.sub, other.rel, other.obj)
+
+
+@dataclass
+class SceneGraph:
+    """
+    A structured scene graph object, returned by SceneGraphGenerator.generate.
+    """
+
+    edges: list[SceneGraphEdge] = field(default_factory=list)
+    no_label_edges: list[SceneGraphEdge] = field(default_factory=list)
+    raw: Any | None = None  # raw output from the VLM, useful for debugging
+
+    def __post_init__(self):
+        self.deduplicate()
+
+    @staticmethod
+    def _normalize_id(s: str) -> str:
+        """Extract numeric ID from strings like 'cat_1' or return as is if already numeric"""
+        match = re.search(r"(\d+)$", s)
+        return match.group(1) if match else s
+
+    @classmethod
+    def from_list(cls, data: list[dict], raw: Any = None) -> "SceneGraph":
+        edges = []
+        for item in data:
+            if all(k in item for k in ["sub", "rel", "obj"]):
+                edges.append(
+                    SceneGraphEdge(sub=item["sub"], rel=item["rel"], obj=item["obj"])
+                )
+            else:
+                # fallback for unexpected structure
+                edges.append(
+                    SceneGraphEdge(
+                        sub=str(item.get("sub", "")),
+                        rel=str(item.get("rel", "")),
+                        obj=str(item.get("obj", "")),
+                    )
+                )
+        no_label_edges = [
+            SceneGraphEdge(
+                sub=cls._normalize_id(edge.sub),
+                rel=edge.rel,
+                obj=cls._normalize_id(edge.obj),
+            )
+            for edge in edges
+        ]
+        return cls(edges=edges, no_label_edges=no_label_edges, raw=raw)
+
+    def deduplicate(self):
+        self.edges = list(set(self.edges))
+        self.no_label_edges = list(set(self.no_label_edges))
+
+    def subjects(self) -> list[str]:
+        return [edge.sub for edge in self.edges]
+
+    def objects(self) -> list[str]:
+        return [edge.obj for edge in self.edges]
+
+    def predicates(self) -> list[str]:
+        return [edge.rel for edge in self.edges]
+
+    def attributes(self) -> list[str]:
+        return [edge.rel for edge in self.edges if edge.obj == edge.sub]
+
+    def as_dict(self) -> list[dict]:
+        return [{"sub": e.sub, "rel": e.rel, "obj": e.obj} for e in self.edges]
+
+    def __len__(self):
+        return len(self.edges)
+
+
+@dataclass
+class PipelineResult:
+    """Holds the complete state of a processed frame."""
+
+    raw_image: Image.Image
+    som_image: np.ndarray  # The image with tags drawn on it
+    detections: list[DetectionObject]  # List of objects with persistent IDs
+    scene_graph: SceneGraph  # The semantic relationships
+
+    def summary(self):
+        print("--- Frame Summary ---")
+        print(f"Objects Detected: {len(self.detections)}")
+        print(f"Entities in Memory: {[d.object_id for d in self.detections]}")
+        print(f"Relationships Found: {len(self.scene_graph.edges)}")
+        for edge in self.scene_graph.edges:
+            print(f"  - Object {edge.sub} {edge.rel} Object {edge.obj}")
