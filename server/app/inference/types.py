@@ -121,7 +121,7 @@ class FrameContext:
         self.image = image
         self.metadata = metadata
         self.detections: list[InternalDetection] = []
-        self.timestamp = metadata.head_yaw  # Example usage
+        self.timestamp = time.time()  # Example usage
 
 
 @dataclass
