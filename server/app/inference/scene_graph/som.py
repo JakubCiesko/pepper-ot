@@ -56,7 +56,7 @@ class SoMPainter:
 
         # start with 1 because 0 is never displayed somehow
         labels = [
-            f"{(det.label + "_" if class_names else "") + str(det.object_id + 1)}"
+            f"{(det.label + "_" if class_names else "") + str(det.object_id)}"  # i sometimes add 1 to det.object_id because the painetr sometimes does not display 0, i dont know why
             for det in detections
         ]  # # was there
         xyxy = np.array([det.bbox for det in detections])

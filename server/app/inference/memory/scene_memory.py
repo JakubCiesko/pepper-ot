@@ -71,3 +71,18 @@ class SceneMemory:
         # and delete if > threshold.
 
         return detections
+
+    def snapshot(self) -> list[dict]:
+        """Return a lightweight view of the current tracked objects."""
+        return [
+            {
+                "id": track.id,
+                "label": track.label,
+                "bbox": track.bbox,
+                "confidence": track.confidence,
+                "last_seen": track.last_seen,
+                "first_seen": track.first_seen,
+                "hits": track.hits,
+            }
+            for track in self.tracks.values()
+        ]

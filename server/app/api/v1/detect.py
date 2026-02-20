@@ -1,8 +1,10 @@
+import base64
 import io
 import logging
 import time
 
 from app.api.v1.dependencies import get_pipeline
+from app.core.ws_manager import ws_manager
 from app.schemas.scene import DetectionResponse
 from fastapi import APIRouter
 from fastapi import Depends
@@ -36,16 +38,11 @@ async def detect_endpoint(
     # 2. Run Engine (No globals!)
     result = await pipeline.process(image)
 
-    # 3. Handle WebSockets (Background Task)
-    # colors = get_color_encoding(result.detections)
-    # annotated_image_b64 = annotate_image(img_bytes, result.detections, colors)
-    #
-    # asyncio.create_task(ws_manager.broadcast({
-    #     "type": "detection",
-    #     "objects": [d.model_dump() for d in result.detections],
-    #     "image": annotated_image_b64,
-    #     "colors": colors
-    # }))
+    # 3. Prepare SoM image for dashboard
+    som_pil = Image.fromarray(result.som_image.astype("uint8"))
+    buf = io.BytesIO()
+    som_pil.save(buf, format="JPEG")
+    som_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
     objects = [
         {
@@ -56,6 +53,16 @@ async def detect_endpoint(
         }
         for det in result.detections
     ]
+
+    await ws_manager.broadcast(
+        {
+            "type": "detection",
+            "image": som_b64,
+            "objects": objects,
+            "scene_graph": result.scene_graph.as_dict(),
+            "memory": pipeline.memory.snapshot() if hasattr(pipeline, "memory") else [],
+        }
+    )
 
     return DetectionResponse(
         objects=objects,

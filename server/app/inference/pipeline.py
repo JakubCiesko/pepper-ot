@@ -1,12 +1,12 @@
 import numpy as np
 from PIL import Image
 
-from ..schemas.config import VisConfig
-from .detection.service import DetectionService
-from .memory.scene_memory import SceneMemory
-from .scene_graph.generation import SceneGraphGenerator
-from .scene_graph.som import SoMPainter
-from .types import PipelineResult
+from app.inference.detection.service import DetectionService
+from app.inference.memory.scene_memory import SceneMemory
+from app.inference.scene_graph.generation import SceneGraphGenerator
+from app.inference.scene_graph.som import SoMPainter
+from app.inference.types import PipelineResult
+from app.schemas.config import VisConfig
 
 
 class VisualPipeline:
