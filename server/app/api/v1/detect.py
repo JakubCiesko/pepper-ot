@@ -6,7 +6,8 @@ import time
 
 from app.api.v1.dependencies import get_pipeline
 from app.core.state import ml_state
-from app.core.storage import save_last_state
+from app.core.storage import save_last_image_async
+from app.core.storage import save_last_state_async
 from app.core.ws_manager import ws_manager
 from app.schemas.scene import DetectionResponse
 from fastapi import APIRouter
@@ -45,11 +46,17 @@ async def upload_data_to_dashboard(som_image, scene_state, objects, scene_graph)
             if ml_state.config._config_path is not None
             else Path.cwd()
         )
-        path = base_dir / ml_state.config.storage.last_state_path
-        if not ml_state.config.storage.store_image:
-            payload = dict(payload)
-            payload["image"] = None
-        save_last_state(path, payload)
+        state_path = base_dir / ml_state.config.storage.last_state_path
+        persist_payload = dict(payload)
+        if ml_state.config.storage.store_image:
+            image_path = state_path.with_suffix(".jpg")
+            persist_payload["image"] = None
+            persist_payload["image_path"] = str(image_path.relative_to(base_dir))
+            await save_last_image_async(image_path, payload["image"])
+        else:
+            persist_payload["image"] = None
+            persist_payload.pop("image_path", None)
+        await save_last_state_async(state_path, persist_payload)
 
 
 @router.post("/detect", response_model=DetectionResponse)

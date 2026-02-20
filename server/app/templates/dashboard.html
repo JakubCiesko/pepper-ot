@@ -160,6 +160,22 @@
                 <textarea id="vlm-predicates" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
                 <label class="block text-sm mt-4">Ontology Objects (child:parent per line)</label>
                 <textarea id="vlm-objects" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    <div>
+                        <label class="block text-sm">SGG Mode</label>
+                        <select id="sgg-mode" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
+                            <option value="vlm">VLM</option>
+                            <option value="rules">Rules</option>
+                            <option value="hybrid">Hybrid</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2 mt-6">
+                        <input id="sgg-rules-enabled" type="checkbox">
+                        <span class="text-sm">Enable Rule-Based SGG</span>
+                    </div>
+                </div>
+                <label class="block text-sm mt-4">Rules (JSON array)</label>
+                <textarea id="sgg-rules-json" rows="6" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>
             </div>
 
             <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 min-h-[360px]">

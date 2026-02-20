@@ -18,6 +18,9 @@ const vlmSystem = document.getElementById("vlm-system");
 const vlmUser = document.getElementById("vlm-user");
 const vlmPredicates = document.getElementById("vlm-predicates");
 const vlmObjects = document.getElementById("vlm-objects");
+const sggMode = document.getElementById("sgg-mode");
+const sggRulesEnabled = document.getElementById("sgg-rules-enabled");
+const sggRulesJson = document.getElementById("sgg-rules-json");
 
 const chatSystem = document.getElementById("chat-system");
 const chatContext = document.getElementById("chat-context");
@@ -111,9 +114,19 @@ async function loadConfig() {
     const resolvedChat = resolved.chat || {};
     chatSystem.value = resolvedChat.resolved_system_prompt || "";
     chatContext.value = resolvedChat.resolved_context_template || "";
+
+    sggMode.value = active.sgg?.mode || "hybrid";
+    sggRulesEnabled.checked = !!active.sgg?.rules?.enabled;
+    sggRulesJson.value = JSON.stringify(active.sgg?.rules?.rule_list || [], null, 2);
 }
 
 function buildPatch() {
+    let rules = [];
+    try {
+        rules = sggRulesJson.value.trim() ? JSON.parse(sggRulesJson.value) : [];
+    } catch (err) {
+        throw new Error("Invalid JSON in SGG rules");
+    }
     return {
         system: {
             language: languageSelect.value
@@ -144,6 +157,13 @@ function buildPatch() {
                 objects: parseObjects(vlmObjects.value)
             }
         },
+        sgg: {
+            mode: sggMode.value,
+            rules: {
+                enabled: sggRulesEnabled.checked,
+                rule_list: rules
+            }
+        },
         chat: {
             system_prompt: { text: chatSystem.value },
             context_template: { text: chatContext.value }
@@ -152,7 +172,13 @@ function buildPatch() {
 }
 
 async function applyConfig() {
-    const patch = buildPatch();
+    let patch;
+    try {
+        patch = buildPatch();
+    } catch (err) {
+        showStatusMessage(err.message, false);
+        return;
+    }
     const res = await fetch("/api/v1/config", {
         method: "PATCH",
         headers: {"Content-Type": "application/json"},

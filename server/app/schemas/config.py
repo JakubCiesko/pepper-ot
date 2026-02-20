@@ -105,6 +105,29 @@ class StorageConfig(BaseModel):
     store_image: bool = True
 
 
+class SGGRuleConstraints(BaseModel):
+    subject_labels: list[str] | None = None
+    object_labels: list[str] | None = None
+    labels_any: list[str] | None = None
+
+
+class SGGRule(BaseModel):
+    predicate: str
+    type: str
+    thresholds: dict = Field(default_factory=dict)
+    constraints: SGGRuleConstraints | None = None
+
+
+class SGGRulesConfig(BaseModel):
+    enabled: bool = True
+    rule_list: list[SGGRule] = Field(default_factory=list)
+
+
+class SGGConfig(BaseModel):
+    mode: Literal["vlm", "rules", "hybrid"] = "hybrid"
+    rules: SGGRulesConfig = Field(default_factory=SGGRulesConfig)
+
+
 class AppConfig(BaseModel):
     system: dict
     detection: DetectionConfig
@@ -113,6 +136,7 @@ class AppConfig(BaseModel):
     chat: ChatConfig
     visualization: VisConfig
     storage: StorageConfig = Field(default_factory=StorageConfig)
+    sgg: SGGConfig = Field(default_factory=SGGConfig)
     _config_path: Path | None = PrivateAttr(None)
 
     @classmethod

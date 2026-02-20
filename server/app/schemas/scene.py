@@ -29,6 +29,7 @@ class TrackedObjectState(BaseModel):
     id: int
     label: str
     status: str
+    source: str = "tracked"
     attributes: list[str] = Field(default_factory=list)
     first_seen: float
     last_seen: float

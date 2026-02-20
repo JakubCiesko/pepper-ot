@@ -207,6 +207,16 @@ class SceneGraph:
     def __len__(self):
         return len(self.edges)
 
+    def __add__(self, other: "SceneGraph") -> "SceneGraph":
+        if not isinstance(other, SceneGraph):
+            return NotImplemented
+        merged = SceneGraph(
+            edges=self.no_label_edges + other.no_label_edges,
+            no_label_edges=self.no_label_edges + other.no_label_edges,
+            raw=None,
+        )
+        return merged
+
 
 @dataclass
 class PipelineResult:
@@ -216,11 +226,3 @@ class PipelineResult:
     som_image: np.ndarray  # The image with tags drawn on it
     detections: list[DetectionObject]  # List of objects with persistent IDs
     scene_graph: SceneGraph  # The semantic relationships
-
-    def summary(self):
-        print("--- Frame Summary ---")
-        print(f"Objects Detected: {len(self.detections)}")
-        print(f"Entities in Memory: {[d.object_id for d in self.detections]}")
-        print(f"Relationships Found: {len(self.scene_graph.edges)}")
-        for edge in self.scene_graph.edges:
-            print(f"  - Object {edge.sub} {edge.rel} Object {edge.obj}")

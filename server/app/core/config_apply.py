@@ -80,6 +80,12 @@ def diff_config(old: AppConfig, new: AppConfig) -> ConfigDiff:
     if _changed(old.visualization, new.visualization):
         hot.append("visualization")
 
+    # SGG rules/mode
+    if _changed(old.sgg.mode, new.sgg.mode):
+        hot.append("sgg.mode")
+    if _changed(old.sgg.rules, new.sgg.rules):
+        hot.append("sgg.rules")
+
     # Memory pruning
     if _changed(
         old.tracking.memory_max_age_seconds, new.tracking.memory_max_age_seconds
@@ -115,6 +121,7 @@ async def apply_hot_config(ml_state: MLState, new: AppConfig) -> None:
     if ml_state.pipeline:
         ml_state.pipeline.detector.threshold = new.detection.confidence_threshold
         ml_state.pipeline.vis_config = new.visualization
+        ml_state.pipeline.sgg_mode = new.sgg.mode
 
         # Update memory pruning settings
         if hasattr(ml_state.pipeline, "memory") and ml_state.pipeline.memory:
@@ -145,6 +152,9 @@ async def apply_hot_config(ml_state: MLState, new: AppConfig) -> None:
             sgg.config.max_tokens = new.understanding.inference.get(
                 "max_tokens", sgg.config.max_tokens
             )
+
+        if ml_state.pipeline.rules_sgg:
+            ml_state.pipeline.rules_sgg.rules_config = new.sgg.rules
 
     if ml_state.chat_service:
         base_dir = new._config_path.parent if new._config_path is not None else None

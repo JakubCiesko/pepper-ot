@@ -8,6 +8,7 @@ from app.inference.detection.service import DetectionService
 from app.inference.memory.scene_memory import SceneMemory
 from app.inference.pipeline import VisualPipeline
 from app.inference.scene_graph.generation import SceneGraphGenerator
+from app.inference.scene_graph.rules import RuleBasedSceneGraph
 from app.inference.scene_graph.som import SoMPainter
 from app.inference.scene_graph.vlm import LLMLabelerConfig
 from app.inference.scene_graph.vlm import VLMBackend
@@ -109,12 +110,15 @@ class MLState:
             system_prompt=vlm_system_prompt,
             user_prompt=vlm_user_prompt,
         )
+        rules_sgg = RuleBasedSceneGraph(self.config.sgg.rules)
         logger.info("Initializing VisualPipeline inference engine.")
         self.pipeline = VisualPipeline(
             detector=detector,
             memory=memory,
             painter=painter,
             sgg=sgg,
+            rules_sgg=rules_sgg,
+            sgg_mode=self.config.sgg.mode,
             vis_config=self.config.visualization,
         )
 

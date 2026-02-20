@@ -42,6 +42,9 @@ logger = logging.getLogger(__name__)
 #     #     )
 
 
+# TODO: ADD FILTERING THERE CAN NEVER BE NONLABELED OBJECT...
+
+
 class SceneGraphGenerator:
     def __init__(
         self,
