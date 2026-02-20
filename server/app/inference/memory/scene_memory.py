@@ -163,6 +163,11 @@ class SceneMemory:
                 key = (rel.subject_id, rel.predicate, rel.object_id)
                 self.relations_state.pop(key, None)
 
+    def set_limits(self, max_age_seconds: int, max_objects: int, max_relations: int):
+        self.memory_max_age_seconds = max_age_seconds
+        self.memory_max_objects = max_objects
+        self.memory_max_relations = max_relations
+
     def update_scene_graph(self, scene_graph: SceneGraph):
         now = time.time()
         logger.info(

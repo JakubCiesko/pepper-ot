@@ -7,6 +7,9 @@ predicates:
   - "under"
   - "holding"
   - "near"
+  - "black"
+  - "white"
+  - "close_to"
 
 # Optional object taxonomy for future filtering after object detection
 objects: {}

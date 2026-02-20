@@ -22,9 +22,11 @@ const chatContext = document.getElementById("chat-context");
 const applyBtn = document.getElementById("apply-config");
 const saveBtn = document.getElementById("save-config");
 const reloadBtn = document.getElementById("reload-config");
+const reloadAllBtn = document.getElementById("reload-all");
 const downloadBtn = document.getElementById("download-config");
 const downloadSavedBtn = document.getElementById("download-config-saved");
 const uploadInput = document.getElementById("upload-config");
+const reloadWarning = document.getElementById("reload-warning");
 
 async function fetchModels() {
     try {
@@ -142,7 +144,14 @@ async function applyConfig() {
         body: JSON.stringify(patch)
     });
     if (res.ok) {
-        showStatusMessage("Applied in-memory config");
+        const data = await res.json();
+        showStatusMessage(data.reloaded ? "Applied (hard reload)" : "Applied hot config");
+        if (data.requires_reload && data.requires_reload.length > 0) {
+            reloadWarning.textContent = `Hard changes detected: ${data.requires_reload.join(", ")}`;
+            reloadWarning.classList.remove("hidden");
+        } else {
+            reloadWarning.classList.add("hidden");
+        }
     } else {
         showStatusMessage("Failed to apply config", false);
     }
@@ -205,6 +214,10 @@ input.addEventListener("change", () => {
 applyBtn.addEventListener("click", applyConfig);
 saveBtn.addEventListener("click", saveConfig);
 reloadBtn.addEventListener("click", reloadConfig);
+reloadAllBtn.addEventListener("click", async () => {
+    await applyConfig();
+    await reloadConfig();
+});
 downloadBtn.addEventListener("click", () => downloadConfig("active"));
 downloadSavedBtn.addEventListener("click", () => downloadConfig("saved"));
 

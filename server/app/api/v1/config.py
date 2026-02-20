@@ -1,5 +1,6 @@
 import logging
 
+from app.core import config_apply
 from app.core import config_manager
 from app.core.state import ml_state
 from app.inference.detection.detectors import DetectionModelType
@@ -35,8 +36,23 @@ async def patch_config(request: Request):
     try:
         logger.info(f"Applying patch to config, with data: {data}")
         updated = config_manager.apply_patch(ml_state.config, data)
-        await ml_state.apply_config(updated)
-        return {"ok": True}
+        diff = config_apply.diff_config(ml_state.config, updated)
+        if diff.hard:
+            logger.info(f"Hard changes detected: {diff.hard}. Rebuilding.")
+            await ml_state.apply_config(updated)
+            return {
+                "ok": True,
+                "reloaded": True,
+                "applied": diff.hot,
+                "requires_reload": diff.hard,
+            }
+        await config_apply.apply_hot_config(ml_state, updated)
+        return {
+            "ok": True,
+            "reloaded": False,
+            "applied": diff.hot,
+            "requires_reload": [],
+        }
     except ValueError as exc:
         logger.error(
             f"Error applying patch to config: {None or ml_state.config}, error: {exc}"

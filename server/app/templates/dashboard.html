@@ -11,14 +11,15 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
     <div class="max-w-6xl mx-auto px-6 py-8">
-        <header class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <header class="flex flex-col gap-4">
             <div>
                 <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Pepper</p>
                 <h1 class="text-3xl font-semibold">Ops Console</h1>
                 <p class="text-slate-400 mt-1">Live perception, config, and system controls.</p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button id="apply-config" class="px-4 py-2 rounded bg-emerald-500 text-slate-900 font-semibold hover:bg-emerald-400">Apply (In-Memory)</button>
+                <button id="apply-config" class="px-4 py-2 rounded bg-emerald-500 text-slate-900 font-semibold hover:bg-emerald-400">Apply (Hot)</button>
+                <button id="reload-all" class="px-4 py-2 rounded bg-amber-500 text-slate-900 font-semibold hover:bg-amber-400">Reload All (Hard)</button>
                 <button id="save-config" class="px-4 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">Make Permanent</button>
                 <button id="reload-config" class="px-4 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">Revert to Saved</button>
                 <button id="download-config" class="px-4 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">Download Active</button>
@@ -31,102 +32,99 @@
         </header>
 
         <div id="status-message" class="mt-4 text-sm text-emerald-400 hidden"></div>
+        <div id="reload-warning" class="mt-2 text-sm text-amber-400 hidden"></div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
-            <section class="lg:col-span-2 space-y-6">
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <h2 class="text-lg font-semibold mb-3">Live Feed</h2>
-                    <img id="annotated-image" class="w-full h-auto rounded-lg border border-slate-800" src="/static/pepper_icon.png" alt="Annotated Detection Image">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <h2 class="text-lg font-semibold mb-3">Live Feed</h2>
+                <img id="annotated-image" class="w-full h-auto rounded-lg border border-slate-800" src="/static/pepper_icon.png" alt="Annotated Detection Image">
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <h2 class="text-lg font-semibold mb-3">Detected Objects</h2>
+                <div id="detections-content" class="text-slate-300">
+                    <p class="text-slate-500">No detections yet...</p>
                 </div>
+            </div>
 
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <h2 class="text-lg font-semibold mb-3">Detected Objects</h2>
-                    <div id="detections-content" class="text-slate-300">
-                        <p class="text-slate-500">No detections yet...</p>
-                    </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <h2 class="text-lg font-semibold mb-3">Scene Memory</h2>
+                <div id="memory-content" class="text-slate-300">
+                    <p class="text-slate-500">No tracked objects yet...</p>
                 </div>
+            </div>
 
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <h2 class="text-lg font-semibold mb-3">Scene Memory</h2>
-                    <div id="memory-content" class="text-slate-300">
-                        <p class="text-slate-500">No tracked objects yet...</p>
-                    </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <h2 class="text-lg font-semibold mb-3">Scene Graph</h2>
+                <div id="scene-graph-content" class="text-slate-300">
+                    <p class="text-slate-500">No relations yet...</p>
                 </div>
+            </div>
 
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <h2 class="text-lg font-semibold mb-3">Scene Graph</h2>
-                    <div id="scene-graph-content" class="text-slate-300">
-                        <p class="text-slate-500">No relations yet...</p>
-                    </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <h2 class="text-lg font-semibold mb-3">Pepper Says</h2>
+                <div id="sentences-content" class="text-slate-300">
+                    <p class="text-slate-500">No messages yet...</p>
                 </div>
+            </div>
 
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <h2 class="text-lg font-semibold mb-3">Pepper Says</h2>
-                    <div id="sentences-content" class="text-slate-300">
-                        <p class="text-slate-500">No messages yet...</p>
-                    </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Detection</h3>
+                <label class="block text-sm">Backend</label>
+                <select id="backend-select" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></select>
+
+                <label class="block text-sm mt-4">Language</label>
+                <select id="language-select" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
+                    <option value="en">English</option>
+                    <option value="cs">Czech</option>
+                </select>
+
+                <label class="block text-sm mt-4">Confidence Threshold</label>
+                <div class="flex items-center gap-3 mt-2">
+                    <input type="range" id="threshold-slider" min="0" max="1" step="0.01" class="flex-1">
+                    <input type="number" id="threshold-input" min="0" max="1" step="0.01" class="w-20 bg-slate-950 border border-slate-800 rounded px-2 py-1">
                 </div>
-            </section>
+            </div>
 
-            <aside class="space-y-6">
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Detection</h3>
-                    <label class="block text-sm">Backend</label>
-                    <select id="backend-select" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></select>
-
-                    <label class="block text-sm mt-4">Language</label>
-                    <select id="language-select" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
-                        <option value="en">English</option>
-                        <option value="cs">Czech</option>
-                    </select>
-
-                    <label class="block text-sm mt-4">Confidence Threshold</label>
-                    <div class="flex items-center gap-3 mt-2">
-                        <input type="range" id="threshold-slider" min="0" max="1" step="0.01" class="flex-1">
-                        <input type="number" id="threshold-input" min="0" max="1" step="0.01" class="w-20 bg-slate-950 border border-slate-800 rounded px-2 py-1">
-                    </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 min-h-[360px]">
+                <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Visualization</h3>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <label class="flex items-center gap-2"><input id="vis-bbox" type="checkbox">BBox</label>
+                    <label class="flex items-center gap-2"><input id="vis-mask" type="checkbox">Mask</label>
+                    <label class="flex items-center gap-2"><input id="vis-polygon" type="checkbox">Polygon</label>
+                    <label class="flex items-center gap-2"><input id="vis-labels" type="checkbox">Labels</label>
                 </div>
+                <label class="block text-sm mt-4">Line Thickness</label>
+                <input id="vis-line" type="number" min="1" max="10" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
+                <label class="block text-sm mt-4">Mask Opacity</label>
+                <input id="vis-opacity" type="number" min="0" max="1" step="0.05" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
+                <label class="block text-sm mt-4">Color Lookup</label>
+                <select id="vis-color" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
+                    <option value="index">Index</option>
+                    <option value="class">Class</option>
+                    <option value="track">Track</option>
+                </select>
+            </div>
 
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Visualization</h3>
-                    <div class="grid grid-cols-2 gap-3 text-sm">
-                        <label class="flex items-center gap-2"><input id="vis-bbox" type="checkbox">BBox</label>
-                        <label class="flex items-center gap-2"><input id="vis-mask" type="checkbox">Mask</label>
-                        <label class="flex items-center gap-2"><input id="vis-polygon" type="checkbox">Polygon</label>
-                        <label class="flex items-center gap-2"><input id="vis-labels" type="checkbox">Labels</label>
-                    </div>
-                    <label class="block text-sm mt-4">Line Thickness</label>
-                    <input id="vis-line" type="number" min="1" max="10" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
-                    <label class="block text-sm mt-4">Mask Opacity</label>
-                    <input id="vis-opacity" type="number" min="0" max="1" step="0.05" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
-                    <label class="block text-sm mt-4">Color Lookup</label>
-                    <select id="vis-color" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
-                        <option value="index">Index</option>
-                        <option value="class">Class</option>
-                        <option value="track">Track</option>
-                    </select>
-                </div>
+            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 min-h-[420px]">
+                <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">VLM</h3>
+                <label class="block text-sm">System Prompt</label>
+                <textarea id="vlm-system" rows="5" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
+                <label class="block text-sm mt-4">User Prompt</label>
+                <textarea id="vlm-user" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
+                <label class="block text-sm mt-4">Ontology Predicates (one per line)</label>
+                <textarea id="vlm-predicates" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
+                <label class="block text-sm mt-4">Ontology Objects (child:parent per line)</label>
+                <textarea id="vlm-objects" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
+            </div>
 
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">VLM</h3>
-                    <label class="block text-sm">System Prompt</label>
-                    <textarea id="vlm-system" rows="5" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-                    <label class="block text-sm mt-4">User Prompt</label>
-                    <textarea id="vlm-user" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-                    <label class="block text-sm mt-4">Ontology Predicates (one per line)</label>
-                    <textarea id="vlm-predicates" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-                    <label class="block text-sm mt-4">Ontology Objects (child:parent per line)</label>
-                    <textarea id="vlm-objects" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-                </div>
-
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                    <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Chat</h3>
-                    <label class="block text-sm">System Prompt</label>
-                    <textarea id="chat-system" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-                    <label class="block text-sm mt-4">Context Template</label>
-                    <textarea id="chat-context" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-                </div>
-            </aside>
+            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 min-h-[360px]">
+                <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Chat</h3>
+                <label class="block text-sm">System Prompt</label>
+                <textarea id="chat-system" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
+                <label class="block text-sm mt-4">Context Template</label>
+                <textarea id="chat-context" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
+            </div>
         </div>
     </div>
 </body>

@@ -69,7 +69,7 @@ async def detect_endpoint(
             confidence=det.confidence,
             bbox=det.bbox,
             object_id=det.object_id,
-        )
+        ).model_dump()
         for det in result.detections
     ]
     logger.info(f"Detected ({len(objects)}) objects : {objects}")
