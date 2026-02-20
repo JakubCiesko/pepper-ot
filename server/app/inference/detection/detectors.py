@@ -2,12 +2,11 @@ from abc import ABC
 from abc import abstractmethod
 from enum import StrEnum
 
+from app.inference.types import DetectionObject
 from PIL import Image
 from rfdetr.detr import RFDETR
 from rfdetr.util.coco_classes import COCO_CLASSES
 from ultralytics.engine.model import Model
-
-from ..types import DetectionObject
 
 
 # TODO: maybe set to float16, no need for float32
@@ -17,7 +16,7 @@ class BaseDetector(ABC):
         pass
 
 
-class DetectionModel(StrEnum):
+class DetectionModelType(StrEnum):
     RT_DETR = "rt_detr"
     YOLO = "yolo"
     RF_DETR = "rf_detr"

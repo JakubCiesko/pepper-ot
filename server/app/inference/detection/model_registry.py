@@ -1,35 +1,34 @@
 from pathlib import Path
 import urllib.request
 
+from app.inference.detection.detectors import BaseDetector
+from app.inference.detection.detectors import DetectionModelType
+from app.inference.detection.detectors import RoboflowDetector
+from app.inference.detection.detectors import UltralyticsDetector
 from rfdetr import RFDETRMedium
 import torch
 from ultralytics import RTDETR
 from ultralytics import YOLO
 
-from .detector import BaseDetector
-from .detector import DetectionModel
-from .detector import RoboflowDetector
-from .detector import UltralyticsDetector
 
-
-class ModelManager:
+class DetectionModelRegistry:
     """Handles integrity, paths, and downloads for all object detection models."""
 
     MODELS_DIR = Path.cwd().parent.parent / "detection_models"
 
     # Registry of models used in the project; can be expanded
     REGISTRY = {
-        DetectionModel.RT_DETR: "https://github.com/ultralytics/assets/releases/download/v8.3.0/rtdetr-x.pt",
-        DetectionModel.YOLO: "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11x.pt",
-        DetectionModel.RF_DETR: None,  # no weights file
+        DetectionModelType.RT_DETR: "https://github.com/ultralytics/assets/releases/download/v8.3.0/rtdetr-x.pt",
+        DetectionModelType.YOLO: "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11x.pt",
+        DetectionModelType.RF_DETR: None,  # no weights file
     }
 
     @classmethod
-    def get_model_path(cls, model_name: DetectionModel) -> Path:
+    def get_model_path(cls, model_name: DetectionModelType) -> Path:
         return cls.MODELS_DIR / cls.REGISTRY[model_name.value].split("/")[-1]
 
     @classmethod
-    def ensure_model(cls, model_name: DetectionModel) -> Path | None:
+    def ensure_model(cls, model_name: DetectionModelType) -> Path | None:
         url = cls.REGISTRY[model_name]
         if url is None:
             return None
@@ -43,16 +42,16 @@ class ModelManager:
     @classmethod
     def load_detector(
         cls,
-        model_name: DetectionModel,
+        model_name: DetectionModelType,
         device: str | None = None,
         threshold: float = 0.5,
     ) -> BaseDetector:
         device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         path = cls.ensure_model(model_name)
         match model_name:
-            case DetectionModel.YOLO:
+            case DetectionModelType.YOLO:
                 return UltralyticsDetector(YOLO(path), device, threshold)
-            case DetectionModel.RT_DETR:
+            case DetectionModelType.RT_DETR:
                 return UltralyticsDetector(RTDETR(path), device, threshold)
-            case DetectionModel.RF_DETR:
+            case DetectionModelType.RF_DETR:
                 return RoboflowDetector(RFDETRMedium(), device, threshold)

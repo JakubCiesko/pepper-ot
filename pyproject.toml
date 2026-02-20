@@ -28,3 +28,8 @@ ignore = [
 force-single-line = true
 force-sort-within-sections = true
 known-first-party = ["pepper_ot"]  # set to your package/root
+
+
+[tool.ruff.lint.flake8-bugbear]
+# Allow default arguments like, e.g., `data: List[str] = fastapi.Query(None)`.
+extend-immutable-calls = ["Depends", "fastapi.Depends", "Query", "fastapi.Query", "File", "fastapi.File"]
