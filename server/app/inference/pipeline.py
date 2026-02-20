@@ -40,9 +40,7 @@ class VisualPipeline:
         Runs the full See-Track-Understand loop.
         """
         # 1. DETECT (Get raw boxes, no IDs yet)
-        logger.info(
-            f"Processing image with metadata={robot_metadata.to_dict() if robot_metadata else {}}"
-        )
+        logger.info(f"Processing image with metadata={robot_metadata}")
         raw_detections = self.detector.detect(image)
         logger.info(f"Detected {len(raw_detections)} detections")
 

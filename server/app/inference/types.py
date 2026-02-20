@@ -10,7 +10,7 @@ from PIL import Image
 from pydantic import BaseModel
 from pydantic import Field
 
-from ..schemas.robot import RobotMetadata
+from app.schemas.robot import RobotMetadata
 
 
 class DetectionObject(BaseModel):

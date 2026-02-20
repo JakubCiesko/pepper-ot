@@ -6,6 +6,7 @@ import time
 from app.api.v1.dependencies import get_pipeline
 from app.core.ws_manager import ws_manager
 from app.schemas.robot import RobotMetadata
+from app.schemas.scene import DetectionObject
 from app.schemas.scene import DetectionResponse
 from fastapi import APIRouter
 from fastapi import Depends
@@ -61,13 +62,14 @@ async def detect_endpoint(
     # 2. Run Engine (No globals!)
     # TODO: will have to play with scheme and type detectionobject, redundant...
     result = await pipeline.process(image, robot_metadata)
+
     objects = [
-        {
-            "label": det.label,
-            "confidence": det.confidence,
-            "bbox": det.bbox,
-            "object_id": det.object_id,
-        }
+        DetectionObject(
+            label=det.label,
+            confidence=det.confidence,
+            bbox=det.bbox,
+            object_id=det.object_id,
+        )
         for det in result.detections
     ]
     logger.info(f"Detected ({len(objects)}) objects : {objects}")
@@ -78,7 +80,7 @@ async def detect_endpoint(
         )
         scene_graph = result.scene_graph
         logger.info(f"Current Scene State : {scene_state}")
-        logger.info(f"Current scene graph: {scene_state.as_dict()}")
+        logger.info(f"Current scene graph: {scene_state.model_dump()}")
         await upload_data_to_dashboard(
             result.som_image, scene_state, objects, scene_graph
         )
