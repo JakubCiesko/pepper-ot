@@ -14,9 +14,9 @@ router = APIRouter()
 async def chat_endpoint(request: ChatRequest, chat_service=Depends(get_chat_service)):
     """API endpoint for Pepper's dialogue."""
     logger.info(f"Received chat query: {request.query}")
-
     # Call the RAG engine
     response_text = await chat_service.chat(request.query)
+    logger.info(f"Received chat response: {response_text}")
 
     return ChatResponse(
         sentence=response_text,

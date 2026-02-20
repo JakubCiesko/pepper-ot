@@ -1,14 +1,21 @@
+import logging
+
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from ..types import DetectionObject
-from ..types import TrackedObject
+from app.inference.types import DetectionObject
+from app.inference.types import TrackedObject
+
+logger = logging.getLogger(__file__)
 
 
 class Associator:
     """Matches tracks with new detections."""
 
     def __init__(self, w_vis=0.8, w_geo=0.2, match_threshold=0.4):
+        logger.info(
+            f"Initializing Associator with w_vis={w_vis}, w_geo={w_geo}, match_threshold={match_threshold}"
+        )
         self.w_vis = w_vis
         self.w_geo = w_geo
         self.match_threshold = match_threshold
@@ -24,6 +31,9 @@ class Associator:
         Creates a Cost Matrix where rows=tracks, cols=detections.
         Cost is low if they are the same object.
         """
+        logger.info(
+            f"Computing cost matrix for Hungarian Algorithm with geometry weight = {self.w_geo}, visual weight = {self.w_vis}"
+        )
         cost_matrix = np.zeros((len(tracks), len(detections)))
 
         for t_idx, track in enumerate(tracks):
@@ -54,7 +64,7 @@ class Associator:
                 cost_matrix[t_idx, d_idx] = (self.w_vis * vis_cost) + (
                     self.w_geo * geo_cost
                 )
-
+        logger.info("Hungarian Algorithm Cost Matrix computed.")
         return cost_matrix
 
     def match(
@@ -64,8 +74,14 @@ class Associator:
         embeddings: np.ndarray,
     ):
         if not tracks:
+            logger.info(
+                f"No tracked objects, returning all ({len(detections)}) detections as unmatched."
+            )
             return [], [], list(range(len(detections)))
         if not detections:
+            logger.info(
+                f"No detected objects, returning all ({len(tracks)}) tracked objects as unmatched tracks."
+            )
             return [], list(range(len(tracks))), []
 
         # Hungarian Algorithm
@@ -76,6 +92,9 @@ class Associator:
         matched_tracks = set()
         matched_dets = set()
 
+        logger.info(
+            f"Matching new detections and old tracked objects with distance (1-similarity) match_threshold={self.match_threshold}"
+        )
         for r, c in zip(row_idx, col_idx, strict=False):
             if cost_matrix[r, c] < self.match_threshold:
                 matches.append((r, c))
@@ -84,5 +103,7 @@ class Associator:
 
         unmatched_tracks = [i for i in range(len(tracks)) if i not in matched_tracks]
         unmatched_dets = [i for i in range(len(detections)) if i not in matched_dets]
-
+        logger.info(
+            f"#{len(matches)} matches #{len(matches)} unmatched tracked objects #{len(matches)} unmatched detected objects"
+        )
         return matches, unmatched_tracks, unmatched_dets

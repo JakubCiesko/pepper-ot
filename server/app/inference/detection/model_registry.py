@@ -1,14 +1,18 @@
+import logging
 from pathlib import Path
 import urllib.request
+
+from rfdetr import RFDETRMedium
+import torch
+from ultralytics import RTDETR
+from ultralytics import YOLO
 
 from app.inference.detection.detectors import BaseDetector
 from app.inference.detection.detectors import DetectionModelType
 from app.inference.detection.detectors import RoboflowDetector
 from app.inference.detection.detectors import UltralyticsDetector
-from rfdetr import RFDETRMedium
-import torch
-from ultralytics import RTDETR
-from ultralytics import YOLO
+
+logger = logging.getLogger(__name__)
 
 
 class DetectionModelRegistry:
@@ -29,6 +33,7 @@ class DetectionModelRegistry:
 
     @classmethod
     def ensure_model(cls, model_name: DetectionModelType) -> Path | None:
+        logger.info(f"Ensuring model {model_name}")
         url = cls.REGISTRY[model_name]
         if url is None:
             return None
@@ -50,8 +55,11 @@ class DetectionModelRegistry:
         path = cls.ensure_model(model_name)
         match model_name:
             case DetectionModelType.YOLO:
+                logger.info("Loading detection model with Ultralytics YOLO Backend")
                 return UltralyticsDetector(YOLO(path), device, threshold)
             case DetectionModelType.RT_DETR:
+                logger.info("Loading detection model with Ultralytics RT-DETR Backend")
                 return UltralyticsDetector(RTDETR(path), device, threshold)
             case DetectionModelType.RF_DETR:
+                logger.info("Loading detection model with Roboflow RF-DETR Backend")
                 return RoboflowDetector(RFDETRMedium(), device, threshold)

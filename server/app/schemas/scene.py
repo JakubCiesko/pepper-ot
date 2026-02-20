@@ -20,13 +20,19 @@ class Relationship(BaseModel):
     subject_id: int
     predicate: str
     object_id: int
+    first_seen: float
+    last_seen: float
+    count: int = 1
 
 
 class TrackedObjectState(BaseModel):
     id: int
     label: str
     status: str
+    attributes: list[str] = Field(default_factory=list)
+    first_seen: float
     last_seen: float
+    hits: int = 1
     bbox: list[float]
 
 

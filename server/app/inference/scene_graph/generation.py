@@ -9,13 +9,13 @@ from PIL import Image
 from pydantic import BaseModel
 from pydantic import Field
 
-from ..types import SceneGraph
-from .vlm import BaseVLM
-from .vlm import LLMLabelerConfig
-from .vlm import Local4BitVLM
-from .vlm import LocalHFVLM
-from .vlm import OpenAIVLM
-from .vlm import VLMBackend
+from app.inference.scene_graph.vlm import BaseVLM
+from app.inference.scene_graph.vlm import LLMLabelerConfig
+from app.inference.scene_graph.vlm import Local4BitVLM
+from app.inference.scene_graph.vlm import LocalHFVLM
+from app.inference.scene_graph.vlm import OpenAIVLM
+from app.inference.scene_graph.vlm import VLMBackend
+from app.inference.types import SceneGraph
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,9 @@ class SceneGraphGenerator:
         system_prompt: str | None = None,
         user_prompt: str | None = None,
     ):
+        logger.info(
+            f"Initializing VLMSceneGraphGenerator with config: {config.model_dump()}, predicates: {predicates}, objects: {objects}"
+        )
         self.config = config
         self.predicates = predicates
         self.objects = objects
@@ -60,6 +63,9 @@ class SceneGraphGenerator:
 
     @staticmethod
     def build_vlm(config: LLMLabelerConfig) -> BaseVLM:
+        logger.info(
+            f"Building VLM with backend: {config.backend} and kwargs={config.backend_kwargs}"
+        )
         match config.backend:
             case VLMBackend.OPENAI:
                 return OpenAIVLM(config, config.backend_kwargs)
@@ -94,9 +100,64 @@ class SceneGraphGenerator:
                 f"Unsupported input type: {type(image)}. Must be Path, bytes, PIL.Image, or np.ndarray."
             )
 
+    @staticmethod
+    def _extract_json_block(raw: str) -> str | None:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return raw[start : end + 1]
+        start = raw.find("[")
+        end = raw.rfind("]")
+        if start != -1 and end != -1 and end > start:
+            return raw[start : end + 1]
+        return None
+
+    @staticmethod
+    def _normalize_data(data):
+        if isinstance(data, dict):
+            for key in ["relationships", "scene_graph", "triplets", "relations"]:
+                if key in data:
+                    data = data[key]
+                    break
+            else:
+                if all(k in data for k in ["sub", "rel", "obj"]):
+                    data = [data]
+        elif not isinstance(data, list):
+            data = [data]
+        return data if isinstance(data, list) else []
+
+    def _parse_json(self, raw: str) -> list[dict]:
+        try:
+            data = json.loads(raw)
+            return self._normalize_data(data)
+        except Exception:
+            extracted = self._extract_json_block(raw)
+            if extracted:
+                try:
+                    data = json.loads(extracted)
+                    return self._normalize_data(data)
+                except Exception:
+                    return []
+            return []
+
+    async def _repair(self, image_bytes: bytes, raw: str) -> str:
+        repair_system = (
+            "You are a JSON repair engine. Return ONLY valid JSON with key "
+            '"relationships" that is a list of {"sub","rel","obj"} objects.'
+        )
+        clipped = raw[:2000]
+        repair_user = (
+            "Fix the following output into valid JSON only. "
+            "No extra text.\n\n"
+            f"OUTPUT:\n{clipped}"
+        )
+        return await self.vlm.infer(repair_system, repair_user, image_bytes)
+
+    # TODO: add try to repair fallback
     async def generate(
-        self, image: Path | bytes | Image.Image | np.ndarray, verbose: bool = False
+        self, image: Path | bytes | Image.Image | np.ndarray
     ) -> SceneGraph:
+        logger.info("Loading image bytes")
         image_bytes = self._to_bytes(image)
 
         system_prompt = self.system_prompt
@@ -108,9 +169,12 @@ class SceneGraphGenerator:
         else:
             user_prompt = "Focus on spatial, semantic, and functional relationships."
 
+        logger.info("System prompt: " + system_prompt)
+        logger.info("User prompt: " + user_prompt)
+
         raw = await self.vlm.infer(system_prompt, user_prompt, image_bytes)
-        if verbose:
-            logger.info(f"VLM output: {raw}")
+
+        logger.info(f"VLM output: {raw}")
         try:
             data = json.loads(raw)
 

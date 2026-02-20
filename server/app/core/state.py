@@ -24,10 +24,14 @@ class MLState:
     initialized: bool = False
 
     async def initialize(self, config_path: str | None = None):
+        logger.info("Initializing ML App State")
         if self.initialized:
+            logger.info("ML App State already initialized. Returning.")
             return
 
-        self.config = AppConfig.load(config_path or "config.yaml")
+        pth = config_path or "config.yaml"
+        logger.info(f"Loading ML App State config from {pth}")
+        self.config = AppConfig.load(pth)
         logger.info("Loaded config")
         await self.apply_config(self.config)
 
@@ -35,6 +39,7 @@ class MLState:
         logger.info("MLState initialized")
 
     async def reload_pipeline(self):
+        logger.info("Reloading ML App State. Starting Initialization.")
         self.initialized = False
         self.pipeline = None
         await self.initialize()
@@ -90,7 +95,7 @@ class MLState:
             system_prompt=vlm_system_prompt,
             user_prompt=vlm_user_prompt,
         )
-
+        logger.info("Initializing VisualPipeline inference engine.")
         self.pipeline = VisualPipeline(
             detector=detector,
             memory=memory,
@@ -104,6 +109,9 @@ class MLState:
             self.config.chat.context_template.resolve(base_dir)
             if self.config.chat.context_template is not None
             else None
+        )
+        logger.info(
+            f"Initializing ChatService with chat_system_prompt {chat_system_prompt} and chat_context_template {chat_context_template}"
         )
         self.chat_service = ChatService(
             self.config.chat,

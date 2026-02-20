@@ -45,11 +45,16 @@ ws.onmessage = function(event) {
     //    annotatedImage.classList.add("hidden");
     //}
     if (memoryContainer) {
-        if (data.memory && data.memory.length > 0) {
-            data.memory.forEach(track => {
+        const mem = data.memory || {};
+        const memObjects = mem.objects || [];
+        if (memObjects.length > 0) {
+            memObjects.forEach(obj => {
                 const div = document.createElement("div");
                 div.className = "mb-2 p-2 rounded border border-slate-800 bg-slate-950";
-                div.innerHTML = `<strong>${track.label}</strong> #${track.id} · hits ${track.hits} · conf ${track.confidence.toFixed(2)}`;
+                const attrs = (obj.attributes && obj.attributes.length > 0)
+                    ? obj.attributes.join(", ")
+                    : "no attributes";
+                div.innerHTML = `<strong>${obj.label}</strong> #${obj.id} · hits ${obj.hits} · ${attrs}`;
                 memoryContainer.appendChild(div);
             });
         } else {

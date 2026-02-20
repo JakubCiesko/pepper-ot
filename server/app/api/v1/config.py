@@ -13,6 +13,8 @@ from fastapi.responses import Response
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# TODO: make sort of updatable just that one changed thing
+
 
 @router.get("/config")
 async def get_config():
@@ -31,10 +33,14 @@ async def patch_config(request: Request):
         raise HTTPException(status_code=503, detail="Config not initialized")
     data = await request.json()
     try:
+        logger.info(f"Applying patch to config, with data: {data}")
         updated = config_manager.apply_patch(ml_state.config, data)
         await ml_state.apply_config(updated)
         return {"ok": True}
     except ValueError as exc:
+        logger.error(
+            f"Error applying patch to config: {None or ml_state.config}, error: {exc}"
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
@@ -45,13 +51,16 @@ async def save_config():
     path = config_manager.config_path()
     yaml_text = config_manager.dump_config_yaml(ml_state.config)
     tmp = path.with_suffix(".tmp")
+    logger.info(f"Saving config to temp path: {tmp}")
     tmp.write_text(yaml_text, encoding="utf-8")
+    logger.info(f"Replacing temp {tmp} for {path}")
     tmp.replace(path)
     return {"ok": True, "path": str(path)}
 
 
 @router.post("/config/reload")
 async def reload_config():
+    logger.info("Reloading config")
     cfg = config_manager.load_config()
     await ml_state.apply_config(cfg)
     return {"ok": True}
@@ -61,6 +70,7 @@ async def reload_config():
 async def upload_config(file: UploadFile = File(...)):
     content = await file.read()
     try:
+        logger.info(f"Parsing uploaded yaml config: {content}")
         cfg = config_manager.parse_uploaded_yaml(content)
         await ml_state.apply_config(cfg)
         return {"ok": True}
@@ -77,6 +87,7 @@ async def download_config(source: str | None = None):
     # TODO: HIDE API KEYS IF PRESENT!
     yaml_text = config_manager.dump_config_yaml(cfg)
     filename = "config_saved.yaml" if source == "saved" else "config.yaml"
+    logger.info(f"Downloading config from source={source} as file={filename}")
     headers = {"Content-Disposition": f"attachment; filename={filename}"}
     return Response(
         content=yaml_text,
@@ -93,6 +104,7 @@ async def set_threshold(request: Request):
 
     # Update global config safely
     ml_state.config.detection.confidence_threshold = new_threshold
+    ml_state.pipeline.set_detection_threshold(new_threshold)
 
     logger.info(f"Threshold updated to {new_threshold}")
     return {"ok": True, "threshold": new_threshold}

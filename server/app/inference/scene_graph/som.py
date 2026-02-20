@@ -4,7 +4,7 @@ from numpy.typing import NDArray
 from PIL import Image
 import supervision as sv
 
-from ..types import DetectionObject
+from app.inference.types import DetectionObject
 
 
 class SoMPainter:
@@ -94,7 +94,9 @@ class SoMPainter:
         Convert bounding boxes to approximate masks using GrabCut (scaled image for speed).
         Returns boolean masks of shape (n, H, W).
         """
-        orig_img = np.array(image.convert("RGB"))
+        orig_img = (
+            np.array(image.convert("RGB")) if isinstance(image, Image.Image) else image
+        )
         H, W = orig_img.shape[:2]
 
         # Scale image so that it is fast
