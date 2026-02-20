@@ -18,12 +18,20 @@ logger = logging.getLogger(__file__)
 class SceneMemory:
     """Manages the lifecycle of objects in the robot's world."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        memory_max_age_seconds: int = 60,
+        memory_max_objects: int = 200,
+        memory_max_relations: int = 500,
+    ):
         logger.info("Initializing SceneMemory")
         self.tracks: dict[int, TrackedObject] = {}
         self.next_id = 1
         self.objects_state: dict[int, TrackedObjectState] = {}
         self.relations_state: dict[tuple[int, str, int], Relationship] = {}
+        self.memory_max_age_seconds = memory_max_age_seconds
+        self.memory_max_objects = memory_max_objects
+        self.memory_max_relations = memory_max_relations
 
         # Dependencies
         self.extractor = FeatureExtractor()
@@ -108,16 +116,52 @@ class SceneMemory:
                 current.last_seen = now
                 current.hits += 1
 
-        # TODO: PRUNING OLD THINGS FROM MEMORY SETTABLE TIME DURATION
-        # 6. Prune (Simple logic for notebook)
         self.prune_memory()
-        # In a real loop, you'd increment 'frames_since_seen' for un_tracks indices
-        # and delete if > threshold.
 
         return detections
 
     def prune_memory(self):
-        pass
+        now = time.time()
+        cutoff = now - self.memory_max_age_seconds
+
+        # Remove stale objects
+        stale_ids = [
+            obj_id
+            for obj_id, obj in self.objects_state.items()
+            if obj.last_seen < cutoff
+        ]
+        for obj_id in stale_ids:
+            del self.objects_state[obj_id]
+
+        # Remove relations referencing stale objects or stale relations
+        stale_rel_keys = []
+        for key, rel in self.relations_state.items():
+            if rel.last_seen < cutoff:
+                stale_rel_keys.append(key)
+                continue
+            if key[0] in stale_ids or key[2] in stale_ids:
+                stale_rel_keys.append(key)
+        for key in stale_rel_keys:
+            del self.relations_state[key]
+
+        # Enforce max objects
+        if len(self.objects_state) > self.memory_max_objects:
+            sorted_objs = sorted(self.objects_state.values(), key=lambda o: o.last_seen)
+            to_remove = sorted_objs[: len(self.objects_state) - self.memory_max_objects]
+            for obj in to_remove:
+                self.objects_state.pop(obj.id, None)
+
+        # Enforce max relations
+        if len(self.relations_state) > self.memory_max_relations:
+            sorted_rels = sorted(
+                self.relations_state.values(), key=lambda r: r.last_seen
+            )
+            to_remove = sorted_rels[
+                : len(self.relations_state) - self.memory_max_relations
+            ]
+            for rel in to_remove:
+                key = (rel.subject_id, rel.predicate, rel.object_id)
+                self.relations_state.pop(key, None)
 
     def update_scene_graph(self, scene_graph: SceneGraph):
         now = time.time()

@@ -65,7 +65,11 @@ class MLState:
             threshold=self.config.detection.confidence_threshold,
         )
 
-        memory = SceneMemory()
+        memory = SceneMemory(
+            memory_max_age_seconds=self.config.tracking.memory_max_age_seconds,
+            memory_max_objects=self.config.tracking.memory_max_objects,
+            memory_max_relations=self.config.tracking.memory_max_relations,
+        )
         painter = SoMPainter(
             line_thickness=self.config.visualization.line_thickness,
             color_lookup=self.config.visualization.color_lookup,

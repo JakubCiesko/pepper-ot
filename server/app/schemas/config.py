@@ -30,6 +30,9 @@ class TrackingConfig(BaseModel):
     reid_model: str
     max_dormant_frames: int = 30
     association: AssociationConfig
+    memory_max_age_seconds: int = 60
+    memory_max_objects: int = 200
+    memory_max_relations: int = 500
 
 
 class PromptSource(BaseModel):

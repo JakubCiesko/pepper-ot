@@ -6,9 +6,9 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from pydantic import BaseModel
-from pydantic import Field
 
+# from pydantic import BaseModel
+# from pydantic import Field
 from app.inference.scene_graph.vlm import BaseVLM
 from app.inference.scene_graph.vlm import LLMLabelerConfig
 from app.inference.scene_graph.vlm import Local4BitVLM
@@ -20,26 +20,26 @@ from app.inference.types import SceneGraph
 logger = logging.getLogger(__name__)
 
 
-class OntologyConfig(BaseModel):
-    """Defines world model for teacher and student models in Object Detection FT process.
-    Serves as ontology definition for predicates in VLM finetune too (optional param).
-    """
-
-    objects: dict[str, str] | None = Field(
-        None, description="Map of more specific to more general"
-    )
-    predicates: list[str] | None = Field(
-        None, description="List of predicates in VLM SGG finetuning."
-    )
-
-    # TODO: remove this possibly
-    # @model_validator(mode="after")
-    # def check_at_least_one_ontology(self):
-    #     if self.objects or self.predicates:
-    #         return self
-    #     raise ValueError(
-    #         "At least one ontology is required (dict[str, str]). Specify objects or predicates (list[str])."
-    #     )
+# class OntologyConfig(BaseModel):
+#     """Defines world model for teacher and student models in Object Detection FT process.
+#     Serves as ontology definition for predicates in VLM finetune too (optional param).
+#     """
+#
+#     objects: dict[str, str] | None = Field(
+#         None, description="Map of more specific to more general"
+#     )
+#     predicates: list[str] | None = Field(
+#         None, description="List of predicates in VLM SGG finetuning."
+#     )
+#
+#     # TODO: remove this possibly
+#     # @model_validator(mode="after")
+#     # def check_at_least_one_ontology(self):
+#     #     if self.objects or self.predicates:
+#     #         return self
+#     #     raise ValueError(
+#     #         "At least one ontology is required (dict[str, str]). Specify objects or predicates (list[str])."
+#     #     )
 
 
 class SceneGraphGenerator:
@@ -153,7 +153,6 @@ class SceneGraphGenerator:
         )
         return await self.vlm.infer(repair_system, repair_user, image_bytes)
 
-    # TODO: add try to repair fallback
     async def generate(
         self, image: Path | bytes | Image.Image | np.ndarray
     ) -> SceneGraph:
@@ -173,23 +172,16 @@ class SceneGraphGenerator:
         logger.info("User prompt: " + user_prompt)
 
         raw = await self.vlm.infer(system_prompt, user_prompt, image_bytes)
-
         logger.info(f"VLM output: {raw}")
-        try:
-            data = json.loads(raw)
 
-            if isinstance(data, dict):
-                for key in ["relationships", "scene_graph", "triplets", "relations"]:
-                    if key in data:
-                        data = data[key]
-                        break
-            else:
-                data = [data]
-            if not isinstance(data, list):
-                data = []
-        except Exception:
-            logger.warning("Failed to parse VLM output as JSON")
-            data = []
+        data = self._parse_json(raw)
+        if not data:
+            logger.warning("Failed to parse VLM output as JSON, attempting repair.")
+            repaired = await self._repair(image_bytes, raw)
+            data = self._parse_json(repaired)
+            if not data:
+                logger.warning("Repair failed. Returning empty scene graph.")
+
         return SceneGraph.from_list(data, raw=raw)
 
     # async def batch_generate(self, image_paths: list[Path], batch_size: int = 100):

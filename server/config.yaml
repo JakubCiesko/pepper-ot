@@ -9,6 +9,9 @@ detection:
 tracking:
   reid_model: "nvidia/C-RADIOv4-SO400M"
   max_dormant_frames: 30
+  memory_max_age_seconds: 60
+  memory_max_objects: 200
+  memory_max_relations: 500
   association:
     visual_weight: 0.8
     geometry_weight: 0.2
