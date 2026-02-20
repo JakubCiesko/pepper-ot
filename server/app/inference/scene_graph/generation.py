@@ -162,7 +162,12 @@ class SceneGraphGenerator:
         system_prompt = self.system_prompt
 
         if self.user_prompt:
-            user_prompt = self.user_prompt
+            if self.predicates and "{predicates}" in self.user_prompt:
+                user_prompt = self.user_prompt.replace(
+                    "{predicates}", ", ".join(self.predicates)
+                )
+            else:
+                user_prompt = self.user_prompt
         elif self.predicates:
             user_prompt = "Allowed predicates: " + ", ".join(self.predicates)
         else:

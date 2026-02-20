@@ -27,6 +27,9 @@ const downloadBtn = document.getElementById("download-config");
 const downloadSavedBtn = document.getElementById("download-config-saved");
 const uploadInput = document.getElementById("upload-config");
 const reloadWarning = document.getElementById("reload-warning");
+const uploadProgress = document.getElementById("upload-progress");
+const uploadProgressBar = document.getElementById("upload-progress-bar");
+const uploadProgressText = document.getElementById("upload-progress-text");
 
 async function fetchModels() {
     try {
@@ -184,18 +187,37 @@ function downloadConfig(source) {
 }
 
 async function uploadConfig(file) {
+    uploadProgress.classList.remove("hidden");
+    uploadProgressBar.style.width = "0%";
+    uploadProgressText.textContent = "0%";
+
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch("/api/v1/config/upload", {
-        method: "POST",
-        body: form
-    });
-    if (res.ok) {
-        await loadConfig();
-        showStatusMessage("Uploaded config applied (in-memory)");
-    } else {
-        showStatusMessage("Failed to upload config", false);
-    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/v1/config/upload", true);
+
+    xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            uploadProgressBar.style.width = `${percent}%`;
+            uploadProgressText.textContent = `${percent}%`;
+        }
+    };
+
+    xhr.onreadystatechange = async () => {
+        if (xhr.readyState === 4) {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                await loadConfig();
+                showStatusMessage("Uploaded config applied (in-memory)");
+            } else {
+                showStatusMessage("Failed to upload config", false);
+            }
+            setTimeout(() => uploadProgress.classList.add("hidden"), 500);
+        }
+    };
+
+    xhr.send(form);
 }
 
 slider.addEventListener("input", () => {

@@ -1,6 +1,7 @@
 import logging
 
 from app.api.v1.dependencies import get_chat_service
+from app.core.ws_manager import ws_manager
 from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse
 from fastapi import APIRouter
@@ -17,6 +18,8 @@ async def chat_endpoint(request: ChatRequest, chat_service=Depends(get_chat_serv
     # Call the RAG engine
     response_text = await chat_service.chat(request.query)
     logger.info(f"Received chat response: {response_text}")
+
+    await ws_manager.broadcast({"type": "sentence", "text": response_text})
 
     return ChatResponse(
         sentence=response_text,
