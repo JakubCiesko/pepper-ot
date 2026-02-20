@@ -136,6 +136,20 @@
                 </select>
             </div>
 
+            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Storage</h3>
+                <label class="flex items-center gap-2 text-sm">
+                    <input id="storage-persist" type="checkbox">
+                    Persist last state
+                </label>
+                <label class="flex items-center gap-2 text-sm mt-3">
+                    <input id="storage-image" type="checkbox">
+                    Store image in last state
+                </label>
+                <label class="block text-sm mt-4">Last state path</label>
+                <input id="storage-path" type="text" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1" placeholder="state/last_state.json">
+            </div>
+
             <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 min-h-[420px]">
                 <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">VLM</h3>
                 <label class="block text-sm">System Prompt</label>

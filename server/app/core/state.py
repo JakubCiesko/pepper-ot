@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import logging
 from pathlib import Path
 
+from app.core.storage import load_last_state
 from app.inference.detection.detectors import DetectionModelType
 from app.inference.detection.service import DetectionService
 from app.inference.memory.scene_memory import SceneMemory
@@ -34,6 +35,14 @@ class MLState:
         logger.info(f"Loading ML App State config from {pth}")
         self.config = AppConfig.load(pth)
         logger.info("Loaded config")
+        if self.config.storage.persist_last_state:
+            base_dir = (
+                self.config._config_path.parent
+                if self.config._config_path is not None
+                else Path.cwd()
+            )
+            state_path = base_dir / self.config.storage.last_state_path
+            self.last_state = load_last_state(state_path)
         await self.apply_config(self.config)
 
         self.initialized = True

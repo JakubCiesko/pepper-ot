@@ -1,10 +1,12 @@
 import base64
 import io
 import logging
+from pathlib import Path
 import time
 
 from app.api.v1.dependencies import get_pipeline
 from app.core.state import ml_state
+from app.core.storage import save_last_state
 from app.core.ws_manager import ws_manager
 from app.schemas.scene import DetectionResponse
 from fastapi import APIRouter
@@ -37,6 +39,17 @@ async def upload_data_to_dashboard(som_image, scene_state, objects, scene_graph)
     }
     await ws_manager.broadcast(payload)
     ml_state.last_state = payload
+    if ml_state.config and ml_state.config.storage.persist_last_state:
+        base_dir = (
+            ml_state.config._config_path.parent
+            if ml_state.config._config_path is not None
+            else Path.cwd()
+        )
+        path = base_dir / ml_state.config.storage.last_state_path
+        if not ml_state.config.storage.store_image:
+            payload = dict(payload)
+            payload["image"] = None
+        save_last_state(path, payload)
 
 
 @router.post("/detect", response_model=DetectionResponse)

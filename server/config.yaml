@@ -52,3 +52,8 @@ visualization:
   line_thickness: 2
   mask_opacity: 0.5
   color_lookup: "index"
+
+storage:
+  persist_last_state: true
+  last_state_path: "state/last_state.json"
+  store_image: true

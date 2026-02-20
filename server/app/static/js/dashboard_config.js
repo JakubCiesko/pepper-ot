@@ -10,6 +10,9 @@ const visLabels = document.getElementById("vis-labels");
 const visLine = document.getElementById("vis-line");
 const visOpacity = document.getElementById("vis-opacity");
 const visColor = document.getElementById("vis-color");
+const storagePersist = document.getElementById("storage-persist");
+const storageImage = document.getElementById("storage-image");
+const storagePath = document.getElementById("storage-path");
 
 const vlmSystem = document.getElementById("vlm-system");
 const vlmUser = document.getElementById("vlm-user");
@@ -95,6 +98,10 @@ async function loadConfig() {
     visOpacity.value = active.visualization.mask_opacity ?? 0.5;
     visColor.value = active.visualization.color_lookup || "index";
 
+    storagePersist.checked = !!active.storage?.persist_last_state;
+    storageImage.checked = !!active.storage?.store_image;
+    storagePath.value = active.storage?.last_state_path || "state/last_state.json";
+
     const resolvedUnderstanding = resolved.understanding || {};
     vlmSystem.value = resolvedUnderstanding.resolved_system_prompt || "";
     vlmUser.value = resolvedUnderstanding.resolved_user_prompt || "";
@@ -123,6 +130,11 @@ function buildPatch() {
             line_thickness: parseInt(visLine.value, 10),
             mask_opacity: parseFloat(visOpacity.value),
             color_lookup: visColor.value
+        },
+        storage: {
+            persist_last_state: storagePersist.checked,
+            store_image: storageImage.checked,
+            last_state_path: storagePath.value
         },
         understanding: {
             system_prompt: { text: vlmSystem.value },

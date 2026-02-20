@@ -90,6 +90,14 @@ def diff_config(old: AppConfig, new: AppConfig) -> ConfigDiff:
     if _changed(old.tracking.memory_max_relations, new.tracking.memory_max_relations):
         hot.append("tracking.memory_max_relations")
 
+    # Storage (hot)
+    if _changed(old.storage.persist_last_state, new.storage.persist_last_state):
+        hot.append("storage.persist_last_state")
+    if _changed(old.storage.last_state_path, new.storage.last_state_path):
+        hot.append("storage.last_state_path")
+    if _changed(old.storage.store_image, new.storage.store_image):
+        hot.append("storage.store_image")
+
     # Tracking backend changes are hard
     if _changed(old.tracking.reid_model, new.tracking.reid_model):
         hard.append("tracking.reid_model")

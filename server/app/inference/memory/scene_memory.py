@@ -212,6 +212,31 @@ class SceneMemory:
             timestamp=now,
         )
 
+    def upsert_scene_state(self, state: SceneState):
+        """Merge external SceneState into memory (for manual injections)."""
+        now = time.time()
+        for obj in state.objects:
+            current = self.objects_state.get(obj.id)
+            if current is None:
+                self.objects_state[obj.id] = obj
+            else:
+                current.label = obj.label or current.label
+                current.bbox = obj.bbox or current.bbox
+                current.attributes = list(
+                    {*(current.attributes or []), *(obj.attributes or [])}
+                )
+                current.last_seen = obj.last_seen or now
+                current.hits = max(current.hits, obj.hits or 1)
+
+        for rel in state.relationships:
+            key = (rel.subject_id, rel.predicate, rel.object_id)
+            existing = self.relations_state.get(key)
+            if existing is None:
+                self.relations_state[key] = rel
+            else:
+                existing.last_seen = rel.last_seen or now
+                existing.count = max(existing.count, rel.count or 1)
+
     def snapshot(self) -> list[dict]:
         """Return a lightweight view of the current tracked objects."""
         logger.info("Returning latest scene state")

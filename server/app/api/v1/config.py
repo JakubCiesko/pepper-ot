@@ -14,8 +14,6 @@ from fastapi.responses import Response
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# TODO: make sort of updatable just that one changed thing
-
 
 @router.get("/config")
 async def get_config():

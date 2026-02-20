@@ -99,6 +99,12 @@ class VisConfig(BaseModel):
     color_lookup: Literal["index", "class", "track"] = "index"
 
 
+class StorageConfig(BaseModel):
+    persist_last_state: bool = False
+    last_state_path: Path = Path("state/last_state.json")
+    store_image: bool = True
+
+
 class AppConfig(BaseModel):
     system: dict
     detection: DetectionConfig
@@ -106,6 +112,7 @@ class AppConfig(BaseModel):
     understanding: UnderstandingConfig
     chat: ChatConfig
     visualization: VisConfig
+    storage: StorageConfig = Field(default_factory=StorageConfig)
     _config_path: Path | None = PrivateAttr(None)
 
     @classmethod
