@@ -10,9 +10,19 @@ from ..types import DetectionObject
 class SoMPainter:
     """Handles Set-of-Mark overlay on pictures for scene graph generation (https://som-gpt4v.github.io/)"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        line_thickness: int = 2,
+        color_lookup: str = "index",
+        mask_opacity: float = 0.5,
+    ):
+        lookup = {
+            "index": sv.ColorLookup.INDEX,
+            "class": sv.ColorLookup.CLASS,
+            "track": sv.ColorLookup.TRACK,
+        }.get(color_lookup, sv.ColorLookup.INDEX)
         self.box_annotator = sv.BoxAnnotator(
-            thickness=2, color_lookup=sv.ColorLookup.INDEX
+            thickness=line_thickness, color_lookup=lookup
         )
         self.label_annotator = sv.LabelAnnotator(
             text_position=sv.Position.CENTER,
@@ -21,12 +31,12 @@ class SoMPainter:
         )
         self.mask_annotator = sv.MaskAnnotator(
             color=sv.Color.BLACK,
-            color_lookup=sv.ColorLookup.INDEX,
-            opacity=0.5,
+            color_lookup=lookup,
+            opacity=mask_opacity,
         )
         self.polygon_annotator = sv.PolygonAnnotator(
-            color_lookup=sv.ColorLookup.INDEX,
-            thickness=2,
+            color_lookup=lookup,
+            thickness=line_thickness,
         )
 
     def paint(

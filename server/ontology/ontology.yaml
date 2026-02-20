@@ -1,0 +1,12 @@
+predicates:
+  - "left of"
+  - "right of"
+  - "in front of"
+  - "behind"
+  - "on"
+  - "under"
+  - "holding"
+  - "near"
+
+# Optional object taxonomy for future filtering after object detection
+objects: {}

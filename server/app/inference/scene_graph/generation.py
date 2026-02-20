@@ -8,7 +8,6 @@ import numpy as np
 from PIL import Image
 from pydantic import BaseModel
 from pydantic import Field
-from pydantic import model_validator
 
 from ..types import SceneGraph
 from .vlm import BaseVLM
@@ -33,22 +32,30 @@ class OntologyConfig(BaseModel):
         None, description="List of predicates in VLM SGG finetuning."
     )
 
-    @model_validator(mode="after")
-    def check_at_least_one_ontology(self):
-        if self.objects or self.predicates:
-            return self
-        raise ValueError(
-            "At least one ontology is required (dict[str, str]). Specify objects or predicates (list[str])."
-        )
+    # TODO: remove this possibly
+    # @model_validator(mode="after")
+    # def check_at_least_one_ontology(self):
+    #     if self.objects or self.predicates:
+    #         return self
+    #     raise ValueError(
+    #         "At least one ontology is required (dict[str, str]). Specify objects or predicates (list[str])."
+    #     )
 
 
 class SceneGraphGenerator:
     def __init__(
-        self, config: LLMLabelerConfig, ontology_config: OntologyConfig | None = None
+        self,
+        config: LLMLabelerConfig,
+        predicates: list[str] | None = None,
+        objects: dict[str, str] | None = None,
+        system_prompt: str | None = None,
+        user_prompt: str | None = None,
     ):
         self.config = config
-        self.ontology_config = ontology_config
-        self.predicates = ontology_config.predicates if ontology_config else None
+        self.predicates = predicates
+        self.objects = objects
+        self.system_prompt = system_prompt or config.system_prompt
+        self.user_prompt = user_prompt
         self.vlm = self.build_vlm(config)
 
     @staticmethod
@@ -92,13 +99,14 @@ class SceneGraphGenerator:
     ) -> SceneGraph:
         image_bytes = self._to_bytes(image)
 
-        system_prompt = self.config.system_prompt
+        system_prompt = self.system_prompt
 
-        user_prompt = (
-            "Allowed predicates: " + ", ".join(self.predicates)
-            if self.predicates
-            else "Focus on spatial, semantic, and functional relationships."
-        )
+        if self.user_prompt:
+            user_prompt = self.user_prompt
+        elif self.predicates:
+            user_prompt = "Allowed predicates: " + ", ".join(self.predicates)
+        else:
+            user_prompt = "Focus on spatial, semantic, and functional relationships."
 
         raw = await self.vlm.infer(system_prompt, user_prompt, image_bytes)
         if verbose:

@@ -23,9 +23,7 @@ class FeatureExtractor:
 
         logger.info(f"Loading Nvidia RADIO ({self.REPO}) on {self.device}...")
         self.model = (
-            AutoModel.from_pretrained(
-                self.REPO, trust_remote_code=True, torch_dtype=dtype
-            )
+            AutoModel.from_pretrained(self.REPO, trust_remote_code=True, dtype=dtype)
             .to(self.device)
             .eval()
         )

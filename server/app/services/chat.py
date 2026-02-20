@@ -1,12 +1,20 @@
 from app.inference.memory.scene_memory import SceneMemory
-from app.schemas.config import UnderstandingConfig
+from app.schemas.config import ChatConfig
 from app.services.llm_client import LLMClient
 
 
 class ChatService:
-    def __init__(self, config: UnderstandingConfig, memory: SceneMemory):
+    def __init__(
+        self,
+        config: ChatConfig,
+        memory: SceneMemory,
+        system_prompt: str,
+        context_template: str | None = None,
+    ):
         self.memory = memory
-        self.llm = LLMClient(config)  # Your interface to GPT-4o
+        self.system_prompt = system_prompt
+        self.context_template = context_template
+        self.llm = LLMClient(config)
 
     async def chat(self, user_query: str) -> str:
         # 1. READ: Get current world state from the shared memory
@@ -14,10 +22,13 @@ class ChatService:
         world_context = self._build_context_string()
 
         # 2. PROMPT: Create the system prompt
-        system_prompt = (
-            "You are Pepper. Answer based on what you see.\n"
-            f"Context:\n{world_context}"
-        )
+        if self.context_template:
+            try:
+                system_prompt = self.context_template.format(context=world_context)
+            except Exception:
+                system_prompt = f"{self.system_prompt}\nContext:\n{world_context}"
+        else:
+            system_prompt = f"{self.system_prompt}\nContext:\n{world_context}"
 
         # 3. GENERATE
         return await self.llm.generate_text(system_prompt, user_query)
@@ -27,6 +38,6 @@ class ChatService:
         if not self.memory.tracks:
             return "You see nothing."
 
-        lines = ["- {t.label} (ID: {t.id})" for t in self.memory.tracks.values()]
+        lines = [f"- {t.label} (ID: {t.id})" for t in self.memory.tracks.values()]
         # Add spatial/relation info here...
         return "\n".join(lines)

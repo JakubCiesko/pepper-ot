@@ -14,6 +14,7 @@ tracking:
     geometry_weight: 0.2
     match_threshold: 0.4
 
+#a.k.a Scene Graph Generation
 understanding:
   backend: "openai"
   model_id: "gpt-4o"
@@ -21,19 +22,30 @@ understanding:
     temperature: 0.0
     max_tokens: 512
     backend_kwargs: {}
+  system_prompt:
+    path: "prompts/vlm_system.txt"
+  user_prompt:
+    text: "Focus on spatial, semantic, and functional relationships."
   ontology:
-    predicates:
-      - "left of"
-      - "right of"
-      - "in front of"
-      - "behind"
-      - "on"
-      - "under"
-      - "holding"
-      - "near"
+    path: "ontology/ontology.yaml"
 
+chat:
+  backend: "openai"
+  model_id: "gpt-4o"
+  inference:
+    temperature: 0.7
+    max_tokens: 256
+  system_prompt:
+    text: "You are Pepper. Answer based on what you see."
+  context_template:
+    path: "prompts/chat_context.txt"
+
+# this is relevant for scene graph generation, really affects results!
 visualization:
   show_bbox: true
   show_mask: false
+  show_polygon: false
   show_labels: true
   line_thickness: 2
+  mask_opacity: 0.5
+  color_lookup: "index"

@@ -1,6 +1,7 @@
 import logging
 
 from app.core.state import ml_state
+from app.inference.detection.detectors import DetectionModelType
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Request
@@ -34,7 +35,10 @@ async def set_model(request: Request):
     logger.info(f"Reloading AI Engine with model: {model_name}")
 
     # Update config
-    ml_state.config.detection.weights_path = model_name
+    if model_name in {m.value for m in DetectionModelType}:
+        ml_state.config.detection.backend = model_name
+    else:
+        ml_state.config.detection.weights_path = model_name
 
     # Trigger engine reload (assuming ml_state has a method for this)
     await ml_state.reload_pipeline()

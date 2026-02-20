@@ -3,7 +3,7 @@ import os
 
 from openai import AsyncOpenAI
 
-from app.schemas.config import UnderstandingConfig
+from app.schemas.config import LLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class LLMClient:
     Supports OpenAI (GPT-4) and Local LLMs (via OpenAI-compatible API like vLLM/Ollama).
     """
 
-    def __init__(self, config: UnderstandingConfig):
+    def __init__(self, config: LLMConfig):
         self.config = config
 
         # Determine API Key and Base URL

@@ -1,6 +1,7 @@
 import numpy as np
 from PIL import Image
 
+from ..schemas.config import VisConfig
 from .detection.service import DetectionService
 from .memory.scene_memory import SceneMemory
 from .scene_graph.generation import SceneGraphGenerator
@@ -15,11 +16,13 @@ class VisualPipeline:
         memory: SceneMemory,
         painter: SoMPainter,
         sgg: SceneGraphGenerator,
+        vis_config: VisConfig,
     ):
         self.detector = detector
         self.memory = memory
         self.painter = painter
         self.sgg = sgg
+        self.vis_config = vis_config
 
     async def process(self, image: Image.Image) -> PipelineResult:
         """
@@ -38,10 +41,10 @@ class VisualPipeline:
         som_image = self.painter.paint(
             image_np,
             tracked_detections,
-            bbox=True,
-            mask=False,  # Turn on if you want segmentation masks
-            polygon=False,
-            class_names=True,  # Helps the VLM know "Object 1" is a "cup"
+            bbox=self.vis_config.show_bbox,
+            mask=self.vis_config.show_mask,
+            polygon=self.vis_config.show_polygon,
+            class_names=self.vis_config.show_labels,
         )
 
         # 4. UNDERSTAND (Generate Scene Graph from SoM Image)

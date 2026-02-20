@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 from pydantic import Field
+from pydantic import PrivateAttr
+from pydantic import model_validator
 import yaml
 
 
@@ -10,6 +12,12 @@ class DetectionConfig(BaseModel):
     backend: Literal["yolo", "rt_detr", "rf_detr"]
     weights_path: str | None = None
     confidence_threshold: float = 0.5
+
+
+class LLMConfig(BaseModel):
+    backend: Literal["openai", "local", "local_4bit"]
+    model_id: str
+    inference: dict = Field(default_factory=dict)
 
 
 class AssociationConfig(BaseModel):
@@ -24,22 +32,68 @@ class TrackingConfig(BaseModel):
     association: AssociationConfig
 
 
-class OntologyConfig(BaseModel):
-    predicates: list[str]
+class PromptSource(BaseModel):
+    text: str | None = None
+    path: Path | None = None
+
+    @model_validator(mode="after")
+    def ensure_one_of(self):
+        if (self.text is None and self.path is None) or (
+            self.text is not None and self.path is not None
+        ):
+            raise ValueError("PromptSource requires exactly one of 'text' or 'path'.")
+        return self
+
+    def resolve(self, base_dir: Path) -> str:
+        if self.path is not None:
+            data = (base_dir / self.path).read_text(encoding="utf-8")
+            return data.strip()
+        return (self.text or "").strip()
 
 
-class UnderstandingConfig(BaseModel):
-    backend: Literal["openai", "local", "local_4bit"]
-    model_id: str
-    inference: dict = Field(default_factory=dict)
-    ontology: OntologyConfig
+class OntologySource(BaseModel):
+    predicates: list[str] | None = None
+    objects: dict[str, str] | None = None
+    path: Path | None = None
+
+    def resolve(self, base_dir: Path) -> tuple[list[str] | None, dict[str, str] | None]:
+        predicates = self.predicates
+        objects = self.objects
+
+        if self.path is not None:
+            raw = (
+                yaml.safe_load((base_dir / self.path).read_text(encoding="utf-8")) or {}
+            )
+            file_predicates = raw.get("predicates")
+            file_objects = raw.get("objects")
+
+            if predicates is None:
+                predicates = file_predicates
+            if objects is None:
+                objects = file_objects
+
+        return predicates, objects
+
+
+class UnderstandingConfig(LLMConfig):
+    system_prompt: PromptSource
+    user_prompt: PromptSource | None = None
+    ontology: OntologySource
+
+
+class ChatConfig(LLMConfig):
+    system_prompt: PromptSource
+    context_template: PromptSource | None = None
 
 
 class VisConfig(BaseModel):
     show_bbox: bool = True
     show_mask: bool = False
     show_labels: bool = True
+    show_polygon: bool = False
     line_thickness: int = 2
+    mask_opacity: float = 0.5
+    color_lookup: Literal["index", "class", "track"] = "index"
 
 
 class AppConfig(BaseModel):
@@ -47,7 +101,9 @@ class AppConfig(BaseModel):
     detection: DetectionConfig
     tracking: TrackingConfig
     understanding: UnderstandingConfig
+    chat: ChatConfig
     visualization: VisConfig
+    _config_path: Path | None = PrivateAttr(None)
 
     @classmethod
     def load(cls, path: str = "config.yaml") -> "AppConfig":
@@ -60,4 +116,6 @@ class AppConfig(BaseModel):
 
         with open(path) as f:
             raw = yaml.safe_load(f)
-        return cls(**raw)
+        cfg = cls(**raw)
+        cfg._config_path = Path(path)
+        return cfg
