@@ -2,9 +2,9 @@ system:
   language: "en"
 
 detection:
-  backend: "rt_detr"
+  backend: "rf_detr"
   weights_path: null
-  confidence_threshold: 0.5
+  confidence_threshold: 0.30
 
 tracking:
   reid_model: "nvidia/C-RADIOv4-SO400M"
@@ -26,9 +26,10 @@ understanding:
     max_tokens: 512
     backend_kwargs: {}
   system_prompt:
-    path: "prompts/vlm_system.txt"
+    path: "prompts/vlm_system_complex.txt"
   user_prompt:
-    text: "Focus on spatial, semantic, and functional relationships."
+    path: "prompts/vlm_user.txt"
+    #text: "Focus on spatial, semantic, and functional relationships."
   ontology:
     path: "ontology/ontology.yaml"
 
@@ -39,7 +40,8 @@ chat:
     temperature: 0.7
     max_tokens: 256
   system_prompt:
-    text: "You are Pepper. Answer based on what you see."
+    #text: "You are Pepper. Answer based on what you see."
+    path: "prompts/chat_system.txt"
   context_template:
     path: "prompts/chat_context.txt"
 
@@ -47,7 +49,7 @@ chat:
 visualization:
   show_bbox: true
   show_mask: false
-  show_polygon: false
+  show_polygon: true
   show_labels: true
   line_thickness: 2
   mask_opacity: 0.5
@@ -63,19 +65,119 @@ sgg:
   rules:
     enabled: true
     rule_list:
-      - predicate: "next to"
+      - predicate: "next_to"
         type: "spatial"
         thresholds:
           max_distance: 80
         constraints:
-          labels_any: []
-      - predicate: "left of"
+          labels_any: [ ]
+
+      - predicate: "left_of"
         type: "directional"
         thresholds:
           axis: "x"
           max_delta: -20
+
+      - predicate: "right_of"
+        type: "directional"
+        thresholds:
+          axis: "x"
+          min_delta: 20
+
+      - predicate: "above"
+        type: "directional"
+        thresholds:
+          axis: "y"
+          max_delta: -20
+
+      - predicate: "below"
+        type: "directional"
+        thresholds:
+          axis: "y"
+          min_delta: 20
+
+      - predicate: "overlapping"
+        type: "overlap"
+        thresholds:
+          min_iou: 0.2
+
+      - predicate: "inside"
+        type: "containment"
+        thresholds:
+          min_inside: 0.6
+
+      - predicate: "touching"
+        type: "spatial"
+        thresholds:
+          max_distance: 10
+
+      - predicate: "near"
+        type: "spatial"
+        thresholds:
+          max_distance: 120
+
+      - predicate: "far_from"
+        type: "spatial"
+        thresholds:
+          min_distance: 250
+
+      - predicate: "aligned_with"
+        type: "directional"
+        thresholds:
+          axis: "y"
+          min_delta: -15
+          max_delta: 15
+
+      - predicate: "centered_on"
+        type: "directional"
+        thresholds:
+          axis: "x"
+          min_delta: -25
+          max_delta: 25
+
+      - predicate: "supporting"
+        type: "directional"
+        thresholds:
+          axis: "y"
+          min_delta: 10
+          max_delta: 80
+        constraints:
+          labels_any: [ ]
+
+      - predicate: "resting_on"
+        type: "directional"
+        thresholds:
+          axis: "y"
+          max_delta: -5
+        constraints:
+          labels_any: [ ]
+
       - predicate: "wearing"
         type: "label_pair"
         constraints:
-          subject_labels: ["person"]
-          object_labels: ["glasses"]
+          subject_labels: [ "person" ]
+          object_labels: [ "glasses" ]
+
+      - predicate: "holding"
+        type: "label_pair"
+        constraints:
+          subject_labels: [ "person" ]
+          object_labels: [ "cup", "bottle", "phone", "bag", "book" ]
+
+      - predicate: "riding"
+        type: "label_pair"
+        constraints:
+          subject_labels: [ "person" ]
+          object_labels: [ "bicycle", "motorcycle", "horse" ]
+
+      - predicate: "sitting_on"
+        type: "label_pair"
+        constraints:
+          subject_labels: [ "person", "cat", "dog" ]
+          object_labels: [ "chair", "sofa", "bench", "bed" ]
+
+      - predicate: "standing_on"
+        type: "label_pair"
+        constraints:
+          subject_labels: [ "person" ]
+          object_labels: [ "floor", "ground", "platform", "stage" ]

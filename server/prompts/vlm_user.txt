@@ -1,0 +1,6 @@
+Focus on spatial, semantic, and functional relationships.
+Use only LABELED objects.
+Use only allowed predicates and attributes.
+
+Allowed predicates and attributes
+[{predicates}]

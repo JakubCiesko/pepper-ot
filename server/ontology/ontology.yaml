@@ -1,15 +1,157 @@
 predicates:
-  - "left of"
-  - "right of"
-  - "in front of"
+  # Spatial relations (core)
+  - "left_of"
+  - "right_of"
+  - "in_front_of"
   - "behind"
+  - "above"
+  - "below"
   - "on"
   - "under"
-  - "holding"
+  - "inside"
+  - "outside"
+  - "overlapping"
+  - "touching"
+  - "adjacent_to"
   - "near"
-  - "black"
-  - "white"
+  - "far_from"
   - "close_to"
+  - "between"
+  - "around"
+#  - "surrounding"
+
+  # Orientation / direction
+  - "facing"
+#  - "facing_toward"
+#  - "facing_away"
+  - "looking_at"
+  - "pointing_to"
+
+  # Contact and support
+#  - "supporting"
+#  - "supported_by"
+  - "attached_to"
+  - "connected_to"
+  - "resting_on"
+  - "leaning_on"
+
+  # Interaction / manipulation
+  - "holding"
+#  - "grasping"
+  - "carrying"
+  - "pushing"
+  - "pulling"
+  - "throwing"
+  - "catching"
+#  - "touching_with_hand"
+  - "using"
+#  - "operating"
+  - "wearing"
+
+  # Human–object activities
+  - "sitting_on"
+  - "standing_on"
+  - "lying_on"
+  - "riding"
+  - "eating"
+  - "drinking"
+  - "talking_to"
+  - "watching"
+  - "reading"
+  - "writing"
+  - "playing"
+
+  # Movement / motion
+  - "moving"
+#  - "moving_toward"
+#  - "moving_away"
+#  - "approaching"
+#  - "leaving"
+  - "walking"
+  - "running"
+  - "jumping"
+  - "falling"
+  - "flying"
+  - "driving"
+
+  # Object state
+  - "open"
+  - "closed"
+#  - "locked"
+#  - "unlocked"
+  - "full"
+  - "empty"
+  - "broken"
+  - "intact"
+  - "dirty"
+  - "clean"
+  - "wet"
+  - "dry"
+
+  # Physical properties
+  - "heavy"
+  - "lightweight"
+  - "large"
+  - "small"
+  - "tall"
+  - "short"
+  - "long"
+  - "wide"
+  - "thin"
+  - "thick"
+
+  # Color and appearance (generalized)
+#  - "has_color"
+  - "is_black"
+  - "is_white"
+  - "is_red"
+  - "is_blue"
+  - "is_green"
+  - "is_yellow"
+  - "is_brown"
+  - "is_gray"
+  - "is_transparent"
+  - "is_shiny"
+  - "is_matte"
+
+  # Texture and material
+  - "is_soft"
+  - "is_hard"
+  - "is_smooth"
+  - "is_rough"
+  - "is_metal"
+  - "is_wood"
+  - "is_plastic"
+  - "is_glass"
+  - "has_fur"
+#  - "has_brown_fur"
+
+  # Biological / agents
+#  - "alive"
+#  - "human"
+#  - "animal"
+#  - "plant"
+
+  # Relationships and ownership
+  - "owned_by"
+  - "belongs_to"
+  - "part_of"
+  - "contains"
+#  - "has_part"
+
+  # Social / group
+  - "next_to"
+#  - "with"
+#  - "alone"
+#  - "grouped_with"
+
+  # Environment / context
+  - "indoors"
+  - "outdoors"
+#  - "in_vehicle"
+#  - "on_road"
+#  - "in_water"
+#  - "on_surface"
 
 # Optional object taxonomy for future filtering after object detection
 objects: {}
