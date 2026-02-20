@@ -24,6 +24,7 @@ class ChatService:
         # 2. PROMPT: Create the system prompt
         if self.context_template:
             try:
+                # {context} needs to be in prompt
                 system_prompt = self.context_template.format(context=world_context)
             except Exception:
                 system_prompt = f"{self.system_prompt}\nContext:\n{world_context}"

@@ -1,96 +1,216 @@
 const slider = document.getElementById("threshold-slider");
 const input = document.getElementById("threshold-input");
+const backendSelect = document.getElementById("backend-select");
+const languageSelect = document.getElementById("language-select");
 
-function update_conf_threshold(value) {
-  fetch("/api/v1/threshold", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({threshold: value})
-    });
-}
-slider.addEventListener("input", () => {
-    input.value = slider.value;
-    update_conf_threshold(parseFloat(slider.value));
-});
+const visBbox = document.getElementById("vis-bbox");
+const visMask = document.getElementById("vis-mask");
+const visPolygon = document.getElementById("vis-polygon");
+const visLabels = document.getElementById("vis-labels");
+const visLine = document.getElementById("vis-line");
+const visOpacity = document.getElementById("vis-opacity");
+const visColor = document.getElementById("vis-color");
 
-// slider update
-input.addEventListener("change", () => {
-    let val = parseFloat(input.value);
-    if (isNaN(val)) val = 0; // invalid numbers
-    if (val < 0) val = 0;
-    if (val > 1) val = 1;
-    input.value = val.toFixed(2);
-    slider.value = val.toFixed(2);
-    update_conf_threshold(val.toFixed(2));
-});
-const modelSelect = document.getElementById("model-select");
-const changeModelButton = document.getElementById("change-model");
+const vlmSystem = document.getElementById("vlm-system");
+const vlmUser = document.getElementById("vlm-user");
+const vlmPredicates = document.getElementById("vlm-predicates");
+const vlmObjects = document.getElementById("vlm-objects");
 
-//get available models from server
+const chatSystem = document.getElementById("chat-system");
+const chatContext = document.getElementById("chat-context");
+
+const applyBtn = document.getElementById("apply-config");
+const saveBtn = document.getElementById("save-config");
+const reloadBtn = document.getElementById("reload-config");
+const downloadBtn = document.getElementById("download-config");
+const downloadSavedBtn = document.getElementById("download-config-saved");
+const uploadInput = document.getElementById("upload-config");
+
 async function fetchModels() {
     try {
         const res = await fetch("/dashboard/config/get_models");
         const data = await res.json();
-        modelSelect.innerHTML = "";
+        backendSelect.innerHTML = "";
         data.models.forEach(model => {
             const opt = document.createElement("option");
             opt.value = model;
             opt.textContent = model;
-            modelSelect.appendChild(opt);
+            backendSelect.appendChild(opt);
         });
-    } catch(err) {
+    } catch (err) {
         console.error("Failed to fetch models:", err);
-        modelSelect.innerHTML = "<option>Error loading models</option>";
+        backendSelect.innerHTML = "<option>Error loading</option>";
     }
 }
 
-// Switch model
-changeModelButton.addEventListener("click", async () => {
-    const selectedModel = modelSelect.value;
-    showStatusMessage("Changing model to " + selectedModel);
-    try {
-        const res = await fetch("/api/v1/model", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({model: selectedModel})
-        });
-        const data = await res.json();
-        // this will pop up window, maybe add progress bar?
-        if (data.ok) {
-            showStatusMessage(`Model changed to: ${data.selected_model}`);
-        } else {
-            showStatusMessage(`Failed to change model: ${data.error}`, false);
+function setThreshold(value) {
+    slider.value = value;
+    input.value = value;
+}
+
+function parseLines(text) {
+    return text
+        .split("\n")
+        .map(l => l.trim())
+        .filter(Boolean);
+}
+
+function parseObjects(text) {
+    const obj = {};
+    parseLines(text).forEach(line => {
+        const idx = line.indexOf(":");
+        if (idx === -1) return;
+        const key = line.slice(0, idx).trim();
+        const val = line.slice(idx + 1).trim();
+        if (key && val) obj[key] = val;
+    });
+    return obj;
+}
+
+function objectsToText(objects) {
+    if (!objects) return "";
+    return Object.entries(objects).map(([k, v]) => `${k}: ${v}`).join("\n");
+}
+
+async function loadConfig() {
+    const res = await fetch("/api/v1/config");
+    const data = await res.json();
+    const active = data.active;
+    const resolved = data.active_resolved || {};
+
+    setThreshold(active.detection.confidence_threshold ?? 0.5);
+    backendSelect.value = active.detection.backend || "rt_detr";
+    languageSelect.value = active.system.language || "en";
+
+    visBbox.checked = !!active.visualization.show_bbox;
+    visMask.checked = !!active.visualization.show_mask;
+    visPolygon.checked = !!active.visualization.show_polygon;
+    visLabels.checked = !!active.visualization.show_labels;
+    visLine.value = active.visualization.line_thickness ?? 2;
+    visOpacity.value = active.visualization.mask_opacity ?? 0.5;
+    visColor.value = active.visualization.color_lookup || "index";
+
+    const resolvedUnderstanding = resolved.understanding || {};
+    vlmSystem.value = resolvedUnderstanding.resolved_system_prompt || "";
+    vlmUser.value = resolvedUnderstanding.resolved_user_prompt || "";
+    vlmPredicates.value = (resolvedUnderstanding.resolved_ontology?.predicates || []).join("\n");
+    vlmObjects.value = objectsToText(resolvedUnderstanding.resolved_ontology?.objects);
+
+    const resolvedChat = resolved.chat || {};
+    chatSystem.value = resolvedChat.resolved_system_prompt || "";
+    chatContext.value = resolvedChat.resolved_context_template || "";
+}
+
+function buildPatch() {
+    return {
+        system: {
+            language: languageSelect.value
+        },
+        detection: {
+            backend: backendSelect.value,
+            confidence_threshold: parseFloat(input.value)
+        },
+        visualization: {
+            show_bbox: visBbox.checked,
+            show_mask: visMask.checked,
+            show_polygon: visPolygon.checked,
+            show_labels: visLabels.checked,
+            line_thickness: parseInt(visLine.value, 10),
+            mask_opacity: parseFloat(visOpacity.value),
+            color_lookup: visColor.value
+        },
+        understanding: {
+            system_prompt: { text: vlmSystem.value },
+            user_prompt: { text: vlmUser.value },
+            ontology: {
+                predicates: parseLines(vlmPredicates.value),
+                objects: parseObjects(vlmObjects.value)
+            }
+        },
+        chat: {
+            system_prompt: { text: chatSystem.value },
+            context_template: { text: chatContext.value }
         }
-    } catch(err) {
-        console.error("Error changing model:", err);
-        showStatusMessage("Error changing model", false);
+    };
+}
+
+async function applyConfig() {
+    const patch = buildPatch();
+    const res = await fetch("/api/v1/config", {
+        method: "PATCH",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(patch)
+    });
+    if (res.ok) {
+        showStatusMessage("Applied in-memory config");
+    } else {
+        showStatusMessage("Failed to apply config", false);
     }
+}
+
+async function saveConfig() {
+    const res = await fetch("/api/v1/config/save", { method: "POST" });
+    if (res.ok) {
+        showStatusMessage("Saved to server/config.yaml");
+    } else {
+        showStatusMessage("Failed to save config", false);
+    }
+}
+
+async function reloadConfig() {
+    const res = await fetch("/api/v1/config/reload", { method: "POST" });
+    if (res.ok) {
+        await loadConfig();
+        showStatusMessage("Reloaded saved config");
+    } else {
+        showStatusMessage("Failed to reload config", false);
+    }
+}
+
+function downloadConfig(source) {
+    const url = source === "saved"
+        ? "/api/v1/config/download?source=saved"
+        : "/api/v1/config/download";
+    window.location.href = url;
+}
+
+async function uploadConfig(file) {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/v1/config/upload", {
+        method: "POST",
+        body: form
+    });
+    if (res.ok) {
+        await loadConfig();
+        showStatusMessage("Uploaded config applied (in-memory)");
+    } else {
+        showStatusMessage("Failed to upload config", false);
+    }
+}
+
+slider.addEventListener("input", () => {
+    input.value = slider.value;
 });
 
-// initial model fetching
-fetchModels();
-
-// language setting
-const languageSelect = document.getElementById("language-select");
-const changeLanguageButton = document.getElementById("change-language");
-
-// Switch language
-changeLanguageButton.addEventListener("click", async () => {
-    const selectedLang = languageSelect.value;
-    try {
-        const res = await fetch("/api/v1/language", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({language: selectedLang})
-        });
-        const data = await res.json();
-        if (data.ok) {
-            showStatusMessage(`Language changed to: ${data.language}`);
-        } else {
-            showStatusMessage(`Failed to change language: ${data.error || "unknown error"}`, false);
-        }
-    } catch(err) {
-        console.error("Error changing language:", err);
-        showStatusMessage("Error changing language");
-    }
+input.addEventListener("change", () => {
+    let val = parseFloat(input.value);
+    if (isNaN(val)) val = 0;
+    if (val < 0) val = 0;
+    if (val > 1) val = 1;
+    input.value = val.toFixed(2);
+    slider.value = val.toFixed(2);
 });
+
+applyBtn.addEventListener("click", applyConfig);
+saveBtn.addEventListener("click", saveConfig);
+reloadBtn.addEventListener("click", reloadConfig);
+downloadBtn.addEventListener("click", () => downloadConfig("active"));
+downloadSavedBtn.addEventListener("click", () => downloadConfig("saved"));
+
+uploadInput.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (file) uploadConfig(file);
+});
+
+fetchModels().then(loadConfig);

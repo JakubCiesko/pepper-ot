@@ -29,6 +29,18 @@ class MLState:
 
         self.config = AppConfig.load(config_path or "config.yaml")
         logger.info("Loaded config")
+        await self.apply_config(self.config)
+
+        self.initialized = True
+        logger.info("MLState initialized")
+
+    async def reload_pipeline(self):
+        self.initialized = False
+        self.pipeline = None
+        await self.initialize()
+
+    async def apply_config(self, config: AppConfig):
+        self.config = config
 
         base_dir = (
             self.config._config_path.parent
@@ -99,14 +111,6 @@ class MLState:
             system_prompt=chat_system_prompt,
             context_template=chat_context_template,
         )
-
-        self.initialized = True
-        logger.info("MLState initialized")
-
-    async def reload_pipeline(self):
-        self.initialized = False
-        self.pipeline = None
-        await self.initialize()
 
 
 ml_state = MLState()

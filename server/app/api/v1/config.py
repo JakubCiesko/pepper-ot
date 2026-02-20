@@ -1,13 +1,88 @@
 import logging
 
+from app.core import config_manager
 from app.core.state import ml_state
 from app.inference.detection.detectors import DetectionModelType
 from fastapi import APIRouter
+from fastapi import File
 from fastapi import HTTPException
 from fastapi import Request
+from fastapi import UploadFile
+from fastapi.responses import Response
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.get("/config")
+async def get_config():
+    saved = config_manager.load_config()
+    active = ml_state.config or saved
+    return {
+        "active": config_manager.dump_config(active),
+        "saved": config_manager.dump_config(saved),
+        "active_resolved": config_manager.resolve_config(active),
+    }
+
+
+@router.patch("/config")
+async def patch_config(request: Request):
+    if ml_state.config is None:
+        raise HTTPException(status_code=503, detail="Config not initialized")
+    data = await request.json()
+    try:
+        updated = config_manager.apply_patch(ml_state.config, data)
+        await ml_state.apply_config(updated)
+        return {"ok": True}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/config/save")
+async def save_config():
+    if ml_state.config is None:
+        raise HTTPException(status_code=503, detail="Config not initialized")
+    path = config_manager.config_path()
+    yaml_text = config_manager.dump_config_yaml(ml_state.config)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(yaml_text, encoding="utf-8")
+    tmp.replace(path)
+    return {"ok": True, "path": str(path)}
+
+
+@router.post("/config/reload")
+async def reload_config():
+    cfg = config_manager.load_config()
+    await ml_state.apply_config(cfg)
+    return {"ok": True}
+
+
+@router.post("/config/upload")
+async def upload_config(file: UploadFile = File(...)):
+    content = await file.read()
+    try:
+        cfg = config_manager.parse_uploaded_yaml(content)
+        await ml_state.apply_config(cfg)
+        return {"ok": True}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/config/download")
+async def download_config(source: str | None = None):
+    if source == "saved":
+        cfg = config_manager.load_config()
+    else:
+        cfg = ml_state.config or config_manager.load_config()
+    # TODO: HIDE API KEYS IF PRESENT!
+    yaml_text = config_manager.dump_config_yaml(cfg)
+    filename = "config_saved.yaml" if source == "saved" else "config.yaml"
+    headers = {"Content-Disposition": f"attachment; filename={filename}"}
+    return Response(
+        content=yaml_text,
+        media_type="application/x-yaml",
+        headers=headers,
+    )
 
 
 @router.post("/threshold")
