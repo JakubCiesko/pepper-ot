@@ -1,0 +1,39 @@
+system:
+  language: "en"
+
+detection:
+  backend: "rt_detr"
+  weights_path: null
+  confidence_threshold: 0.5
+
+tracking:
+  reid_model: "nvidia/C-RADIOv4-SO400M"
+  max_dormant_frames: 30
+  association:
+    visual_weight: 0.8
+    geometry_weight: 0.2
+    match_threshold: 0.4
+
+understanding:
+  backend: "openai"
+  model_id: "gpt-4o"
+  inference:
+    temperature: 0.0
+    max_tokens: 512
+    backend_kwargs: {}
+  ontology:
+    predicates:
+      - "left of"
+      - "right of"
+      - "in front of"
+      - "behind"
+      - "on"
+      - "under"
+      - "holding"
+      - "near"
+
+visualization:
+  show_bbox: true
+  show_mask: false
+  show_labels: true
+  line_thickness: 2

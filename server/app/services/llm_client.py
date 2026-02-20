@@ -3,7 +3,7 @@ import os
 
 from openai import AsyncOpenAI
 
-from ..models.config import UnderstandingConfig
+from app.schemas.config import UnderstandingConfig
 
 logger = logging.getLogger(__name__)
 

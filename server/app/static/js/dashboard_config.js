@@ -2,7 +2,7 @@ const slider = document.getElementById("threshold-slider");
 const input = document.getElementById("threshold-input");
 
 function update_conf_threshold(value) {
-  fetch("/api/config/threshold", {
+  fetch("/api/v1/threshold", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({threshold: value})
@@ -49,7 +49,7 @@ changeModelButton.addEventListener("click", async () => {
     const selectedModel = modelSelect.value;
     showStatusMessage("Changing model to " + selectedModel);
     try {
-        const res = await fetch("/api/config/model", {
+        const res = await fetch("/api/v1/model", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({model: selectedModel})
@@ -78,7 +78,7 @@ const changeLanguageButton = document.getElementById("change-language");
 changeLanguageButton.addEventListener("click", async () => {
     const selectedLang = languageSelect.value;
     try {
-        const res = await fetch("/api/config/language", {
+        const res = await fetch("/api/v1/language", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({language: selectedLang})

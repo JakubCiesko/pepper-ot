@@ -1,11 +1,9 @@
 import io
 import logging
+import time
 
-from app.api.dependencies import get_pipeline
-from app.schemas.robot import RobotMetadata
-from app.schemas.scene import (
-    DetectionResponse,  # Or DetectResponse based on your schema
-)
+from app.api.v1.dependencies import get_pipeline
+from app.schemas.scene import DetectionResponse
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import File
@@ -33,10 +31,10 @@ async def detect_endpoint(
     # 1. Prepare Inputs
     img_bytes = await file.read()
     image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-    robot_state = RobotMetadata(head_yaw=head_yaw, head_pitch=head_pitch)
+    _ = (head_yaw, head_pitch)
 
     # 2. Run Engine (No globals!)
-    result = await pipeline.process(image, robot_state)
+    result = await pipeline.process(image)
 
     # 3. Handle WebSockets (Background Task)
     # colors = get_color_encoding(result.detections)
@@ -49,5 +47,19 @@ async def detect_endpoint(
     #     "colors": colors
     # }))
 
-    # 4. Return standard Pydantic schema
-    return result
+    objects = [
+        {
+            "label": det.label,
+            "confidence": det.confidence,
+            "bbox": det.bbox,
+            "object_id": det.object_id,
+        }
+        for det in result.detections
+    ]
+
+    return DetectionResponse(
+        objects=objects,
+        timestamp=time.time(),
+        image_width=image.width,
+        image_height=image.height,
+    )

@@ -4,8 +4,9 @@ import logging
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.routes import dashboard
-from app.routes import detect
+from app.api.v1 import router as api_v1_router
+from app.core.state import ml_state
+from app.dashboard import router as dashboard_router
 
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -27,9 +28,9 @@ logger.info("Initializing FastAPI server...")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Startup: Initializing Detection Service Translations...")
-    await detect.DETECTION_SERVICE.initialize_translations()
-    logger.info("Startup: Translations loaded.")
+    logger.info("Startup: Initializing MLState...")
+    await ml_state.initialize("./config.yaml")
+    logger.info("Startup: MLState ready.")
     yield
     logger.info("Shutdown: Cleaning up...")
 
@@ -40,7 +41,7 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
-app.include_router(detect.router, prefix="/api")
-app.include_router(dashboard.router)
+app.include_router(api_v1_router, prefix="/api/v1")
+app.include_router(dashboard_router)
 
 logger.info("Server initialized")

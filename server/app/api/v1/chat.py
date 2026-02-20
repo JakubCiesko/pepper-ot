@@ -1,6 +1,6 @@
 import logging
 
-from app.api.dependencies import get_chat_service
+from app.api.v1.dependencies import get_chat_service
 from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse
 from fastapi import APIRouter

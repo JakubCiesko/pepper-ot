@@ -1,6 +1,6 @@
-from ..inference.memory import SceneMemory
-from ..models.config import UnderstandingConfig
-from .llm_client import LLMClient
+from app.inference.memory.scene_memory import SceneMemory
+from app.schemas.config import UnderstandingConfig
+from app.services.llm_client import LLMClient
 
 
 class ChatService:
@@ -20,7 +20,7 @@ class ChatService:
         )
 
         # 3. GENERATE
-        return await self.llm.generate(system_prompt, user_query)
+        return await self.llm.generate_text(system_prompt, user_query)
 
     def _build_context_string(self) -> str:
         # Iterate over self.memory.tracks and format text
