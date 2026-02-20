@@ -10,7 +10,7 @@ class DetectionObject(BaseModel):
 
 
 class DetectionResponse(BaseModel):
-    objects: list[DetectionObject]
+    objects: list[DetectionObject] | list[dict]
     timestamp: float
     image_width: int
     image_height: int

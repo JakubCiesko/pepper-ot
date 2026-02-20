@@ -28,6 +28,16 @@ async def get_config():
     }
 
 
+@router.get("/state")
+async def get_state():
+    return ml_state.last_state or {
+        "image": None,
+        "objects": [],
+        "scene_graph": [],
+        "memory": {"objects": [], "relationships": [], "timestamp": None},
+    }
+
+
 @router.patch("/config")
 async def patch_config(request: Request):
     if ml_state.config is None:

@@ -186,6 +186,21 @@ ws.onmessage = function(event) {
     }
 };
 
+async function loadLastState() {
+    try {
+        const res = await fetch("/api/v1/state");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && (data.image || data.objects?.length || data.scene_graph?.length)) {
+            ws.onmessage({ data: JSON.stringify(data) });
+        }
+    } catch (err) {
+        console.error("Failed to load last state", err);
+    }
+}
+
+loadLastState();
+
 if (sgZoomIn) {
     sgZoomIn.addEventListener("click", () => {
         if (window._sceneGraphCy) {

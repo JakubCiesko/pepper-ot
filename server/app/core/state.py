@@ -22,6 +22,7 @@ class MLState:
     pipeline: VisualPipeline | None = None
     chat_service: object | None = None
     initialized: bool = False
+    last_state: dict | None = None
 
     async def initialize(self, config_path: str | None = None):
         logger.info("Initializing ML App State")

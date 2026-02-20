@@ -248,4 +248,5 @@ uploadInput.addEventListener("change", (event) => {
     if (file) uploadConfig(file);
 });
 
-fetchModels().then(loadConfig);
+fetchModels();
+loadConfig();
