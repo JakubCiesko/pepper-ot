@@ -16,3 +16,4 @@ public_html/
 plans/
 detection_models/
 **.pth
+server/state/
