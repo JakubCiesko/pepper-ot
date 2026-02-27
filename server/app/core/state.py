@@ -119,6 +119,7 @@ class MLState:
             sgg=sgg,
             rules_sgg=rules_sgg,
             sgg_mode=self.config.sgg.mode,
+            fusion_config=self.config.fusion,
             vis_config=self.config.visualization,
         )
 

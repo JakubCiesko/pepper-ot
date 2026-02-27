@@ -31,6 +31,10 @@ class TrackedObjectState(BaseModel):
     status: str
     source: str = "tracked"
     attributes: list[str] = Field(default_factory=list)
+    bearing_yaw: float | None = None
+    bearing_pitch: float | None = None
+    frame_id: str | None = None
+    scan_id: str | None = None
     first_seen: float
     last_seen: float
     hits: int = 1

@@ -9,7 +9,7 @@ import yaml
 
 
 class DetectionConfig(BaseModel):
-    backend: Literal["yolo", "rt_detr", "rf_detr"]
+    backend: Literal["yolo", "rt_detr", "rf_detr", "owl_v2"]
     weights_path: str | None = None
     confidence_threshold: float = 0.5
 
@@ -128,6 +128,13 @@ class SGGConfig(BaseModel):
     rules: SGGRulesConfig = Field(default_factory=SGGRulesConfig)
 
 
+class FusionConfig(BaseModel):
+    person_bbox_match_threshold_px: float = 10.0
+    estimated_person_bbox_base_px: float = 80.0
+    estimated_person_bbox_min_px: float = 40.0
+    estimated_person_bbox_max_px: float = 200.0
+
+
 class AppConfig(BaseModel):
     system: dict
     detection: DetectionConfig
@@ -137,6 +144,7 @@ class AppConfig(BaseModel):
     visualization: VisConfig
     storage: StorageConfig = Field(default_factory=StorageConfig)
     sgg: SGGConfig = Field(default_factory=SGGConfig)
+    fusion: FusionConfig = Field(default_factory=FusionConfig)
     _config_path: Path | None = PrivateAttr(None)
 
     @classmethod

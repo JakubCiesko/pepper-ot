@@ -2,13 +2,14 @@ import logging
 from pathlib import Path
 import urllib.request
 
-from rfdetr import RFDETRMedium
+from rfdetr import RFDETRLarge
 import torch
 from ultralytics import RTDETR
 from ultralytics import YOLO
 
 from app.inference.detection.detectors import BaseDetector
 from app.inference.detection.detectors import DetectionModelType
+from app.inference.detection.detectors import Owlv2Detector
 from app.inference.detection.detectors import RoboflowDetector
 from app.inference.detection.detectors import UltralyticsDetector
 
@@ -25,6 +26,7 @@ class DetectionModelRegistry:
         DetectionModelType.RT_DETR: "https://github.com/ultralytics/assets/releases/download/v8.3.0/rtdetr-x.pt",
         DetectionModelType.YOLO: "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11x.pt",
         DetectionModelType.RF_DETR: None,  # no weights file
+        DetectionModelType.OWL_V2: None,
     }
 
     @classmethod
@@ -59,7 +61,13 @@ class DetectionModelRegistry:
                 return UltralyticsDetector(YOLO(path), device, threshold)
             case DetectionModelType.RT_DETR:
                 logger.info("Loading detection model with Ultralytics RT-DETR Backend")
-                return UltralyticsDetector(RTDETR(path), device, threshold)
+                return UltralyticsDetector(RTDETR(str(path)), device, threshold)
             case DetectionModelType.RF_DETR:
                 logger.info("Loading detection model with Roboflow RF-DETR Backend")
-                return RoboflowDetector(RFDETRMedium(), device, threshold)
+                return RoboflowDetector(RFDETRLarge(), device, threshold)
+            case DetectionModelType.OWL_V2:
+                logger.info(
+                    "Loading detection model with Google OpenVocab OwlV2 Backend"
+                )
+                # for now processor located at the same place
+                return Owlv2Detector(path, path, device, threshold)

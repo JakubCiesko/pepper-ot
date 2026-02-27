@@ -51,6 +51,7 @@ class DetectionService:
         # propagate to actual model
         if hasattr(self.model, "threshold"):
             self.model.threshold = value
+            logger.info(f"Threshold set to {self.model.threshold}")
 
     def detect(self, image: Image.Image) -> list[DetectionObject]:
         return self.model.predict(image)

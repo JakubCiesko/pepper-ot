@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 import logging
 from pathlib import Path
 import time
@@ -9,6 +10,8 @@ from app.core.state import ml_state
 from app.core.storage import save_last_image_async
 from app.core.storage import save_last_state_async
 from app.core.ws_manager import ws_manager
+from app.schemas.robot import PersonMetadata
+from app.schemas.robot import RobotMetadata
 from app.schemas.scene import DetectionResponse
 from fastapi import APIRouter
 from fastapi import Depends
@@ -64,6 +67,15 @@ async def detect_endpoint(
     file: UploadFile = File(...),
     head_yaw: float = Form(0.0),
     head_pitch: float = Form(0.0),
+    body_yaw: float | None = Form(None),
+    camera_hfov: float | None = Form(None),
+    camera_vfov: float | None = Form(None),
+    image_width: int | None = Form(None),
+    image_height: int | None = Form(None),
+    timestamp: float | None = Form(None),
+    frame_id: str | None = Form(None),
+    scan_id: str | None = Form(None),
+    people: str | None = Form(None),
     pipeline=Depends(get_pipeline),
     publish: bool = True,
 ):
@@ -73,11 +85,31 @@ async def detect_endpoint(
     # 1. Prepare Inputs
     img_bytes = await file.read()
     image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-    _ = (head_yaw, head_pitch)
+    people_list = []
+    if people:
+        try:
+            parsed = json.loads(people)
+            people_list.extend([PersonMetadata(**item) for item in parsed])
+        except Exception:
+            people_list = []
+
+    robot_metadata = RobotMetadata(
+        head_yaw=head_yaw,
+        head_pitch=head_pitch,
+        body_yaw=body_yaw,
+        camera_hfov=camera_hfov,
+        camera_vfov=camera_vfov,
+        image_width=image_width,
+        image_height=image_height,
+        timestamp=timestamp,
+        frame_id=frame_id,
+        scan_id=scan_id,
+        people=people_list,
+    )
 
     # 2. Run Engine (No globals!)
     # TODO: will have to play with scheme and type detectionobject, redundant...
-    result = await pipeline.process(image)
+    result = await pipeline.process(image, robot_metadata)
 
     objects = [
         {

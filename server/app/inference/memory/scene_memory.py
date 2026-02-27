@@ -1,4 +1,5 @@
 import logging
+import math
 import re
 import threading
 import time
@@ -10,6 +11,7 @@ from app.inference.tracking.embeddings import FeatureExtractor
 from app.inference.types import DetectionObject
 from app.inference.types import SceneGraph
 from app.inference.types import TrackedObject
+from app.schemas.robot import RobotMetadata
 from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
 from app.schemas.scene import TrackedObjectState
@@ -41,7 +43,13 @@ class SceneMemory:
         self.associator = Associator()
         logger.info("SceneMemory initialized")
 
-    def update(self, image: Image.Image, detections: list[DetectionObject]):
+    def update(
+        self,
+        image: Image.Image,
+        detections: list[DetectionObject],
+        robot_metadata: RobotMetadata | None = None,
+        fusion_config=None,
+    ):
         """
         Main pipeline step:
         1. Extract Embeddings
@@ -97,11 +105,17 @@ class SceneMemory:
                 det.object_id = self.next_id
                 self.next_id += 1
 
-            # 5. Update persistent object state
+            # 5. Fuse PeoplePerception into detections
+            fused_detections = self._fuse_people_perception(
+                detections, robot_metadata, image, fusion_config
+            )
+
+            # 6. Update persistent object state
             now = time.time()
-            for det in detections:
+            for det in fused_detections:
                 if det.object_id is None:
                     continue
+                bearing = self._compute_bearing(det, robot_metadata, image)
                 current = self.objects_state.get(det.object_id)
                 if current is None:
                     self.objects_state[det.object_id] = TrackedObjectState(
@@ -110,6 +124,10 @@ class SceneMemory:
                         status="active",
                         source="tracked",
                         attributes=[],
+                        bearing_yaw=bearing[0] if bearing else None,
+                        bearing_pitch=bearing[1] if bearing else None,
+                        frame_id=robot_metadata.frame_id if robot_metadata else None,
+                        scan_id=robot_metadata.scan_id if robot_metadata else None,
                         first_seen=now,
                         last_seen=now,
                         hits=1,
@@ -118,6 +136,11 @@ class SceneMemory:
                 else:
                     current.label = det.label
                     current.bbox = det.bbox
+                    if bearing:
+                        current.bearing_yaw, current.bearing_pitch = bearing
+                    if robot_metadata:
+                        current.frame_id = robot_metadata.frame_id or current.frame_id
+                        current.scan_id = robot_metadata.scan_id or current.scan_id
                     current.last_seen = now
                     current.hits += 1
 
@@ -176,6 +199,99 @@ class SceneMemory:
         self.memory_max_age_seconds = max_age_seconds
         self.memory_max_objects = max_objects
         self.memory_max_relations = max_relations
+
+    def _compute_bearing(
+        self,
+        det: DetectionObject,
+        robot_metadata: RobotMetadata | None,
+        image: Image.Image,
+    ) -> tuple[float, float] | None:
+        if robot_metadata is None:
+            return None
+        if robot_metadata.camera_hfov is None or robot_metadata.camera_vfov is None:
+            return None
+        width = robot_metadata.image_width or image.width
+        height = robot_metadata.image_height or image.height
+        x1, y1, x2, y2 = det.bbox
+        cx = (x1 + x2) / 2.0
+        cy = (y1 + y2) / 2.0
+        yaw_rel = (0.5 - cx / width) * math.radians(robot_metadata.camera_hfov)
+        pitch_rel = (0.5 - cy / height) * math.radians(robot_metadata.camera_vfov)
+        base_yaw = (robot_metadata.body_yaw or 0.0) + robot_metadata.head_yaw
+        base_pitch = robot_metadata.head_pitch
+        return base_yaw + yaw_rel, base_pitch + pitch_rel
+
+    def _fuse_people_perception(
+        self,
+        detections: list[DetectionObject],
+        robot_metadata: RobotMetadata | None,
+        image: Image.Image,
+        fusion_config,
+    ) -> list[DetectionObject]:
+        if robot_metadata is None or not robot_metadata.people:
+            return detections
+
+        persons = [
+            d for d in detections if d.label == "person" and d.object_id is not None
+        ]
+        others = [d for d in detections if d.label != "person" or d.object_id is None]
+
+        width = robot_metadata.image_width or image.width
+        height = robot_metadata.image_height or image.height
+        hfov = robot_metadata.camera_hfov
+        vfov = robot_metadata.camera_vfov
+        if hfov is None or vfov is None:
+            return detections
+
+        match_thresh = getattr(fusion_config, "person_bbox_match_threshold_px", 10.0)
+        base_px = getattr(fusion_config, "estimated_person_bbox_base_px", 80.0)
+        min_px = getattr(fusion_config, "estimated_person_bbox_min_px", 40.0)
+        max_px = getattr(fusion_config, "estimated_person_bbox_max_px", 200.0)
+
+        base_yaw = (robot_metadata.body_yaw or 0.0) + robot_metadata.head_yaw
+        base_pitch = robot_metadata.head_pitch
+
+        def to_pixel(yaw, pitch):
+            x = (0.5 - (yaw - base_yaw) / math.radians(hfov)) * width
+            y = (0.5 - (pitch - base_pitch) / math.radians(vfov)) * height
+            return x, y
+
+        fused = []
+        used_ids = set()
+        for person in robot_metadata.people:
+            px, py = to_pixel(person.yaw, person.pitch)
+            matched = None
+            for det in persons:
+                x1, y1, x2, y2 = det.bbox
+                if (x1 - match_thresh) <= px <= (x2 + match_thresh) and (
+                    y1 - match_thresh
+                ) <= py <= (y2 + match_thresh):
+                    matched = det
+                    break
+            if matched:
+                matched.confidence = max(matched.confidence, 1.0)
+                used_ids.add(matched.object_id)
+                fused.append(matched)
+                continue
+
+            scale = base_px / max(person.distance, 0.3)
+            size = max(min(scale, max_px), min_px)
+            x1 = max(0.0, px - size / 2)
+            y1 = max(0.0, py - size / 2)
+            x2 = min(width, px + size / 2)
+            y2 = min(height, py + size / 2)
+
+            det = DetectionObject(
+                class_id=-1,
+                label="person",
+                confidence=1.0,
+                bbox=[float(x1), float(y1), float(x2), float(y2)],
+                object_id=None,
+            )
+            fused.append(det)
+
+        remaining = [p for p in persons if p.object_id not in used_ids]
+        return fused + remaining + others
 
     @staticmethod
     def _parse_id(value: str) -> int | None:

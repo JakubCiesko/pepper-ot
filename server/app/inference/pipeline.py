@@ -24,6 +24,7 @@ class VisualPipeline:
         sgg: SceneGraphGenerator,
         rules_sgg: RuleBasedSceneGraph,
         sgg_mode: str,
+        fusion_config,
         vis_config: VisConfig,
     ):
         self.detector = detector
@@ -32,6 +33,7 @@ class VisualPipeline:
         self.sgg = sgg
         self.rules_sgg = rules_sgg
         self.sgg_mode = sgg_mode
+        self.fusion_config = fusion_config
         self.vis_config = vis_config
 
     def set_detection_threshold(self, threshold: float):
@@ -52,7 +54,9 @@ class VisualPipeline:
         # 2. MEMORY (Assign Persistent IDs via ReID)
         # This modifies the detection objects in-place or returns new ones
         logger.info("Updating memory...")
-        tracked_detections = self.memory.update(image, raw_detections)
+        tracked_detections = self.memory.update(
+            image, raw_detections, robot_metadata, self.fusion_config
+        )
         logger.info(f"{len(tracked_detections)} Tracked detections after memory update")
         # 3. PAINT (Draw Set-of-Mark tags using the IDs)
         # We need numpy for the painter, but we keep PIL for the VLM if needed

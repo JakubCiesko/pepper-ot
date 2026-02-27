@@ -122,6 +122,7 @@ async def apply_hot_config(ml_state: MLState, new: AppConfig) -> None:
         ml_state.pipeline.detector.threshold = new.detection.confidence_threshold
         ml_state.pipeline.vis_config = new.visualization
         ml_state.pipeline.sgg_mode = new.sgg.mode
+        ml_state.pipeline.fusion_config = new.fusion
 
         # Update memory pruning settings
         if hasattr(ml_state.pipeline, "memory") and ml_state.pipeline.memory:

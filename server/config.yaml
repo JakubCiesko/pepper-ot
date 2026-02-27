@@ -60,6 +60,12 @@ storage:
   last_state_path: "state/last_state.json"
   store_image: true
 
+fusion:
+  person_bbox_match_threshold_px: 10
+  estimated_person_bbox_base_px: 80
+  estimated_person_bbox_min_px: 40
+  estimated_person_bbox_max_px: 200
+
 sgg:
   mode: "hybrid"
   rules:
