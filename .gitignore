@@ -17,3 +17,7 @@ plans/
 detection_models/
 **.pth
 server/state/
+server/mock/
+client_v2/
+gpu-server-main/
+dino/
