@@ -3,13 +3,69 @@ import time
 
 from app.core.state import ml_state
 from app.core.ws_manager import ws_manager
+from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
+from app.schemas.scene import TrackedObjectState
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Query
+from pydantic import BaseModel
+from pydantic import Field
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class MemoryObjectCreateRequest(BaseModel):
+    id: int | None = None
+    label: str
+    bbox: list[float] = Field(..., min_length=4, max_length=4)
+    status: str = "active"
+    source: str = "manual"
+    attributes: list[str] = Field(default_factory=list)
+    bearing_yaw: float | None = None
+    bearing_pitch: float | None = None
+    frame_id: str | None = None
+    scan_id: str | None = None
+    first_seen: float | None = None
+    last_seen: float | None = None
+    hits: int = Field(1, ge=1)
+
+
+class MemoryObjectUpdateRequest(BaseModel):
+    label: str | None = None
+    bbox: list[float] | None = None
+    status: str | None = None
+    source: str | None = None
+    attributes: list[str] | None = None
+    bearing_yaw: float | None = None
+    bearing_pitch: float | None = None
+    frame_id: str | None = None
+    scan_id: str | None = None
+    first_seen: float | None = None
+    last_seen: float | None = None
+    hits: int | None = Field(None, ge=1)
+
+
+class MemoryRelationCreateRequest(BaseModel):
+    subject_id: int
+    predicate: str
+    object_id: int
+    first_seen: float | None = None
+    last_seen: float | None = None
+    count: int = Field(1, ge=1)
+
+
+class MemoryRelationUpdateRequest(BaseModel):
+    subject_id: int
+    predicate: str
+    object_id: int
+    new_subject_id: int | None = None
+    new_predicate: str | None = None
+    new_object_id: int | None = None
+    first_seen: float | None = None
+    last_seen: float | None = None
+    count: int | None = Field(None, ge=1)
 
 
 def _get_memory():
@@ -191,6 +247,158 @@ async def reset_memory(
     # memory.next_id = 1
     memory.reset()
     logger.info("Memory reset successfully")
+    current = memory.scene_state()
+    await broadcast_memory(current)
+    return {"ok": True}
+
+
+@router.post("/memory/object")
+async def create_memory_object(payload: MemoryObjectCreateRequest):
+    memory = _get_memory()
+    now = time.time()
+    object_id = payload.id if payload.id is not None else memory.next_id
+    first_seen = payload.first_seen if payload.first_seen is not None else now
+    last_seen = payload.last_seen if payload.last_seen is not None else now
+    if last_seen < first_seen:
+        raise HTTPException(status_code=400, detail="last_seen cannot be < first_seen")
+    obj = TrackedObjectState(
+        id=object_id,
+        label=payload.label,
+        status=payload.status,
+        source=payload.source,
+        attributes=payload.attributes,
+        bearing_yaw=payload.bearing_yaw,
+        bearing_pitch=payload.bearing_pitch,
+        frame_id=payload.frame_id,
+        scan_id=payload.scan_id,
+        first_seen=first_seen,
+        last_seen=last_seen,
+        hits=payload.hits,
+        bbox=payload.bbox,
+    )
+    try:
+        memory.create_object(obj)
+        current = memory.scene_state()
+        await broadcast_memory(current)
+        return {"ok": True, "object": obj.model_dump()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.patch("/memory/object/{object_id}")
+async def update_memory_object(object_id: int, payload: MemoryObjectUpdateRequest):
+    memory = _get_memory()
+    updates = payload.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    if "bbox" in updates and len(updates["bbox"]) != 4:
+        raise HTTPException(
+            status_code=400, detail="bbox must contain exactly 4 values"
+        )
+    if (
+        "first_seen" in updates
+        and "last_seen" in updates
+        and updates["last_seen"] < updates["first_seen"]
+    ):
+        raise HTTPException(status_code=400, detail="last_seen cannot be < first_seen")
+    try:
+        updated = memory.patch_object(object_id, updates)
+        current = memory.scene_state()
+        await broadcast_memory(current)
+        return {"ok": True, "object": updated.model_dump()}
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.delete("/memory/object/{object_id}")
+async def delete_memory_object(
+    object_id: int,
+    cascade_relations: bool = Query(
+        True, description="Delete related relationships together with the object"
+    ),
+):
+    memory = _get_memory()
+    deleted = memory.delete_object(object_id, cascade_relations=cascade_relations)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Object id={object_id} not found")
+    current = memory.scene_state()
+    await broadcast_memory(current)
+    return {"ok": True}
+
+
+@router.post("/memory/relation")
+async def create_memory_relation(payload: MemoryRelationCreateRequest):
+    memory = _get_memory()
+    now = time.time()
+    first_seen = payload.first_seen if payload.first_seen is not None else now
+    last_seen = payload.last_seen if payload.last_seen is not None else now
+    if last_seen < first_seen:
+        raise HTTPException(status_code=400, detail="last_seen cannot be < first_seen")
+    rel = Relationship(
+        subject_id=payload.subject_id,
+        predicate=payload.predicate,
+        object_id=payload.object_id,
+        first_seen=first_seen,
+        last_seen=last_seen,
+        count=payload.count,
+    )
+    try:
+        memory.create_relation(rel)
+        current = memory.scene_state()
+        await broadcast_memory(current)
+        return {"ok": True, "relationship": rel.model_dump()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.patch("/memory/relation")
+async def update_memory_relation(payload: MemoryRelationUpdateRequest):
+    memory = _get_memory()
+    updates = {
+        "subject_id": payload.new_subject_id,
+        "predicate": payload.new_predicate,
+        "object_id": payload.new_object_id,
+        "first_seen": payload.first_seen,
+        "last_seen": payload.last_seen,
+        "count": payload.count,
+    }
+    updates = {k: v for k, v in updates.items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    if (
+        "first_seen" in updates
+        and "last_seen" in updates
+        and updates["last_seen"] < updates["first_seen"]
+    ):
+        raise HTTPException(status_code=400, detail="last_seen cannot be < first_seen")
+    try:
+        updated = memory.patch_relation(
+            payload.subject_id, payload.predicate, payload.object_id, updates
+        )
+        current = memory.scene_state()
+        await broadcast_memory(current)
+        return {"ok": True, "relationship": updated.model_dump()}
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.delete("/memory/relation")
+async def delete_memory_relation(
+    subject_id: int = Query(...),
+    predicate: str = Query(...),
+    object_id: int = Query(...),
+):
+    memory = _get_memory()
+    deleted = memory.delete_relation(subject_id, predicate, object_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Relationship ({subject_id}, {predicate}, {object_id}) not found",
+        )
     current = memory.scene_state()
     await broadcast_memory(current)
     return {"ok": True}

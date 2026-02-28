@@ -21,28 +21,46 @@ class FeatureExtractor:
 
     def __init__(
         self,
-        resampling_method: Image.Resampling = Image.Resampling.BICUBIC,
-        device: str = None,
+        reid_model: str | None = None,
+        target_size: tuple[int] | None = None,
+        resampling_method: Image.Resampling | str = Image.Resampling.BICUBIC,
+        device: str | None = None,
     ):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         dtype = torch.float16 if self.device == "cuda" else torch.float32
-
-        logger.info(f"Loading model ({self.REPO}) on {self.device}...")
+        reid_model = reid_model or self.REPO
+        target_size = target_size or self.TARGET_SIZE
+        self.target_size = target_size
+        logger.info(f"Loading model ({reid_model}) on {self.device}...")
+        if isinstance(resampling_method, str):
+            try:
+                resampling_method = getattr(Image.Resampling, resampling_method)
+            except Exception as e:
+                logger.exception(
+                    f"Resampling method {resampling_method} not supported: {e}"
+                )
+                logger.info("Fallback to BICUBIC resampling.")
+                resampling_method = Image.Resampling.BICUBIC
         self.resampling_method = resampling_method
         self.model = (
-            AutoModel.from_pretrained(self.REPO, trust_remote_code=True, dtype=dtype)
+            AutoModel.from_pretrained(reid_model, trust_remote_code=True, dtype=dtype)
             .to(self.device)
             .eval()
         )
 
         self.processor = CLIPImageProcessor.from_pretrained(
-            self.REPO, trust_remote_code=True
+            reid_model, trust_remote_code=True
         )
         logger.info("Image FeatureExtractor Model loaded.")
 
+    def set_device(self, device: str):
+        logger.info(f"Setting extractor device to {device}")
+        self.device = device
+        self.model = self.model.to(self.device)
+
     def prepare_crops(self, image: Image.Image, detections: list[DetectionObject]):
         crops = []
-        logger.info(f"Preparing crops of detected images with size: {self.TARGET_SIZE}")
+        logger.info(f"Preparing crops of detected images with size: {self.target_size}")
         for det in detections:
             # bbox is [x1, y1, x2, y2]
             # Convert float bbox to int
@@ -57,14 +75,14 @@ class FeatureExtractor:
             # Handle degenerate boxes (width or height 0)
             if x2 <= x1 or y2 <= y1:
                 # Create a black dummy crop if detection is invalid
-                crop = Image.new("RGB", self.TARGET_SIZE)
+                crop = Image.new("RGB", self.target_size)
             else:
                 crop = image.crop((x1, y1, x2, y2))
-                crop = crop.resize(self.TARGET_SIZE, self.resampling_method)
+                crop = crop.resize(self.target_size, self.resampling_method)
 
             crops.append(crop)
         logger.info(
-            f"Prepared {len(crops)} crops of detected objects in image with size: {self.TARGET_SIZE}, resampling method: {self.resampling_method}"
+            f"Prepared {len(crops)} crops of detected objects in image with size: {self.target_size}, resampling method: {self.resampling_method}"
         )
         return crops
 

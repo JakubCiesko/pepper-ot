@@ -12,8 +12,27 @@ class DetectionConfig(BaseModel):
     backend: Literal["yolo", "rt_detr", "rf_detr", "owl_v2"]
     weights_path: str | None = None
     confidence_threshold: float = 0.5
-    device: str = "cuda"
+    device: None | str = None
     ontology: list[str] | None = None
+    ontology_path: Path | None = None
+
+    def resolve_ontology(self, base_dir: Path) -> list[str] | None:
+        if self.ontology is not None:
+            return self.ontology
+        if self.ontology_path is None:
+            return None
+        raw = yaml.safe_load(
+            (base_dir / self.ontology_path).read_text(encoding="utf-8")
+        )
+        if raw is None:
+            return None
+        if isinstance(raw, list):
+            return [str(item).strip() for item in raw if str(item).strip()]
+        if isinstance(raw, dict):
+            values = raw.get("objects")
+            if isinstance(values, list):
+                return [str(item).strip() for item in values if str(item).strip()]
+        return None
 
 
 class LLMConfig(BaseModel):
@@ -29,10 +48,17 @@ class AssociationConfig(BaseModel):
     match_threshold: float = 0.4
 
 
+class FeatureExtractionConfig(BaseModel):
+    reid_model: str | None = None
+    device: str | None = None
+    target_size: tuple[int, int] | None = None
+    resampling_method: str | None = None
+
+
 class TrackingConfig(BaseModel):
-    reid_model: str
+    feature_extraction: FeatureExtractionConfig = FeatureExtractionConfig()
     max_dormant_frames: int = 30
-    association: AssociationConfig
+    association: AssociationConfig = AssociationConfig()
     memory_max_age_seconds: int = 60
     memory_max_objects: int = 200
     memory_max_relations: int = 500
@@ -57,9 +83,10 @@ class PromptSource(BaseModel):
         return (self.text or "").strip()
 
 
+# TODO: use this in object detection
 class OntologySource(BaseModel):
     predicates: list[str] | None = None
-    objects: dict[str, str] | None = None
+    objects: list[str] | None = None
     path: Path | None = None
 
     def resolve(self, base_dir: Path) -> tuple[list[str] | None, dict[str, str] | None]:

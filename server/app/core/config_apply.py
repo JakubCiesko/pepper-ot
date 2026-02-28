@@ -28,6 +28,7 @@ _RULES: list[tuple[str, Callable, str]] = [
     ("detection.device", attrgetter("detection.device"), "hot"),
     # objects
     ("detection.ontology", attrgetter("detection.ontology"), "hot"),
+    ("detection.ontology_path", attrgetter("detection.ontology_path"), "hot"),
     # Scene Graph (VLM)
     ("scene_graph.vlm.backend", attrgetter("scene_graph.vlm.backend"), "hard"),
     ("scene_graph.vlm.model_id", attrgetter("scene_graph.vlm.model_id"), "hard"),
@@ -47,6 +48,7 @@ _RULES: list[tuple[str, Callable, str]] = [
     # Chat
     ("chat.backend", attrgetter("chat.backend"), "hard"),
     ("chat.model_id", attrgetter("chat.model_id"), "hard"),
+    ("chat.device", attrgetter("chat.device"), "hot"),
     ("chat.system_prompt", attrgetter("chat.system_prompt"), "hot"),
     ("chat.context_template", attrgetter("chat.context_template"), "hot"),
     # Tracking
@@ -80,9 +82,14 @@ def diff_config(old, new) -> ConfigDiff:
 
 
 def _update_pipeline(ml_state: MLState, new: AppConfig):
+    base_dir = new._config_path.parent if new._config_path is not None else None
     ml_state.pipeline.detector.threshold = new.detection.confidence_threshold
     ml_state.pipeline.detector.device = new.detection.device
-    ml_state.pipeline.detector.ontology = new.detection.ontology
+    ml_state.pipeline.detector.ontology = (
+        new.detection.resolve_ontology(base_dir)
+        if base_dir is not None
+        else new.detection.ontology
+    )
     ml_state.pipeline.vis_config = new.visualization
     ml_state.pipeline.fusion_config = new.fusion
 
@@ -97,7 +104,6 @@ def _update_pipeline(ml_state: MLState, new: AppConfig):
     # Update scene graph mode and runtime VLM/rules settings
     ml_state.pipeline.scene_graph_service.mode = new.scene_graph.mode
 
-    base_dir = new._config_path.parent if new._config_path is not None else None
     if ml_state.pipeline.scene_graph_service:
         sg_service = ml_state.pipeline.scene_graph_service
         vlm_backend = sg_service.vlm_backend

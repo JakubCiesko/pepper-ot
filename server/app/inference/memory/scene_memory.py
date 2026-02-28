@@ -8,8 +8,12 @@ from app.inference.tracking.associator import Associator
 from app.inference.tracking.embeddings import FeatureExtractor
 from app.inference.types import DetectionObject
 from app.inference.types import SceneGraph
+from app.schemas.config import AssociationConfig
+from app.schemas.config import FeatureExtractionConfig
 from app.schemas.robot import RobotMetadata
+from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
+from app.schemas.scene import TrackedObjectState
 
 logger = logging.getLogger(__file__)
 
@@ -22,6 +26,8 @@ class SceneMemory:
         memory_max_age_seconds: int = 60,
         memory_max_objects: int = 200,
         memory_max_relations: int = 500,
+        association_config: AssociationConfig | None = None,
+        feature_extraction_config: FeatureExtractionConfig | None = None,
     ):
         logger.info("Initializing SceneMemory")
         self.store = SceneMemoryStore(
@@ -32,9 +38,28 @@ class SceneMemory:
         self._lock = threading.Lock()
 
         # Dependencies
-        self.extractor = FeatureExtractor()
-        self.associator = Associator()
+        extraction_cfg = feature_extraction_config or FeatureExtractionConfig()
+        self.extractor = FeatureExtractor(
+            extraction_cfg.reid_model,
+            extraction_cfg.target_size,
+            extraction_cfg.resampling_method,
+            extraction_cfg.device,
+        )
+        association_cfg = association_config or AssociationConfig()
+        self.associator = Associator(
+            w_vis=association_cfg.visual_weight,
+            w_geo=association_cfg.geometry_weight,
+            match_threshold=association_cfg.match_threshold,
+        )
         logger.info("SceneMemory initialized")
+
+    @property
+    def extractor_device(self):
+        return self.extractor.device
+
+    @extractor_device.setter
+    def extractor_device(self, device: str):
+        self.extractor.set_device(device)
 
     @property
     def tracks(self):
@@ -175,6 +200,34 @@ class SceneMemory:
         """Merge external SceneState into memory (for manual injections)."""
         with self._lock:
             self.store.upsert_scene_state(state)
+
+    def create_object(self, obj: TrackedObjectState):
+        with self._lock:
+            self.store.insert_object(obj)
+
+    def patch_object(self, object_id: int, updates: dict) -> TrackedObjectState:
+        with self._lock:
+            return self.store.patch_object(object_id, updates)
+
+    def delete_object(self, object_id: int, cascade_relations: bool = True) -> bool:
+        with self._lock:
+            return self.store.delete_object(
+                object_id, cascade_relations=cascade_relations
+            )
+
+    def create_relation(self, rel: Relationship):
+        with self._lock:
+            self.store.insert_relation(rel)
+
+    def patch_relation(
+        self, subject_id: int, predicate: str, object_id: int, updates: dict
+    ) -> Relationship:
+        with self._lock:
+            return self.store.patch_relation(subject_id, predicate, object_id, updates)
+
+    def delete_relation(self, subject_id: int, predicate: str, object_id: int) -> bool:
+        with self._lock:
+            return self.store.delete_relation(subject_id, predicate, object_id)
 
     def snapshot(self) -> list[dict]:
         """Return a lightweight view of the current tracked objects."""

@@ -32,6 +32,9 @@ def resolve_config(cfg: AppConfig) -> dict[str, Any]:
     base_dir = cfg._config_path.parent if cfg._config_path else Path.cwd()
 
     resolved = dump_config(cfg)
+    resolved_detection = resolved.get("detection", {})
+    resolved_detection["resolved_ontology"] = cfg.detection.resolve_ontology(base_dir)
+    resolved["detection"] = resolved_detection
 
     resolved_scene_graph = resolved.get("scene_graph", {})
     resolved_vlm = resolved_scene_graph.get("vlm", {})
@@ -127,3 +130,4 @@ def _validate_paths(cfg: AppConfig):
     check(cfg.chat.system_prompt.path, prompt_roots, "chat.system_prompt")
     if cfg.chat.context_template is not None:
         check(cfg.chat.context_template.path, prompt_roots, "chat.context_template")
+    check(cfg.detection.ontology_path, ontology_roots, "detection.ontology_path")

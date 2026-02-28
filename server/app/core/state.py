@@ -74,13 +74,15 @@ class MLState:
             model_path=model_path,
             device=self.config.detection.device,
             threshold=self.config.detection.confidence_threshold,
-            ontology=self.config.detection.ontology,
+            ontology=self.config.detection.resolve_ontology(base_dir),
         )
 
         memory = SceneMemory(
             memory_max_age_seconds=self.config.tracking.memory_max_age_seconds,
             memory_max_objects=self.config.tracking.memory_max_objects,
             memory_max_relations=self.config.tracking.memory_max_relations,
+            association_config=self.config.tracking.association,
+            feature_extraction_config=self.config.tracking.feature_extraction,
         )
         painter = SoMPainter(
             line_thickness=self.config.visualization.line_thickness,

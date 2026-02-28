@@ -31,7 +31,7 @@ class Associator:
         Creates a Cost Matrix where rows=tracks, cols=detections.
         Cost is low if they are the same object.
         """
-        logger.info(
+        logger.debug(
             f"Computing cost matrix for Hungarian Algorithm with geometry weight = {self.w_geo}, visual weight = {self.w_vis}"
         )
         cost_matrix = np.zeros((len(tracks), len(detections)))
@@ -64,7 +64,7 @@ class Associator:
                 cost_matrix[t_idx, d_idx] = (self.w_vis * vis_cost) + (
                     self.w_geo * geo_cost
                 )
-        logger.info("Hungarian Algorithm Cost Matrix computed.")
+        logger.debug("Hungarian Algorithm Cost Matrix computed.")
         return cost_matrix
 
     def match(

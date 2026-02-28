@@ -52,6 +52,116 @@ class SceneMemoryStore:
         self.relations_state.clear()
         self.next_id = 1
 
+    def insert_object(self, obj: TrackedObjectState):
+        if obj.id in self.objects_state:
+            raise ValueError(f"Object with id={obj.id} already exists")
+        self.objects_state[obj.id] = obj.model_copy(deep=True)
+        self.next_id = max(self.next_id, obj.id + 1)
+
+    def patch_object(self, object_id: int, updates: dict) -> TrackedObjectState:
+        current = self.objects_state.get(object_id)
+        if current is None:
+            raise KeyError(f"Object with id={object_id} does not exist")
+        for field in (
+            "label",
+            "status",
+            "source",
+            "attributes",
+            "bearing_yaw",
+            "bearing_pitch",
+            "frame_id",
+            "scan_id",
+            "first_seen",
+            "last_seen",
+            "hits",
+            "bbox",
+        ):
+            if field in updates:
+                setattr(current, field, updates[field])
+
+        # Keep track representation in sync for shared fields.
+        track = self.tracks.get(object_id)
+        if track is not None:
+            if "label" in updates:
+                track.label = current.label
+            if "bbox" in updates:
+                track.bbox = current.bbox
+            if "last_seen" in updates:
+                track.last_seen = current.last_seen
+            if "first_seen" in updates:
+                track.first_seen = current.first_seen
+            if "hits" in updates:
+                track.hits = current.hits
+        return current
+
+    def delete_object(self, object_id: int, cascade_relations: bool = True) -> bool:
+        removed = self.objects_state.pop(object_id, None)
+        if removed is None:
+            return False
+        self.tracks.pop(object_id, None)
+        if cascade_relations:
+            keys_to_remove = [
+                key
+                for key in self.relations_state
+                if key[0] == object_id or key[2] == object_id
+            ]
+            for key in keys_to_remove:
+                self.relations_state.pop(key, None)
+        return True
+
+    def insert_relation(self, rel: Relationship):
+        if rel.subject_id not in self.objects_state:
+            raise ValueError(f"Subject object id={rel.subject_id} does not exist")
+        if rel.object_id not in self.objects_state:
+            raise ValueError(f"Object object id={rel.object_id} does not exist")
+        key = (rel.subject_id, rel.predicate, rel.object_id)
+        if key in self.relations_state:
+            raise ValueError("Relationship already exists")
+        self.relations_state[key] = rel.model_copy(deep=True)
+
+    def patch_relation(
+        self,
+        subject_id: int,
+        predicate: str,
+        object_id: int,
+        updates: dict,
+    ) -> Relationship:
+        old_key = (subject_id, predicate, object_id)
+        current = self.relations_state.get(old_key)
+        if current is None:
+            raise KeyError(
+                f"Relationship ({subject_id}, {predicate}, {object_id}) does not exist"
+            )
+        new_subject_id = updates.get("subject_id", current.subject_id)
+        new_predicate = updates.get("predicate", current.predicate)
+        new_object_id = updates.get("object_id", current.object_id)
+
+        if new_subject_id not in self.objects_state:
+            raise ValueError(f"Subject object id={new_subject_id} does not exist")
+        if new_object_id not in self.objects_state:
+            raise ValueError(f"Object object id={new_object_id} does not exist")
+
+        new_key = (new_subject_id, new_predicate, new_object_id)
+        if new_key != old_key and new_key in self.relations_state:
+            raise ValueError(
+                f"Relationship ({new_subject_id}, {new_predicate}, {new_object_id}) already exists"
+            )
+
+        self.relations_state.pop(old_key, None)
+        current.subject_id = new_subject_id
+        current.predicate = new_predicate
+        current.object_id = new_object_id
+
+        for field in ("first_seen", "last_seen", "count"):
+            if field in updates:
+                setattr(current, field, updates[field])
+        self.relations_state[new_key] = current
+        return current
+
+    def delete_relation(self, subject_id: int, predicate: str, object_id: int) -> bool:
+        key = (subject_id, predicate, object_id)
+        return self.relations_state.pop(key, None) is not None
+
     def create_track(self, det: DetectionObject, embedding) -> int:
         object_id = self.next_id
         self.tracks[object_id] = TrackedObject(

@@ -1,6 +1,7 @@
 const slider = document.getElementById("threshold-slider");
 const input = document.getElementById("threshold-input");
 const backendSelect = document.getElementById("backend-select");
+const detectionDevice = document.getElementById("detection-device");
 const languageSelect = document.getElementById("language-select");
 
 const visBbox = document.getElementById("vis-bbox");
@@ -18,10 +19,12 @@ const vlmSystem = document.getElementById("vlm-system");
 const vlmUser = document.getElementById("vlm-user");
 const vlmPredicates = document.getElementById("vlm-predicates");
 const vlmObjects = document.getElementById("vlm-objects");
+const vlmDevice = document.getElementById("vlm-device");
 const sggMode = document.getElementById("sgg-mode");
 const sggRulesJson = document.getElementById("sgg-rules-json");
 
 const chatSystem = document.getElementById("chat-system");
+const chatDevice = document.getElementById("chat-device");
 const chatContext = document.getElementById("chat-context");
 
 const applyBtn = document.getElementById("apply-config");
@@ -82,6 +85,7 @@ async function loadConfig() {
 
     setThreshold(active.detection.confidence_threshold ?? 0.5);
     backendSelect.value = active.detection.backend || "rt_detr";
+    detectionDevice.value = active.detection.device || "cuda";
     languageSelect.value = active.system.language || "en";
 
     visBbox.checked = !!active.visualization.show_bbox;
@@ -101,10 +105,12 @@ async function loadConfig() {
     vlmSystem.value = resolvedVlm.resolved_system_prompt || "";
     vlmUser.value = resolvedVlm.resolved_user_prompt || "";
     vlmPredicates.value = (resolvedVlm.resolved_ontology?.predicates || []).join("\n");
-    vlmObjects.value = (active.detection?.ontology || []).join("\n");
+    vlmObjects.value = (active.detection?.ontology || resolved.detection?.resolved_ontology || []).join("\n");
+    vlmDevice.value = active.scene_graph?.vlm?.device || "";
 
     const resolvedChat = resolved.chat || {};
     chatSystem.value = resolvedChat.resolved_system_prompt || "";
+    chatDevice.value = active.chat?.device || "";
     chatContext.value = resolvedChat.resolved_context_template || "";
 
     sggMode.value = active.scene_graph?.mode || "hybrid";
@@ -125,6 +131,7 @@ function buildPatch() {
         detection: {
             backend: backendSelect.value,
             confidence_threshold: parseFloat(input.value),
+            device: detectionDevice.value.trim() || "cuda",
             ontology: parseOntologyList(vlmObjects.value)
         },
         visualization: {
@@ -144,6 +151,7 @@ function buildPatch() {
         scene_graph: {
             mode: sggMode.value,
             vlm: {
+                device: vlmDevice.value.trim() || null,
                 system_prompt: { text: vlmSystem.value },
                 user_prompt: { text: vlmUser.value },
                 ontology: {
@@ -156,6 +164,7 @@ function buildPatch() {
             }
         },
         chat: {
+            device: chatDevice.value.trim() || null,
             system_prompt: { text: chatSystem.value },
             context_template: { text: chatContext.value }
         }

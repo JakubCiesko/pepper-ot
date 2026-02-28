@@ -5,11 +5,11 @@ detection:
   backend: "yolo"
   weights_path: null
   confidence_threshold: 0.30
-  device: "cuda"
+  device: "cpu"
   ontology: null
+  ontology_path: "ontology/object_detection.yaml"
 
 tracking:
-  reid_model: "nvidia/C-RADIOv4-SO400M"
   max_dormant_frames: 30
   memory_max_age_seconds: 60
   memory_max_objects: 200
@@ -18,9 +18,14 @@ tracking:
     visual_weight: 0.8
     geometry_weight: 0.2
     match_threshold: 0.4
+  feature_extraction:
+    device: "cpu"
+    reid_model: "nvidia/C-RADIOv4-SO400M"
+    target_size: [384, 384]
+    resampling_method: "BICUBIC"
 
 scene_graph:
-  mode: "rules"
+  mode: "vlm"
   vlm:
     backend: "openai"
     model_id: "gpt-4o"
@@ -34,7 +39,7 @@ scene_graph:
     user_prompt:
       path: "prompts/vlm_user.txt"
     ontology:
-      path: "ontology/ontology.yaml"
+      path: "ontology/scene_generation_ontology.yaml"
   rules:
     enabled: true
     rule_list:
@@ -158,7 +163,7 @@ scene_graph:
 chat:
   backend: "openai"
   model_id: "gpt-4o"
-#  device: "cuda"
+  device: "cuda"
   inference:
     temperature: 0.7
     max_tokens: 256
