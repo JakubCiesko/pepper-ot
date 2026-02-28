@@ -9,183 +9,338 @@
     <script src="/static/js/dashboard_ws.js" defer></script>
     <script src="/static/js/dashboard_config.js" defer></script>
     <script src="/static/js/dashboard_utils.js" defer></script>
+    <style>
+        :root {
+            --app-bg: #f4f7fb;
+            --panel-bg: #ffffff;
+            --panel-bg-2: #f7f9fc;
+            --panel-border: #e6edf5;
+            --panel-muted: #8a97a8;
+            --panel-text: #1f2a37;
+            --panel-accent: #17c3b2;
+            --panel-accent-2: #4c6fff;
+            --panel-accent-3: #f6b042;
+        }
+        body.theme-dark {
+            --app-bg: #0b1220;
+            --panel-bg: #0f172a;
+            --panel-bg-2: #111827;
+            --panel-border: #1f2937;
+            --panel-muted: #94a3b8;
+            --panel-text: #e2e8f0;
+            --panel-accent: #22c55e;
+            --panel-accent-2: #38bdf8;
+            --panel-accent-3: #f59e0b;
+        }
+        body { background: var(--app-bg); color: var(--panel-text); }
+        .panel { background: var(--panel-bg); border-color: var(--panel-border); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06); }
+        .panel-alt { background: var(--panel-bg-2); border-color: var(--panel-border); }
+        .panel-muted { color: var(--panel-muted); }
+        .panel-border { border-color: var(--panel-border); }
+        .btn-primary { background: var(--panel-accent); color: #0b1220; }
+        .btn-warn { background: var(--panel-accent-3); color: #0b1220; }
+        .nav-item { border-left: 3px solid transparent; }
+        .nav-item.active { background: color-mix(in srgb, var(--panel-accent-2) 12%, var(--panel-bg)); border-left-color: var(--panel-accent-2); color: var(--panel-text); font-weight: 600; }
+        .tab-btn.active { background: var(--panel-accent-2); border-color: var(--panel-accent-2); color: #ffffff; }
+        input, select, textarea { background: var(--panel-bg-2); border-color: var(--panel-border); color: var(--panel-text); }
+        body:not(.theme-dark) .bg-slate-950 { background: var(--panel-bg-2) !important; }
+        body:not(.theme-dark) .border-slate-800 { border-color: var(--panel-border) !important; }
+        body:not(.theme-dark) .text-slate-500 { color: var(--panel-muted) !important; }
+        body:not(.theme-dark) .text-slate-400 { color: var(--panel-muted) !important; }
+        body:not(.theme-dark) .text-slate-300 { color: var(--panel-text) !important; }
+        .sidebar-collapsed #sidebar { width: 72px; overflow: hidden; }
+        .sidebar-collapsed .sidebar-label { display: none; }
+        .sidebar-collapsed .sidebar-header-text { display: none; }
+        .sidebar-collapsed .sidebar-header { justify-content: center; }
+        .sidebar-collapsed .nav-item { justify-content: center; border-left-color: transparent !important; }
+        .sidebar-tooltip { display: none; white-space: nowrap; z-index: 50; pointer-events: none; }
+        .sidebar-collapsed .nav-item:hover .sidebar-tooltip { display: block; }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
-    <div class="max-w-6xl mx-auto px-6 py-8">
-        <header class="flex flex-col gap-4">
-            <div>
-                <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Pepper</p>
-                <h1 class="text-3xl font-semibold">Ops Console</h1>
-                <p class="text-slate-400 mt-1">Live perception, config, and system controls.</p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <button id="apply-config" class="px-4 py-2 rounded bg-emerald-500 text-slate-900 font-semibold hover:bg-emerald-400">Apply (Hot)</button>
-                <button id="reload-all" class="px-4 py-2 rounded bg-amber-500 text-slate-900 font-semibold hover:bg-amber-400">Reload All (Hard)</button>
-                <button id="save-config" class="px-4 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">Make Permanent</button>
-                <button id="reload-config" class="px-4 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">Revert to Saved</button>
-                <button id="download-config" class="px-4 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">Download Active</button>
-                <button id="download-config-saved" class="px-4 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">Download Saved</button>
-                <label class="px-4 py-2 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 cursor-pointer">
-                    Upload YAML
-                    <input type="file" id="upload-config" class="hidden" accept=".yaml,.yml"/>
-                </label>
-            </div>
-        </header>
-
-        <div id="status-message" class="mt-4 text-sm text-emerald-400 hidden"></div>
-        <div id="reload-warning" class="mt-2 text-sm text-amber-400 hidden"></div>
-        <div id="upload-progress" class="mt-3 hidden">
-            <div class="flex items-center gap-3 text-xs text-slate-400">
-                <span>Uploading config…</span>
-                <span id="upload-progress-text">0%</span>
-            </div>
-            <div class="w-full h-2 bg-slate-800 rounded mt-1 overflow-hidden">
-                <div id="upload-progress-bar" class="h-2 bg-emerald-500 transition-all" style="width: 0%"></div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
-                <h2 class="text-lg font-semibold mb-3">Live Feed</h2>
-                <img id="annotated-image" class="w-full h-auto rounded-lg border border-slate-800" src="/static/pepper_icon.png" alt="Annotated Detection Image">
-            </div>
-
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                <h2 class="text-lg font-semibold mb-3">Detected Objects</h2>
-                <div id="detections-content" class="text-slate-300">
-                    <p class="text-slate-500">No detections yet...</p>
-                </div>
-            </div>
-
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                <h2 class="text-lg font-semibold mb-3">Pepper Says</h2>
-                <div id="sentences-content" class="text-slate-300">
-                    <p class="text-slate-500">No messages yet...</p>
-                </div>
-            </div>
-
-            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
-                <h2 class="text-lg font-semibold mb-3">Scene Memory</h2>
-                <div id="memory-content" class="text-slate-300">
-                    <p class="text-slate-500">No tracked objects yet...</p>
-                </div>
-                <details class="mt-4">
-                    <summary class="cursor-pointer text-slate-400 text-sm">Raw Memory JSON</summary>
-                    <pre id="memory-raw" class="text-xs text-slate-400 mt-2 overflow-auto"></pre>
-                </details>
-            </div>
-
-            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
-                <h2 class="text-lg font-semibold mb-3">Scene Graph</h2>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div>
-                        <div class="flex items-center gap-2 mb-2">
-                            <button id="sg-zoom-in" class="px-2 py-1 text-xs rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">Zoom In</button>
-                            <button id="sg-zoom-out" class="px-2 py-1 text-xs rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">Zoom Out</button>
-                            <button id="sg-fit" class="px-2 py-1 text-xs rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">Center</button>
-                        </div>
-                        <div id="scene-graph-canvas" class="h-[320px] rounded border border-slate-800 bg-slate-950"></div>
+<body class="min-h-screen theme-light">
+    <div class="flex h-screen">
+        <aside id="sidebar" class="hidden lg:flex flex-col w-64 h-full panel border-r p-5 transition-all duration-300">
+            <div class="mb-6">
+                <div class="sidebar-header flex items-center justify-between gap-2">
+                    <div class="sidebar-header-text">
+                        <p class="text-xs uppercase tracking-[0.2em] panel-muted sidebar-label">Pepper</p>
+                        <h1 class="text-lg font-semibold sidebar-label">Ops Console</h1>
                     </div>
+                    <button id="sidebar-toggle" class="p-2 rounded-lg panel-alt border panel-border hover:opacity-80" aria-label="Collapse sidebar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M8 6h8M8 12h8M8 18h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+                <p class="panel-muted text-xs mt-3 sidebar-label">Live perception + settings</p>
+            </div>
+
+            <nav class="flex-1 space-y-2 text-sm overflow-y-auto">
+                <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-live">
+                    <span class="w-2 h-2 rounded-full" style="background: var(--panel-accent);"></span>
+                    <span class="sidebar-label">Live</span>
+                    <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Live</span>
+                </button>
+                <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-detection">
+                    <span class="w-2 h-2 rounded-full" style="background: var(--panel-accent-2);"></span>
+                    <span class="sidebar-label">Detection</span>
+                    <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Detection</span>
+                </button>
+                <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-scene">
+                    <span class="w-2 h-2 rounded-full" style="background: var(--panel-accent-3);"></span>
+                    <span class="sidebar-label">Scene Representation</span>
+                    <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Scene Representation</span>
+                </button>
+                <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-storage">
+                    <span class="w-2 h-2 rounded-full" style="background: #94a3b8;"></span>
+                    <span class="sidebar-label">Storage</span>
+                    <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Storage</span>
+                </button>
+                <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-chat">
+                    <span class="w-2 h-2 rounded-full" style="background: #64748b;"></span>
+                    <span class="sidebar-label">Chat</span>
+                    <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Chat</span>
+                </button>
+            </nav>
+
+            <div class="pt-4 border-t panel-border mt-4 flex items-center justify-between">
+                <div class="text-xs panel-muted sidebar-label">User: Pepper</div>
+                <button id="theme-toggle" class="p-2 rounded-lg panel-alt border panel-border hover:opacity-80" aria-label="Toggle theme">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 3v2M12 19v2M4.22 4.22l1.41 1.41M18.36 18.36l1.41 1.41M3 12h2M19 12h2M4.22 19.78l1.41-1.41M18.36 5.64l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 p-6 overflow-y-auto">
+            <header class="flex flex-col gap-4">
+                <div class="flex items-center justify-between gap-4">
                     <div>
-                        <div id="scene-graph-content" class="text-slate-300">
-                            <p class="text-slate-500">No relations yet...</p>
-                        </div>
-                        <details class="mt-4">
-                            <summary class="cursor-pointer text-slate-400 text-sm">Raw SceneGraph JSON</summary>
-                            <pre id="scene-graph-raw" class="text-xs text-slate-400 mt-2 overflow-auto"></pre>
-                        </details>
+                        <p class="text-xs uppercase tracking-[0.2em] panel-muted">Pepper</p>
+                        <h1 class="text-2xl font-semibold">Ops Console</h1>
+                        <p class="panel-muted mt-1">Live perception, memory, and controls.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="theme-toggle-mobile" class="p-2 rounded-lg panel-alt border panel-border lg:hidden" aria-label="Toggle theme">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 3v2M12 19v2M4.22 4.22l1.41 1.41M18.36 18.36l1.41 1.41M3 12h2M19 12h2M4.22 19.78l1.41-1.41M18.36 5.64l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </button>
+                        <div class="px-3 py-2 text-xs rounded panel-alt border panel-border">Status: Online</div>
                     </div>
                 </div>
-            </div>
+                <div class="flex flex-wrap gap-2">
+                    <button id="apply-config" class="px-4 py-2 rounded btn-primary font-semibold">Apply (Hot)</button>
+                    <button id="reload-all" class="px-4 py-2 rounded btn-warn font-semibold">Reload All (Hard)</button>
+                    <button id="save-config" class="px-4 py-2 rounded border panel-border panel-alt">Make Permanent</button>
+                    <button id="reload-config" class="px-4 py-2 rounded border panel-border panel-alt">Revert to Saved</button>
+                    <button id="download-config" class="px-4 py-2 rounded border panel-border panel-alt">Download Active</button>
+                    <button id="download-config-saved" class="px-4 py-2 rounded border panel-border panel-alt">Download Saved</button>
+                    <label class="px-4 py-2 rounded border panel-border panel-alt cursor-pointer">
+                        Upload YAML
+                        <input type="file" id="upload-config" class="hidden" accept=".yaml,.yml"/>
+                    </label>
+                </div>
+            </header>
 
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Detection</h3>
-                <label class="block text-sm">Backend</label>
-                <select id="backend-select" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></select>
-
-                <label class="block text-sm mt-4">Language</label>
-                <select id="language-select" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
-                    <option value="en">English</option>
-                    <option value="cs">Czech</option>
-                </select>
-
-                <label class="block text-sm mt-4">Confidence Threshold</label>
-                <div class="flex items-center gap-3 mt-2">
-                    <input type="range" id="threshold-slider" min="0" max="1" step="0.01" class="flex-1">
-                    <input type="number" id="threshold-input" min="0" max="1" step="0.01" class="w-20 bg-slate-950 border border-slate-800 rounded px-2 py-1">
+            <div id="status-message" class="mt-4 text-sm hidden"></div>
+            <div id="reload-warning" class="mt-2 text-sm hidden"></div>
+            <div id="upload-progress" class="mt-3 hidden">
+                <div class="flex items-center gap-3 text-xs panel-muted">
+                    <span>Uploading config…</span>
+                    <span id="upload-progress-text">0%</span>
+                </div>
+                <div class="w-full h-2 panel-alt rounded mt-1 overflow-hidden">
+                    <div id="upload-progress-bar" class="h-2" style="width: 0%; background: var(--panel-accent);"></div>
                 </div>
             </div>
 
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 min-h-[360px]">
-                <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Visualization</h3>
-                <div class="grid grid-cols-2 gap-3 text-sm">
-                    <label class="flex items-center gap-2"><input id="vis-bbox" type="checkbox">BBox</label>
-                    <label class="flex items-center gap-2"><input id="vis-mask" type="checkbox">Mask</label>
-                    <label class="flex items-center gap-2"><input id="vis-polygon" type="checkbox">Polygon</label>
-                    <label class="flex items-center gap-2"><input id="vis-labels" type="checkbox">Labels</label>
+            <section id="page-live" class="page-panel mt-8">
+                <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                    <div class="panel border rounded-xl p-5">
+                        <p class="text-xs uppercase tracking-widest panel-muted">Frames</p>
+                        <div class="text-2xl font-semibold mt-2">Live</div>
+                        <p class="panel-muted text-xs mt-2">Streaming</p>
+                    </div>
+                    <div class="panel border rounded-xl p-5">
+                        <p class="text-xs uppercase tracking-widest panel-muted">Objects</p>
+                        <div class="text-2xl font-semibold mt-2" id="summary-objects">—</div>
+                        <p class="panel-muted text-xs mt-2">Current frame</p>
+                    </div>
+                    <div class="panel border rounded-xl p-5">
+                        <p class="text-xs uppercase tracking-widest panel-muted">Memory</p>
+                        <div class="text-2xl font-semibold mt-2" id="summary-memory">—</div>
+                        <p class="panel-muted text-xs mt-2">Tracked items</p>
+                    </div>
+                    <div class="panel border rounded-xl p-5">
+                        <p class="text-xs uppercase tracking-widest panel-muted">Relations</p>
+                        <div class="text-2xl font-semibold mt-2" id="summary-relations">—</div>
+                        <p class="panel-muted text-xs mt-2">Scene graph</p>
+                    </div>
+
+                    <div class="xl:col-span-3 panel border rounded-xl p-5">
+                        <h2 class="text-lg font-semibold mb-3">Live Feed</h2>
+                        <img id="annotated-image" class="w-full h-auto rounded-lg border panel-border" src="/static/pepper_icon.png" alt="Annotated Detection Image">
+                    </div>
+
+                    <div class="flex flex-col gap-6">
+                        <div class="panel border rounded-xl p-5">
+                            <h2 class="text-lg font-semibold mb-3">Pepper Says</h2>
+                            <div id="sentences-content" class="panel-muted">
+                                <p class="panel-muted">No messages yet...</p>
+                            </div>
+                        </div>
+                        <div class="panel border rounded-xl p-5">
+                            <h2 class="text-lg font-semibold mb-3">Detected Objects</h2>
+                            <div id="detections-content" class="panel-muted">
+                                <p class="panel-muted">No detections yet...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="xl:col-span-4 panel border rounded-xl p-5">
+                        <div class="flex items-center gap-2 mb-4">
+                            <button class="tab-btn px-3 py-2 text-sm rounded border panel-border" data-tab-group="live" data-tab-target="memory-panel">Memory</button>
+                            <button class="tab-btn px-3 py-2 text-sm rounded border panel-border" data-tab-group="live" data-tab-target="scene-graph-panel">Scene Graph</button>
+                        </div>
+
+                        <div id="memory-panel" class="tab-panel" data-tab-group="live">
+                            <h2 class="text-lg font-semibold mb-3">Scene Memory</h2>
+                            <div id="memory-content" class="panel-muted">
+                                <p class="panel-muted">No tracked objects yet...</p>
+                            </div>
+                            <details class="mt-4">
+                                <summary class="cursor-pointer panel-muted text-sm">Raw Memory JSON</summary>
+                                <pre id="memory-raw" class="text-xs panel-muted mt-2 overflow-auto"></pre>
+                            </details>
+                        </div>
+
+                        <div id="scene-graph-panel" class="tab-panel hidden" data-tab-group="live">
+                            <h2 class="text-lg font-semibold mb-3">Scene Graph</h2>
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <button id="sg-zoom-in" class="px-2 py-1 text-xs rounded border panel-border panel-alt">Zoom In</button>
+                                    <button id="sg-zoom-out" class="px-2 py-1 text-xs rounded border panel-border panel-alt">Zoom Out</button>
+                                    <button id="sg-fit" class="px-2 py-1 text-xs rounded border panel-border panel-alt">Center</button>
+                                </div>
+                                <div id="scene-graph-canvas" class="h-[360px] rounded border panel-border panel-alt"></div>
+                            </div>
+                            <div class="mt-4">
+                                <div id="scene-graph-content" class="panel-muted max-h-60 overflow-auto border panel-border rounded p-3 panel-alt">
+                                    <p class="panel-muted">No relations yet...</p>
+                                </div>
+                                <details class="mt-4">
+                                    <summary class="cursor-pointer panel-muted text-sm">Raw SceneGraph JSON</summary>
+                                    <pre id="scene-graph-raw" class="text-xs panel-muted mt-2 overflow-auto"></pre>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <label class="block text-sm mt-4">Line Thickness</label>
-                <input id="vis-line" type="number" min="1" max="10" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
-                <label class="block text-sm mt-4">Mask Opacity</label>
-                <input id="vis-opacity" type="number" min="0" max="1" step="0.05" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
-                <label class="block text-sm mt-4">Color Lookup</label>
-                <select id="vis-color" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
-                    <option value="index">Index</option>
-                    <option value="class">Class</option>
-                    <option value="track">Track</option>
-                </select>
-            </div>
+            </section>
 
-            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
-                <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Storage</h3>
-                <label class="flex items-center gap-2 text-sm">
-                    <input id="storage-persist" type="checkbox">
-                    Persist last state
-                </label>
-                <label class="flex items-center gap-2 text-sm mt-3">
-                    <input id="storage-image" type="checkbox">
-                    Store image in last state
-                </label>
-                <label class="block text-sm mt-4">Last state path</label>
-                <input id="storage-path" type="text" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1" placeholder="state/last_state.json">
-            </div>
+            <section id="page-detection" class="page-panel mt-8 hidden">
+                <div class="panel border rounded-xl p-5">
+                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Detection</h3>
+                    <label class="block text-sm">Backend</label>
+                    <select id="backend-select" class="w-full border rounded px-3 py-2 mt-1"></select>
 
-            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 min-h-[420px]">
-                <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">VLM</h3>
-                <label class="block text-sm">System Prompt</label>
-                <textarea id="vlm-system" rows="5" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-                <label class="block text-sm mt-4">User Prompt</label>
-                <textarea id="vlm-user" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-                <label class="block text-sm mt-4">Ontology Predicates (one per line)</label>
-                <textarea id="vlm-predicates" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-                <label class="block text-sm mt-4">Ontology Objects (child:parent per line)</label>
-                <textarea id="vlm-objects" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                    <div>
-                        <label class="block text-sm">SGG Mode</label>
-                        <select id="sgg-mode" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1">
-                            <option value="vlm">VLM</option>
-                            <option value="rules">Rules</option>
-                            <option value="hybrid">Hybrid</option>
+                    <label class="block text-sm mt-4">Language</label>
+                    <select id="language-select" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="en">English</option>
+                        <option value="cs">Czech</option>
+                    </select>
+
+                    <label class="block text-sm mt-4">Confidence Threshold</label>
+                    <div class="flex items-center gap-3 mt-2">
+                        <input type="range" id="threshold-slider" min="0" max="1" step="0.01" class="flex-1">
+                        <input type="number" id="threshold-input" min="0" max="1" step="0.01" class="w-20 border rounded px-2 py-1">
+                    </div>
+
+                    <label class="block text-sm mt-6">Object Ontology (child:parent per line)</label>
+                    <p class="text-xs panel-muted mt-1">Relevant for open-vocabulary detection (e.g. OwlV2).</p>
+                    <textarea id="vlm-objects" rows="6" class="w-full border rounded px-3 py-2 mt-2"></textarea>
+                </div>
+            </section>
+
+            <section id="page-scene" class="page-panel mt-8 hidden">
+                <div class="panel border rounded-xl p-5">
+                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Scene Representation</h3>
+                    <label class="block text-sm">System Prompt</label>
+                    <textarea id="vlm-system" rows="5" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <label class="block text-sm mt-4">User Prompt</label>
+                    <textarea id="vlm-user" rows="3" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <label class="block text-sm mt-4">Ontology Predicates (one per line)</label>
+                    <textarea id="vlm-predicates" rows="4" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                        <div>
+                            <label class="block text-sm">SGG Mode</label>
+                            <select id="sgg-mode" class="w-full border rounded px-3 py-2 mt-1">
+                                <option value="vlm">VLM</option>
+                                <option value="rules">Rules</option>
+                                <option value="hybrid">Hybrid</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2 mt-6">
+                            <input id="sgg-rules-enabled" type="checkbox">
+                            <span class="text-sm">Enable Rule-Based SGG</span>
+                        </div>
+                    </div>
+                    <label class="block text-sm mt-4" for="sgg-rules-json">Rules (JSON array)</label>
+                    <textarea id="sgg-rules-json" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>
+
+                    <div class="mt-8 border-t panel-border pt-6">
+                        <h4 class="text-sm uppercase tracking-widest panel-muted mb-4">Visualization</h4>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <label class="flex items-center gap-2"><input id="vis-bbox" type="checkbox">BBox</label>
+                            <label class="flex items-center gap-2"><input id="vis-mask" type="checkbox">Mask</label>
+                            <label class="flex items-center gap-2"><input id="vis-polygon" type="checkbox">Polygon</label>
+                            <label class="flex items-center gap-2"><input id="vis-labels" type="checkbox">Labels</label>
+                        </div>
+                        <label class="block text-sm mt-4" for="vis-line">Line Thickness</label>
+                        <input id="vis-line" type="number" min="1" max="10" class="w-full border rounded px-3 py-2 mt-1">
+                        <label class="block text-sm mt-4" for="vis-opacity">Mask Opacity</label>
+                        <input id="vis-opacity" type="number" min="0" max="1" step="0.05" class="w-full border rounded px-3 py-2 mt-1">
+                        <label class="block text-sm mt-4" for="vis-color">Color Lookup</label>
+                        <select id="vis-color" class="w-full border rounded px-3 py-2 mt-1">
+                            <option value="index">Index</option>
+                            <option value="class">Class</option>
+                            <option value="track">Track</option>
                         </select>
                     </div>
-                    <div class="flex items-center gap-2 mt-6">
-                        <input id="sgg-rules-enabled" type="checkbox">
-                        <span class="text-sm">Enable Rule-Based SGG</span>
-                    </div>
                 </div>
-                <label class="block text-sm mt-4">Rules (JSON array)</label>
-                <textarea id="sgg-rules-json" rows="6" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>
-            </div>
+            </section>
 
-            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 min-h-[360px]">
-                <h3 class="text-sm uppercase tracking-widest text-slate-400 mb-4">Chat</h3>
-                <label class="block text-sm">System Prompt</label>
-                <textarea id="chat-system" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-                <label class="block text-sm mt-4">Context Template</label>
-                <textarea id="chat-context" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 mt-1"></textarea>
-            </div>
-        </div>
+            <section id="page-storage" class="page-panel mt-8 hidden">
+                <div class="panel border rounded-xl p-5">
+                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Storage</h3>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input id="storage-persist" type="checkbox">
+                        Persist last state
+                    </label>
+                    <label class="flex items-center gap-2 text-sm mt-3">
+                        <input id="storage-image" type="checkbox">
+                        Store image in last state
+                    </label>
+                    <label class="block text-sm mt-4" for="storage-path">Last state path</label>
+                    <input id="storage-path" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="state/last_state.json">
+                </div>
+            </section>
+
+            <section id="page-chat" class="page-panel mt-8 hidden">
+                <div class="panel border rounded-xl p-5">
+                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Chat</h3>
+                    <label class="block text-sm" for="chat-system">System Prompt</label>
+                    <textarea id="chat-system" rows="4" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <label class="block text-sm mt-4" for="chat-context">Context Template</label>
+                    <textarea id="chat-context" rows="4" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                </div>
+            </section>
+        </main>
     </div>
 </body>
 </html>

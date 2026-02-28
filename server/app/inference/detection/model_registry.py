@@ -17,7 +17,18 @@ logger = logging.getLogger(__name__)
 
 
 class DetectionModelRegistry:
-    """Handles integrity, paths, and downloads for all object detection models."""
+    """
+    Registry and manager for all object detection models.
+
+    Handles:
+      - Ensuring local model files exist.
+      - Downloading weights if missing.
+      - Loading detector objects with correct backend and device.
+
+    Attributes:
+        MODELS_DIR (Path): Directory where model weights are stored.
+        REGISTRY (dict[DetectionModelType, str|None]): Maps model types to download URLs.
+    """
 
     MODELS_DIR = Path.cwd().parent.parent / "detection_models"
 
@@ -31,10 +42,28 @@ class DetectionModelRegistry:
 
     @classmethod
     def get_model_path(cls, model_name: DetectionModelType) -> Path:
+        """
+        Returns the local path for a given model.
+
+        Args:
+            model_name (DetectionModelType): The type of detection model.
+
+        Returns:
+            Path: Path to the local model file.
+        """
         return cls.MODELS_DIR / cls.REGISTRY[model_name.value].split("/")[-1]
 
     @classmethod
     def ensure_model(cls, model_name: DetectionModelType) -> Path | None:
+        """
+        Ensure that the model file exists locally, downloading it if necessary.
+
+        Args:
+            model_name (DetectionModelType): The type of detection model.
+
+        Returns:
+            Path | None: Path to the model file, or None if no file is required (e.g., RF-DETR or OWL-V2).
+        """
         logger.info(f"Ensuring model {model_name}")
         url = cls.REGISTRY[model_name]
         if url is None:
@@ -52,7 +81,21 @@ class DetectionModelRegistry:
         model_name: DetectionModelType,
         device: str | None = None,
         threshold: float = 0.5,
+        ontology: list[str] | None = None,
     ) -> BaseDetector:
+        """
+        Load a detector object for a given model type.
+
+        Args:
+            model_name (DetectionModelType): Which detector backend to use.
+            device (str | None): Device to run inference on ('cpu' or 'cuda').
+                                 Defaults to CUDA if available.
+            threshold (float): Confidence threshold for filtering detections.
+            ontology (list[str] | None): Optional ontology for open-vocabulary models.
+
+        Returns:
+            BaseDetector: A detector object ready for inference.
+        """
         device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         path = cls.ensure_model(model_name)
         match model_name:
@@ -64,10 +107,11 @@ class DetectionModelRegistry:
                 return UltralyticsDetector(RTDETR(str(path)), device, threshold)
             case DetectionModelType.RF_DETR:
                 logger.info("Loading detection model with Roboflow RF-DETR Backend")
-                return RoboflowDetector(RFDETRLarge(), device, threshold)
+                return RoboflowDetector(RFDETRLarge(device=device), device, threshold)
             case DetectionModelType.OWL_V2:
                 logger.info(
                     "Loading detection model with Google OpenVocab OwlV2 Backend"
                 )
                 # for now processor located at the same place
-                return Owlv2Detector(path, path, device, threshold)
+                # ontologies too probably...
+                return Owlv2Detector(path, path, ontology, device, threshold)

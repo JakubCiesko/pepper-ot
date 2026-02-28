@@ -1,4 +1,6 @@
+from contextlib import asynccontextmanager
 import logging
+import time
 
 import numpy as np
 from PIL import Image
@@ -13,6 +15,16 @@ from app.schemas.config import VisConfig
 from app.schemas.robot import RobotMetadata
 
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def timer(step_name: str, metrics: dict[str, float]):
+    t0 = time.perf_counter()
+    yield
+    t1 = time.perf_counter()
+    duration = t1 - t0
+    metrics[step_name] = duration
+    logger.info(f"{step_name} took {duration} seconds")
 
 
 class VisualPipeline:
@@ -47,49 +59,61 @@ class VisualPipeline:
         Runs the full See-Track-Understand loop.
         """
         # 1. DETECT (Get raw boxes, no IDs yet)
+
+        metrics = {}
         logger.info(f"Processing image with metadata={robot_metadata}")
-        raw_detections = self.detector.detect(image)
+        async with timer("detection_time", metrics):
+            raw_detections = self.detector.detect(image)
         logger.info(f"Detected {len(raw_detections)} detections")
 
         # 2. MEMORY (Assign Persistent IDs via ReID)
         # This modifies the detection objects in-place or returns new ones
         logger.info("Updating memory...")
-        tracked_detections = self.memory.update(
-            image, raw_detections, robot_metadata, self.fusion_config
-        )
+        async with timer("memory_update_time", metrics):
+            tracked_detections = self.memory.update(
+                image, raw_detections, robot_metadata, self.fusion_config
+            )
         logger.info(f"{len(tracked_detections)} Tracked detections after memory update")
         # 3. PAINT (Draw Set-of-Mark tags using the IDs)
         # We need numpy for the painter, but we keep PIL for the VLM if needed
         logger.info("Painting SoM over Image for VLM SGG")
-        image_np = np.array(image)
-        som_image = self.painter.paint(
-            image_np,
-            tracked_detections,
-            bbox=self.vis_config.show_bbox,
-            mask=self.vis_config.show_mask,
-            polygon=self.vis_config.show_polygon,
-            class_names=self.vis_config.show_labels,
-        )
+        async with timer("som_image_paint_time", metrics):
+            image_np = np.array(image)
+            som_image = self.painter.paint(
+                image_np,
+                tracked_detections,
+                bbox=self.vis_config.show_bbox,
+                mask=self.vis_config.show_mask,
+                polygon=self.vis_config.show_polygon,
+                class_names=self.vis_config.show_labels,
+            )
 
         # 4. UNDERSTAND (Generate Scene Graph from SoM Image)
         # We pass the tagged image so the VLM can reference "Object 1"
         logger.info("Running SceneGraph generation with SoM Image...")
-        match self.sgg_mode:
-            case "rules":
-                rules_graph = self.rules_sgg.generate(tracked_detections)
-                scene_graph = rules_graph
-            case "vlm":
-                scene_graph = await self.sgg.generate(som_image)
-            case _:
-                vlm_graph = await self.sgg.generate(som_image)
-                rules_graph = self.rules_sgg.generate(tracked_detections)
-                scene_graph = vlm_graph + rules_graph
+        async with timer("scene_graph_generation_time", metrics):
+            scene_graph = None
+            match self.sgg_mode:
+                case "rules":
+                    rules_graph = self.rules_sgg.generate(tracked_detections)
+                    scene_graph = rules_graph
+                case "vlm":
+                    scene_graph = await self.sgg.generate(som_image)
+                case _:
+                    vlm_graph = await self.sgg.generate(som_image)
+                    rules_graph = self.rules_sgg.generate(tracked_detections)
+                    scene_graph = vlm_graph + rules_graph
+
         logger.info("Updating memory with generated scene graph")
-        self.memory.update_scene_graph(scene_graph)
+        async with timer("scene_graph_memory_update_time", metrics):
+            self.memory.update_scene_graph(scene_graph)
+
+        metrics["total_processing"] = sum(metrics.values())
 
         return PipelineResult(
             raw_image=image,
             som_image=som_image,
             detections=tracked_detections,
             scene_graph=scene_graph,
+            metrics=metrics,
         )

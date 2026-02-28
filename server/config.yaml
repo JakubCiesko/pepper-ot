@@ -2,7 +2,7 @@ system:
   language: "en"
 
 detection:
-  backend: "rf_detr"
+  backend: "yolo"
   weights_path: null
   confidence_threshold: 0.30
 
@@ -56,9 +56,9 @@ visualization:
   color_lookup: "index"
 
 storage:
-  persist_last_state: true
+  persist_last_state: false
   last_state_path: "state/last_state.json"
-  store_image: true
+  store_image: false
 
 fusion:
   person_bbox_match_threshold_px: 10
@@ -67,7 +67,7 @@ fusion:
   estimated_person_bbox_max_px: 200
 
 sgg:
-  mode: "hybrid"
+  mode: "rules"
   rules:
     enabled: true
     rule_list:

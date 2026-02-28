@@ -148,6 +148,10 @@ ws.onmessage = function(event) {
                 if (window._sceneGraphCy) {
                     window._sceneGraphCy.destroy();
                 }
+                const cs = getComputedStyle(document.body);
+                const panelText = cs.getPropertyValue("--panel-text").trim();
+                const panelMuted = cs.getPropertyValue("--panel-muted").trim();
+                const panelBg = cs.getPropertyValue("--panel-bg").trim();
                 window._sceneGraphCy = window.cytoscape({
                     container: sceneGraphCanvas,
                     elements,
@@ -157,7 +161,7 @@ ws.onmessage = function(event) {
                             style: {
                                 "background-color": "data(color)",
                                 "label": "data(label)",
-                                "color": "#0f172a",
+                                "color": panelText,
                                 "text-valign": "center",
                                 "text-halign": "center",
                                 "font-size": "10px"
@@ -168,14 +172,14 @@ ws.onmessage = function(event) {
                             style: {
                                 "curve-style": "bezier",
                                 "target-arrow-shape": "triangle",
-                                "line-color": "#64748b",
-                                "target-arrow-color": "#64748b",
+                                "line-color": panelMuted,
+                                "target-arrow-color": panelMuted,
                                 "label": "data(label)",
                                 "font-size": "9px",
-                                "text-background-color": "#0f172a",
+                                "text-background-color": panelBg,
                                 "text-background-opacity": 1,
                                 "text-background-padding": "2px",
-                                "color": "#e2e8f0"
+                                "color": panelText
                             }
                         }
                     ],
@@ -184,6 +188,13 @@ ws.onmessage = function(event) {
             }
         }
     }
+
+    const summaryObjects = document.getElementById("summary-objects");
+    const summaryMemory = document.getElementById("summary-memory");
+    const summaryRelations = document.getElementById("summary-relations");
+    if (summaryObjects) summaryObjects.textContent = data.objects ? data.objects.length : "—";
+    if (summaryMemory) summaryMemory.textContent = data.memory?.objects ? data.memory.objects.length : "—";
+    if (summaryRelations) summaryRelations.textContent = data.scene_graph ? data.scene_graph.length : "—";
 };
 
 async function loadLastState() {

@@ -98,6 +98,8 @@ class SoMPainter:
             np.array(image.convert("RGB")) if isinstance(image, Image.Image) else image
         )
         H, W = orig_img.shape[:2]
+        if bboxes is None or len(bboxes) == 0:
+            return np.empty((0, H, W), dtype=bool)
 
         # Scale image so that it is fast
         img = cv2.resize(orig_img, (0, 0), fx=scale, fy=scale)

@@ -226,3 +226,4 @@ class PipelineResult:
     som_image: np.ndarray  # The image with tags drawn on it
     detections: list[DetectionObject]  # List of objects with persistent IDs
     scene_graph: SceneGraph  # The semantic relationships
+    metrics: dict[str, Any]

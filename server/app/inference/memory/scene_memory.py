@@ -302,6 +302,8 @@ class SceneMemory:
             return int(match.group(1)) if match else None
 
     def update_scene_graph(self, scene_graph: SceneGraph):
+        if scene_graph is None:
+            return
         now = time.time()
         logger.info(
             f"Updating SceneMemory with a scene graph: {scene_graph.no_label_edges}"

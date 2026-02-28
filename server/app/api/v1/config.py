@@ -3,7 +3,6 @@ import logging
 from app.core import config_apply
 from app.core import config_manager
 from app.core.state import ml_state
-from app.inference.detection.detectors import DetectionModelType
 from fastapi import APIRouter
 from fastapi import File
 from fastapi import HTTPException
@@ -17,6 +16,14 @@ router = APIRouter()
 
 @router.get("/config")
 async def get_config():
+    """
+    Returns the active and saved system configuration.
+
+    Includes:
+    - active: current runtime configuration
+    - saved: configuration stored on disk
+    - active_resolved: runtime config after defaults and inheritance
+    """
     saved = config_manager.load_config()
     active = ml_state.config or saved
     return {
@@ -28,6 +35,15 @@ async def get_config():
 
 @router.get("/state")
 async def get_state():
+    """
+    Returns the latest pipeline output state.
+
+    This includes:
+    - last processed image
+    - detected objects
+    - scene graph
+    - memory snapshot
+    """
     return ml_state.last_state or {
         "image": None,
         "objects": [],
@@ -38,6 +54,15 @@ async def get_state():
 
 @router.patch("/config")
 async def patch_config(request: Request):
+    """
+    Applies a partial update to the runtime configuration.
+
+    This endpoint:
+    1. Validates and merges patch data.
+    2. Computes differences between old and new configuration.
+    3. Applies in-place, so-called hot changes immediately when possible.
+    4. Rebuilds the pipeline if required (so-called hard changes)
+    """
     if ml_state.config is None:
         raise HTTPException(status_code=503, detail="Config not initialized")
     data = await request.json()
@@ -45,8 +70,11 @@ async def patch_config(request: Request):
         logger.info(f"Applying patch to config, with data: {data}")
         updated = config_manager.apply_patch(ml_state.config, data)
         diff = config_apply.diff_config(ml_state.config, updated)
+        # needs rebuild
         if diff.hard:
-            logger.info(f"Hard changes detected: {diff.hard}. Rebuilding.")
+            logger.info(
+                f"Hard changes detected: {diff.hard}. Rebuilding with new config."
+            )
             await ml_state.apply_config(updated)
             return {
                 "ok": True,
@@ -54,6 +82,7 @@ async def patch_config(request: Request):
                 "applied": diff.hot,
                 "requires_reload": diff.hard,
             }
+        # can change settings, no need to rebuild
         await config_apply.apply_hot_config(ml_state, updated)
         return {
             "ok": True,
@@ -70,20 +99,29 @@ async def patch_config(request: Request):
 
 @router.post("/config/save")
 async def save_config():
+    """
+    Saves the current runtime configuration to disk atomically.
+
+    Uses a temporary file and replace strategy to avoid corruption.
+    """
     if ml_state.config is None:
         raise HTTPException(status_code=503, detail="Config not initialized")
     path = config_manager.config_path()
     yaml_text = config_manager.dump_config_yaml(ml_state.config)
     tmp = path.with_suffix(".tmp")
-    logger.info(f"Saving config to temp path: {tmp}")
+    logger.debug(f"Saving config to temp path: {tmp}")
     tmp.write_text(yaml_text, encoding="utf-8")
-    logger.info(f"Replacing temp {tmp} for {path}")
+    logger.debug(f"Replacing temp {tmp} for {path}")
     tmp.replace(path)
+    logger.info("Configuration saved")
     return {"ok": True, "path": str(path)}
 
 
 @router.post("/config/reload")
 async def reload_config():
+    """
+    Reloads the configuration from disk and rebuilds the pipeline.
+    """
     logger.info("Reloading config")
     cfg = config_manager.load_config()
     await ml_state.apply_config(cfg)
@@ -92,26 +130,40 @@ async def reload_config():
 
 @router.post("/config/upload")
 async def upload_config(file: UploadFile = File(...)):
+    """
+    Uploads and applies a YAML configuration file.
+
+    This replaces the current runtime configuration.
+    """
     content = await file.read()
     try:
-        logger.info(f"Parsing uploaded yaml config: {content}")
+        logger.info(f"Parsing and applying uploaded yaml config: {content}")
         cfg = config_manager.parse_uploaded_yaml(content)
         await ml_state.apply_config(cfg)
         return {"ok": True}
     except ValueError as exc:
+        logger.error("Invalid uploaded configuration")
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/config/download")
 async def download_config(source: str | None = None):
+    """
+    Downloads the active or saved configuration as a YAML file.
+
+    Query params:
+    - source=saved: download saved config
+    - default: active config
+    """
     if source == "saved":
         cfg = config_manager.load_config()
     else:
         cfg = ml_state.config or config_manager.load_config()
-    # TODO: HIDE API KEYS IF PRESENT!
+
+    # TODO: HIDE API KEYS IF PRESENT! but they are only passed as env vars...
     yaml_text = config_manager.dump_config_yaml(cfg)
     filename = "config_saved.yaml" if source == "saved" else "config.yaml"
-    logger.info(f"Downloading config from source={source} as file={filename}")
+    logger.info(f"User downloading config from source={source}")
     headers = {"Content-Disposition": f"attachment; filename={filename}"}
     return Response(
         content=yaml_text,
@@ -120,51 +172,53 @@ async def download_config(source: str | None = None):
     )
 
 
-@router.post("/threshold")
-async def set_threshold(request: Request):
-    """Dynamically updates the confidence threshold."""
-    data = await request.json()
-    new_threshold = float(data.get("threshold", 0.5))
-
-    # Update global config safely
-    ml_state.config.detection.confidence_threshold = new_threshold
-    ml_state.pipeline.set_detection_threshold(new_threshold)
-
-    logger.info(f"Threshold updated to {new_threshold}")
-    return {"ok": True, "threshold": new_threshold}
-
-
-@router.post("/model")
-async def set_model(request: Request):
-    """Reloads the AI engine with a different weights file."""
-    data = await request.json()
-    model_name = data.get("model")
-
-    if not model_name:
-        raise HTTPException(status_code=400, detail="No model specified")
-
-    logger.info(f"Reloading AI Engine with model: {model_name}")
-
-    # Update config
-    if model_name in {m.value for m in DetectionModelType}:
-        ml_state.config.detection.backend = model_name
-    else:
-        ml_state.config.detection.weights_path = model_name
-
-    # Trigger engine reload (assuming ml_state has a method for this)
-    await ml_state.reload_pipeline()
-
-    return {"ok": True, "selected_model": model_name}
-
-
-@router.post("/language")
-async def set_language(request: Request):
-    """Changes the output translation language."""
-    data = await request.json()
-    lang = data.get("language", "en").strip().lower()
-
-    logger.info(f"Changing language to: {lang}")
-    ml_state.config.system.language = lang
-    # Trigger translation reload if applicable
-
-    return {"ok": True, "language": lang}
+# TODO: REMOVE THIS
+#
+# @router.post("/threshold")
+# async def set_threshold(request: Request):
+#     """Dynamically updates the confidence threshold."""
+#     data = await request.json()
+#     new_threshold = float(data.get("threshold", 0.5))
+#
+#     # Update global config safely
+#     ml_state.config.detection.confidence_threshold = new_threshold
+#     ml_state.pipeline.set_detection_threshold(new_threshold)
+#
+#     logger.info(f"Threshold updated to {new_threshold}")
+#     return {"ok": True, "threshold": new_threshold}
+#
+#
+# @router.post("/model")
+# async def set_model(request: Request):
+#     """Reloads the AI engine with a different weights file."""
+#     data = await request.json()
+#     model_name = data.get("model")
+#
+#     if not model_name:
+#         raise HTTPException(status_code=400, detail="No model specified")
+#
+#     logger.info(f"Reloading AI Engine with model: {model_name}")
+#
+#     # Update config
+#     if model_name in {m.value for m in DetectionModelType}:
+#         ml_state.config.detection.backend = model_name
+#     else:
+#         ml_state.config.detection.weights_path = model_name
+#
+#     # Trigger engine reload (assuming ml_state has a method for this)
+#     await ml_state.reload_pipeline()
+#
+#     return {"ok": True, "selected_model": model_name}
+#
+#
+# @router.post("/language")
+# async def set_language(request: Request):
+#     """Changes the output translation language."""
+#     data = await request.json()
+#     lang = data.get("language", "en").strip().lower()
+#
+#     logger.info(f"Changing language to: {lang}")
+#     ml_state.config.system.language = lang
+#     # Trigger translation reload if applicable
+#
+#     return {"ok": True, "language": lang}
