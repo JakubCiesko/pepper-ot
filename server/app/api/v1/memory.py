@@ -79,7 +79,7 @@ async def get_memory_objects(
     )
     return {
         "objects": [o.model_dump() for o in objs_page],
-        "timestamp": memory.scene_state().timestamp,
+        "timestamp": state.timestamp,
     }
 
 
@@ -155,10 +155,15 @@ async def upsert_memory(state: SceneState):
         current = memory.scene_state()
         await broadcast_memory(current)
         return {"ok": True}
+    except ValueError as e:
+        logger.exception(
+            f"Inappropriate argument value when upserting state to memory: {e}"
+        )
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        logger.error(f"Failed to upsert memory: {e}")
+        logger.exception(f"Failed to upsert memory: {e}")
         raise HTTPException(
-            status_code=400, detail=f"Failed to upsert memory: {e}"
+            status_code=500, detail=f"Failed to upsert memory: {e}"
         ) from e
 
 
@@ -180,10 +185,11 @@ async def reset_memory(
             status_code=400, detail="Reset not confirmed. Set confirm=true to proceed."
         )
     memory = _get_memory()
-    memory.objects_state.clear()
-    memory.relations_state.clear()
-    memory.tracks.clear()
-    memory.next_id = 1
+    # memory.objects_state.clear()
+    # memory.relations_state.clear()
+    # memory.tracks.clear()
+    # memory.next_id = 1
+    memory.reset()
     logger.info("Memory reset successfully")
     current = memory.scene_state()
     await broadcast_memory(current)
