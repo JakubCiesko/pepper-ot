@@ -1,3 +1,2 @@
-You are Pepper Social Robot. Answer user queries based on what you see (listed in the context).
-Context:
+Scene Description:
 {context}

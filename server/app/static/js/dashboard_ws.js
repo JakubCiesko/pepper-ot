@@ -10,6 +10,7 @@ const sceneGraphCanvas = document.getElementById("scene-graph-canvas");
 const sgZoomIn = document.getElementById("sg-zoom-in");
 const sgZoomOut = document.getElementById("sg-zoom-out");
 const sgFit = document.getElementById("sg-fit");
+const inferenceMetricsContainer = document.getElementById("inference-metrics");
 
 function secondsAgo(ts) {
     if (!ts) return "n/a";
@@ -40,6 +41,7 @@ ws.onmessage = function(event) {
     detectionsContainer.innerHTML = "";
     if (memoryContainer) memoryContainer.innerHTML = "";
     if (sceneGraphContainer) sceneGraphContainer.innerHTML = "";
+    if (inferenceMetricsContainer) inferenceMetricsContainer.innerHTML = "";
     if (data.objects && data.objects.length > 0) {
     data.objects.forEach(obj => {
         const div = document.createElement("div");
@@ -53,11 +55,32 @@ ws.onmessage = function(event) {
         div.style.backgroundColor = labelColor;
         div.style.color = "black";
 
-        div.innerHTML = `<strong>${obj.label}</strong> (${obj.confidence.toFixed(2)}) - bbox: [${obj.bbox.map(x => x.toFixed(1)).join(", ")}]`;
+        const objectId = obj.object_id !== undefined && obj.object_id !== null ? `#${obj.object_id}` : "n/a";
+        const conf = Number.isFinite(obj.confidence) ? obj.confidence.toFixed(2) : "n/a";
+        const bbox = Array.isArray(obj.bbox) ? obj.bbox.map(x => Number(x).toFixed(1)).join(", ") : "n/a";
+        div.innerHTML = `<strong>${obj.label}</strong> <span class="text-xs">(${objectId})</span> (${conf}) - bbox: [${bbox}]`;
         detectionsContainer.appendChild(div);
     });
     } else {
         detectionsContainer.innerHTML = `<p class="text-slate-500">No objects detected</p>`;
+    }
+
+    if (inferenceMetricsContainer) {
+        const metrics = data.metrics || {};
+        const keys = Object.keys(metrics);
+        if (keys.length > 0) {
+            keys.sort();
+            keys.forEach(key => {
+                const row = document.createElement("div");
+                row.className = "flex items-center justify-between text-sm mb-1";
+                const value = metrics[key];
+                const formatted = Number.isFinite(value) ? `${value.toFixed(4)} s` : String(value);
+                row.innerHTML = `<span class="panel-muted">${key}</span><span>${formatted}</span>`;
+                inferenceMetricsContainer.appendChild(row);
+            });
+        } else {
+            inferenceMetricsContainer.innerHTML = `<p class="panel-muted">No metrics recorded yet...</p>`;
+        }
     }
     // image
     if (data.image) {
@@ -79,9 +102,7 @@ ws.onmessage = function(event) {
                     : "no attributes";
                 const bbox = obj.bbox ? `[${obj.bbox.map(n => n.toFixed(1)).join(", ")}]` : "n/a";
                 div.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <strong>${obj.label}</strong> <span class="text-xs text-slate-400">#${obj.id}</span>
-                    </div>
+                    <div><strong>${obj.label} (#${obj.id})</strong></div>
                     <div class="text-xs text-slate-400 mt-1">hits ${obj.hits} · first ${secondsAgo(obj.first_seen)} · last ${secondsAgo(obj.last_seen)}</div>
                     <div class="text-xs text-slate-300 mt-1">attrs: ${attrs}</div>
                     <div class="text-xs text-slate-300 mt-1">bbox: ${bbox}</div>

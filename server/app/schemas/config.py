@@ -12,12 +12,15 @@ class DetectionConfig(BaseModel):
     backend: Literal["yolo", "rt_detr", "rf_detr", "owl_v2"]
     weights_path: str | None = None
     confidence_threshold: float = 0.5
+    device: str = "cuda"
+    ontology: list[str] | None = None
 
 
 class LLMConfig(BaseModel):
     backend: Literal["openai", "local", "local_4bit"]
     model_id: str
     inference: dict = Field(default_factory=dict)
+    device: str | None = None
 
 
 class AssociationConfig(BaseModel):
@@ -78,7 +81,7 @@ class OntologySource(BaseModel):
         return predicates, objects
 
 
-class UnderstandingConfig(LLMConfig):
+class SceneGraphVLMConfig(LLMConfig):
     system_prompt: PromptSource
     user_prompt: PromptSource | None = None
     ontology: OntologySource
@@ -123,8 +126,9 @@ class SGGRulesConfig(BaseModel):
     rule_list: list[SGGRule] = Field(default_factory=list)
 
 
-class SGGConfig(BaseModel):
+class SceneGraphConfig(BaseModel):
     mode: Literal["vlm", "rules", "hybrid"] = "hybrid"
+    vlm: SceneGraphVLMConfig
     rules: SGGRulesConfig = Field(default_factory=SGGRulesConfig)
 
 
@@ -139,11 +143,10 @@ class AppConfig(BaseModel):
     system: dict
     detection: DetectionConfig
     tracking: TrackingConfig
-    understanding: UnderstandingConfig
+    scene_graph: SceneGraphConfig
     chat: ChatConfig
     visualization: VisConfig
     storage: StorageConfig = Field(default_factory=StorageConfig)
-    sgg: SGGConfig = Field(default_factory=SGGConfig)
     fusion: FusionConfig = Field(default_factory=FusionConfig)
     _config_path: Path | None = PrivateAttr(None)
 

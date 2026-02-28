@@ -19,7 +19,6 @@ const vlmUser = document.getElementById("vlm-user");
 const vlmPredicates = document.getElementById("vlm-predicates");
 const vlmObjects = document.getElementById("vlm-objects");
 const sggMode = document.getElementById("sgg-mode");
-const sggRulesEnabled = document.getElementById("sgg-rules-enabled");
 const sggRulesJson = document.getElementById("sgg-rules-json");
 
 const chatSystem = document.getElementById("chat-system");
@@ -28,7 +27,6 @@ const chatContext = document.getElementById("chat-context");
 const applyBtn = document.getElementById("apply-config");
 const saveBtn = document.getElementById("save-config");
 const reloadBtn = document.getElementById("reload-config");
-const reloadAllBtn = document.getElementById("reload-all");
 const downloadBtn = document.getElementById("download-config");
 const downloadSavedBtn = document.getElementById("download-config-saved");
 const uploadInput = document.getElementById("upload-config");
@@ -36,6 +34,9 @@ const reloadWarning = document.getElementById("reload-warning");
 const uploadProgress = document.getElementById("upload-progress");
 const uploadProgressBar = document.getElementById("upload-progress-bar");
 const uploadProgressText = document.getElementById("upload-progress-text");
+let isApplyingConfig = false;
+let lastApplyAt = 0;
+const APPLY_DEBOUNCE_MS = 500;
 
 async function fetchModels() {
     try {
@@ -66,21 +67,11 @@ function parseLines(text) {
         .filter(Boolean);
 }
 
-function parseObjects(text) {
-    const obj = {};
-    parseLines(text).forEach(line => {
-        const idx = line.indexOf(":");
-        if (idx === -1) return;
-        const key = line.slice(0, idx).trim();
-        const val = line.slice(idx + 1).trim();
-        if (key && val) obj[key] = val;
-    });
-    return obj;
-}
-
-function objectsToText(objects) {
-    if (!objects) return "";
-    return Object.entries(objects).map(([k, v]) => `${k}: ${v}`).join("\n");
+function parseOntologyList(text) {
+    return text
+        .split(/[\n,]/)
+        .map(v => v.trim())
+        .filter(Boolean);
 }
 
 async function loadConfig() {
@@ -105,19 +96,19 @@ async function loadConfig() {
     storageImage.checked = !!active.storage?.store_image;
     storagePath.value = active.storage?.last_state_path || "state/last_state.json";
 
-    const resolvedUnderstanding = resolved.understanding || {};
-    vlmSystem.value = resolvedUnderstanding.resolved_system_prompt || "";
-    vlmUser.value = resolvedUnderstanding.resolved_user_prompt || "";
-    vlmPredicates.value = (resolvedUnderstanding.resolved_ontology?.predicates || []).join("\n");
-    vlmObjects.value = objectsToText(resolvedUnderstanding.resolved_ontology?.objects);
+    const resolvedSceneGraph = resolved.scene_graph || {};
+    const resolvedVlm = resolvedSceneGraph.vlm || {};
+    vlmSystem.value = resolvedVlm.resolved_system_prompt || "";
+    vlmUser.value = resolvedVlm.resolved_user_prompt || "";
+    vlmPredicates.value = (resolvedVlm.resolved_ontology?.predicates || []).join("\n");
+    vlmObjects.value = (active.detection?.ontology || []).join("\n");
 
     const resolvedChat = resolved.chat || {};
     chatSystem.value = resolvedChat.resolved_system_prompt || "";
     chatContext.value = resolvedChat.resolved_context_template || "";
 
-    sggMode.value = active.sgg?.mode || "hybrid";
-    sggRulesEnabled.checked = !!active.sgg?.rules?.enabled;
-    sggRulesJson.value = JSON.stringify(active.sgg?.rules?.rule_list || [], null, 2);
+    sggMode.value = active.scene_graph?.mode || "hybrid";
+    sggRulesJson.value = JSON.stringify(active.scene_graph?.rules?.rule_list || [], null, 2);
 }
 
 function buildPatch() {
@@ -133,7 +124,8 @@ function buildPatch() {
         },
         detection: {
             backend: backendSelect.value,
-            confidence_threshold: parseFloat(input.value)
+            confidence_threshold: parseFloat(input.value),
+            ontology: parseOntologyList(vlmObjects.value)
         },
         visualization: {
             show_bbox: visBbox.checked,
@@ -149,18 +141,17 @@ function buildPatch() {
             store_image: storageImage.checked,
             last_state_path: storagePath.value
         },
-        understanding: {
-            system_prompt: { text: vlmSystem.value },
-            user_prompt: { text: vlmUser.value },
-            ontology: {
-                predicates: parseLines(vlmPredicates.value),
-                objects: parseObjects(vlmObjects.value)
-            }
-        },
-        sgg: {
+        scene_graph: {
             mode: sggMode.value,
+            vlm: {
+                system_prompt: { text: vlmSystem.value },
+                user_prompt: { text: vlmUser.value },
+                ontology: {
+                    predicates: parseLines(vlmPredicates.value)
+                }
+            },
             rules: {
-                enabled: sggRulesEnabled.checked,
+                enabled: true,
                 rule_list: rules
             }
         },
@@ -172,6 +163,11 @@ function buildPatch() {
 }
 
 async function applyConfig() {
+    const now = Date.now();
+    if (isApplyingConfig || now - lastApplyAt < APPLY_DEBOUNCE_MS) {
+        return;
+    }
+
     let patch;
     try {
         patch = buildPatch();
@@ -179,22 +175,40 @@ async function applyConfig() {
         showStatusMessage(err.message, false);
         return;
     }
-    const res = await fetch("/api/v1/config", {
-        method: "PATCH",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(patch)
-    });
-    if (res.ok) {
-        const data = await res.json();
-        showStatusMessage(data.reloaded ? "Applied (hard reload)" : "Applied hot config");
-        if (data.requires_reload && data.requires_reload.length > 0) {
-            reloadWarning.textContent = `Hard changes detected: ${data.requires_reload.join(", ")}`;
-            reloadWarning.classList.remove("hidden");
+
+    isApplyingConfig = true;
+    lastApplyAt = now;
+    const prevLabel = applyBtn.textContent;
+    applyBtn.disabled = true;
+    applyBtn.classList.add("opacity-60", "cursor-not-allowed");
+    applyBtn.textContent = "Applying...";
+
+    try {
+        const res = await fetch("/api/v1/config", {
+            method: "PATCH",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(patch)
+        });
+        if (res.ok) {
+            const data = await res.json();
+            showStatusMessage(data.reloaded ? "Applied changes (hard reload)" : "Applied changes");
+            if (data.requires_reload && data.requires_reload.length > 0) {
+                reloadWarning.textContent = `Hard changes detected: ${data.requires_reload.join(", ")}`;
+                reloadWarning.classList.remove("hidden");
+            } else {
+                reloadWarning.classList.add("hidden");
+            }
         } else {
-            reloadWarning.classList.add("hidden");
+            showStatusMessage("Failed to apply config", false);
         }
-    } else {
+    } catch (err) {
+        console.error("Failed to apply config:", err);
         showStatusMessage("Failed to apply config", false);
+    } finally {
+        isApplyingConfig = false;
+        applyBtn.disabled = false;
+        applyBtn.classList.remove("opacity-60", "cursor-not-allowed");
+        applyBtn.textContent = prevLabel;
     }
 }
 
@@ -274,10 +288,6 @@ input.addEventListener("change", () => {
 applyBtn.addEventListener("click", applyConfig);
 saveBtn.addEventListener("click", saveConfig);
 reloadBtn.addEventListener("click", reloadConfig);
-reloadAllBtn.addEventListener("click", async () => {
-    await applyConfig();
-    await reloadConfig();
-});
 downloadBtn.addEventListener("click", () => downloadConfig("active"));
 downloadSavedBtn.addEventListener("click", () => downloadConfig("saved"));
 

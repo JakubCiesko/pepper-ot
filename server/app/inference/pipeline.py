@@ -7,8 +7,7 @@ from PIL import Image
 
 from app.inference.detection.service import DetectionService
 from app.inference.memory.scene_memory import SceneMemory
-from app.inference.scene_graph.generation import SceneGraphGenerator
-from app.inference.scene_graph.rules import RuleBasedSceneGraph
+from app.inference.scene_graph.service import SceneGraphService
 from app.inference.scene_graph.som import SoMPainter
 from app.inference.types import PipelineResult
 from app.schemas.config import VisConfig
@@ -33,18 +32,14 @@ class VisualPipeline:
         detector: DetectionService,
         memory: SceneMemory,
         painter: SoMPainter,
-        sgg: SceneGraphGenerator,
-        rules_sgg: RuleBasedSceneGraph,
-        sgg_mode: str,
+        scene_graph_service: SceneGraphService,
         fusion_config,
         vis_config: VisConfig,
     ):
         self.detector = detector
         self.memory = memory
         self.painter = painter
-        self.sgg = sgg
-        self.rules_sgg = rules_sgg
-        self.sgg_mode = sgg_mode
+        self.scene_graph_service = scene_graph_service
         self.fusion_config = fusion_config
         self.vis_config = vis_config
 
@@ -92,17 +87,9 @@ class VisualPipeline:
         # We pass the tagged image so the VLM can reference "Object 1"
         logger.info("Running SceneGraph generation with SoM Image...")
         async with timer("scene_graph_generation_time", metrics):
-            scene_graph = None
-            match self.sgg_mode:
-                case "rules":
-                    rules_graph = self.rules_sgg.generate(tracked_detections)
-                    scene_graph = rules_graph
-                case "vlm":
-                    scene_graph = await self.sgg.generate(som_image)
-                case _:
-                    vlm_graph = await self.sgg.generate(som_image)
-                    rules_graph = self.rules_sgg.generate(tracked_detections)
-                    scene_graph = vlm_graph + rules_graph
+            scene_graph = await self.scene_graph_service.generate(
+                som_image, tracked_detections
+            )
 
         logger.info("Updating memory with generated scene graph")
         async with timer("scene_graph_memory_update_time", metrics):

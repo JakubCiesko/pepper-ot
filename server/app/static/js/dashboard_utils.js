@@ -35,7 +35,7 @@ function displayPepperSentence(text) {
 
     const div = document.createElement("div");
     div.className =
-        "bg-slate-950 border border-slate-800 p-3 rounded shadow-sm text-slate-300";
+        "bg-slate-950 border border-slate-800 p-3 rounded shadow-sm text-slate-300 whitespace-pre-wrap break-all overflow-x-auto";
     div.textContent = text;
 
     sentencesContainer.appendChild(div);

@@ -7,11 +7,10 @@ from app.inference.detection.detectors import DetectionModelType
 from app.inference.detection.service import DetectionService
 from app.inference.memory.scene_memory import SceneMemory
 from app.inference.pipeline import VisualPipeline
-from app.inference.scene_graph.generation import SceneGraphGenerator
-from app.inference.scene_graph.rules import RuleBasedSceneGraph
+from app.inference.scene_graph.rules_backend import RuleBasedSceneGraphBackend
+from app.inference.scene_graph.service import SceneGraphService
 from app.inference.scene_graph.som import SoMPainter
-from app.inference.scene_graph.vlm import LLMLabelerConfig
-from app.inference.scene_graph.vlm import VLMBackend
+from app.inference.scene_graph.vlm_backend import VLMSceneGraphBackend
 from app.schemas.config import AppConfig
 from app.services.chat import ChatService
 
@@ -73,7 +72,9 @@ class MLState:
         detector = DetectionService(
             model_name=detection_backend,
             model_path=model_path,
+            device=self.config.detection.device,
             threshold=self.config.detection.confidence_threshold,
+            ontology=self.config.detection.ontology,
         )
 
         memory = SceneMemory(
@@ -86,39 +87,33 @@ class MLState:
             color_lookup=self.config.visualization.color_lookup,
             mask_opacity=self.config.visualization.mask_opacity,
         )
-
-        llm_config = LLMLabelerConfig(
-            backend=VLMBackend(self.config.understanding.backend),
-            model_id=self.config.understanding.model_id,
-            temperature=self.config.understanding.inference.get("temperature", 0.0),
-            max_tokens=self.config.understanding.inference.get("max_tokens", 512),
-            backend_kwargs=self.config.understanding.inference.get(
-                "backend_kwargs", {}
-            ),
-        )
-        vlm_system_prompt = self.config.understanding.system_prompt.resolve(base_dir)
+        vlm_system_prompt = self.config.scene_graph.vlm.system_prompt.resolve(base_dir)
         vlm_user_prompt = (
-            self.config.understanding.user_prompt.resolve(base_dir)
-            if self.config.understanding.user_prompt is not None
+            self.config.scene_graph.vlm.user_prompt.resolve(base_dir)
+            if self.config.scene_graph.vlm.user_prompt is not None
             else None
         )
-        predicates, objects = self.config.understanding.ontology.resolve(base_dir)
-        sgg = SceneGraphGenerator(
-            llm_config,
+        predicates, objects = self.config.scene_graph.vlm.ontology.resolve(base_dir)
+        vlm_backend = VLMSceneGraphBackend(
+            self.config.scene_graph.vlm,
             predicates=predicates,
             objects=objects,
             system_prompt=vlm_system_prompt,
             user_prompt=vlm_user_prompt,
         )
-        rules_sgg = RuleBasedSceneGraph(self.config.sgg.rules)
+        rule_backend = RuleBasedSceneGraphBackend(self.config.scene_graph.rules)
+        scene_graph_service = SceneGraphService(
+            mode=self.config.scene_graph.mode,
+            vlm_backend=vlm_backend,
+            rule_backend=rule_backend,
+        )
+
         logger.info("Initializing VisualPipeline inference engine.")
         self.pipeline = VisualPipeline(
             detector=detector,
             memory=memory,
             painter=painter,
-            sgg=sgg,
-            rules_sgg=rules_sgg,
-            sgg_mode=self.config.sgg.mode,
+            scene_graph_service=scene_graph_service,
             fusion_config=self.config.fusion,
             vis_config=self.config.visualization,
         )

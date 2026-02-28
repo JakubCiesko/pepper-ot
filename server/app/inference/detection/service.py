@@ -86,7 +86,7 @@ class DetectionService:
     @ontology.setter
     def ontology(self, ontology: list[str] | None):
         self._ontology = ontology
-        if hasattr(self.model, "ontology") and hasattr(self.model, "set_ontology"):
+        if hasattr(self.model, "set_ontology"):
             logger.info(
                 f"Updating DetectionService ontology to {len(ontology) if ontology else 0} objects: [{','.join(ontology[:5] if ontology else [])}...]"
             )

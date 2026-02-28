@@ -20,23 +20,21 @@ class ChatService:
         self.context_template = context_template
         self.llm = LLMClient(config)
 
-    async def chat(self, user_query: str) -> str:
-        # 1. READ: Get current world state from the shared memory
-        # (This is the "WorldState" logic we discussed)
+    def compose_prompt(self):
         world_context = self._build_context_string()
-        # 2. PROMPT: Create the system prompt
-        if self.context_template:
-            try:
-                # {context} needs to be in prompt
-                system_prompt = self.context_template.format(context=world_context)
-            except Exception:
-                system_prompt = f"{self.system_prompt}\nContext:\n{world_context}"
-        else:
-            system_prompt = f"{self.system_prompt}\nContext:\n{world_context}"
+        system_definition_prompt = self.system_prompt
+        context_definition_prompt = (
+            self.context_template.format(context=world_context)
+            if self.context_template
+            else "Context:\n{context}"
+        )
+        system_prompt = f"{system_definition_prompt}\n{context_definition_prompt}"
+        return system_prompt
 
+    async def chat(self, user_query: str) -> str:
+        system_prompt = self.compose_prompt()
         logger.info(f"System prompt for LLM Chat: {system_prompt}")
         logger.info(f"User prompt for LLM Chat: {user_query}")
-        # 3. GENERATE
         return await self.llm.generate_text(system_prompt, user_query)
 
     def _build_context_string(self) -> str:

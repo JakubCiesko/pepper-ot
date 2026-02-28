@@ -28,18 +28,22 @@ _RULES: list[tuple[str, Callable, str]] = [
     ("detection.device", attrgetter("detection.device"), "hot"),
     # objects
     ("detection.ontology", attrgetter("detection.ontology"), "hot"),
-    # Understanding
-    ("understanding.backend", attrgetter("understanding.backend"), "hard"),
-    ("understanding.model_id", attrgetter("understanding.model_id"), "hard"),
-    ("understanding.system_prompt", attrgetter("understanding.system_prompt"), "hot"),
-    ("understanding.user_prompt", attrgetter("understanding.user_prompt"), "hot"),
-    # predicates
-    ("understanding.ontology", attrgetter("understanding.ontology"), "hot"),
+    # Scene Graph (VLM)
+    ("scene_graph.vlm.backend", attrgetter("scene_graph.vlm.backend"), "hard"),
+    ("scene_graph.vlm.model_id", attrgetter("scene_graph.vlm.model_id"), "hard"),
+    ("scene_graph.vlm.device", attrgetter("scene_graph.vlm.device"), "hard"),
+    (
+        "scene_graph.vlm.system_prompt",
+        attrgetter("scene_graph.vlm.system_prompt"),
+        "hot",
+    ),
+    ("scene_graph.vlm.user_prompt", attrgetter("scene_graph.vlm.user_prompt"), "hot"),
+    ("scene_graph.vlm.ontology", attrgetter("scene_graph.vlm.ontology"), "hot"),
     # Visualization -- not only this, it affects sgg!
     ("visualization", attrgetter("visualization"), "hot"),
     # SGG
-    ("sgg.mode", attrgetter("sgg.mode"), "hot"),
-    ("sgg.rules", attrgetter("sgg.rules"), "hot"),
+    ("scene_graph.mode", attrgetter("scene_graph.mode"), "hot"),
+    ("scene_graph.rules", attrgetter("scene_graph.rules"), "hot"),
     # Chat
     ("chat.backend", attrgetter("chat.backend"), "hard"),
     ("chat.model_id", attrgetter("chat.model_id"), "hard"),
@@ -77,8 +81,9 @@ def diff_config(old, new) -> ConfigDiff:
 
 def _update_pipeline(ml_state: MLState, new: AppConfig):
     ml_state.pipeline.detector.threshold = new.detection.confidence_threshold
+    ml_state.pipeline.detector.device = new.detection.device
+    ml_state.pipeline.detector.ontology = new.detection.ontology
     ml_state.pipeline.vis_config = new.visualization
-    ml_state.pipeline.sgg_mode = new.sgg.mode
     ml_state.pipeline.fusion_config = new.fusion
 
     # Update memory pruning settings
@@ -89,29 +94,37 @@ def _update_pipeline(ml_state: MLState, new: AppConfig):
             new.tracking.memory_max_relations,
         )
 
-    # Update VLM prompts/ontology + inference params
-    base_dir = new._config_path.parent if new._config_path is not None else None
-    if ml_state.pipeline.sgg:
-        sgg = ml_state.pipeline.sgg
-        if base_dir is not None:
-            sgg.system_prompt = new.understanding.system_prompt.resolve(base_dir)
-            sgg.user_prompt = (
-                new.understanding.user_prompt.resolve(base_dir)
-                if new.understanding.user_prompt is not None
-                else None
-            )
-            predicates, objects = new.understanding.ontology.resolve(base_dir)
-            sgg.predicates = predicates
-            sgg.objects = objects
+    # Update scene graph mode and runtime VLM/rules settings
+    ml_state.pipeline.scene_graph_service.mode = new.scene_graph.mode
 
-        sgg.config.temperature = new.understanding.inference.get(
-            "temperature", sgg.config.temperature
+    base_dir = new._config_path.parent if new._config_path is not None else None
+    if ml_state.pipeline.scene_graph_service:
+        sg_service = ml_state.pipeline.scene_graph_service
+        vlm_backend = sg_service.vlm_backend
+        system_prompt = (
+            new.scene_graph.vlm.system_prompt.resolve(base_dir)
+            if base_dir is not None
+            else vlm_backend.system_prompt
         )
-        sgg.config.max_tokens = new.understanding.inference.get(
-            "max_tokens", sgg.config.max_tokens
+        user_prompt = (
+            new.scene_graph.vlm.user_prompt.resolve(base_dir)
+            if base_dir is not None and new.scene_graph.vlm.user_prompt is not None
+            else None
         )
-    if ml_state.pipeline.rules_sgg:
-        ml_state.pipeline.rules_sgg.rules_config = new.sgg.rules
+        predicates, objects = (
+            new.scene_graph.vlm.ontology.resolve(base_dir)
+            if base_dir is not None
+            else (vlm_backend.predicates, vlm_backend.objects)
+        )
+        vlm_backend.update_runtime(
+            config=new.scene_graph.vlm,
+            predicates=predicates,
+            objects=objects,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            rebuild_client=False,
+        )
+        sg_service.rule_backend.rules_config = new.scene_graph.rules
 
 
 def _update_chat(ml_state: MLState, new: AppConfig):
@@ -124,6 +137,7 @@ def _update_chat(ml_state: MLState, new: AppConfig):
             else None
         )
     ml_state.chat_service.llm.config.inference = new.chat.inference
+    ml_state.chat_service.llm.config.device = new.chat.device
 
 
 async def apply_hot_config(ml_state: MLState, new: AppConfig) -> None:

@@ -9,7 +9,7 @@ from app.schemas.config import SGGRulesConfig
 
 
 @dataclass
-class RuleBasedSceneGraph:
+class RuleBasedSceneGraphBackend:
     rules_config: SGGRulesConfig
 
     def generate(self, detections: list[DetectionObject]) -> SceneGraph:

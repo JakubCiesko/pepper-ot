@@ -5,6 +5,8 @@ detection:
   backend: "yolo"
   weights_path: null
   confidence_threshold: 0.30
+  device: "cuda"
+  ontology: null
 
 tracking:
   reid_model: "nvidia/C-RADIOv4-SO400M"
@@ -17,57 +19,22 @@ tracking:
     geometry_weight: 0.2
     match_threshold: 0.4
 
-#a.k.a Scene Graph Generation
-understanding:
-  backend: "openai"
-  model_id: "gpt-4o"
-  inference:
-    temperature: 0.0
-    max_tokens: 512
-    backend_kwargs: {}
-  system_prompt:
-    path: "prompts/vlm_system_complex.txt"
-  user_prompt:
-    path: "prompts/vlm_user.txt"
-    #text: "Focus on spatial, semantic, and functional relationships."
-  ontology:
-    path: "ontology/ontology.yaml"
-
-chat:
-  backend: "openai"
-  model_id: "gpt-4o"
-  inference:
-    temperature: 0.7
-    max_tokens: 256
-  system_prompt:
-    #text: "You are Pepper. Answer based on what you see."
-    path: "prompts/chat_system.txt"
-  context_template:
-    path: "prompts/chat_context.txt"
-
-# this is relevant for scene graph generation, really affects results!
-visualization:
-  show_bbox: true
-  show_mask: false
-  show_polygon: true
-  show_labels: true
-  line_thickness: 2
-  mask_opacity: 0.5
-  color_lookup: "index"
-
-storage:
-  persist_last_state: false
-  last_state_path: "state/last_state.json"
-  store_image: false
-
-fusion:
-  person_bbox_match_threshold_px: 10
-  estimated_person_bbox_base_px: 80
-  estimated_person_bbox_min_px: 40
-  estimated_person_bbox_max_px: 200
-
-sgg:
+scene_graph:
   mode: "rules"
+  vlm:
+    backend: "openai"
+    model_id: "gpt-4o"
+    device: "cuda"
+    inference:
+      temperature: 0.0
+      max_tokens: 512
+      backend_kwargs: {}
+    system_prompt:
+      path: "prompts/vlm_system_complex.txt"
+    user_prompt:
+      path: "prompts/vlm_user.txt"
+    ontology:
+      path: "ontology/ontology.yaml"
   rules:
     enabled: true
     rule_list:
@@ -76,7 +43,7 @@ sgg:
         thresholds:
           max_distance: 80
         constraints:
-          labels_any: [ ]
+          labels_any: []
 
       - predicate: "left_of"
         type: "directional"
@@ -148,7 +115,7 @@ sgg:
           min_delta: 10
           max_delta: 80
         constraints:
-          labels_any: [ ]
+          labels_any: []
 
       - predicate: "resting_on"
         type: "directional"
@@ -156,34 +123,66 @@ sgg:
           axis: "y"
           max_delta: -5
         constraints:
-          labels_any: [ ]
+          labels_any: []
 
       - predicate: "wearing"
         type: "label_pair"
         constraints:
-          subject_labels: [ "person" ]
-          object_labels: [ "glasses" ]
+          subject_labels: ["person"]
+          object_labels: ["glasses"]
 
       - predicate: "holding"
         type: "label_pair"
         constraints:
-          subject_labels: [ "person" ]
-          object_labels: [ "cup", "bottle", "phone", "bag", "book" ]
+          subject_labels: ["person"]
+          object_labels: ["cup", "bottle", "phone", "bag", "book"]
 
       - predicate: "riding"
         type: "label_pair"
         constraints:
-          subject_labels: [ "person" ]
-          object_labels: [ "bicycle", "motorcycle", "horse" ]
+          subject_labels: ["person"]
+          object_labels: ["bicycle", "motorcycle", "horse"]
 
       - predicate: "sitting_on"
         type: "label_pair"
         constraints:
-          subject_labels: [ "person", "cat", "dog" ]
-          object_labels: [ "chair", "sofa", "bench", "bed" ]
+          subject_labels: ["person", "cat", "dog"]
+          object_labels: ["chair", "sofa", "bench", "bed"]
 
       - predicate: "standing_on"
         type: "label_pair"
         constraints:
-          subject_labels: [ "person" ]
-          object_labels: [ "floor", "ground", "platform", "stage" ]
+          subject_labels: ["person"]
+          object_labels: ["floor", "ground", "platform", "stage"]
+
+chat:
+  backend: "openai"
+  model_id: "gpt-4o"
+#  device: "cuda"
+  inference:
+    temperature: 0.7
+    max_tokens: 256
+  system_prompt:
+    path: "prompts/chat_system.txt"
+  context_template:
+    path: "prompts/chat_context.txt"
+
+visualization:
+  show_bbox: true
+  show_mask: false
+  show_polygon: true
+  show_labels: true
+  line_thickness: 2
+  mask_opacity: 0.5
+  color_lookup: "index"
+
+storage:
+  persist_last_state: false
+  last_state_path: "state/last_state.json"
+  store_image: false
+
+fusion:
+  person_bbox_match_threshold_px: 10
+  estimated_person_bbox_base_px: 80
+  estimated_person_bbox_min_px: 40
+  estimated_person_bbox_max_px: 200

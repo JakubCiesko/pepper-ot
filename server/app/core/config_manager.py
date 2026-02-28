@@ -33,21 +33,23 @@ def resolve_config(cfg: AppConfig) -> dict[str, Any]:
 
     resolved = dump_config(cfg)
 
-    resolved_understanding = resolved.get("understanding", {})
-    resolved_understanding["resolved_system_prompt"] = (
-        cfg.understanding.system_prompt.resolve(base_dir)
+    resolved_scene_graph = resolved.get("scene_graph", {})
+    resolved_vlm = resolved_scene_graph.get("vlm", {})
+    resolved_vlm["resolved_system_prompt"] = cfg.scene_graph.vlm.system_prompt.resolve(
+        base_dir
     )
-    resolved_understanding["resolved_user_prompt"] = (
-        cfg.understanding.user_prompt.resolve(base_dir)
-        if cfg.understanding.user_prompt is not None
+    resolved_vlm["resolved_user_prompt"] = (
+        cfg.scene_graph.vlm.user_prompt.resolve(base_dir)
+        if cfg.scene_graph.vlm.user_prompt is not None
         else None
     )
-    predicates, objects = cfg.understanding.ontology.resolve(base_dir)
-    resolved_understanding["resolved_ontology"] = {
+    predicates, objects = cfg.scene_graph.vlm.ontology.resolve(base_dir)
+    resolved_vlm["resolved_ontology"] = {
         "predicates": predicates,
         "objects": objects,
     }
-    resolved["understanding"] = resolved_understanding
+    resolved_scene_graph["vlm"] = resolved_vlm
+    resolved["scene_graph"] = resolved_scene_graph
 
     resolved_chat = resolved.get("chat", {})
     resolved_chat["resolved_system_prompt"] = cfg.chat.system_prompt.resolve(base_dir)
@@ -107,17 +109,21 @@ def _validate_paths(cfg: AppConfig):
             raise ValueError(f"Unsafe path in {label}: {path}")
 
     check(
-        cfg.understanding.system_prompt.path,
+        cfg.scene_graph.vlm.system_prompt.path,
         prompt_roots,
-        "understanding.system_prompt",
+        "scene_graph.vlm.system_prompt",
     )
-    if cfg.understanding.user_prompt is not None:
+    if cfg.scene_graph.vlm.user_prompt is not None:
         check(
-            cfg.understanding.user_prompt.path,
+            cfg.scene_graph.vlm.user_prompt.path,
             prompt_roots,
-            "understanding.user_prompt",
+            "scene_graph.vlm.user_prompt",
         )
-    check(cfg.understanding.ontology.path, ontology_roots, "understanding.ontology")
+    check(
+        cfg.scene_graph.vlm.ontology.path,
+        ontology_roots,
+        "scene_graph.vlm.ontology",
+    )
     check(cfg.chat.system_prompt.path, prompt_roots, "chat.system_prompt")
     if cfg.chat.context_template is not None:
         check(cfg.chat.context_template.path, prompt_roots, "chat.context_template")

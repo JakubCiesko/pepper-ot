@@ -9,53 +9,7 @@
     <script src="/static/js/dashboard_ws.js" defer></script>
     <script src="/static/js/dashboard_config.js" defer></script>
     <script src="/static/js/dashboard_utils.js" defer></script>
-    <style>
-        :root {
-            --app-bg: #f4f7fb;
-            --panel-bg: #ffffff;
-            --panel-bg-2: #f7f9fc;
-            --panel-border: #e6edf5;
-            --panel-muted: #8a97a8;
-            --panel-text: #1f2a37;
-            --panel-accent: #17c3b2;
-            --panel-accent-2: #4c6fff;
-            --panel-accent-3: #f6b042;
-        }
-        body.theme-dark {
-            --app-bg: #0b1220;
-            --panel-bg: #0f172a;
-            --panel-bg-2: #111827;
-            --panel-border: #1f2937;
-            --panel-muted: #94a3b8;
-            --panel-text: #e2e8f0;
-            --panel-accent: #22c55e;
-            --panel-accent-2: #38bdf8;
-            --panel-accent-3: #f59e0b;
-        }
-        body { background: var(--app-bg); color: var(--panel-text); }
-        .panel { background: var(--panel-bg); border-color: var(--panel-border); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06); }
-        .panel-alt { background: var(--panel-bg-2); border-color: var(--panel-border); }
-        .panel-muted { color: var(--panel-muted); }
-        .panel-border { border-color: var(--panel-border); }
-        .btn-primary { background: var(--panel-accent); color: #0b1220; }
-        .btn-warn { background: var(--panel-accent-3); color: #0b1220; }
-        .nav-item { border-left: 3px solid transparent; }
-        .nav-item.active { background: color-mix(in srgb, var(--panel-accent-2) 12%, var(--panel-bg)); border-left-color: var(--panel-accent-2); color: var(--panel-text); font-weight: 600; }
-        .tab-btn.active { background: var(--panel-accent-2); border-color: var(--panel-accent-2); color: #ffffff; }
-        input, select, textarea { background: var(--panel-bg-2); border-color: var(--panel-border); color: var(--panel-text); }
-        body:not(.theme-dark) .bg-slate-950 { background: var(--panel-bg-2) !important; }
-        body:not(.theme-dark) .border-slate-800 { border-color: var(--panel-border) !important; }
-        body:not(.theme-dark) .text-slate-500 { color: var(--panel-muted) !important; }
-        body:not(.theme-dark) .text-slate-400 { color: var(--panel-muted) !important; }
-        body:not(.theme-dark) .text-slate-300 { color: var(--panel-text) !important; }
-        .sidebar-collapsed #sidebar { width: 72px; overflow: hidden; }
-        .sidebar-collapsed .sidebar-label { display: none; }
-        .sidebar-collapsed .sidebar-header-text { display: none; }
-        .sidebar-collapsed .sidebar-header { justify-content: center; }
-        .sidebar-collapsed .nav-item { justify-content: center; border-left-color: transparent !important; }
-        .sidebar-tooltip { display: none; white-space: nowrap; z-index: 50; pointer-events: none; }
-        .sidebar-collapsed .nav-item:hover .sidebar-tooltip { display: block; }
-    </style>
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css">
 </head>
 <body class="min-h-screen theme-light">
     <div class="flex h-screen">
@@ -133,8 +87,7 @@
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <button id="apply-config" class="px-4 py-2 rounded btn-primary font-semibold">Apply (Hot)</button>
-                    <button id="reload-all" class="px-4 py-2 rounded btn-warn font-semibold">Reload All (Hard)</button>
+                    <button id="apply-config" class="px-4 py-2 rounded btn-primary font-semibold">Apply Changes</button>
                     <button id="save-config" class="px-4 py-2 rounded border panel-border panel-alt">Make Permanent</button>
                     <button id="reload-config" class="px-4 py-2 rounded border panel-border panel-alt">Revert to Saved</button>
                     <button id="download-config" class="px-4 py-2 rounded border panel-border panel-alt">Download Active</button>
@@ -143,6 +96,9 @@
                         Upload YAML
                         <input type="file" id="upload-config" class="hidden" accept=".yaml,.yml"/>
                     </label>
+                    <p class="w-full text-xs panel-muted mt-1">
+                        Apply updates runtime configuration. Backend decides automatically whether changes are hot-applied or require reload.
+                    </p>
                 </div>
             </header>
 
@@ -159,15 +115,17 @@
             </div>
 
             <section id="page-live" class="page-panel mt-8">
-                <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
-                    <div class="panel border rounded-xl p-5">
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <!--<div class="panel border rounded-xl p-5">
                         <p class="text-xs uppercase tracking-widest panel-muted">Frames</p>
                         <div class="text-2xl font-semibold mt-2">Live</div>
                         <p class="panel-muted text-xs mt-2">Streaming</p>
-                    </div>
+                    </div>-->
                     <div class="panel border rounded-xl p-5">
                         <p class="text-xs uppercase tracking-widest panel-muted">Objects</p>
                         <div class="text-2xl font-semibold mt-2" id="summary-objects">—</div>
+                        <p class="text-xs uppercase tracking-widest panel-muted">Relations</p>
+                        <div class="text-2xl font-semibold mt-2" id="summary-relations">—</div>
                         <p class="panel-muted text-xs mt-2">Current frame</p>
                     </div>
                     <div class="panel border rounded-xl p-5">
@@ -175,27 +133,35 @@
                         <div class="text-2xl font-semibold mt-2" id="summary-memory">—</div>
                         <p class="panel-muted text-xs mt-2">Tracked items</p>
                     </div>
+<!--                    <div class="panel border rounded-xl p-5">-->
+<!--                        -->
+<!--                        <p class="panel-muted text-xs mt-2">Scene graph</p>-->
+<!--                    </div>-->
+
                     <div class="panel border rounded-xl p-5">
-                        <p class="text-xs uppercase tracking-widest panel-muted">Relations</p>
-                        <div class="text-2xl font-semibold mt-2" id="summary-relations">—</div>
-                        <p class="panel-muted text-xs mt-2">Scene graph</p>
+                        <h2 class="text-lg font-semibold mb-3">Inference Metrics</h2>
+                        <div id="inference-metrics" class="panel-muted">
+                            <p class="panel-muted">No metrics recorded yet...</p>
+                        </div>
                     </div>
 
-                    <div class="xl:col-span-3 panel border rounded-xl p-5">
+                    <div class="xl:col-span-2 panel border rounded-xl p-5">
                         <h2 class="text-lg font-semibold mb-3">Live Feed</h2>
+                        <p class="text-xs panel-muted mb-3">Latest processed frame with active SoM overlays from the current pipeline configuration.</p>
                         <img id="annotated-image" class="w-full h-auto rounded-lg border panel-border" src="/static/pepper_icon.png" alt="Annotated Detection Image">
                     </div>
 
-                    <div class="flex flex-col gap-6">
-                        <div class="panel border rounded-xl p-5">
+                    <div class="xl:col-span-1 flex flex-col gap-6 h-full min-h-0">
+                        <div class="panel border rounded-xl p-5 flex flex-col min-h-0">
                             <h2 class="text-lg font-semibold mb-3">Pepper Says</h2>
-                            <div id="sentences-content" class="panel-muted">
+                            <div id="sentences-content" class="panel-muted h-48 min-h-0 overflow-auto pr-1 whitespace-pre-wrap break-all">
                                 <p class="panel-muted">No messages yet...</p>
                             </div>
                         </div>
-                        <div class="panel border rounded-xl p-5">
+                        <div class="panel border rounded-xl p-5 flex-1 min-h-0">
                             <h2 class="text-lg font-semibold mb-3">Detected Objects</h2>
-                            <div id="detections-content" class="panel-muted">
+                            <p class="text-xs panel-muted mb-3">Current-frame detections after thresholding and tracking ID assignment.</p>
+                            <div id="detections-content" class="panel-muted h-full overflow-auto pr-1">
                                 <p class="panel-muted">No detections yet...</p>
                             </div>
                         </div>
@@ -209,7 +175,8 @@
 
                         <div id="memory-panel" class="tab-panel" data-tab-group="live">
                             <h2 class="text-lg font-semibold mb-3">Scene Memory</h2>
-                            <div id="memory-content" class="panel-muted">
+                            <p class="text-xs panel-muted mb-3">Persistent world state accumulated across frames (objects, attributes, and relationships).</p>
+                            <div id="memory-content" class="panel-muted max-h-72 overflow-auto pr-1">
                                 <p class="panel-muted">No tracked objects yet...</p>
                             </div>
                             <details class="mt-4">
@@ -220,6 +187,7 @@
 
                         <div id="scene-graph-panel" class="tab-panel hidden" data-tab-group="live">
                             <h2 class="text-lg font-semibold mb-3">Scene Graph</h2>
+                            <p class="text-xs panel-muted mb-3">Structured relationship graph generated from current detections using the selected SGG mode.</p>
                             <div>
                                 <div class="flex items-center gap-2 mb-2">
                                     <button id="sg-zoom-in" class="px-2 py-1 text-xs rounded border panel-border panel-alt">Zoom In</button>
@@ -247,22 +215,25 @@
                     <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Detection</h3>
                     <label class="block text-sm">Backend</label>
                     <select id="backend-select" class="w-full border rounded px-3 py-2 mt-1"></select>
+                    <p class="text-xs panel-muted mt-1">Selects the detection model used in the DETECT stage.</p>
 
                     <label class="block text-sm mt-4">Language</label>
                     <select id="language-select" class="w-full border rounded px-3 py-2 mt-1">
                         <option value="en">English</option>
                         <option value="cs">Czech</option>
                     </select>
+                    <p class="text-xs panel-muted mt-1">System/UI language configuration.</p>
 
                     <label class="block text-sm mt-4">Confidence Threshold</label>
                     <div class="flex items-center gap-3 mt-2">
                         <input type="range" id="threshold-slider" min="0" max="1" step="0.01" class="flex-1">
                         <input type="number" id="threshold-input" min="0" max="1" step="0.01" class="w-20 border rounded px-2 py-1">
                     </div>
+                    <p class="text-xs panel-muted mt-1">Filters low-confidence detections before tracking and scene-graph steps.</p>
 
-                    <label class="block text-sm mt-6">Object Ontology (child:parent per line)</label>
-                    <p class="text-xs panel-muted mt-1">Relevant for open-vocabulary detection (e.g. OwlV2).</p>
-                    <textarea id="vlm-objects" rows="6" class="w-full border rounded px-3 py-2 mt-2"></textarea>
+                    <label class="block text-sm mt-6">Object Ontology</label>
+                    <p class="text-xs panel-muted mt-1">Ontology of objects for open-vocabulary detection. Enter as comma-separated values, one per line, or mixed.</p>
+                    <textarea id="vlm-objects" rows="16" class="w-full border rounded px-3 py-2 mt-2"></textarea>
                 </div>
             </section>
 
@@ -270,28 +241,27 @@
                 <div class="panel border rounded-xl p-5">
                     <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Scene Representation</h3>
                     <label class="block text-sm">System Prompt</label>
-                    <textarea id="vlm-system" rows="5" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <p class="text-xs panel-muted mt-1">Global instructions for VLM scene-graph generation, used on every frame in VLM/Hybrid mode.</p>
+                    <textarea id="vlm-system" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
                     <label class="block text-sm mt-4">User Prompt</label>
-                    <textarea id="vlm-user" rows="3" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <p class="text-xs panel-muted mt-1">Per-frame instruction template. If it contains <code>{predicates}</code>, backend replaces it with the ontology predicate list before VLM inference.</p>
+                    <textarea id="vlm-user" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
                     <label class="block text-sm mt-4">Ontology Predicates (one per line)</label>
-                    <textarea id="vlm-predicates" rows="4" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <p class="text-xs panel-muted mt-1">Predicate vocabulary used for scene relationships and prompt conditioning.</p>
+                    <textarea id="vlm-predicates" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                        <div>
-                            <label class="block text-sm">SGG Mode</label>
-                            <select id="sgg-mode" class="w-full border rounded px-3 py-2 mt-1">
-                                <option value="vlm">VLM</option>
-                                <option value="rules">Rules</option>
-                                <option value="hybrid">Hybrid</option>
-                            </select>
-                        </div>
-                        <div class="flex items-center gap-2 mt-6">
-                            <input id="sgg-rules-enabled" type="checkbox">
-                            <span class="text-sm">Enable Rule-Based SGG</span>
-                        </div>
+                    <div>
+                        <label class="block text-sm">SGG Mode</label>
+                        <select id="sgg-mode" class="w-full border rounded px-3 py-2 mt-1">
+                            <option value="vlm">VLM</option>
+                            <option value="rules">Rules</option>
+                            <option value="hybrid">Hybrid</option>
+                        </select>
+                        <p class="text-xs panel-muted mt-1">VLM uses only model output. Rules uses only rule engine. Hybrid merges both.</p>
                     </div>
                     <label class="block text-sm mt-4" for="sgg-rules-json">Rules (JSON array)</label>
-                    <textarea id="sgg-rules-json" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>
+                    <p class="text-xs panel-muted mt-1">Rule-based scene graph configuration used in Rules and Hybrid modes (predicate type, thresholds, constraints).</p>
+                    <textarea id="sgg-rules-json" rows="10" class="w-full border rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>
 
                     <div class="mt-8 border-t panel-border pt-6">
                         <h4 class="text-sm uppercase tracking-widest panel-muted mb-4">Visualization</h4>
@@ -301,16 +271,20 @@
                             <label class="flex items-center gap-2"><input id="vis-polygon" type="checkbox">Polygon</label>
                             <label class="flex items-center gap-2"><input id="vis-labels" type="checkbox">Labels</label>
                         </div>
+                        <p class="text-xs panel-muted mt-2">Controls SoM overlays used for dashboard output and scene-graph input image.</p>
                         <label class="block text-sm mt-4" for="vis-line">Line Thickness</label>
                         <input id="vis-line" type="number" min="1" max="10" class="w-full border rounded px-3 py-2 mt-1">
+                        <p class="text-xs panel-muted mt-1">Base thickness for rendered boxes and polygons.</p>
                         <label class="block text-sm mt-4" for="vis-opacity">Mask Opacity</label>
                         <input id="vis-opacity" type="number" min="0" max="1" step="0.05" class="w-full border rounded px-3 py-2 mt-1">
+                        <p class="text-xs panel-muted mt-1">Opacity of mask overlays (0 transparent, 1 opaque).</p>
                         <label class="block text-sm mt-4" for="vis-color">Color Lookup</label>
                         <select id="vis-color" class="w-full border rounded px-3 py-2 mt-1">
                             <option value="index">Index</option>
                             <option value="class">Class</option>
                             <option value="track">Track</option>
                         </select>
+                        <p class="text-xs panel-muted mt-1">Color mapping strategy: by detection order, class, or track id.</p>
                     </div>
                 </div>
             </section>
@@ -322,12 +296,15 @@
                         <input id="storage-persist" type="checkbox">
                         Persist last state
                     </label>
+                    <p class="text-xs panel-muted mt-1">Saves latest processed state payload to disk after detections.</p>
                     <label class="flex items-center gap-2 text-sm mt-3">
                         <input id="storage-image" type="checkbox">
                         Store image in last state
                     </label>
+                    <p class="text-xs panel-muted mt-1">Stores image separately and references it from saved state payload.</p>
                     <label class="block text-sm mt-4" for="storage-path">Last state path</label>
                     <input id="storage-path" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="state/last_state.json">
+                    <p class="text-xs panel-muted mt-1">Relative location of the persisted last-state JSON file.</p>
                 </div>
             </section>
 
@@ -335,9 +312,11 @@
                 <div class="panel border rounded-xl p-5">
                     <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Chat</h3>
                     <label class="block text-sm" for="chat-system">System Prompt</label>
-                    <textarea id="chat-system" rows="4" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <p class="text-xs panel-muted mt-1">Base assistant behavior and tone for chat responses. Persona definition.</p>
+                    <textarea id="chat-system" rows="16" class="w-full border rounded px-3 py-2 mt-1"></textarea>
                     <label class="block text-sm mt-4" for="chat-context">Context Template</label>
-                    <textarea id="chat-context" rows="4" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <p class="text-xs panel-muted mt-1">Template used to build chat context. If it contains <code>{context}</code>, backend injects current memory summary before LLM call. It is part of the system prompt.</p>
+                    <textarea id="chat-context" rows="16" class="w-full border rounded px-3 py-2 mt-1"></textarea>
                 </div>
             </section>
         </main>
