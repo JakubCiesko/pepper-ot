@@ -81,6 +81,7 @@ class MLState:
             memory_max_age_seconds=self.config.tracking.memory_max_age_seconds,
             memory_max_objects=self.config.tracking.memory_max_objects,
             memory_max_relations=self.config.tracking.memory_max_relations,
+            max_dormant_frames=self.config.tracking.max_dormant_frames,
             association_config=self.config.tracking.association,
             feature_extraction_config=self.config.tracking.feature_extraction,
         )

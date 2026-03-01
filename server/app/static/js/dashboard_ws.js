@@ -65,6 +65,20 @@ function parseCommaList(value) {
         .filter(Boolean);
 }
 
+function prefillObjectEditor(obj) {
+    if (memObjId) memObjId.value = obj.id ?? "";
+    if (memObjLabel) memObjLabel.value = obj.label ?? "";
+    if (memObjBbox) memObjBbox.value = Array.isArray(obj.bbox) ? obj.bbox.join(",") : "";
+    if (memObjAttrs) memObjAttrs.value = Array.isArray(obj.attributes) ? obj.attributes.join(",") : "";
+}
+
+function prefillRelationEditor(rel) {
+    if (memRelSubject) memRelSubject.value = rel.subject_id ?? "";
+    if (memRelObject) memRelObject.value = rel.object_id ?? "";
+    if (memRelPredicate) memRelPredicate.value = rel.predicate ?? "";
+    if (memRelCount) memRelCount.value = rel.count ?? "";
+}
+
 async function refreshMemoryFromApi() {
     const res = await fetch("/api/v1/memory");
     if (!res.ok) {
@@ -88,11 +102,21 @@ function renderMemory(mem) {
                 : "no attributes";
             const bbox = obj.bbox ? `[${obj.bbox.map(n => n.toFixed(1)).join(", ")}]` : "n/a";
             div.innerHTML = `
-                <div><strong>${obj.label} (#${obj.id})</strong></div>
+                <div class="flex items-start justify-between gap-2">
+                    <div><strong>${obj.label} (#${obj.id})</strong></div>
+                    <button class="memory-prefill-object px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Prefill</button>
+                </div>
                 <div class="text-xs text-slate-400 mt-1">hits ${obj.hits} · first ${secondsAgo(obj.first_seen)} · last ${secondsAgo(obj.last_seen)}</div>
                 <div class="text-xs text-slate-300 mt-1">attrs: ${attrs}</div>
                 <div class="text-xs text-slate-300 mt-1">bbox: ${bbox}</div>
             `;
+            const prefillBtn = div.querySelector(".memory-prefill-object");
+            if (prefillBtn) {
+                prefillBtn.addEventListener("click", () => {
+                    prefillObjectEditor(obj);
+                    showMemoryEditorStatus(`Prefilled object #${obj.id}`);
+                });
+            }
             memoryContainer.appendChild(div);
         });
     } else {
@@ -106,7 +130,21 @@ function renderMemory(mem) {
         memRelations.forEach(rel => {
             const div = document.createElement("div");
             div.className = "mb-2 p-2 rounded border border-slate-800 bg-slate-950 text-xs";
-            div.textContent = `${rel.subject_id} ${rel.predicate} ${rel.object_id} (count: ${rel.count})`;
+            div.innerHTML = `
+                <div class="flex items-start justify-between gap-2">
+                    <span>${rel.subject_id} ${rel.predicate} ${rel.object_id} (count: ${rel.count})</span>
+                    <button class="memory-prefill-relation px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Prefill</button>
+                </div>
+            `;
+            const prefillBtn = div.querySelector(".memory-prefill-relation");
+            if (prefillBtn) {
+                prefillBtn.addEventListener("click", () => {
+                    prefillRelationEditor(rel);
+                    showMemoryEditorStatus(
+                        `Prefilled relation ${rel.subject_id} ${rel.predicate} ${rel.object_id}`
+                    );
+                });
+            }
             memoryContainer.appendChild(div);
         });
     } else {

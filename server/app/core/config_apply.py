@@ -52,7 +52,28 @@ _RULES: list[tuple[str, Callable, str]] = [
     ("chat.system_prompt", attrgetter("chat.system_prompt"), "hot"),
     ("chat.context_template", attrgetter("chat.context_template"), "hot"),
     # Tracking
-    ("tracking.reid_model", attrgetter("tracking.reid_model"), "hard"),
+    (
+        "tracking.feature_extraction.reid_model",
+        attrgetter("tracking.feature_extraction.reid_model"),
+        "hard",
+    ),
+    (
+        "tracking.feature_extraction.device",
+        attrgetter("tracking.feature_extraction.device"),
+        "hot",
+    ),
+    (
+        "tracking.feature_extraction.target_size",
+        attrgetter("tracking.feature_extraction.target_size"),
+        "hot",
+    ),
+    (
+        "tracking.feature_extraction.resampling_method",
+        attrgetter("tracking.feature_extraction.resampling_method"),
+        "hot",
+    ),
+    ("tracking.max_dormant_frames", attrgetter("tracking.max_dormant_frames"), "hot"),
+    ("tracking.association", attrgetter("tracking.association"), "hot"),
     (
         "tracking.memory_max_age_seconds",
         attrgetter("tracking.memory_max_age_seconds"),
@@ -99,6 +120,11 @@ def _update_pipeline(ml_state: MLState, new: AppConfig):
             new.tracking.memory_max_age_seconds,
             new.tracking.memory_max_objects,
             new.tracking.memory_max_relations,
+        )
+        ml_state.pipeline.memory.set_max_dormant_frames(new.tracking.max_dormant_frames)
+        ml_state.pipeline.memory.set_association_config(new.tracking.association)
+        ml_state.pipeline.memory.set_feature_extraction_config(
+            new.tracking.feature_extraction
         )
 
     # Update scene graph mode and runtime VLM/rules settings

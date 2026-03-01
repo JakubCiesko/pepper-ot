@@ -23,6 +23,18 @@ const vlmDevice = document.getElementById("vlm-device");
 const sggMode = document.getElementById("sgg-mode");
 const sggRulesJson = document.getElementById("sgg-rules-json");
 
+const memoryMaxDormantFrames = document.getElementById("memory-max-dormant-frames");
+const memoryAssocVisualWeight = document.getElementById("memory-assoc-visual-weight");
+const memoryAssocGeometryWeight = document.getElementById("memory-assoc-geometry-weight");
+const memoryAssocMatchThreshold = document.getElementById("memory-assoc-match-threshold");
+const memoryFeatReidModel = document.getElementById("memory-feat-reid-model");
+const memoryFeatDevice = document.getElementById("memory-feat-device");
+const memoryFeatTargetSize = document.getElementById("memory-feat-target-size");
+const memoryFeatResampling = document.getElementById("memory-feat-resampling");
+const memoryMaxAgeSeconds = document.getElementById("memory-max-age-seconds");
+const memoryMaxObjects = document.getElementById("memory-max-objects");
+const memoryMaxRelations = document.getElementById("memory-max-relations");
+
 const chatSystem = document.getElementById("chat-system");
 const chatDevice = document.getElementById("chat-device");
 const chatContext = document.getElementById("chat-context");
@@ -77,6 +89,14 @@ function parseOntologyList(text) {
         .filter(Boolean);
 }
 
+function parseTargetSize(text) {
+    const parts = String(text || "")
+        .split(",")
+        .map(v => Number(v.trim()))
+        .filter(v => Number.isFinite(v) && v > 0);
+    return parts.length === 2 ? [Math.round(parts[0]), Math.round(parts[1])] : null;
+}
+
 async function loadConfig() {
     const res = await fetch("/api/v1/config");
     const data = await res.json();
@@ -115,6 +135,21 @@ async function loadConfig() {
 
     sggMode.value = active.scene_graph?.mode || "hybrid";
     sggRulesJson.value = JSON.stringify(active.scene_graph?.rules?.rule_list || [], null, 2);
+
+    const tracking = active.tracking || {};
+    const assoc = tracking.association || {};
+    const feat = tracking.feature_extraction || {};
+    memoryMaxDormantFrames.value = tracking.max_dormant_frames ?? 30;
+    memoryAssocVisualWeight.value = assoc.visual_weight ?? 0.8;
+    memoryAssocGeometryWeight.value = assoc.geometry_weight ?? 0.2;
+    memoryAssocMatchThreshold.value = assoc.match_threshold ?? 0.4;
+    memoryFeatReidModel.value = feat.reid_model || "";
+    memoryFeatDevice.value = feat.device || "";
+    memoryFeatTargetSize.value = Array.isArray(feat.target_size) ? feat.target_size.join(",") : "";
+    memoryFeatResampling.value = feat.resampling_method || "";
+    memoryMaxAgeSeconds.value = tracking.memory_max_age_seconds ?? 60;
+    memoryMaxObjects.value = tracking.memory_max_objects ?? 200;
+    memoryMaxRelations.value = tracking.memory_max_relations ?? 500;
 }
 
 function buildPatch() {
@@ -147,6 +182,23 @@ function buildPatch() {
             persist_last_state: storagePersist.checked,
             store_image: storageImage.checked,
             last_state_path: storagePath.value
+        },
+        tracking: {
+            max_dormant_frames: parseInt(memoryMaxDormantFrames.value, 10) || 30,
+            memory_max_age_seconds: parseInt(memoryMaxAgeSeconds.value, 10) || 60,
+            memory_max_objects: parseInt(memoryMaxObjects.value, 10) || 200,
+            memory_max_relations: parseInt(memoryMaxRelations.value, 10) || 500,
+            association: {
+                visual_weight: parseFloat(memoryAssocVisualWeight.value) || 0.8,
+                geometry_weight: parseFloat(memoryAssocGeometryWeight.value) || 0.2,
+                match_threshold: parseFloat(memoryAssocMatchThreshold.value) || 0.4
+            },
+            feature_extraction: {
+                reid_model: memoryFeatReidModel.value.trim() || null,
+                device: memoryFeatDevice.value.trim() || null,
+                target_size: parseTargetSize(memoryFeatTargetSize.value),
+                resampling_method: memoryFeatResampling.value.trim() || null
+            }
         },
         scene_graph: {
             mode: sggMode.value,

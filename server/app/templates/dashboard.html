@@ -44,6 +44,11 @@
                     <span class="sidebar-label">Scene Representation</span>
                     <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Scene Representation</span>
                 </button>
+                <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-memory-settings">
+                    <span class="w-2 h-2 rounded-full" style="background: #0ea5e9;"></span>
+                    <span class="sidebar-label">Memory</span>
+                    <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Memory</span>
+                </button>
                 <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-chat">
                     <span class="w-2 h-2 rounded-full" style="background: #64748b;"></span>
                     <span class="sidebar-label">Chat</span>
@@ -178,11 +183,13 @@
                             <div id="memory-content" class="panel-muted max-h-72 overflow-auto pr-1">
                                 <p class="panel-muted">No tracked objects yet...</p>
                             </div>
-                            <br>
-                            <hr>
+                            <div class="mt-4 pt-4 border-t panel-border">
+                                <p class="text-xs panel-muted">Manual Memory CRUD: create, update or delete objects and relationships directly.</p>
+                            </div>
                             <div class="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
                                 <div class="border panel-border rounded p-3 panel-alt">
                                     <h3 class="text-sm font-semibold mb-2">Object Editor</h3>
+                                    <p class="text-xs panel-muted mb-2">Use <span class="font-medium">Prefill</span> on an object card, edit fields, then Update/Delete.</p>
                                     <div class="grid grid-cols-2 gap-2">
                                         <input id="mem-obj-id" type="number" class="border rounded px-2 py-1" placeholder="id (optional)">
                                         <input id="mem-obj-label" type="text" class="border rounded px-2 py-1" placeholder="label">
@@ -197,6 +204,7 @@
                                 </div>
                                 <div class="border panel-border rounded p-3 panel-alt">
                                     <h3 class="text-sm font-semibold mb-2">Relation Editor</h3>
+                                    <p class="text-xs panel-muted mb-2">Use <span class="font-medium">Prefill</span> on a relation card for quick edits.</p>
                                     <div class="grid grid-cols-2 gap-2">
                                         <input id="mem-rel-subject" type="number" class="border rounded px-2 py-1" placeholder="subject id">
                                         <input id="mem-rel-object" type="number" class="border rounded px-2 py-1" placeholder="object id">
@@ -323,6 +331,51 @@
                             <option value="track">Track</option>
                         </select>
                         <p class="text-xs panel-muted mt-1">Color mapping strategy: by detection order, class, or track id.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="page-memory-settings" class="page-panel mt-8 hidden">
+                <div class="panel border rounded-xl p-5">
+                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Memory</h3>
+                    <p class="text-xs panel-muted mb-4">Tracking, association and feature-extraction settings for persistent memory identity over frames.</p>
+
+                    <label class="block text-sm">Max Dormant Frames</label>
+                    <input id="memory-max-dormant-frames" type="number" min="0" class="w-full border rounded px-3 py-2 mt-1">
+                    <p class="text-xs panel-muted mt-1">How many consecutive unmatched frames a track can survive before being dropped.</p>
+
+                    <div class="mt-6 border-t panel-border pt-6">
+                        <h4 class="text-sm uppercase tracking-widest panel-muted mb-3">Association</h4>
+                        <label class="block text-sm">Visual Weight</label>
+                        <input id="memory-assoc-visual-weight" type="number" step="0.01" min="0" max="1" class="w-full border rounded px-3 py-2 mt-1">
+                        <label class="block text-sm mt-3">Geometry Weight</label>
+                        <input id="memory-assoc-geometry-weight" type="number" step="0.01" min="0" max="1" class="w-full border rounded px-3 py-2 mt-1">
+                        <label class="block text-sm mt-3">Match Threshold</label>
+                        <input id="memory-assoc-match-threshold" type="number" step="0.01" min="0" class="w-full border rounded px-3 py-2 mt-1">
+                        <p class="text-xs panel-muted mt-1">Higher threshold allows looser matching between detections and existing tracks.</p>
+                    </div>
+
+                    <div class="mt-6 border-t panel-border pt-6">
+                        <h4 class="text-sm uppercase tracking-widest panel-muted mb-3">Feature Extraction</h4>
+                        <label class="block text-sm">ReID Model</label>
+                        <input id="memory-feat-reid-model" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="nvidia/C-RADIOv4-SO400M">
+                        <label class="block text-sm mt-3">Device</label>
+                        <input id="memory-feat-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cuda">
+                        <label class="block text-sm mt-3">Target Size</label>
+                        <input id="memory-feat-target-size" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="384,384">
+                        <label class="block text-sm mt-3">Resampling Method</label>
+                        <input id="memory-feat-resampling" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="BICUBIC">
+                        <p class="text-xs panel-muted mt-1">Target-size and resampling control crop preprocessing before embedding extraction.</p>
+                    </div>
+
+                    <div class="mt-6 border-t panel-border pt-6">
+                        <h4 class="text-sm uppercase tracking-widest panel-muted mb-3">Memory Limits</h4>
+                        <label class="block text-sm">Max Age (seconds)</label>
+                        <input id="memory-max-age-seconds" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1">
+                        <label class="block text-sm mt-3">Max Objects</label>
+                        <input id="memory-max-objects" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1">
+                        <label class="block text-sm mt-3">Max Relations</label>
+                        <input id="memory-max-relations" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1">
                     </div>
                 </div>
             </section>

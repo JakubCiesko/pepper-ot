@@ -35,6 +35,21 @@ class SceneMemoryStore:
             max_relations=memory_max_relations,
         )
 
+    def drop_dormant_tracks(
+        self,
+        unmatched_track_indices: list[int],
+        active_tracks: list[TrackedObject],
+        max_dormant_frames: int,
+    ):
+        if max_dormant_frames <= 0:
+            return
+        for t_idx in unmatched_track_indices:
+            if t_idx < 0 or t_idx >= len(active_tracks):
+                continue
+            track = active_tracks[t_idx]
+            if track.frames_since_seen > max_dormant_frames:
+                self.tracks.pop(track.id, None)
+
     def set_limits(self, max_age_seconds: int, max_objects: int, max_relations: int):
         if max_age_seconds <= 0:
             raise ValueError("max_age_seconds must be > 0")

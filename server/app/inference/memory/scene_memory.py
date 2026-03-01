@@ -26,6 +26,7 @@ class SceneMemory:
         memory_max_age_seconds: int = 60,
         memory_max_objects: int = 200,
         memory_max_relations: int = 500,
+        max_dormant_frames: int = 30,
         association_config: AssociationConfig | None = None,
         feature_extraction_config: FeatureExtractionConfig | None = None,
     ):
@@ -36,6 +37,7 @@ class SceneMemory:
             memory_max_relations=memory_max_relations,
         )
         self._lock = threading.Lock()
+        self.max_dormant_frames = max_dormant_frames
 
         # Dependencies
         extraction_cfg = feature_extraction_config or FeatureExtractionConfig()
@@ -142,6 +144,11 @@ class SceneMemory:
                 det.object_id = track.id
 
             self.store.age_unmatched_tracks(un_tracks, active_tracks_list)
+            self.store.drop_dormant_tracks(
+                unmatched_track_indices=un_tracks,
+                active_tracks=active_tracks_list,
+                max_dormant_frames=self.max_dormant_frames,
+            )
 
             logger.debug(f"Creating {len(un_dets)} new tracks")
             for d_idx in un_dets:
@@ -181,6 +188,32 @@ class SceneMemory:
         with self._lock:
             self.store.set_limits(max_age_seconds, max_objects, max_relations)
 
+    def set_max_dormant_frames(self, max_dormant_frames: int):
+        if max_dormant_frames < 0:
+            raise ValueError("max_dormant_frames must be >= 0")
+        with self._lock:
+            self.max_dormant_frames = max_dormant_frames
+
+    def set_association_config(self, association_config: AssociationConfig):
+        with self._lock:
+            self.associator.w_vis = association_config.visual_weight
+            self.associator.w_geo = association_config.geometry_weight
+            self.associator.match_threshold = association_config.match_threshold
+
+    def set_feature_extraction_config(self, feature_config: FeatureExtractionConfig):
+        with self._lock:
+            if feature_config.device:
+                self.extractor.set_device(feature_config.device)
+            if feature_config.target_size:
+                self.extractor.target_size = tuple(feature_config.target_size)
+            if feature_config.resampling_method:
+                method = getattr(
+                    Image.Resampling,
+                    feature_config.resampling_method,
+                    self.extractor.resampling_method,
+                )
+                self.extractor.resampling_method = method
+
     def reset(self):
         with self._lock:
             self.store.reset()
@@ -194,6 +227,8 @@ class SceneMemory:
     def scene_state(self) -> SceneState:
         with self._lock:
             logger.info("Returning scene state from memory")
+            # Ensure TTL/object limits are enforced even when no new frames are processed.
+            self.store.prune_memory()
             return self.store.scene_state()
 
     def upsert_scene_state(self, state: SceneState):
