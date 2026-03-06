@@ -2,24 +2,32 @@ from abc import ABC
 from abc import abstractmethod
 import base64
 import io
-import json
 import logging
-import os
 from typing import Any
 
 from openai import AsyncOpenAI
 from PIL import Image
-from pydantic import TypeAdapter
 import torch
 from transformers import AutoModelForVision2Seq
 from transformers import AutoProcessor
 
 from app.schemas.config import LLMConfig
+from app.services.model_io_common import extract_text_content
+from app.services.model_io_common import extract_text_from_openai_response
+from app.services.model_io_common import parse_structured_text
+from app.services.model_io_common import resolve_structured_mode
+from app.services.model_io_common import schema_to_json_schema
+from app.services.model_io_common import validate_parsed_output
+from app.services.provider_runtime import build_gemini_client_kwargs
+from app.services.provider_runtime import build_openai_async_client_kwargs
 
 logger = logging.getLogger(__name__)
 
 
 class BaseVLMClient(ABC):
+    def update_runtime(self, config: LLMConfig):
+        self.config = config
+
     @abstractmethod
     async def infer(
         self,
@@ -44,6 +52,9 @@ class OpenAIVLMClient(BaseVLMClient):
         self.client = AsyncOpenAI(**(client_kwargs or {}))
         self.supports_native_structured = supports_native_structured
 
+    def update_runtime(self, config: LLMConfig):
+        self.config = config
+
     async def infer(
         self,
         system_prompt: str,
@@ -56,7 +67,7 @@ class OpenAIVLMClient(BaseVLMClient):
         kwargs = dict(self.config.call_kwargs or {})
         if call_overrides:
             kwargs.update(call_overrides)
-        mode = _resolve_structured_mode(
+        mode = resolve_structured_mode(
             self.config,
             output_schema=output_schema,
             supports_native_structured=self.supports_native_structured,
@@ -79,8 +90,8 @@ class OpenAIVLMClient(BaseVLMClient):
         ]
         if mode == "provider_native" and output_schema is not None:
             parse_kwargs = dict(kwargs)
-            if "max_tokens" in parse_kwargs and "max_output_tokens" not in parse_kwargs:
-                parse_kwargs["max_output_tokens"] = parse_kwargs.pop("max_tokens")
+            # if "max_tokens" in parse_kwargs and "max_output_tokens" not in parse_kwargs:
+            #     parse_kwargs["max_output_tokens"] = parse_kwargs.pop("max_tokens")
             try:
                 response = await self.client.responses.parse(
                     model=self.config.model_id,
@@ -89,8 +100,8 @@ class OpenAIVLMClient(BaseVLMClient):
                     **parse_kwargs,
                 )
                 parsed_native = getattr(response, "output_parsed", None)
-                text = _extract_text_from_openai_response(response)
-                parsed = _validate_parsed_output(
+                text = extract_text_from_openai_response(response)
+                parsed = validate_parsed_output(
                     parsed_native,
                     output_schema,
                     strict=self.config.structured_output.strict,
@@ -123,8 +134,8 @@ class OpenAIVLMClient(BaseVLMClient):
             **kwargs,
         )
         content = response.choices[0].message.content if response.choices else ""
-        text = _extract_text(content)
-        parsed = _parse_structured_text(
+        text = extract_text_content(content)
+        parsed = parse_structured_text(
             text,
             output_schema,
             strict=self.config.structured_output.strict,
@@ -143,6 +154,9 @@ class GeminiVLMClient(BaseVLMClient):
             ) from exc
         self.client = genai.Client(**(client_kwargs or {}))
 
+    def update_runtime(self, config: LLMConfig):
+        self.config = config
+
     async def infer(
         self,
         system_prompt: str,
@@ -160,7 +174,7 @@ class GeminiVLMClient(BaseVLMClient):
         kwargs = dict(self.config.call_kwargs or {})
         if call_overrides:
             kwargs.update(call_overrides)
-        mode = _resolve_structured_mode(
+        mode = resolve_structured_mode(
             self.config,
             output_schema=output_schema,
             supports_native_structured=True,
@@ -170,7 +184,7 @@ class GeminiVLMClient(BaseVLMClient):
         generation_config = kwargs.pop("generate_content_config", {})
         generation_config.setdefault("system_instruction", system_prompt)
         if mode == "provider_native" and output_schema is not None:
-            schema_dict = _schema_to_json_schema(output_schema)
+            schema_dict = schema_to_json_schema(output_schema)
             if schema_dict is not None:
                 generation_config.setdefault("response_mime_type", "application/json")
                 generation_config.setdefault("response_json_schema", schema_dict)
@@ -187,7 +201,7 @@ class GeminiVLMClient(BaseVLMClient):
             **kwargs,
         )
         text = str(getattr(response, "text", "") or "")
-        parsed = _parse_structured_text(
+        parsed = parse_structured_text(
             text,
             output_schema,
             strict=self.config.structured_output.strict,
@@ -238,6 +252,10 @@ class LocalHFVLMClient(BaseVLMClient):
             if hasattr(self.model, "device")
             else torch.device(requested_device)
         )
+
+    def update_runtime(self, config: LLMConfig):
+        # Keep loaded model/processor; hot updates refresh runtime call behavior.
+        self.config = config
 
     async def infer(
         self,
@@ -306,7 +324,7 @@ class LocalHFVLMClient(BaseVLMClient):
             skip_special_tokens=True,
             clean_up_tokenization_spaces=False,
         )[0]
-        parsed = _parse_structured_text(
+        parsed = parse_structured_text(
             text,
             output_schema,
             strict=self.config.structured_output.strict,
@@ -329,13 +347,11 @@ def build_vlm_client(config: LLMConfig) -> BaseVLMClient:
     provider = config.provider
 
     if provider in {"openai", "openai_compatible"}:
-        client_kwargs = dict(config.client_init_kwargs or {})
-        api_key_env = config.api_key_env or "OPENAI_API_KEY"
-        client_kwargs.setdefault("api_key", os.getenv(api_key_env, "EMPTY"))
-        if config.base_url and "base_url" not in client_kwargs:
-            client_kwargs["base_url"] = config.base_url
-        if config.timeout_seconds is not None and "timeout" not in client_kwargs:
-            client_kwargs["timeout"] = config.timeout_seconds
+        client_kwargs = build_openai_async_client_kwargs(
+            config,
+            default_api_env="OPENAI_API_KEY",
+            default_api_value="EMPTY",
+        )
         return OpenAIVLMClient(
             config,
             client_kwargs=client_kwargs,
@@ -343,9 +359,11 @@ def build_vlm_client(config: LLMConfig) -> BaseVLMClient:
         )
 
     if provider == "gemini":
-        client_kwargs = dict(config.client_init_kwargs or {})
-        api_key_env = config.api_key_env or "GEMINI_API_KEY"
-        client_kwargs.setdefault("api_key", os.getenv(api_key_env, ""))
+        client_kwargs = build_gemini_client_kwargs(
+            config,
+            default_api_env="GEMINI_API_KEY",
+            default_api_value="",
+        )
         return GeminiVLMClient(config, client_kwargs=client_kwargs)
 
     if provider in {"local_hf", "local_4bit"}:
@@ -354,99 +372,3 @@ def build_vlm_client(config: LLMConfig) -> BaseVLMClient:
         return LocalHFVLMClient(config)
 
     raise ValueError(f"Unsupported VLM provider: {provider}")
-
-
-def _extract_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts = [
-            str(item.get("text", ""))
-            for item in content
-            if isinstance(item, dict) and item.get("type") == "text"
-        ]
-        return "\n".join(filter(None, parts))
-    return str(content or "")
-
-
-def _extract_json_block(raw: str) -> str | None:
-    start = raw.find("{")
-    end = raw.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        return raw[start : end + 1]
-    start = raw.find("[")
-    end = raw.rfind("]")
-    if start != -1 and end != -1 and end > start:
-        return raw[start : end + 1]
-    return None
-
-
-def _parse_structured_text(raw: str, schema: Any | None, strict: bool) -> Any | None:
-    if schema is None:
-        return None
-    block = _extract_json_block(raw)
-    if block is None:
-        if strict:
-            raise ValueError("Structured output requested but no JSON found")
-        return None
-    parsed = json.loads(block)
-    adapter = TypeAdapter(schema)
-    return adapter.validate_python(parsed)
-
-
-def _validate_parsed_output(
-    parsed: Any, schema: Any | None, strict: bool
-) -> Any | None:
-    if schema is None:
-        return None
-    if parsed is None:
-        if strict:
-            raise ValueError("Structured output is empty")
-        return None
-    adapter = TypeAdapter(schema)
-    return adapter.validate_python(parsed)
-
-
-def _schema_to_json_schema(schema: Any | None) -> dict[str, Any] | None:
-    if schema is None:
-        return None
-    try:
-        return TypeAdapter(schema).json_schema()
-    except Exception:
-        return None
-
-
-def _resolve_structured_mode(
-    config: LLMConfig,
-    *,
-    output_schema: Any | None,
-    supports_native_structured: bool,
-    provider_name: str,
-) -> str:
-    if output_schema is None:
-        return "parse_output"
-    mode = config.structured_output.mode
-    if mode == "provider_native" and not supports_native_structured:
-        logger.warning(
-            "Structured mode provider_native requested for provider=%s but not supported; using parse_output",
-            provider_name,
-        )
-        return "parse_output"
-    return mode
-
-
-def _extract_text_from_openai_response(response: Any) -> str:
-    text = getattr(response, "output_text", None)
-    if isinstance(text, str) and text:
-        return text
-    output = getattr(response, "output", None)
-    if not output:
-        return ""
-    parts: list[str] = []
-    for item in output:
-        content = getattr(item, "content", None) or []
-        for chunk in content:
-            chunk_text = getattr(chunk, "text", None)
-            if chunk_text:
-                parts.append(str(chunk_text))
-    return "\n".join(parts)

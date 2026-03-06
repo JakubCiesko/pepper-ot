@@ -47,6 +47,8 @@ class VLMSceneGraphBackend:
         self.user_prompt = user_prompt
         if rebuild_client:
             self.client = build_vlm_client(config)
+        else:
+            self.client.update_runtime(config)
 
     @staticmethod
     def _to_bytes(image: Path | bytes | Image.Image | np.ndarray) -> bytes:

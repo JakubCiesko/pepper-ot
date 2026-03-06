@@ -35,7 +35,7 @@ scene_graph:
     client_init_kwargs: {}
     call_kwargs:
       temperature: 1.0
-      max_completion_tokens: 4096
+      #max_completion_tokens: 4096
     structured_output:
       mode: "provider_native"
       strict: true

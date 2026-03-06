@@ -67,7 +67,11 @@ def resolve_config(cfg: AppConfig) -> dict[str, Any]:
 
 
 def deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    replace_on_patch_keys = {"call_kwargs", "client_init_kwargs"}
     for key, value in patch.items():
+        if key in replace_on_patch_keys:
+            base[key] = value
+            continue
         if isinstance(value, dict) and isinstance(base.get(key), dict):
             if "text" in value or "path" in value:
                 base[key] = value
