@@ -16,6 +16,17 @@ class DetectionResponse(BaseModel):
     image_height: int
 
 
+# This serves for structured output for openai and gemini
+class SceneGraphRelation(BaseModel):
+    sub: str
+    rel: str
+    obj: str
+
+
+class SceneGraphStructuredResponse(BaseModel):
+    relationships: list[SceneGraphRelation] = Field(default_factory=list)
+
+
 class Relationship(BaseModel):
     subject_id: int
     predicate: str

@@ -20,6 +20,13 @@ const vlmUser = document.getElementById("vlm-user");
 const vlmPredicates = document.getElementById("vlm-predicates");
 const vlmObjects = document.getElementById("vlm-objects");
 const vlmDevice = document.getElementById("vlm-device");
+const vlmProvider = document.getElementById("vlm-provider");
+const vlmModelId = document.getElementById("vlm-model-id");
+const vlmBaseUrl = document.getElementById("vlm-base-url");
+const vlmApiKeyEnv = document.getElementById("vlm-api-key-env");
+const vlmStructuredMode = document.getElementById("vlm-structured-strategy");
+const vlmClientInitKwargs = document.getElementById("vlm-client-init-kwargs");
+const vlmCallKwargs = document.getElementById("vlm-call-kwargs");
 const sggMode = document.getElementById("sgg-mode");
 const sggRulesJson = document.getElementById("sgg-rules-json");
 
@@ -38,6 +45,13 @@ const memoryMaxRelations = document.getElementById("memory-max-relations");
 const chatSystem = document.getElementById("chat-system");
 const chatDevice = document.getElementById("chat-device");
 const chatContext = document.getElementById("chat-context");
+const chatProvider = document.getElementById("chat-provider");
+const chatModelId = document.getElementById("chat-model-id");
+const chatBaseUrl = document.getElementById("chat-base-url");
+const chatApiKeyEnv = document.getElementById("chat-api-key-env");
+const chatStructuredMode = document.getElementById("chat-structured-strategy");
+const chatClientInitKwargs = document.getElementById("chat-client-init-kwargs");
+const chatCallKwargs = document.getElementById("chat-call-kwargs");
 
 const applyBtn = document.getElementById("apply-config");
 const saveBtn = document.getElementById("save-config");
@@ -97,6 +111,21 @@ function parseTargetSize(text) {
     return parts.length === 2 ? [Math.round(parts[0]), Math.round(parts[1])] : null;
 }
 
+function parseJsonObject(text, fieldName) {
+    const value = String(text || "").trim();
+    if (!value) return {};
+    let parsed;
+    try {
+        parsed = JSON.parse(value);
+    } catch (err) {
+        throw new Error(`Invalid JSON in ${fieldName}`);
+    }
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error(`${fieldName} must be a JSON object`);
+    }
+    return parsed;
+}
+
 async function loadConfig() {
     const res = await fetch("/api/v1/config");
     const data = await res.json();
@@ -127,11 +156,25 @@ async function loadConfig() {
     vlmPredicates.value = (resolvedVlm.resolved_ontology?.predicates || []).join("\n");
     vlmObjects.value = (active.detection?.ontology || resolved.detection?.resolved_ontology || []).join("\n");
     vlmDevice.value = active.scene_graph?.vlm?.device || "";
+    vlmProvider.value = active.scene_graph?.vlm?.provider || "openai";
+    vlmModelId.value = active.scene_graph?.vlm?.model_id || "";
+    vlmBaseUrl.value = active.scene_graph?.vlm?.base_url || "";
+    vlmApiKeyEnv.value = active.scene_graph?.vlm?.api_key_env || "";
+    vlmStructuredMode.value = active.scene_graph?.vlm?.structured_output?.mode || "parse_output";
+    vlmClientInitKwargs.value = JSON.stringify(active.scene_graph?.vlm?.client_init_kwargs || {}, null, 2);
+    vlmCallKwargs.value = JSON.stringify(active.scene_graph?.vlm?.call_kwargs || {}, null, 2);
 
     const resolvedChat = resolved.chat || {};
     chatSystem.value = resolvedChat.resolved_system_prompt || "";
     chatDevice.value = active.chat?.device || "";
     chatContext.value = resolvedChat.resolved_context_template || "";
+    chatProvider.value = active.chat?.provider || "openai";
+    chatModelId.value = active.chat?.model_id || "";
+    chatBaseUrl.value = active.chat?.base_url || "";
+    chatApiKeyEnv.value = active.chat?.api_key_env || "";
+    chatStructuredMode.value = active.chat?.structured_output?.mode || "parse_output";
+    chatClientInitKwargs.value = JSON.stringify(active.chat?.client_init_kwargs || {}, null, 2);
+    chatCallKwargs.value = JSON.stringify(active.chat?.call_kwargs || {}, null, 2);
 
     sggMode.value = active.scene_graph?.mode || "hybrid";
     sggRulesJson.value = JSON.stringify(active.scene_graph?.rules?.rule_list || [], null, 2);
@@ -159,6 +202,10 @@ function buildPatch() {
     } catch (err) {
         throw new Error("Invalid JSON in SGG rules");
     }
+    const parsedVlmClientInitKwargs = parseJsonObject(vlmClientInitKwargs.value, "VLM Client Init Kwargs");
+    const parsedVlmCallKwargs = parseJsonObject(vlmCallKwargs.value, "VLM Call Kwargs");
+    const parsedChatClientInitKwargs = parseJsonObject(chatClientInitKwargs.value, "LLM Client Init Kwargs");
+    const parsedChatCallKwargs = parseJsonObject(chatCallKwargs.value, "LLM Call Kwargs");
     return {
         system: {
             language: languageSelect.value
@@ -203,7 +250,16 @@ function buildPatch() {
         scene_graph: {
             mode: sggMode.value,
             vlm: {
+                provider: vlmProvider.value,
+                model_id: vlmModelId.value.trim(),
                 device: vlmDevice.value.trim() || null,
+                base_url: vlmBaseUrl.value.trim() || null,
+                api_key_env: vlmApiKeyEnv.value.trim() || null,
+                client_init_kwargs: parsedVlmClientInitKwargs,
+                call_kwargs: parsedVlmCallKwargs,
+                structured_output: {
+                    mode: vlmStructuredMode.value
+                },
                 system_prompt: { text: vlmSystem.value },
                 user_prompt: { text: vlmUser.value },
                 ontology: {
@@ -216,7 +272,16 @@ function buildPatch() {
             }
         },
         chat: {
+            provider: chatProvider.value,
+            model_id: chatModelId.value.trim(),
             device: chatDevice.value.trim() || null,
+            base_url: chatBaseUrl.value.trim() || null,
+            api_key_env: chatApiKeyEnv.value.trim() || null,
+            client_init_kwargs: parsedChatClientInitKwargs,
+            call_kwargs: parsedChatCallKwargs,
+            structured_output: {
+                mode: chatStructuredMode.value
+            },
             system_prompt: { text: chatSystem.value },
             context_template: { text: chatContext.value }
         }

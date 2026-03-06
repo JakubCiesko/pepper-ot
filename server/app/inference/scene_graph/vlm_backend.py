@@ -8,6 +8,7 @@ from PIL import Image
 
 from app.inference.types import SceneGraph
 from app.schemas.config import SceneGraphVLMConfig
+from app.schemas.scene import SceneGraphStructuredResponse
 from app.services.vlm_client import BaseVLMClient
 from app.services.vlm_client import build_vlm_client
 
@@ -116,7 +117,8 @@ class VLMSceneGraphBackend:
             "Fix the following output into valid JSON only. No extra text.\n\n"
             f"OUTPUT:\n{clipped}"
         )
-        return await self.client.infer(repair_system, repair_user, image_bytes)
+        repaired, _ = await self.client.infer(repair_system, repair_user, image_bytes)
+        return repaired
 
     def _build_user_prompt(self) -> str:
         if self.user_prompt:
@@ -134,8 +136,31 @@ class VLMSceneGraphBackend:
     ) -> SceneGraph:
         image_bytes = self._to_bytes(image)
         user_prompt = self._build_user_prompt()
-        raw = await self.client.infer(self.system_prompt, user_prompt, image_bytes)
-        data = self._parse_json(raw)
+        try:
+            raw, parsed = await self.client.infer(
+                self.system_prompt,
+                user_prompt,
+                image_bytes,
+                output_schema=SceneGraphStructuredResponse,
+            )
+        except Exception as exc:
+            logger.warning(
+                f"Structured VLM generation failed, falling back to raw mode: {exc}"
+            )
+            raw, parsed = await self.client.infer(
+                self.system_prompt,
+                user_prompt,
+                image_bytes,
+                output_schema=None,
+            )
+        # this is just for precommit to shutup
+        data: list[dict] = []
+        if isinstance(parsed, SceneGraphStructuredResponse):
+            data = [rel.model_dump() for rel in parsed.relationships]
+        elif parsed is not None:
+            data = self._normalize_data(parsed)
+        else:
+            data = self._parse_json(raw)
         if not data:
             logger.warning("Failed to parse VLM output as JSON, attempting repair")
             repaired = await self._repair(image_bytes, raw)

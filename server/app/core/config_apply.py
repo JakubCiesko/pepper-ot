@@ -30,9 +30,31 @@ _RULES: list[tuple[str, Callable, str]] = [
     ("detection.ontology", attrgetter("detection.ontology"), "hot"),
     ("detection.ontology_path", attrgetter("detection.ontology_path"), "hot"),
     # Scene Graph (VLM)
-    ("scene_graph.vlm.backend", attrgetter("scene_graph.vlm.backend"), "hard"),
+    ("scene_graph.vlm.provider", attrgetter("scene_graph.vlm.provider"), "hard"),
     ("scene_graph.vlm.model_id", attrgetter("scene_graph.vlm.model_id"), "hard"),
+    ("scene_graph.vlm.base_url", attrgetter("scene_graph.vlm.base_url"), "hard"),
+    (
+        "scene_graph.vlm.timeout_seconds",
+        attrgetter("scene_graph.vlm.timeout_seconds"),
+        "hard",
+    ),
+    (
+        "scene_graph.vlm.api_key_env",
+        attrgetter("scene_graph.vlm.api_key_env"),
+        "hard",
+    ),
+    (
+        "scene_graph.vlm.client_init_kwargs",
+        attrgetter("scene_graph.vlm.client_init_kwargs"),
+        "hard",
+    ),
     ("scene_graph.vlm.device", attrgetter("scene_graph.vlm.device"), "hard"),
+    ("scene_graph.vlm.call_kwargs", attrgetter("scene_graph.vlm.call_kwargs"), "hot"),
+    (
+        "scene_graph.vlm.structured_output",
+        attrgetter("scene_graph.vlm.structured_output"),
+        "hot",
+    ),
     (
         "scene_graph.vlm.system_prompt",
         attrgetter("scene_graph.vlm.system_prompt"),
@@ -46,9 +68,15 @@ _RULES: list[tuple[str, Callable, str]] = [
     ("scene_graph.mode", attrgetter("scene_graph.mode"), "hot"),
     ("scene_graph.rules", attrgetter("scene_graph.rules"), "hot"),
     # Chat
-    ("chat.backend", attrgetter("chat.backend"), "hard"),
+    ("chat.provider", attrgetter("chat.provider"), "hard"),
     ("chat.model_id", attrgetter("chat.model_id"), "hard"),
+    ("chat.base_url", attrgetter("chat.base_url"), "hard"),
+    ("chat.timeout_seconds", attrgetter("chat.timeout_seconds"), "hard"),
+    ("chat.api_key_env", attrgetter("chat.api_key_env"), "hard"),
+    ("chat.client_init_kwargs", attrgetter("chat.client_init_kwargs"), "hard"),
     ("chat.device", attrgetter("chat.device"), "hot"),
+    ("chat.call_kwargs", attrgetter("chat.call_kwargs"), "hot"),
+    ("chat.structured_output", attrgetter("chat.structured_output"), "hot"),
     ("chat.system_prompt", attrgetter("chat.system_prompt"), "hot"),
     ("chat.context_template", attrgetter("chat.context_template"), "hot"),
     # Tracking
@@ -168,8 +196,7 @@ def _update_chat(ml_state: MLState, new: AppConfig):
             if new.chat.context_template is not None
             else None
         )
-    ml_state.chat_service.llm.config.inference = new.chat.inference
-    ml_state.chat_service.llm.config.device = new.chat.device
+    ml_state.chat_service.llm.update_runtime(new.chat)
 
 
 async def apply_hot_config(ml_state: MLState, new: AppConfig) -> None:

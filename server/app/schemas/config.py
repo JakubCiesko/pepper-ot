@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 from typing import Literal
 
 from pydantic import BaseModel
@@ -35,11 +36,100 @@ class DetectionConfig(BaseModel):
         return None
 
 
+class StructuredOutputConfig(BaseModel):
+    mode: Literal["provider_native", "parse_output"] = "parse_output"
+    strict: bool = True
+
+
 class LLMConfig(BaseModel):
-    backend: Literal["openai", "local", "local_4bit"]
+    provider: Literal[
+        "openai",
+        "gemini",
+        "openai_compatible",
+        "local_hf",
+        "local_4bit",
+    ] = "openai"
     model_id: str
-    inference: dict = Field(default_factory=dict)
     device: str | None = None
+
+    # Connection/credentials
+    base_url: str | None = None
+    api_key_env: str | None = None
+    timeout_seconds: float | None = None
+
+    # Provider-specific passthrough knobs
+    client_init_kwargs: dict[str, Any] = Field(default_factory=dict)
+    call_kwargs: dict[str, Any] = Field(default_factory=dict)
+    structured_output: StructuredOutputConfig = Field(
+        default_factory=StructuredOutputConfig
+    )
+
+    # Legacy fields kept for migration compatibility.
+    backend: str | None = Field(default=None, exclude=True)
+    inference: dict[str, Any] = Field(default_factory=dict, exclude=True)
+
+    # TODO: this will be removed
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_fields(cls, value):
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+
+        backend = data.get("backend")
+        if "provider" not in data and backend:
+            backend_map = {
+                "openai": "openai",
+                "gemini": "gemini",
+                "local": "local_hf",
+                "local_hf": "local_hf",
+                "local_4bit": "local_4bit",
+            }
+            data["provider"] = backend_map.get(backend, "openai")
+
+        inference = data.get("inference")
+        if isinstance(inference, dict):
+            call_kwargs = dict(data.get("call_kwargs") or {})
+            client_init_kwargs = dict(data.get("client_init_kwargs") or {})
+
+            backend_kwargs = inference.get("backend_kwargs")
+            if isinstance(backend_kwargs, dict):
+                if isinstance(backend_kwargs.get("client_init_kwargs"), dict):
+                    client_init_kwargs.update(backend_kwargs["client_init_kwargs"])
+                if isinstance(backend_kwargs.get("call_kwargs"), dict):
+                    call_kwargs.update(backend_kwargs["call_kwargs"])
+                else:
+                    passthrough = {
+                        k: v
+                        for k, v in backend_kwargs.items()
+                        if k not in {"client_init_kwargs", "call_kwargs"}
+                    }
+                    call_kwargs.update(passthrough)
+
+            call_kwargs.update(
+                {k: v for k, v in inference.items() if k != "backend_kwargs"}
+            )
+            data["client_init_kwargs"] = client_init_kwargs
+            data["call_kwargs"] = call_kwargs
+
+        structured = data.get("structured_output")
+        if isinstance(structured, dict):
+            mode = structured.get("mode")
+            if mode is None:
+                strategy = structured.get("strategy")
+                if strategy in {"auto", "native"}:
+                    structured["mode"] = "provider_native"
+                elif strategy in {"json_mode", "prompt_only"}:
+                    structured["mode"] = "parse_output"
+            if isinstance(structured.get("enabled"), bool) and not structured.get(
+                "enabled"
+            ):
+                structured["mode"] = "parse_output"
+            structured.pop("strategy", None)
+            structured.pop("enabled", None)
+            data["structured_output"] = structured
+
+        return data
 
 
 class AssociationConfig(BaseModel):
