@@ -11,7 +11,7 @@ detection:
 
 tracking:
   max_dormant_frames: 30
-  memory_max_age_seconds: 60
+  memory_max_age_seconds: 600
   memory_max_objects: 200
   memory_max_relations: 500
   association:
@@ -28,11 +28,11 @@ scene_graph:
   mode: "vlm"
   vlm:
     backend: "openai"
-    model_id: "gpt-4o"
+    model_id: "gpt-5-mini-2025-08-07"
     device: "cuda"
     inference:
-      temperature: 0.0
-      max_tokens: 512
+      temperature: 1.0
+      max_tokens: 4096
       backend_kwargs: {}
     system_prompt:
       path: "prompts/vlm_system_complex.txt"

@@ -4,6 +4,8 @@ import base64
 import io
 import logging
 
+from google import genai
+from google.genai import types
 from openai import AsyncOpenAI
 from PIL import Image
 from qwen_vl_utils import process_vision_info
@@ -34,7 +36,7 @@ class OpenAIVLMClient(BaseVLMClient):
         encoded = base64.b64encode(image).decode()
         response = await self.client.chat.completions.create(
             model=self.config.model_id,
-            messages=[
+            input=[
                 {"role": "system", "content": system_prompt},
                 {
                     "role": "user",
@@ -48,10 +50,36 @@ class OpenAIVLMClient(BaseVLMClient):
                 },
             ],
             temperature=inference.get("temperature", 0.0),
-            max_tokens=inference.get("max_tokens", 512),
+            max_completion_tokens=inference.get("max_tokens", 512),
             response_format={"type": "json_object"},
         )
         return response.choices[0].message.content or ""
+
+
+class GeminiVLMClient(BaseVLMClient):
+    def __init__(self, config: LLMConfig, client_kwargs: dict | None = None):
+        self.config = config
+        self.client = genai.Client(http_options=types.HttpOptions(api_version="v1"))
+
+    async def infer(self, system_prompt: str, user_prompt: str, image: bytes) -> str:
+        # config = {
+        #     "response_mime_type": "application/json",
+        #     "response_json_schema": Feedback.model_json_schema(),
+        # }
+
+        config = types.GenerateContentConfig(system_instruction=system_prompt)
+        response = await self.client.aio.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=[
+                types.Part.from_bytes(
+                    data=image,
+                    mime_type="image/jpeg",
+                ),
+                user_prompt,
+            ],
+            config=config,
+        )
+        return response.text
 
 
 class LocalHFVLMClient(BaseVLMClient):
@@ -180,6 +208,8 @@ def build_vlm_client(config: LLMConfig) -> BaseVLMClient:
     )
     if config.backend == "openai":
         return OpenAIVLMClient(config, client_kwargs=backend_kwargs)
+    if config.backend == "gemini":
+        return GeminiVLMClient(config, client_kwargs=backend_kwargs)
     if config.backend == "local":
         return LocalHFVLMClient(config, **backend_kwargs)
     return Local4BitVLMClient(config, **backend_kwargs)

@@ -142,4 +142,6 @@ class VLMSceneGraphBackend:
             data = self._parse_json(repaired)
             if not data:
                 logger.warning("VLM repair failed, returning empty scene graph")
+        logger.debug(f"User VLM Prompt: {user_prompt}")
+        logger.debug(f"Raw VLM Response: {raw}")
         return SceneGraph.from_list(data, raw=raw)
