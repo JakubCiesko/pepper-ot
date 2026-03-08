@@ -5,7 +5,7 @@ detection:
   backend: "yolo"
   weights_path: null
   confidence_threshold: 0.30
-  device: "cpu"
+  device: "cuda"
   ontology: null
   ontology_path: "ontology/object_detection.yaml"
 
@@ -19,7 +19,7 @@ tracking:
     geometry_weight: 0.2
     match_threshold: 0.4
   feature_extraction:
-    device: "cpu"
+    device: "cuda"
     reid_model: "nvidia/C-RADIOv4-SO400M"
     target_size: [384, 384]
     resampling_method: "BICUBIC"
@@ -202,6 +202,24 @@ fusion:
   estimated_person_bbox_base_px: 80
   estimated_person_bbox_min_px: 40
   estimated_person_bbox_max_px: 200
+
+worker:
+  enabled: true
+  host: "127.0.0.1"
+  port: 8765
+  idle_timeout_seconds: 30
+  idle_check_interval_seconds: 2.0
+  startup_timeout_seconds: 120.0
+  request_timeout_seconds: 180.0
+  shutdown_grace_seconds: 15.0
+  max_startup_queue: 32
+  healthcheck_interval_seconds: 2.0
+  restart_max_attempts: 3
+  restart_window_seconds: 60
+  restart_backoff_seconds: [1.0, 3.0, 10.0]
+  circuit_breaker_cooldown_seconds: 30
+  auto_warmup_on_startup: true
+  chat_in_worker: false
 
 pipeline_controls:
   preset: "full"

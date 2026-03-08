@@ -1,7 +1,9 @@
 import logging
 import time
 
-from app.core.state import ml_state
+from app.api.v1.utils import get_memory as _get_memory
+from app.api.v1.utils import worker_enabled
+from app.api.v1.utils import worker_request
 from app.core.ws_manager import ws_manager
 from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
@@ -68,13 +70,6 @@ class MemoryRelationUpdateRequest(BaseModel):
     count: int | None = Field(None, ge=1)
 
 
-def _get_memory():
-    if ml_state.pipeline is None or ml_state.pipeline.memory is None:
-        logger.warning("Memory requested but not initialized")
-        raise HTTPException(status_code=503, detail="Memory not initialized")
-    return ml_state.pipeline.memory
-
-
 async def broadcast_memory(state: SceneState):
     """broadcast memory to dashboard"""
     payload = {
@@ -95,6 +90,9 @@ async def get_memory():
     Returns:
         SceneState: All tracked objects and relationships.
     """
+    if worker_enabled():
+        payload = await worker_request("GET", "/internal/memory")
+        return SceneState(**payload)
     memory = _get_memory()
     return memory.scene_state()
 
@@ -120,6 +118,18 @@ async def get_memory_objects(
     Returns:
         dict: Contains list of serialized objects and memory timestamp.
     """
+    if worker_enabled():
+        return await worker_request(
+            "GET",
+            "/internal/memory/objects",
+            params={
+                "label": label,
+                "min_hits": min_hits,
+                "skip": skip,
+                "limit": limit,
+                "sort_by": sort_by,
+            },
+        )
     memory = _get_memory()
     state = memory.scene_state()
     objects = state.objects
@@ -164,6 +174,20 @@ async def get_memory_relations(
     Returns:
         dict: Contains list of serialized relationships and memory timestamp.
     """
+    if worker_enabled():
+        return await worker_request(
+            "GET",
+            "/internal/memory/relations",
+            params={
+                "subject_id": subject_id,
+                "subject_label": subject_label,
+                "predicate": predicate,
+                "object_id": object_id,
+                "object_label": object_label,
+                "skip": skip,
+                "limit": limit,
+            },
+        )
     memory = _get_memory()
     state = memory.scene_state()
     rels = state.relationships
@@ -202,6 +226,15 @@ async def upsert_memory(state: SceneState):
     Returns:
         dict: Status of operation.
     """
+    if worker_enabled():
+        out = await worker_request(
+            "POST",
+            "/internal/memory/upsert",
+            json_payload=state.model_dump(mode="json"),
+        )
+        current = SceneState(**(await worker_request("GET", "/internal/memory")))
+        await broadcast_memory(current)
+        return out
     memory = _get_memory()
     if not state.objects and not state.relationships:
         raise HTTPException(status_code=400, detail="SceneState is empty")
@@ -240,11 +273,14 @@ async def reset_memory(
         raise HTTPException(
             status_code=400, detail="Reset not confirmed. Set confirm=true to proceed."
         )
+    if worker_enabled():
+        out = await worker_request(
+            "POST", "/internal/memory/reset", params={"confirm": confirm}
+        )
+        current = SceneState(**(await worker_request("GET", "/internal/memory")))
+        await broadcast_memory(current)
+        return out
     memory = _get_memory()
-    # memory.objects_state.clear()
-    # memory.relations_state.clear()
-    # memory.tracks.clear()
-    # memory.next_id = 1
     memory.reset()
     logger.info("Memory reset successfully")
     current = memory.scene_state()
@@ -254,6 +290,15 @@ async def reset_memory(
 
 @router.post("/memory/object")
 async def create_memory_object(payload: MemoryObjectCreateRequest):
+    if worker_enabled():
+        out = await worker_request(
+            "POST",
+            "/internal/memory/object",
+            json_payload=payload.model_dump(mode="json"),
+        )
+        current = SceneState(**(await worker_request("GET", "/internal/memory")))
+        await broadcast_memory(current)
+        return out
     memory = _get_memory()
     now = time.time()
     object_id = payload.id if payload.id is not None else memory.next_id
@@ -287,6 +332,15 @@ async def create_memory_object(payload: MemoryObjectCreateRequest):
 
 @router.patch("/memory/object/{object_id}")
 async def update_memory_object(object_id: int, payload: MemoryObjectUpdateRequest):
+    if worker_enabled():
+        out = await worker_request(
+            "PATCH",
+            f"/internal/memory/object/{object_id}",
+            json_payload=payload.model_dump(exclude_none=True),
+        )
+        current = SceneState(**(await worker_request("GET", "/internal/memory")))
+        await broadcast_memory(current)
+        return out
     memory = _get_memory()
     updates = payload.model_dump(exclude_none=True)
     if not updates:
@@ -319,6 +373,15 @@ async def delete_memory_object(
         True, description="Delete related relationships together with the object"
     ),
 ):
+    if worker_enabled():
+        out = await worker_request(
+            "DELETE",
+            f"/internal/memory/object/{object_id}",
+            params={"cascade_relations": cascade_relations},
+        )
+        current = SceneState(**(await worker_request("GET", "/internal/memory")))
+        await broadcast_memory(current)
+        return out
     memory = _get_memory()
     deleted = memory.delete_object(object_id, cascade_relations=cascade_relations)
     if not deleted:
@@ -330,6 +393,26 @@ async def delete_memory_object(
 
 @router.post("/memory/relation")
 async def create_memory_relation(payload: MemoryRelationCreateRequest):
+    if worker_enabled():
+        now = time.time()
+        first_seen = payload.first_seen if payload.first_seen is not None else now
+        last_seen = payload.last_seen if payload.last_seen is not None else now
+        rel = Relationship(
+            subject_id=payload.subject_id,
+            predicate=payload.predicate,
+            object_id=payload.object_id,
+            first_seen=first_seen,
+            last_seen=last_seen,
+            count=payload.count,
+        )
+        out = await worker_request(
+            "POST",
+            "/internal/memory/relation",
+            json_payload=rel.model_dump(mode="json"),
+        )
+        current = SceneState(**(await worker_request("GET", "/internal/memory")))
+        await broadcast_memory(current)
+        return out
     memory = _get_memory()
     now = time.time()
     first_seen = payload.first_seen if payload.first_seen is not None else now
@@ -355,6 +438,25 @@ async def create_memory_relation(payload: MemoryRelationCreateRequest):
 
 @router.patch("/memory/relation")
 async def update_memory_relation(payload: MemoryRelationUpdateRequest):
+    if worker_enabled():
+        out = await worker_request(
+            "PATCH",
+            "/internal/memory/relation",
+            json_payload={
+                "subject_id": payload.subject_id,
+                "predicate": payload.predicate,
+                "object_id": payload.object_id,
+                "new_subject_id": payload.new_subject_id,
+                "new_predicate": payload.new_predicate,
+                "new_object_id": payload.new_object_id,
+                "first_seen": payload.first_seen,
+                "last_seen": payload.last_seen,
+                "count": payload.count,
+            },
+        )
+        current = SceneState(**(await worker_request("GET", "/internal/memory")))
+        await broadcast_memory(current)
+        return out
     memory = _get_memory()
     updates = {
         "subject_id": payload.new_subject_id,
@@ -392,6 +494,19 @@ async def delete_memory_relation(
     predicate: str = Query(...),
     object_id: int = Query(...),
 ):
+    if worker_enabled():
+        out = await worker_request(
+            "DELETE",
+            "/internal/memory/relation",
+            params={
+                "subject_id": subject_id,
+                "predicate": predicate,
+                "object_id": object_id,
+            },
+        )
+        current = SceneState(**(await worker_request("GET", "/internal/memory")))
+        await broadcast_memory(current)
+        return out
     memory = _get_memory()
     deleted = memory.delete_relation(subject_id, predicate, object_id)
     if not deleted:

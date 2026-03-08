@@ -127,6 +127,53 @@ _RULES: list[tuple[str, Callable, str]] = [
     ("storage.persist_last_state", attrgetter("storage.persist_last_state"), "hot"),
     ("storage.last_state_path", attrgetter("storage.last_state_path"), "hot"),
     ("storage.store_image", attrgetter("storage.store_image"), "hot"),
+    # Worker process runtime
+    ("worker.enabled", attrgetter("worker.enabled"), "hard"),
+    ("worker.host", attrgetter("worker.host"), "hard"),
+    ("worker.port", attrgetter("worker.port"), "hard"),
+    (
+        "worker.startup_timeout_seconds",
+        attrgetter("worker.startup_timeout_seconds"),
+        "hard",
+    ),
+    (
+        "worker.shutdown_grace_seconds",
+        attrgetter("worker.shutdown_grace_seconds"),
+        "hard",
+    ),
+    ("worker.max_startup_queue", attrgetter("worker.max_startup_queue"), "hard"),
+    (
+        "worker.healthcheck_interval_seconds",
+        attrgetter("worker.healthcheck_interval_seconds"),
+        "hard",
+    ),
+    ("worker.restart_max_attempts", attrgetter("worker.restart_max_attempts"), "hard"),
+    (
+        "worker.restart_window_seconds",
+        attrgetter("worker.restart_window_seconds"),
+        "hard",
+    ),
+    (
+        "worker.restart_backoff_seconds",
+        attrgetter("worker.restart_backoff_seconds"),
+        "hard",
+    ),
+    (
+        "worker.circuit_breaker_cooldown_seconds",
+        attrgetter("worker.circuit_breaker_cooldown_seconds"),
+        "hard",
+    ),
+    ("worker.idle_timeout_seconds", attrgetter("worker.idle_timeout_seconds"), "hot"),
+    (
+        "worker.idle_check_interval_seconds",
+        attrgetter("worker.idle_check_interval_seconds"),
+        "hot",
+    ),
+    (
+        "worker.request_timeout_seconds",
+        attrgetter("worker.request_timeout_seconds"),
+        "hot",
+    ),
     ("pipeline_controls", attrgetter("pipeline_controls"), "hot"),
 ]
 
@@ -213,9 +260,13 @@ def _update_chat(ml_state: MLState, new: AppConfig):
 
 async def apply_hot_config(ml_state: MLState, new: AppConfig) -> None:
     ml_state.config = new
+    ml_state.config_version += 1
 
     if ml_state.pipeline:
         _update_pipeline(ml_state, new)
 
     if ml_state.chat_service:
         _update_chat(ml_state, new)
+
+    if ml_state.worker_manager:
+        await ml_state.worker_manager.apply_hot_config(new, ml_state.config_version)

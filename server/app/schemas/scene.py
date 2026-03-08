@@ -1,3 +1,6 @@
+from uuid import UUID
+from uuid import uuid4
+
 from pydantic import BaseModel
 from pydantic import Field
 
@@ -10,6 +13,9 @@ class DetectionObject(BaseModel):
 
 
 class DetectionResponse(BaseModel):
+    id: UUID | str | int | None = Field(
+        default_factory=uuid4, description="Persistent Detection Response ID"
+    )
     objects: list[DetectionObject] | list[dict]
     timestamp: float
     image_width: int

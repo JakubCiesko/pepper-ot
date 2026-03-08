@@ -31,12 +31,8 @@ const vlmLocalPromptStyle = document.getElementById("vlm-local-prompt-style");
 const vlmLocalImageTokenStrategy = document.getElementById("vlm-local-image-token-strategy");
 const vlmStructuredCapability = document.getElementById("vlm-structured-capability");
 const vlmClientInitKwargs = document.getElementById("vlm-client-init-kwargs");
-const vlmClientInitKwargsExample = document.getElementById("vlm-client-init-kwargs-example");
-const vlmClientInitKwargsApplyExample = document.getElementById("vlm-client-init-kwargs-apply-example");
 const vlmClientInitKwargsStatus = document.getElementById("vlm-client-init-kwargs-status");
 const vlmCallKwargs = document.getElementById("vlm-call-kwargs");
-const vlmCallKwargsExample = document.getElementById("vlm-call-kwargs-example");
-const vlmCallKwargsApplyExample = document.getElementById("vlm-call-kwargs-apply-example");
 const vlmCallKwargsStatus = document.getElementById("vlm-call-kwargs-status");
 const sggMode = document.getElementById("sgg-mode");
 const sggRulesJson = document.getElementById("sgg-rules-json");
@@ -47,6 +43,22 @@ const pipelinePaintSom = document.getElementById("pipeline-paint-som");
 const pipelineSceneGraph = document.getElementById("pipeline-scene-graph");
 const pipelineUpdateSceneMemory = document.getElementById("pipeline-update-scene-memory");
 const pipelineSummary = document.getElementById("pipeline-summary");
+const workerEnabled = document.getElementById("worker-enabled");
+const workerHost = document.getElementById("worker-host");
+const workerPort = document.getElementById("worker-port");
+const workerIdleTimeout = document.getElementById("worker-idle-timeout");
+const workerIdleCheckInterval = document.getElementById("worker-idle-check-interval");
+const workerStartupTimeout = document.getElementById("worker-startup-timeout");
+const workerRequestTimeout = document.getElementById("worker-request-timeout");
+const workerShutdownGrace = document.getElementById("worker-shutdown-grace");
+const workerMaxStartupQueue = document.getElementById("worker-max-startup-queue");
+const workerHealthcheckInterval = document.getElementById("worker-healthcheck-interval");
+const workerRestartMaxAttempts = document.getElementById("worker-restart-max-attempts");
+const workerRestartWindow = document.getElementById("worker-restart-window");
+const workerRestartBackoff = document.getElementById("worker-restart-backoff");
+const workerCircuitBreakerCooldown = document.getElementById("worker-circuit-breaker-cooldown");
+const workerAutoWarmup = document.getElementById("worker-auto-warmup-on-startup");
+const workerChatInWorker = document.getElementById("worker-chat-in-worker");
 
 const memoryMaxDormantFrames = document.getElementById("memory-max-dormant-frames");
 const memoryAssocVisualWeight = document.getElementById("memory-assoc-visual-weight");
@@ -71,12 +83,8 @@ const chatStructuredMode = document.getElementById("chat-structured-strategy");
 const chatStructuredStrict = document.getElementById("chat-structured-strict");
 const chatStructuredCapability = document.getElementById("chat-structured-capability");
 const chatClientInitKwargs = document.getElementById("chat-client-init-kwargs");
-const chatClientInitKwargsExample = document.getElementById("chat-client-init-kwargs-example");
-const chatClientInitKwargsApplyExample = document.getElementById("chat-client-init-kwargs-apply-example");
 const chatClientInitKwargsStatus = document.getElementById("chat-client-init-kwargs-status");
 const chatCallKwargs = document.getElementById("chat-call-kwargs");
-const chatCallKwargsExample = document.getElementById("chat-call-kwargs-example");
-const chatCallKwargsApplyExample = document.getElementById("chat-call-kwargs-apply-example");
 const chatCallKwargsStatus = document.getElementById("chat-call-kwargs-status");
 
 const applyBtn = document.getElementById("apply-config");
@@ -94,57 +102,6 @@ let isApplyingConfig = false;
 let lastApplyAt = 0;
 const APPLY_DEBOUNCE_MS = 500;
 let configContracts = {};
-
-const EXAMPLES = {
-    openai: {
-        client_init: [
-            {label: "OpenAI Default", value: {}},
-            {label: "OpenAI Timeout", value: {timeout: 60}},
-        ],
-        call: [
-            {label: "Balanced", value: {temperature: 0.7, max_tokens: 256}},
-            {label: "Deterministic", value: {temperature: 0.0, max_tokens: 256}},
-        ],
-    },
-    gemini: {
-        client_init: [
-            {label: "Gemini Default", value: {}},
-            {label: "Gemini Timeout", value: {http_options: {timeout: 60}}},
-        ],
-        call: [
-            {label: "Gemini JSON", value: {max_output_tokens: 512, generate_content_config: {response_mime_type: "application/json"}}},
-            {label: "Gemini Fast", value: {max_output_tokens: 256, temperature: 0.2}},
-        ],
-    },
-    openai_compatible: {
-        client_init: [
-            {label: "vLLM Local", value: {base_url: "http://localhost:8000/v1", api_key: "EMPTY"}}, //pragma: allowlist secret
-            {label: "Ollama Local", value: {base_url: "http://127.0.0.1:11434/v1", api_key: "EMPTY"}}, //pragma: allowlist secret
-        ],
-        call: [
-            {label: "OpenAI Compat JSON", value: {temperature: 0.2, max_tokens: 512}},
-            {label: "OpenAI Compat Fast", value: {temperature: 0.0, max_tokens: 256}},
-        ],
-    },
-    local_hf: {
-        client_init: [
-            {label: "Local HF CPU", value: {device_map: {"": "cpu"}, trust_remote_code: true}},
-            {label: "Local HF Auto", value: {device_map: "auto", trust_remote_code: true}},
-        ],
-        call: [
-            {label: "Local Sampling", value: {max_new_tokens: 256, do_sample: true, temperature: 0.7, top_p: 0.9}},
-            {label: "Local Greedy", value: {max_new_tokens: 256, do_sample: false}},
-        ],
-    },
-    local_4bit: {
-        client_init: [
-            {label: "Local 4bit Auto", value: {device_map: "auto", trust_remote_code: true}},
-        ],
-        call: [
-            {label: "Local 4bit Fast", value: {max_new_tokens: 256, do_sample: false}},
-        ],
-    },
-};
 
 const PIPELINE_PRESETS_FALLBACK = {
     full: {detect: true, track_memory: true, paint_som: true, scene_graph: true, update_scene_memory: true},
@@ -179,6 +136,13 @@ function parseTargetSize(text) {
         .map(v => Number(v.trim()))
         .filter(v => Number.isFinite(v) && v > 0);
     return parts.length === 2 ? [Math.round(parts[0]), Math.round(parts[1])] : null;
+}
+
+function parseNumberList(text) {
+    return String(text || "")
+        .split(",")
+        .map(v => Number(v.trim()))
+        .filter(v => Number.isFinite(v) && v > 0);
 }
 
 function parseJsonObject(text, fieldName) {
@@ -219,27 +183,6 @@ function setJsonValidationStatus(el, statusEl, fieldLabel) {
         statusEl.classList.add("text-red-600");
         return false;
     }
-}
-
-function buildExampleOptions(selectEl, provider, kind) {
-    const examples = EXAMPLES[provider]?.[kind] || [];
-    selectEl.innerHTML = `<option value="">Select ${provider} ${kind} example</option>`;
-    examples.forEach((example, idx) => {
-        const option = document.createElement("option");
-        option.value = String(idx);
-        option.textContent = example.label;
-        selectEl.appendChild(option);
-    });
-}
-
-function applyExample(selectEl, targetTextarea, provider, kind) {
-    const idx = Number(selectEl.value);
-    if (!Number.isFinite(idx)) return;
-    const examples = EXAMPLES[provider]?.[kind] || [];
-    const selected = examples[idx];
-    if (!selected) return;
-    targetTextarea.value = JSON.stringify(selected.value, null, 2);
-    targetTextarea.dispatchEvent(new Event("input"));
 }
 
 function updateStructuredCapabilityHint(providerEl, modeEl, targetEl) {
@@ -333,18 +276,6 @@ function updatePipelineControlsUi() {
     }
 }
 
-function bindProviderExamples(providerEl, initSelectEl, initApplyEl, initTextarea, callSelectEl, callApplyEl, callTextarea) {
-    const refresh = () => {
-        const provider = providerEl.value;
-        buildExampleOptions(initSelectEl, provider, "client_init");
-        buildExampleOptions(callSelectEl, provider, "call");
-    };
-    providerEl.addEventListener("change", refresh);
-    initApplyEl.addEventListener("click", () => applyExample(initSelectEl, initTextarea, providerEl.value, "client_init"));
-    callApplyEl.addEventListener("click", () => applyExample(callSelectEl, callTextarea, providerEl.value, "call"));
-    refresh();
-}
-
 async function fetchModels() {
     try {
         const res = await fetch("/dashboard/config/get_models");
@@ -430,6 +361,23 @@ async function loadConfig() {
     pipelineSceneGraph.checked = controls.scene_graph ?? true;
     pipelineUpdateSceneMemory.checked = controls.update_scene_memory ?? true;
     updatePipelineControlsUi();
+    const worker = active.worker || {};
+    workerEnabled.checked = worker.enabled ?? true;
+    workerHost.value = worker.host || "127.0.0.1";
+    workerPort.value = worker.port ?? 8765;
+    workerIdleTimeout.value = worker.idle_timeout_seconds ?? 600;
+    workerIdleCheckInterval.value = worker.idle_check_interval_seconds ?? 2.0;
+    workerStartupTimeout.value = worker.startup_timeout_seconds ?? 120.0;
+    workerRequestTimeout.value = worker.request_timeout_seconds ?? 180.0;
+    workerShutdownGrace.value = worker.shutdown_grace_seconds ?? 15.0;
+    workerMaxStartupQueue.value = worker.max_startup_queue ?? 32;
+    workerHealthcheckInterval.value = worker.healthcheck_interval_seconds ?? 2.0;
+    workerRestartMaxAttempts.value = worker.restart_max_attempts ?? 3;
+    workerRestartWindow.value = worker.restart_window_seconds ?? 60;
+    workerRestartBackoff.value = (worker.restart_backoff_seconds || [1.0, 3.0, 10.0]).join(", ");
+    workerCircuitBreakerCooldown.value = worker.circuit_breaker_cooldown_seconds ?? 30;
+    workerAutoWarmup.checked = !!worker.auto_warmup_on_startup;
+    workerChatInWorker.checked = !!worker.chat_in_worker;
 
     const tracking = active.tracking || {};
     const assoc = tracking.association || {};
@@ -467,6 +415,10 @@ function buildPatch() {
     const parsedVlmCallKwargs = parseJsonObject(vlmCallKwargs.value, "VLM Call Kwargs");
     const parsedChatClientInitKwargs = parseJsonObject(chatClientInitKwargs.value, "LLM Client Init Kwargs");
     const parsedChatCallKwargs = parseJsonObject(chatCallKwargs.value, "LLM Call Kwargs");
+    const parsedWorkerRestartBackoff = parseNumberList(workerRestartBackoff.value);
+    if (!parsedWorkerRestartBackoff.length) {
+        throw new Error("Worker Restart Backoff must contain at least one positive number");
+    }
 
     return {
         system: {
@@ -553,6 +505,24 @@ function buildPatch() {
             },
             system_prompt: {text: chatSystem.value},
             context_template: {text: chatContext.value},
+        },
+        worker: {
+            enabled: workerEnabled.checked,
+            host: workerHost.value.trim() || "127.0.0.1",
+            port: parseInt(workerPort.value, 10) || 8765,
+            idle_timeout_seconds: parseInt(workerIdleTimeout.value, 10) || 600,
+            idle_check_interval_seconds: parseFloat(workerIdleCheckInterval.value) || 2.0,
+            startup_timeout_seconds: parseFloat(workerStartupTimeout.value) || 120.0,
+            request_timeout_seconds: parseFloat(workerRequestTimeout.value) || 180.0,
+            shutdown_grace_seconds: parseFloat(workerShutdownGrace.value) || 15.0,
+            max_startup_queue: parseInt(workerMaxStartupQueue.value, 10) || 32,
+            healthcheck_interval_seconds: parseFloat(workerHealthcheckInterval.value) || 2.0,
+            restart_max_attempts: parseInt(workerRestartMaxAttempts.value, 10) || 3,
+            restart_window_seconds: parseInt(workerRestartWindow.value, 10) || 60,
+            restart_backoff_seconds: parsedWorkerRestartBackoff,
+            circuit_breaker_cooldown_seconds: parseInt(workerCircuitBreakerCooldown.value, 10) || 30,
+            auto_warmup_on_startup: workerAutoWarmup.checked,
+            chat_in_worker: workerChatInWorker.checked,
         },
         pipeline_controls: {
             preset: pipelinePreset.value,
@@ -724,25 +694,6 @@ pipelinePaintSom.addEventListener("change", updatePipelineControlsUi);
 pipelineSceneGraph.addEventListener("change", updatePipelineControlsUi);
 pipelineUpdateSceneMemory.addEventListener("change", updatePipelineControlsUi);
 sggMode.addEventListener("change", updatePipelineControlsUi);
-
-bindProviderExamples(
-    vlmProvider,
-    vlmClientInitKwargsExample,
-    vlmClientInitKwargsApplyExample,
-    vlmClientInitKwargs,
-    vlmCallKwargsExample,
-    vlmCallKwargsApplyExample,
-    vlmCallKwargs,
-);
-bindProviderExamples(
-    chatProvider,
-    chatClientInitKwargsExample,
-    chatClientInitKwargsApplyExample,
-    chatClientInitKwargs,
-    chatCallKwargsExample,
-    chatCallKwargsApplyExample,
-    chatCallKwargs,
-);
 
 applyBtn.addEventListener("click", applyConfig);
 saveBtn.addEventListener("click", saveConfig);

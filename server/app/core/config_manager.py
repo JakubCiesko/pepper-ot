@@ -73,6 +73,21 @@ def behavior_contracts() -> dict[str, Any]:
     return {
         **provider_capability_matrix(),
         "pipeline_presets": PipelineControls.preset_map(),
+        "worker_state_values": [
+            "STOPPED",
+            "STARTING",
+            "READY",
+            "BUSY",
+            "DRAINING",
+            "STOPPING",
+            "FAILED",
+        ],
+        "worker_defaults": {
+            "enabled": False,
+            "idle_timeout_seconds": 600,
+            "startup_timeout_seconds": 120.0,
+            "shutdown_grace_seconds": 15.0,
+        },
     }
 
 

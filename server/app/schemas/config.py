@@ -8,10 +8,6 @@ from pydantic import PrivateAttr
 from pydantic import model_validator
 import yaml
 
-from app.core.llm_contracts import normalize_call_kwargs
-from app.core.llm_contracts import validate_call_kwargs
-from app.core.llm_contracts import validate_client_init_kwargs
-
 
 class DetectionConfig(BaseModel):
     backend: Literal["yolo", "rt_detr", "rf_detr", "owl_v2"]
@@ -72,89 +68,89 @@ class LLMConfig(BaseModel):
     backend: str | None = Field(default=None, exclude=True)
     inference: dict[str, Any] = Field(default_factory=dict, exclude=True)
 
-    # TODO: this will be removed
-    @model_validator(mode="before")
-    @classmethod
-    def migrate_legacy_fields(cls, value):
-        if not isinstance(value, dict):
-            return value
-        data = dict(value)
-
-        backend = data.get("backend")
-        if "provider" not in data and backend:
-            backend_map = {
-                "openai": "openai",
-                "gemini": "gemini",
-                "local": "local_hf",
-                "local_hf": "local_hf",
-                "local_4bit": "local_4bit",
-            }
-            data["provider"] = backend_map.get(backend, "openai")
-
-        inference = data.get("inference")
-        if isinstance(inference, dict):
-            call_kwargs = dict(data.get("call_kwargs") or {})
-            client_init_kwargs = dict(data.get("client_init_kwargs") or {})
-
-            backend_kwargs = inference.get("backend_kwargs")
-            if isinstance(backend_kwargs, dict):
-                if isinstance(backend_kwargs.get("client_init_kwargs"), dict):
-                    client_init_kwargs.update(backend_kwargs["client_init_kwargs"])
-                if isinstance(backend_kwargs.get("call_kwargs"), dict):
-                    call_kwargs.update(backend_kwargs["call_kwargs"])
-                else:
-                    passthrough = {
-                        k: v
-                        for k, v in backend_kwargs.items()
-                        if k not in {"client_init_kwargs", "call_kwargs"}
-                    }
-                    call_kwargs.update(passthrough)
-
-            call_kwargs.update(
-                {k: v for k, v in inference.items() if k != "backend_kwargs"}
-            )
-            data["client_init_kwargs"] = client_init_kwargs
-            data["call_kwargs"] = call_kwargs
-
-        structured = data.get("structured_output")
-        if isinstance(structured, dict):
-            mode = structured.get("mode")
-            if mode is None:
-                strategy = structured.get("strategy")
-                if strategy in {"auto", "native"}:
-                    structured["mode"] = "provider_native"
-                elif strategy in {"json_mode", "prompt_only"}:
-                    structured["mode"] = "parse_output"
-            if isinstance(structured.get("enabled"), bool) and not structured.get(
-                "enabled"
-            ):
-                structured["mode"] = "parse_output"
-            structured.pop("strategy", None)
-            structured.pop("enabled", None)
-            data["structured_output"] = structured
-
-        return data
-
-    @model_validator(mode="after")
-    def normalize_and_validate_kwargs(self):
-        if self.timeout_seconds is not None and self.timeout_seconds <= 0:
-            raise ValueError("timeout_seconds must be > 0")
-        if self.provider == "openai_compatible" and not (
-            self.base_url or self.client_init_kwargs.get("base_url")
-        ):
-            raise ValueError(
-                "base_url is required for provider=openai_compatible (set top-level base_url or client_init_kwargs.base_url)"
-            )
-
-        validate_client_init_kwargs(
-            self.provider,
-            self.client_init_kwargs,
-            "client_init_kwargs",
-        )
-        normalized_call_kwargs = normalize_call_kwargs(self.provider, self.call_kwargs)
-        validate_call_kwargs(self.provider, normalized_call_kwargs, "call_kwargs")
-        self.call_kwargs = normalized_call_kwargs
-        return self
+    # # TODO: this will be removed
+    # @model_validator(mode="before")
+    # @classmethod
+    # def migrate_legacy_fields(cls, value):
+    #     if not isinstance(value, dict):
+    #         return value
+    #     data = dict(value)
+    #
+    #     backend = data.get("backend")
+    #     if "provider" not in data and backend:
+    #         backend_map = {
+    #             "openai": "openai",
+    #             "gemini": "gemini",
+    #             "local": "local_hf",
+    #             "local_hf": "local_hf",
+    #             "local_4bit": "local_4bit",
+    #         }
+    #         data["provider"] = backend_map.get(backend, "openai")
+    #
+    #     inference = data.get("inference")
+    #     if isinstance(inference, dict):
+    #         call_kwargs = dict(data.get("call_kwargs") or {})
+    #         client_init_kwargs = dict(data.get("client_init_kwargs") or {})
+    #
+    #         backend_kwargs = inference.get("backend_kwargs")
+    #         if isinstance(backend_kwargs, dict):
+    #             if isinstance(backend_kwargs.get("client_init_kwargs"), dict):
+    #                 client_init_kwargs.update(backend_kwargs["client_init_kwargs"])
+    #             if isinstance(backend_kwargs.get("call_kwargs"), dict):
+    #                 call_kwargs.update(backend_kwargs["call_kwargs"])
+    #             else:
+    #                 passthrough = {
+    #                     k: v
+    #                     for k, v in backend_kwargs.items()
+    #                     if k not in {"client_init_kwargs", "call_kwargs"}
+    #                 }
+    #                 call_kwargs.update(passthrough)
+    #
+    #         call_kwargs.update(
+    #             {k: v for k, v in inference.items() if k != "backend_kwargs"}
+    #         )
+    #         data["client_init_kwargs"] = client_init_kwargs
+    #         data["call_kwargs"] = call_kwargs
+    #
+    #     structured = data.get("structured_output")
+    #     if isinstance(structured, dict):
+    #         mode = structured.get("mode")
+    #         if mode is None:
+    #             strategy = structured.get("strategy")
+    #             if strategy in {"auto", "native"}:
+    #                 structured["mode"] = "provider_native"
+    #             elif strategy in {"json_mode", "prompt_only"}:
+    #                 structured["mode"] = "parse_output"
+    #         if isinstance(structured.get("enabled"), bool) and not structured.get(
+    #             "enabled"
+    #         ):
+    #             structured["mode"] = "parse_output"
+    #         structured.pop("strategy", None)
+    #         structured.pop("enabled", None)
+    #         data["structured_output"] = structured
+    #
+    #     return data
+    #
+    # @model_validator(mode="after")
+    # def normalize_and_validate_kwargs(self):
+    #     if self.timeout_seconds is not None and self.timeout_seconds <= 0:
+    #         raise ValueError("timeout_seconds must be > 0")
+    #     if self.provider == "openai_compatible" and not (
+    #         self.base_url or self.client_init_kwargs.get("base_url")
+    #     ):
+    #         raise ValueError(
+    #             "base_url is required for provider=openai_compatible (set top-level base_url or client_init_kwargs.base_url)"
+    #         )
+    #
+    #     validate_client_init_kwargs(
+    #         self.provider,
+    #         self.client_init_kwargs,
+    #         "client_init_kwargs",
+    #     )
+    #     normalized_call_kwargs = normalize_call_kwargs(self.provider, self.call_kwargs)
+    #     validate_call_kwargs(self.provider, normalized_call_kwargs, "call_kwargs")
+    #     self.call_kwargs = normalized_call_kwargs
+    #     return self
 
 
 class AssociationConfig(BaseModel):
@@ -287,6 +283,33 @@ class FusionConfig(BaseModel):
     estimated_person_bbox_max_px: float = 200.0
 
 
+class WorkerRuntimeConfig(BaseModel):
+    enabled: bool = True
+    host: str = "127.0.0.1"
+    port: int = Field(default=8765, ge=1, le=65535)
+    idle_timeout_seconds: int = Field(default=600, gt=0)
+    idle_check_interval_seconds: float = Field(default=2.0, gt=0)
+    startup_timeout_seconds: float = Field(default=120.0, gt=0)
+    request_timeout_seconds: float = Field(default=180.0, gt=0)
+    shutdown_grace_seconds: float = Field(default=15.0, gt=0)
+    max_startup_queue: int = Field(default=32, ge=1)
+    healthcheck_interval_seconds: float = Field(default=2.0, gt=0)
+    restart_max_attempts: int = Field(default=3, ge=1)
+    restart_window_seconds: int = Field(default=60, gt=0)
+    restart_backoff_seconds: list[float] = Field(
+        default_factory=lambda: [1.0, 3.0, 10.0], min_length=1
+    )
+    circuit_breaker_cooldown_seconds: int = Field(default=30, gt=0)
+    auto_warmup_on_startup: bool = False
+    chat_in_worker: bool = False
+
+    @model_validator(mode="after")
+    def validate_restart_backoff_seconds(self):
+        if any(delay <= 0 for delay in self.restart_backoff_seconds):
+            raise ValueError("restart_backoff_seconds values must be > 0")
+        return self
+
+
 class PipelineControls(BaseModel):
     preset: Literal[
         "full",
@@ -378,6 +401,7 @@ class AppConfig(BaseModel):
     visualization: VisConfig
     storage: StorageConfig = Field(default_factory=StorageConfig)
     fusion: FusionConfig = Field(default_factory=FusionConfig)
+    worker: WorkerRuntimeConfig = Field(default_factory=WorkerRuntimeConfig)
     pipeline_controls: PipelineControls = Field(default_factory=PipelineControls)
     _config_path: Path | None = PrivateAttr(None)
 

@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 import logging
 import time
-from typing import TYPE_CHECKING
 from typing import Any
 
 import numpy as np
@@ -15,12 +14,10 @@ from app.schemas.config import PipelineControls
 from app.schemas.config import VisConfig
 from app.schemas.robot import RobotMetadata
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger(__name__)
 
 
+# TODO: think whether to have stage_status
 @asynccontextmanager
 async def timer(step_name: str, metrics: dict[str, float]):
     t0 = time.perf_counter()
@@ -97,13 +94,13 @@ class VisualPipeline:
             if key.endswith("_time") and isinstance(value, (int, float))
         )
         metrics["total_processing"] = total
-        for stage_name, info in stage_status.items():
-            status = info.get("status", "unknown")
-            metrics[f"stage.{stage_name}.status"] = str(status)
-            if "duration" in info:
-                metrics[f"stage.{stage_name}.duration"] = float(info["duration"])
-            if "reason" in info:
-                metrics[f"stage.{stage_name}.reason"] = str(info["reason"])
+        # for stage_name, info in stage_status.items():
+        #     status = info.get("status", "unknown")
+        #     metrics[f"stage.{stage_name}.status"] = str(status)
+        #     if "duration" in info:
+        #         metrics[f"stage.{stage_name}.duration"] = float(info["duration"])
+        #     if "reason" in info:
+        #         metrics[f"stage.{stage_name}.reason"] = str(info["reason"])
 
         return PipelineResult(
             raw_image=image,

@@ -33,6 +33,8 @@ async def lifespan(app: FastAPI):
     logger.info("Startup: MLState ready.")
     yield
     logger.info("Shutdown: Cleaning up...")
+    if ml_state.worker_manager is not None:
+        await ml_state.worker_manager.close()
 
 
 app = FastAPI(

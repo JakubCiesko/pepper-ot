@@ -54,6 +54,11 @@
                     <span class="sidebar-label">Chat</span>
                     <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Chat</span>
                 </button>
+                <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-runtime">
+                    <span class="w-2 h-2 rounded-full" style="background: #31d46c;"></span>
+                    <span class="sidebar-label">Runtime Orchestration</span>
+                    <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Runtime Orchestration</span>
+                </button>
                 <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-storage">
                     <span class="w-2 h-2 rounded-full" style="background: #94a3b8;"></span>
                     <span class="sidebar-label">Storage</span>
@@ -342,26 +347,12 @@
                     </select>
                     <p class="text-xs panel-muted mt-1">Hint for local multimodal prompt formatting. Useful when model families expect specific image-token conventions.</p>
                     <label class="block text-sm mt-4">VLM Client Init Kwargs (JSON)</label>
-                    <textarea id="vlm-client-init-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{\"timeout\": 120}'></textarea>
+                    <textarea id="vlm-client-init-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"timeout": 120}'></textarea>
                     <p class="text-xs panel-muted mt-1">Advanced provider client options applied during client construction (connection/auth/transport-level settings).</p>
-                    <div class="flex items-center gap-2 mt-2">
-                        <select id="vlm-client-init-kwargs-example" class="flex-1 border rounded px-3 py-2 text-sm">
-                            <option value="">Select VLM client kwargs example</option>
-                        </select>
-                        <button id="vlm-client-init-kwargs-apply-example" type="button" class="px-3 py-2 rounded border panel-border panel-alt text-xs">Apply Example</button>
-                    </div>
-                    <p class="text-xs panel-muted mt-1">Example presets are editable scaffolds; review values before applying.</p>
                     <p id="vlm-client-init-kwargs-status" class="text-xs panel-muted mt-1"></p>
                     <label class="block text-sm mt-4">VLM Call Kwargs (JSON)</label>
-                    <textarea id="vlm-call-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{\"max_tokens\": 1024, \"temperature\": 0.2}'></textarea>
+                    <textarea id="vlm-call-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"max_tokens": 1024, "temperature": 0.2}'></textarea>
                     <p class="text-xs panel-muted mt-1">Advanced per-request generation arguments (sampling, token limits, provider call knobs).</p>
-                    <div class="flex items-center gap-2 mt-2">
-                        <select id="vlm-call-kwargs-example" class="flex-1 border rounded px-3 py-2 text-sm">
-                            <option value="">Select VLM call kwargs example</option>
-                        </select>
-                        <button id="vlm-call-kwargs-apply-example" type="button" class="px-3 py-2 rounded border panel-border panel-alt text-xs">Apply Example</button>
-                    </div>
-                    <p class="text-xs panel-muted mt-1">Use presets as starting points for performance/quality tuning.</p>
                     <p id="vlm-call-kwargs-status" class="text-xs panel-muted mt-1"></p>
                     <label class="block text-sm mt-4">User Prompt</label>
                     <p class="text-xs panel-muted mt-1">Per-frame instruction template. If it contains <code>{predicates}</code>, backend replaces it with the ontology predicate list before VLM inference.</p>
@@ -369,28 +360,6 @@
                     <label class="block text-sm mt-4">Ontology Predicates (one per line)</label>
                     <p class="text-xs panel-muted mt-1">Predicate vocabulary used for scene relationships and prompt conditioning.</p>
                     <textarea id="vlm-predicates" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
-
-                    <div class="mt-8 border-t panel-border pt-6">
-                        <h4 class="text-sm uppercase tracking-widest panel-muted mb-4">Pipeline Controls</h4>
-                        <label class="block text-sm">Pipeline Preset</label>
-                        <select id="pipeline-preset" class="w-full border rounded px-3 py-2 mt-1">
-                            <option value="full">full</option>
-                            <option value="detect_only">detect_only</option>
-                            <option value="vlm_only">vlm_only</option>
-                            <option value="rules_only">rules_only</option>
-                            <option value="minimal">minimal</option>
-                            <option value="custom">custom</option>
-                        </select>
-                        <p class="text-xs panel-muted mt-1">Preset profile for stage toggles. Selecting a non-custom preset overwrites individual stage switches.</p>
-                        <div class="grid grid-cols-2 gap-3 text-sm mt-4">
-                            <label class="flex items-center gap-2"><input id="pipeline-detect" type="checkbox">Detect</label>
-                            <label class="flex items-center gap-2"><input id="pipeline-track-memory" type="checkbox">Track Memory</label>
-                            <label class="flex items-center gap-2"><input id="pipeline-paint-som" type="checkbox">Paint SoM</label>
-                            <label class="flex items-center gap-2"><input id="pipeline-scene-graph" type="checkbox">Scene Graph</label>
-                            <label class="flex items-center gap-2"><input id="pipeline-update-scene-memory" type="checkbox">Update Scene Memory</label>
-                        </div>
-                        <p id="pipeline-summary" class="text-xs panel-muted mt-2"></p>
-                    </div>
 
                     <div>
                         <label class="block text-sm">SGG Mode</label>
@@ -427,6 +396,108 @@
                             <option value="track">Track</option>
                         </select>
                         <p class="text-xs panel-muted mt-1">Color mapping strategy: by detection order, class, or track id.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="page-runtime" class="page-panel mt-8 hidden">
+                <div class="panel border rounded-xl p-5">
+                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Runtime Orchestration</h3>
+                    <p class="text-xs panel-muted mb-4">Controls for process-level orchestration (worker lifecycle) and frame-level pipeline stage execution.</p>
+
+                    <div class="mt-2">
+                        <h4 class="text-sm uppercase tracking-widest panel-muted mb-3">Pipeline Stage Controls</h4>
+                        <label class="block text-sm">Pipeline Preset</label>
+                        <select id="pipeline-preset" class="w-full border rounded px-3 py-2 mt-1">
+                            <option value="full">full</option>
+                            <option value="detect_only">detect_only</option>
+                            <option value="vlm_only">vlm_only</option>
+                            <option value="rules_only">rules_only</option>
+                            <option value="minimal">minimal</option>
+                            <option value="custom">custom</option>
+                        </select>
+                        <p class="text-xs panel-muted mt-1">Preset profile for stage toggles. Selecting a non-custom preset overwrites individual stage switches.</p>
+                        <div class="grid grid-cols-2 gap-3 text-sm mt-4">
+                            <label class="flex items-center gap-2"><input id="pipeline-detect" type="checkbox">Detect</label>
+                            <label class="flex items-center gap-2"><input id="pipeline-track-memory" type="checkbox">Track Memory</label>
+                            <label class="flex items-center gap-2"><input id="pipeline-paint-som" type="checkbox">Paint SoM</label>
+                            <label class="flex items-center gap-2"><input id="pipeline-scene-graph" type="checkbox">Scene Graph</label>
+                            <label class="flex items-center gap-2"><input id="pipeline-update-scene-memory" type="checkbox">Update Scene Memory</label>
+                        </div>
+                        <p id="pipeline-summary" class="text-xs panel-muted mt-2"></p>
+                    </div>
+
+                    <div class="mt-8 border-t panel-border pt-6">
+                        <h4 class="text-sm uppercase tracking-widest panel-muted mb-3">Worker Process Controls</h4>
+                        <label class="flex items-center gap-2 text-sm">
+                            <input id="worker-enabled" type="checkbox">
+                            Enable dedicated worker process
+                        </label>
+                        <p class="text-xs panel-muted mt-1">When enabled, detect/memory workloads run in a separate process. This is the default recommended mode for GPU VRAM lifecycle control.</p>
+
+                        <label class="block text-sm mt-4">Worker Host</label>
+                        <input id="worker-host" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="127.0.0.1">
+                        <p class="text-xs panel-muted mt-1">Bind host used by the internal worker API server.</p>
+
+                        <label class="block text-sm mt-4">Worker Port</label>
+                        <input id="worker-port" type="number" min="1" max="65535" class="w-full border rounded px-3 py-2 mt-1" placeholder="8765">
+                        <p class="text-xs panel-muted mt-1">Bind port used by the internal worker API server.</p>
+
+                        <label class="block text-sm mt-4">Idle Timeout (seconds)</label>
+                        <input id="worker-idle-timeout" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="600">
+                        <p class="text-xs panel-muted mt-1">Worker self-terminates after this many idle seconds to release VRAM.</p>
+
+                        <label class="block text-sm mt-4">Idle Check Interval (seconds)</label>
+                        <input id="worker-idle-check-interval" type="number" min="0.1" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="2.0">
+                        <p class="text-xs panel-muted mt-1">Polling interval for idle teardown checks.</p>
+
+                        <label class="block text-sm mt-4">Startup Timeout (seconds)</label>
+                        <input id="worker-startup-timeout" type="number" min="1" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="120.0">
+                        <p class="text-xs panel-muted mt-1">Max allowed time for worker boot/health before startup is considered failed.</p>
+
+                        <label class="block text-sm mt-4">Request Timeout (seconds)</label>
+                        <input id="worker-request-timeout" type="number" min="1" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="180.0">
+                        <p class="text-xs panel-muted mt-1">Timeout used for orchestrator-to-worker internal requests.</p>
+
+                        <label class="block text-sm mt-4">Shutdown Grace (seconds)</label>
+                        <input id="worker-shutdown-grace" type="number" min="1" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="15.0">
+                        <p class="text-xs panel-muted mt-1">Grace period before worker is force-terminated.</p>
+
+                        <label class="block text-sm mt-4">Startup Queue Limit</label>
+                        <input id="worker-max-startup-queue" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="32">
+                        <p class="text-xs panel-muted mt-1">Maximum requests waiting while worker transitions STARTING to READY.</p>
+
+                        <label class="block text-sm mt-4">Healthcheck Interval (seconds)</label>
+                        <input id="worker-healthcheck-interval" type="number" min="0.1" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="2.0">
+                        <p class="text-xs panel-muted mt-1">Polling interval for worker startup and liveness health checks.</p>
+
+                        <label class="block text-sm mt-4">Restart Max Attempts</label>
+                        <input id="worker-restart-max-attempts" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="3">
+                        <p class="text-xs panel-muted mt-1">Max restart attempts in the restart window before circuit breaker opens.</p>
+
+                        <label class="block text-sm mt-4">Restart Window (seconds)</label>
+                        <input id="worker-restart-window" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="60">
+                        <p class="text-xs panel-muted mt-1">Time window used to evaluate restart thrashing.</p>
+
+                        <label class="block text-sm mt-4">Restart Backoff (seconds, comma-separated)</label>
+                        <input id="worker-restart-backoff" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="1.0, 3.0, 10.0">
+                        <p class="text-xs panel-muted mt-1">Backoff sequence used between restart attempts.</p>
+
+                        <label class="block text-sm mt-4">Circuit Breaker Cooldown (seconds)</label>
+                        <input id="worker-circuit-breaker-cooldown" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="30">
+                        <p class="text-xs panel-muted mt-1">Cooldown duration after restart-thrash breaker opens.</p>
+
+                        <label class="flex items-center gap-2 text-sm mt-4">
+                            <input id="worker-auto-warmup-on-startup" type="checkbox">
+                            Auto warmup on startup
+                        </label>
+                        <p class="text-xs panel-muted mt-1">If enabled, worker runs warmup immediately after boot.</p>
+
+                        <label class="flex items-center gap-2 text-sm mt-3">
+                            <input id="worker-chat-in-worker" type="checkbox">
+                            Chat in worker (experimental)
+                        </label>
+                        <p class="text-xs panel-muted mt-1">Reserved toggle for future chat offloading to worker process.</p>
                     </div>
                 </div>
             </section>
@@ -543,26 +614,12 @@
                     </select>
                     <p class="text-xs panel-muted mt-1">When true, malformed JSON/structured outputs fail fast; when false, parsing failures are tolerated.</p>
                     <label class="block text-sm mt-4">LLM Client Init Kwargs (JSON)</label>
-                    <textarea id="chat-client-init-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{\"timeout\": 60}'></textarea>
+                    <textarea id="chat-client-init-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"timeout": 60}'></textarea>
                     <p class="text-xs panel-muted mt-1">Client-construction options such as transport timeout, retries, and provider SDK initialization settings.</p>
-                    <div class="flex items-center gap-2 mt-2">
-                        <select id="chat-client-init-kwargs-example" class="flex-1 border rounded px-3 py-2 text-sm">
-                            <option value="">Select LLM client kwargs example</option>
-                        </select>
-                        <button id="chat-client-init-kwargs-apply-example" type="button" class="px-3 py-2 rounded border panel-border panel-alt text-xs">Apply Example</button>
-                    </div>
-                    <p class="text-xs panel-muted mt-1">Presets are templates; adjust them to your provider and deployment.</p>
                     <p id="chat-client-init-kwargs-status" class="text-xs panel-muted mt-1"></p>
                     <label class="block text-sm mt-4">LLM Call Kwargs (JSON)</label>
-                    <textarea id="chat-call-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{\"max_tokens\": 256, \"temperature\": 0.7}'></textarea>
+                    <textarea id="chat-call-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"max_tokens": 256, "temperature": 0.7}'></textarea>
                     <p class="text-xs panel-muted mt-1">Per-request generation options, for example temperature and token limits.</p>
-                    <div class="flex items-center gap-2 mt-2">
-                        <select id="chat-call-kwargs-example" class="flex-1 border rounded px-3 py-2 text-sm">
-                            <option value="">Select LLM call kwargs example</option>
-                        </select>
-                        <button id="chat-call-kwargs-apply-example" type="button" class="px-3 py-2 rounded border panel-border panel-alt text-xs">Apply Example</button>
-                    </div>
-                    <p class="text-xs panel-muted mt-1">Apply an example then fine-tune based on response quality and latency.</p>
                     <p id="chat-call-kwargs-status" class="text-xs panel-muted mt-1"></p>
                     <label class="block text-sm mt-4" for="chat-context">Context Template</label>
                     <p class="text-xs panel-muted mt-1">Template used to build chat context. If it contains <code>{context}</code>, backend injects current memory summary before LLM call. It is part of the system prompt.</p>

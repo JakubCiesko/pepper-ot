@@ -2,15 +2,13 @@ from dataclasses import dataclass
 import logging
 from pathlib import Path
 
+from app.core.pipeline_factory import build_visual_pipeline
 from app.core.storage import load_last_state
-from app.inference.detection.detectors import DetectionModelType
-from app.inference.detection.service import DetectionService
-from app.inference.memory.scene_memory import SceneMemory
+from app.core.worker_manager import WorkerManager
+from app.core.worker_types import StopReason
+from app.inference.memory.chat_memory_proxy import EmptyChatMemory
+from app.inference.memory.chat_memory_proxy import WorkerChatMemoryProxy
 from app.inference.pipeline import VisualPipeline
-from app.inference.scene_graph.rules_backend import RuleBasedSceneGraphBackend
-from app.inference.scene_graph.service import SceneGraphService
-from app.inference.scene_graph.som import SoMPainter
-from app.inference.scene_graph.vlm_backend import VLMSceneGraphBackend
 from app.schemas.config import AppConfig
 from app.services.chat import ChatService
 
@@ -21,9 +19,11 @@ logger = logging.getLogger(__name__)
 class MLState:
     config: AppConfig | None = None
     pipeline: VisualPipeline | None = None
+    worker_manager: WorkerManager | None = None
     chat_service: object | None = None
     initialized: bool = False
     last_state: dict | None = None
+    config_version: int = 0
 
     async def initialize(self, config_path: str | None = None):
         logger.info("Initializing ML App State")
@@ -34,6 +34,7 @@ class MLState:
         pth = config_path or "config.yaml"
         logger.info(f"Loading ML App State config from {pth}")
         self.config = AppConfig.load(pth)
+        self.config_version = 0
         logger.info("Loaded config")
         if self.config.storage.persist_last_state:
             base_dir = (
@@ -52,6 +53,9 @@ class MLState:
         logger.info("Reloading ML App State. Starting Initialization.")
         self.initialized = False
         self.pipeline = None
+        if self.worker_manager is not None:
+            await self.worker_manager.close()
+            self.worker_manager = None
         await self.initialize()
 
     async def apply_config(self, config: AppConfig):
@@ -62,65 +66,26 @@ class MLState:
             if self.config._config_path is not None
             else Path.cwd()
         )
+        self.config_version += 1
 
-        detection_backend = DetectionModelType(self.config.detection.backend)
-        model_path = (
-            Path(self.config.detection.weights_path)
-            if self.config.detection.weights_path
-            else None
-        )
-        detector = DetectionService(
-            model_name=detection_backend,
-            model_path=model_path,
-            device=self.config.detection.device,
-            threshold=self.config.detection.confidence_threshold,
-            ontology=self.config.detection.resolve_ontology(base_dir),
-        )
+        if self.worker_manager is None:
+            self.worker_manager = WorkerManager(self.config)
+            await self.worker_manager.start_monitor()
+        else:
+            await self.worker_manager.update_config(self.config)
 
-        memory = SceneMemory(
-            memory_max_age_seconds=self.config.tracking.memory_max_age_seconds,
-            memory_max_objects=self.config.tracking.memory_max_objects,
-            memory_max_relations=self.config.tracking.memory_max_relations,
-            max_dormant_frames=self.config.tracking.max_dormant_frames,
-            association_config=self.config.tracking.association,
-            feature_extraction_config=self.config.tracking.feature_extraction,
-        )
-        painter = SoMPainter(
-            line_thickness=self.config.visualization.line_thickness,
-            color_lookup=self.config.visualization.color_lookup,
-            mask_opacity=self.config.visualization.mask_opacity,
-        )
-        vlm_system_prompt = self.config.scene_graph.vlm.system_prompt.resolve(base_dir)
-        vlm_user_prompt = (
-            self.config.scene_graph.vlm.user_prompt.resolve(base_dir)
-            if self.config.scene_graph.vlm.user_prompt is not None
-            else None
-        )
-        predicates, objects = self.config.scene_graph.vlm.ontology.resolve(base_dir)
-        vlm_backend = VLMSceneGraphBackend(
-            self.config.scene_graph.vlm,
-            predicates=predicates,
-            objects=objects,
-            system_prompt=vlm_system_prompt,
-            user_prompt=vlm_user_prompt,
-        )
-        rule_backend = RuleBasedSceneGraphBackend(self.config.scene_graph.rules)
-        scene_graph_service = SceneGraphService(
-            mode=self.config.scene_graph.mode,
-            vlm_backend=vlm_backend,
-            rule_backend=rule_backend,
-        )
-
-        logger.info("Initializing VisualPipeline inference engine.")
-        self.pipeline = VisualPipeline(
-            detector=detector,
-            memory=memory,
-            painter=painter,
-            scene_graph_service=scene_graph_service,
-            fusion_config=self.config.fusion,
-            vis_config=self.config.visualization,
-            pipeline_controls=self.config.pipeline_controls,
-        )
+        if self.config.worker.enabled:
+            logger.info("Worker mode enabled: skipping in-process VisualPipeline build")
+            self.pipeline = None
+            if self.worker_manager:
+                await self.worker_manager.start_monitor()
+                await self.worker_manager.hard_reload(self.config, self.config_version)
+        else:
+            logger.info("Initializing in-process VisualPipeline inference engine.")
+            self.pipeline = build_visual_pipeline(self.config)
+            if self.worker_manager:
+                await self.worker_manager.stop_monitor()
+                await self.worker_manager.stop(StopReason.MANUAL)
 
         chat_system_prompt = self.config.chat.system_prompt.resolve(base_dir)
         chat_context_template = (
@@ -131,9 +96,15 @@ class MLState:
         logger.info(
             f"Initializing ChatService with chat_system_prompt {chat_system_prompt} and chat_context_template {chat_context_template}"
         )
+        if self.pipeline is not None:
+            chat_memory = self.pipeline.memory
+        elif self.config.worker.enabled and self.worker_manager is not None:
+            chat_memory = WorkerChatMemoryProxy(self.worker_manager)
+        else:
+            chat_memory = EmptyChatMemory()
         self.chat_service = ChatService(
             self.config.chat,
-            memory,
+            chat_memory,
             system_prompt=chat_system_prompt,
             context_template=chat_context_template,
         )
