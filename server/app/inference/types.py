@@ -223,7 +223,8 @@ class PipelineResult:
     """Holds the complete state of a processed frame."""
 
     raw_image: Image.Image
-    som_image: np.ndarray  # The image with tags drawn on it
+    som_image: np.ndarray | None  # The image with tags drawn on it
     detections: list[DetectionObject]  # List of objects with persistent IDs
-    scene_graph: SceneGraph  # The semantic relationships
+    scene_graph: SceneGraph | None  # The semantic relationships
     metrics: dict[str, Any]
+    executed_stages: list[str] = field(default_factory=list)

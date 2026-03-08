@@ -11,6 +11,8 @@ import torch
 from transformers import AutoModelForVision2Seq
 from transformers import AutoProcessor
 
+from app.core.llm_contracts import normalize_call_kwargs
+from app.core.llm_contracts import normalize_openai_parse_kwargs
 from app.schemas.config import LLMConfig
 from app.services.model_io_common import extract_text_content
 from app.services.model_io_common import extract_text_from_openai_response
@@ -67,6 +69,7 @@ class OpenAIVLMClient(BaseVLMClient):
         kwargs = dict(self.config.call_kwargs or {})
         if call_overrides:
             kwargs.update(call_overrides)
+        kwargs = normalize_call_kwargs(self.config.provider, kwargs)
         mode = resolve_structured_mode(
             self.config,
             output_schema=output_schema,
@@ -89,9 +92,7 @@ class OpenAIVLMClient(BaseVLMClient):
             },
         ]
         if mode == "provider_native" and output_schema is not None:
-            parse_kwargs = dict(kwargs)
-            # if "max_tokens" in parse_kwargs and "max_output_tokens" not in parse_kwargs:
-            #     parse_kwargs["max_output_tokens"] = parse_kwargs.pop("max_tokens")
+            parse_kwargs = normalize_openai_parse_kwargs(kwargs)
             try:
                 response = await self.client.responses.parse(
                     model=self.config.model_id,
@@ -109,7 +110,9 @@ class OpenAIVLMClient(BaseVLMClient):
                 return text, parsed
             except Exception as exc:
                 logger.warning(
-                    "OpenAI VLM provider_native structured call failed, falling back to parse_output: %s",
+                    "OpenAI VLM provider_native structured call failed, deterministically falling back to parse_output provider=%s model=%s error=%s",
+                    self.config.provider,
+                    self.config.model_id,
                     exc,
                 )
 
@@ -174,6 +177,7 @@ class GeminiVLMClient(BaseVLMClient):
         kwargs = dict(self.config.call_kwargs or {})
         if call_overrides:
             kwargs.update(call_overrides)
+        kwargs = normalize_call_kwargs(self.config.provider, kwargs)
         mode = resolve_structured_mode(
             self.config,
             output_schema=output_schema,
@@ -188,6 +192,10 @@ class GeminiVLMClient(BaseVLMClient):
             if schema_dict is not None:
                 generation_config.setdefault("response_mime_type", "application/json")
                 generation_config.setdefault("response_json_schema", schema_dict)
+            else:
+                logger.warning(
+                    "Gemini VLM provider_native requested but schema conversion failed; continuing with parse_output-compatible parsing"
+                )
         elif mode == "parse_output" and output_schema is not None:
             generation_config.setdefault("response_mime_type", "application/json")
 
@@ -269,24 +277,40 @@ class LocalHFVLMClient(BaseVLMClient):
         kwargs = dict(self.config.call_kwargs or {})
         if call_overrides:
             kwargs.update(call_overrides)
+        kwargs = normalize_call_kwargs(self.config.provider, kwargs)
 
         max_new_tokens = int(
             kwargs.pop("max_new_tokens", kwargs.pop("max_tokens", 512))
         )
 
         img = Image.open(io.BytesIO(image)).convert("RGB")
+        hints = getattr(self.config, "local_vlm_hints", None)
+        prompt_style = (
+            getattr(hints, "prompt_template_style", "auto") if hints else "auto"
+        )
+        image_token_strategy = (
+            getattr(hints, "image_token_strategy", "auto") if hints else "auto"
+        )
+        hinted_user_prompt = user_prompt
+        if image_token_strategy in {"single", "multi"}:
+            hinted_user_prompt = (
+                f"[IMAGE_TOKEN_STRATEGY={image_token_strategy}]\n{hinted_user_prompt}"
+            )
+
         messages = [
             {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
             {
                 "role": "user",
                 "content": [
                     {"type": "image", "image": img},
-                    {"type": "text", "text": user_prompt},
+                    {"type": "text", "text": hinted_user_prompt},
                 ],
             },
         ]
 
         try:
+            if prompt_style == "plain":
+                raise ValueError("plain prompt style requested")
             text_input = self.processor.apply_chat_template(
                 messages,
                 tokenize=False,
@@ -297,8 +321,13 @@ class LocalHFVLMClient(BaseVLMClient):
                 images=[img],
                 return_tensors="pt",
             )
-        except Exception:
+        except Exception as exc:
             fallback_prompt = f"System:\n{system_prompt}\n\nUser:\n{user_prompt}"
+            logger.info(
+                "Local VLM apply_chat_template failed or disabled (style=%s). Using plain fallback prompt. reason=%s",
+                prompt_style,
+                exc,
+            )
             model_inputs = self.processor(
                 text=[fallback_prompt],
                 images=[img],

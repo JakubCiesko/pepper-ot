@@ -2,12 +2,14 @@ import io
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from PIL import Image
 
 from app.inference.types import SceneGraph
 from app.schemas.config import SceneGraphVLMConfig
+from app.schemas.scene import SceneGraphRelation
 from app.schemas.scene import SceneGraphStructuredResponse
 from app.services.vlm_client import BaseVLMClient
 from app.services.vlm_client import build_vlm_client
@@ -138,12 +140,15 @@ class VLMSceneGraphBackend:
     ) -> SceneGraph:
         image_bytes = self._to_bytes(image)
         user_prompt = self._build_user_prompt()
+        output_schema: Any = SceneGraphStructuredResponse
+        if self.config.structured_schema == "relationship_list":
+            output_schema = list[SceneGraphRelation]
         try:
             raw, parsed = await self.client.infer(
                 self.system_prompt,
                 user_prompt,
                 image_bytes,
-                output_schema=SceneGraphStructuredResponse,
+                output_schema=output_schema,
             )
         except Exception as exc:
             logger.warning(
@@ -159,6 +164,11 @@ class VLMSceneGraphBackend:
         data: list[dict] = []
         if isinstance(parsed, SceneGraphStructuredResponse):
             data = [rel.model_dump() for rel in parsed.relationships]
+        elif isinstance(parsed, list):
+            data = [
+                item.model_dump() if hasattr(item, "model_dump") else item
+                for item in parsed
+            ]
         elif parsed is not None:
             data = self._normalize_data(parsed)
         else:

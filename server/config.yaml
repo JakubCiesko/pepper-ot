@@ -202,3 +202,11 @@ fusion:
   estimated_person_bbox_base_px: 80
   estimated_person_bbox_min_px: 40
   estimated_person_bbox_max_px: 200
+
+pipeline_controls:
+  preset: "full"
+  detect: true
+  track_memory: true
+  paint_som: true
+  scene_graph: true
+  update_scene_memory: true

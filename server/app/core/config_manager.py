@@ -2,9 +2,12 @@ import io
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
 import yaml
 
+from app.core.llm_contracts import provider_capability_matrix
 from app.schemas.config import AppConfig
+from app.schemas.config import PipelineControls
 
 
 def config_path() -> Path:
@@ -66,6 +69,13 @@ def resolve_config(cfg: AppConfig) -> dict[str, Any]:
     return resolved
 
 
+def behavior_contracts() -> dict[str, Any]:
+    return {
+        **provider_capability_matrix(),
+        "pipeline_presets": PipelineControls.preset_map(),
+    }
+
+
 def deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     replace_on_patch_keys = {"call_kwargs", "client_init_kwargs"}
     for key, value in patch.items():
@@ -84,14 +94,34 @@ def deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
 
 def apply_patch(cfg: AppConfig, patch: dict[str, Any]) -> AppConfig:
     merged = deep_merge(dump_config(cfg), patch)
-    new_cfg = AppConfig(**merged)
+    try:
+        new_cfg = AppConfig(**merged)
+    except ValidationError as exc:
+        pieces: list[str] = []
+        for err in exc.errors():
+            loc = ".".join(str(part) for part in err.get("loc", []))
+            msg = err.get("msg", "invalid value")
+            pieces.append(f"{loc}: {msg}")
+        if not pieces:
+            raise ValueError(str(exc)) from exc
+        raise ValueError("; ".join(pieces)) from exc
     new_cfg._config_path = cfg._config_path
     return new_cfg
 
 
 def parse_uploaded_yaml(content: bytes) -> AppConfig:
     raw = yaml.safe_load(io.BytesIO(content)) or {}
-    cfg = AppConfig(**raw)
+    try:
+        cfg = AppConfig(**raw)
+    except ValidationError as exc:
+        pieces: list[str] = []
+        for err in exc.errors():
+            loc = ".".join(str(part) for part in err.get("loc", []))
+            msg = err.get("msg", "invalid value")
+            pieces.append(f"{loc}: {msg}")
+        if not pieces:
+            raise ValueError(str(exc)) from exc
+        raise ValueError("; ".join(pieces)) from exc
     cfg._config_path = config_path()
     _validate_paths(cfg)
     return cfg

@@ -23,13 +23,28 @@ async def get_config():
     - active: current runtime configuration
     - saved: configuration stored on disk
     - active_resolved: runtime config after defaults and inheritance
+    - contracts: runtime behavior contracts/capabilities
     """
     saved = config_manager.load_config()
     active = ml_state.config or saved
+    hard_reload_fields = [
+        path for path, _, mode in config_apply._RULES if mode == "hard"
+    ]
     return {
         "active": config_manager.dump_config(active),
         "saved": config_manager.dump_config(saved),
         "active_resolved": config_manager.resolve_config(active),
+        "contracts": {
+            **config_manager.behavior_contracts(),
+            "hard_reload_fields": hard_reload_fields,
+            "allowed_providers": [
+                "openai",
+                "gemini",
+                "openai_compatible",
+                "local_hf",
+                "local_4bit",
+            ],
+        },
     }
 
 

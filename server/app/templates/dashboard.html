@@ -201,6 +201,7 @@
                                         <button id="mem-obj-update" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Update</button>
                                         <button id="mem-obj-delete" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Delete</button>
                                     </div>
+                                    <p class="text-xs panel-muted mt-2">Create inserts a new object, Update modifies by ID, and Delete removes the object with attached relationships.</p>
                                 </div>
                                 <div class="border panel-border rounded p-3 panel-alt">
                                     <h3 class="text-sm font-semibold mb-2">Relation Editor</h3>
@@ -216,6 +217,7 @@
                                         <button id="mem-rel-update" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Update</button>
                                         <button id="mem-rel-delete" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Delete</button>
                                     </div>
+                                    <p class="text-xs panel-muted mt-2">Relations are identified by <code>subject_id</code>, <code>predicate</code>, and <code>object_id</code>.</p>
                                 </div>
                             </div>
                             <p id="memory-editor-status" class="text-xs panel-muted mt-3"></p>
@@ -297,27 +299,98 @@
                         <option value="local_hf">local_hf</option>
                         <option value="local_4bit">local_4bit</option>
                     </select>
+                    <p class="text-xs panel-muted mt-1">Selects inference backend. <code>openai_compatible</code> targets OpenAI-style servers such as local vLLM or Ollama gateways.</p>
                     <label class="block text-sm mt-4">VLM Model ID</label>
                     <input id="vlm-model-id" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="gpt-4.1-mini">
+                    <p class="text-xs panel-muted mt-1">Model name sent to the selected provider (exact provider-specific identifier).</p>
                     <label class="block text-sm mt-4">VLM Base URL</label>
                     <input id="vlm-base-url" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="http://localhost:8000/v1">
+                    <p class="text-xs panel-muted mt-1">Optional API endpoint override. Required for <code>openai_compatible</code> providers.</p>
                     <label class="block text-sm mt-4">VLM API Key Env</label>
                     <input id="vlm-api-key-env" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="OPENAI_API_KEY">
+                    <p class="text-xs panel-muted mt-1">Environment variable name used to resolve credentials at runtime (the key itself is never stored here).</p>
                     <label class="block text-sm mt-4">VLM Structured Mode</label>
                     <select id="vlm-structured-strategy" class="w-full border rounded px-3 py-2 mt-1">
                         <option value="provider_native">provider_native</option>
                         <option value="parse_output">parse_output</option>
                     </select>
+                    <p id="vlm-structured-capability" class="text-xs panel-muted mt-1"></p>
+                    <label class="block text-sm mt-4">VLM Structured Strict</label>
+                    <select id="vlm-structured-strict" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="true">true</option>
+                        <option value="false">false</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">When true, malformed or missing structured output raises an error; when false, parsing failures degrade to empty parsed payloads.</p>
+                    <label class="block text-sm mt-4">VLM Structured Schema</label>
+                    <select id="vlm-structured-schema" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="scene_graph">scene_graph</option>
+                        <option value="relationship_list">relationship_list</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">Chooses expected response schema: wrapped scene-graph object or direct list of relationships.</p>
+                    <label class="block text-sm mt-4">Local VLM Prompt Template Style</label>
+                    <select id="vlm-local-prompt-style" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="auto">auto</option>
+                        <option value="chatml">chatml</option>
+                        <option value="plain">plain</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">Controls local template rendering strategy. Use <code>plain</code> to force simple fallback prompts for fragile models.</p>
+                    <label class="block text-sm mt-4">Local VLM Image Token Strategy</label>
+                    <select id="vlm-local-image-token-strategy" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="auto">auto</option>
+                        <option value="single">single</option>
+                        <option value="multi">multi</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">Hint for local multimodal prompt formatting. Useful when model families expect specific image-token conventions.</p>
                     <label class="block text-sm mt-4">VLM Client Init Kwargs (JSON)</label>
                     <textarea id="vlm-client-init-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{\"timeout\": 120}'></textarea>
+                    <p class="text-xs panel-muted mt-1">Advanced provider client options applied during client construction (connection/auth/transport-level settings).</p>
+                    <div class="flex items-center gap-2 mt-2">
+                        <select id="vlm-client-init-kwargs-example" class="flex-1 border rounded px-3 py-2 text-sm">
+                            <option value="">Select VLM client kwargs example</option>
+                        </select>
+                        <button id="vlm-client-init-kwargs-apply-example" type="button" class="px-3 py-2 rounded border panel-border panel-alt text-xs">Apply Example</button>
+                    </div>
+                    <p class="text-xs panel-muted mt-1">Example presets are editable scaffolds; review values before applying.</p>
+                    <p id="vlm-client-init-kwargs-status" class="text-xs panel-muted mt-1"></p>
                     <label class="block text-sm mt-4">VLM Call Kwargs (JSON)</label>
                     <textarea id="vlm-call-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{\"max_tokens\": 1024, \"temperature\": 0.2}'></textarea>
+                    <p class="text-xs panel-muted mt-1">Advanced per-request generation arguments (sampling, token limits, provider call knobs).</p>
+                    <div class="flex items-center gap-2 mt-2">
+                        <select id="vlm-call-kwargs-example" class="flex-1 border rounded px-3 py-2 text-sm">
+                            <option value="">Select VLM call kwargs example</option>
+                        </select>
+                        <button id="vlm-call-kwargs-apply-example" type="button" class="px-3 py-2 rounded border panel-border panel-alt text-xs">Apply Example</button>
+                    </div>
+                    <p class="text-xs panel-muted mt-1">Use presets as starting points for performance/quality tuning.</p>
+                    <p id="vlm-call-kwargs-status" class="text-xs panel-muted mt-1"></p>
                     <label class="block text-sm mt-4">User Prompt</label>
                     <p class="text-xs panel-muted mt-1">Per-frame instruction template. If it contains <code>{predicates}</code>, backend replaces it with the ontology predicate list before VLM inference.</p>
                     <textarea id="vlm-user" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
                     <label class="block text-sm mt-4">Ontology Predicates (one per line)</label>
                     <p class="text-xs panel-muted mt-1">Predicate vocabulary used for scene relationships and prompt conditioning.</p>
                     <textarea id="vlm-predicates" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+
+                    <div class="mt-8 border-t panel-border pt-6">
+                        <h4 class="text-sm uppercase tracking-widest panel-muted mb-4">Pipeline Controls</h4>
+                        <label class="block text-sm">Pipeline Preset</label>
+                        <select id="pipeline-preset" class="w-full border rounded px-3 py-2 mt-1">
+                            <option value="full">full</option>
+                            <option value="detect_only">detect_only</option>
+                            <option value="vlm_only">vlm_only</option>
+                            <option value="rules_only">rules_only</option>
+                            <option value="minimal">minimal</option>
+                            <option value="custom">custom</option>
+                        </select>
+                        <p class="text-xs panel-muted mt-1">Preset profile for stage toggles. Selecting a non-custom preset overwrites individual stage switches.</p>
+                        <div class="grid grid-cols-2 gap-3 text-sm mt-4">
+                            <label class="flex items-center gap-2"><input id="pipeline-detect" type="checkbox">Detect</label>
+                            <label class="flex items-center gap-2"><input id="pipeline-track-memory" type="checkbox">Track Memory</label>
+                            <label class="flex items-center gap-2"><input id="pipeline-paint-som" type="checkbox">Paint SoM</label>
+                            <label class="flex items-center gap-2"><input id="pipeline-scene-graph" type="checkbox">Scene Graph</label>
+                            <label class="flex items-center gap-2"><input id="pipeline-update-scene-memory" type="checkbox">Update Scene Memory</label>
+                        </div>
+                        <p id="pipeline-summary" class="text-xs panel-muted mt-2"></p>
+                    </div>
 
                     <div>
                         <label class="block text-sm">SGG Mode</label>
@@ -371,8 +444,10 @@
                         <h4 class="text-sm uppercase tracking-widest panel-muted mb-3">Association</h4>
                         <label class="block text-sm">Visual Weight</label>
                         <input id="memory-assoc-visual-weight" type="number" step="0.01" min="0" max="1" class="w-full border rounded px-3 py-2 mt-1">
+                        <p class="text-xs panel-muted mt-1">Weight of embedding similarity in matching score (higher means appearance dominates).</p>
                         <label class="block text-sm mt-3">Geometry Weight</label>
                         <input id="memory-assoc-geometry-weight" type="number" step="0.01" min="0" max="1" class="w-full border rounded px-3 py-2 mt-1">
+                        <p class="text-xs panel-muted mt-1">Weight of spatial proximity in matching score (higher means location dominates).</p>
                         <label class="block text-sm mt-3">Match Threshold</label>
                         <input id="memory-assoc-match-threshold" type="number" step="0.01" min="0" class="w-full border rounded px-3 py-2 mt-1">
                         <p class="text-xs panel-muted mt-1">Higher threshold allows looser matching between detections and existing tracks.</p>
@@ -382,10 +457,13 @@
                         <h4 class="text-sm uppercase tracking-widest panel-muted mb-3">Feature Extraction</h4>
                         <label class="block text-sm">ReID Model</label>
                         <input id="memory-feat-reid-model" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="nvidia/C-RADIOv4-SO400M">
+                        <p class="text-xs panel-muted mt-1">Backbone used to generate identity embeddings for track association.</p>
                         <label class="block text-sm mt-3">Device</label>
                         <input id="memory-feat-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cuda">
+                        <p class="text-xs panel-muted mt-1">Device where feature extraction runs (can be different from detector device).</p>
                         <label class="block text-sm mt-3">Target Size</label>
                         <input id="memory-feat-target-size" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="384,384">
+                        <p class="text-xs panel-muted mt-1">Resize for crops before embedding extraction, formatted as <code>width,height</code>.</p>
                         <label class="block text-sm mt-3">Resampling Method</label>
                         <input id="memory-feat-resampling" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="BICUBIC">
                         <p class="text-xs panel-muted mt-1">Target-size and resampling control crop preprocessing before embedding extraction.</p>
@@ -395,10 +473,13 @@
                         <h4 class="text-sm uppercase tracking-widest panel-muted mb-3">Memory Limits</h4>
                         <label class="block text-sm">Max Age (seconds)</label>
                         <input id="memory-max-age-seconds" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1">
+                        <p class="text-xs panel-muted mt-1">Maximum lifetime for stale entries before pruning.</p>
                         <label class="block text-sm mt-3">Max Objects</label>
                         <input id="memory-max-objects" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1">
+                        <p class="text-xs panel-muted mt-1">Upper bound for stored tracked objects in memory.</p>
                         <label class="block text-sm mt-3">Max Relations</label>
                         <input id="memory-max-relations" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1">
+                        <p class="text-xs panel-muted mt-1">Upper bound for stored relationships in memory.</p>
                     </div>
                 </div>
             </section>
@@ -439,21 +520,50 @@
                         <option value="local_hf">local_hf</option>
                         <option value="local_4bit">local_4bit</option>
                     </select>
+                    <p class="text-xs panel-muted mt-1">Selects chat backend provider. <code>openai_compatible</code> routes to OpenAI-style API servers.</p>
                     <label class="block text-sm mt-4">LLM Model ID</label>
                     <input id="chat-model-id" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="gpt-4.1-mini">
+                    <p class="text-xs panel-muted mt-1">Model identifier used for chat generations.</p>
                     <label class="block text-sm mt-4">LLM Base URL</label>
                     <input id="chat-base-url" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="http://localhost:11434/v1">
+                    <p class="text-xs panel-muted mt-1">Optional endpoint override. Required for local/remote OpenAI-compatible servers.</p>
                     <label class="block text-sm mt-4">LLM API Key Env</label>
                     <input id="chat-api-key-env" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="OPENAI_API_KEY">
+                    <p class="text-xs panel-muted mt-1">Environment variable name used to load API credentials.</p>
                     <label class="block text-sm mt-4">LLM Structured Mode</label>
                     <select id="chat-structured-strategy" class="w-full border rounded px-3 py-2 mt-1">
                         <option value="provider_native">provider_native</option>
                         <option value="parse_output">parse_output</option>
                     </select>
+                    <p id="chat-structured-capability" class="text-xs panel-muted mt-1"></p>
+                    <label class="block text-sm mt-4">LLM Structured Strict</label>
+                    <select id="chat-structured-strict" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="true">true</option>
+                        <option value="false">false</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">When true, malformed JSON/structured outputs fail fast; when false, parsing failures are tolerated.</p>
                     <label class="block text-sm mt-4">LLM Client Init Kwargs (JSON)</label>
                     <textarea id="chat-client-init-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{\"timeout\": 60}'></textarea>
+                    <p class="text-xs panel-muted mt-1">Client-construction options such as transport timeout, retries, and provider SDK initialization settings.</p>
+                    <div class="flex items-center gap-2 mt-2">
+                        <select id="chat-client-init-kwargs-example" class="flex-1 border rounded px-3 py-2 text-sm">
+                            <option value="">Select LLM client kwargs example</option>
+                        </select>
+                        <button id="chat-client-init-kwargs-apply-example" type="button" class="px-3 py-2 rounded border panel-border panel-alt text-xs">Apply Example</button>
+                    </div>
+                    <p class="text-xs panel-muted mt-1">Presets are templates; adjust them to your provider and deployment.</p>
+                    <p id="chat-client-init-kwargs-status" class="text-xs panel-muted mt-1"></p>
                     <label class="block text-sm mt-4">LLM Call Kwargs (JSON)</label>
                     <textarea id="chat-call-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{\"max_tokens\": 256, \"temperature\": 0.7}'></textarea>
+                    <p class="text-xs panel-muted mt-1">Per-request generation options, for example temperature and token limits.</p>
+                    <div class="flex items-center gap-2 mt-2">
+                        <select id="chat-call-kwargs-example" class="flex-1 border rounded px-3 py-2 text-sm">
+                            <option value="">Select LLM call kwargs example</option>
+                        </select>
+                        <button id="chat-call-kwargs-apply-example" type="button" class="px-3 py-2 rounded border panel-border panel-alt text-xs">Apply Example</button>
+                    </div>
+                    <p class="text-xs panel-muted mt-1">Apply an example then fine-tune based on response quality and latency.</p>
+                    <p id="chat-call-kwargs-status" class="text-xs panel-muted mt-1"></p>
                     <label class="block text-sm mt-4" for="chat-context">Context Template</label>
                     <p class="text-xs panel-muted mt-1">Template used to build chat context. If it contains <code>{context}</code>, backend injects current memory summary before LLM call. It is part of the system prompt.</p>
                     <textarea id="chat-context" rows="16" class="w-full border rounded px-3 py-2 mt-1"></textarea>

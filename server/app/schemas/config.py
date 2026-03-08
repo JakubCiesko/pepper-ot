@@ -8,6 +8,10 @@ from pydantic import PrivateAttr
 from pydantic import model_validator
 import yaml
 
+from app.core.llm_contracts import normalize_call_kwargs
+from app.core.llm_contracts import validate_call_kwargs
+from app.core.llm_contracts import validate_client_init_kwargs
+
 
 class DetectionConfig(BaseModel):
     backend: Literal["yolo", "rt_detr", "rf_detr", "owl_v2"]
@@ -131,6 +135,27 @@ class LLMConfig(BaseModel):
 
         return data
 
+    @model_validator(mode="after")
+    def normalize_and_validate_kwargs(self):
+        if self.timeout_seconds is not None and self.timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be > 0")
+        if self.provider == "openai_compatible" and not (
+            self.base_url or self.client_init_kwargs.get("base_url")
+        ):
+            raise ValueError(
+                "base_url is required for provider=openai_compatible (set top-level base_url or client_init_kwargs.base_url)"
+            )
+
+        validate_client_init_kwargs(
+            self.provider,
+            self.client_init_kwargs,
+            "client_init_kwargs",
+        )
+        normalized_call_kwargs = normalize_call_kwargs(self.provider, self.call_kwargs)
+        validate_call_kwargs(self.provider, normalized_call_kwargs, "call_kwargs")
+        self.call_kwargs = normalized_call_kwargs
+        return self
+
 
 class AssociationConfig(BaseModel):
     visual_weight: float = 0.8
@@ -199,9 +224,15 @@ class OntologySource(BaseModel):
 
 
 class SceneGraphVLMConfig(LLMConfig):
+    class LocalVLMHints(BaseModel):
+        prompt_template_style: Literal["auto", "chatml", "plain"] = "auto"
+        image_token_strategy: Literal["auto", "single", "multi"] = "auto"
+
     system_prompt: PromptSource
     user_prompt: PromptSource | None = None
     ontology: OntologySource
+    structured_schema: Literal["scene_graph", "relationship_list"] = "scene_graph"
+    local_vlm_hints: LocalVLMHints = Field(default_factory=LocalVLMHints)
 
 
 class ChatConfig(LLMConfig):
@@ -256,6 +287,88 @@ class FusionConfig(BaseModel):
     estimated_person_bbox_max_px: float = 200.0
 
 
+class PipelineControls(BaseModel):
+    preset: Literal[
+        "full",
+        "detect_only",
+        "vlm_only",
+        "rules_only",
+        "minimal",
+        "custom",
+    ] = "full"
+    detect: bool = True
+    track_memory: bool = True
+    paint_som: bool = True
+    scene_graph: bool = True
+    update_scene_memory: bool = True
+
+    @staticmethod
+    def preset_map() -> dict[str, dict[str, bool]]:
+        return {
+            "full": {
+                "detect": True,
+                "track_memory": True,
+                "paint_som": True,
+                "scene_graph": True,
+                "update_scene_memory": True,
+            },
+            "detect_only": {
+                "detect": True,
+                "track_memory": False,
+                "paint_som": False,
+                "scene_graph": False,
+                "update_scene_memory": False,
+            },
+            "vlm_only": {
+                "detect": False,
+                "track_memory": False,
+                "paint_som": False,
+                "scene_graph": True,
+                "update_scene_memory": False,
+            },
+            "rules_only": {
+                "detect": True,
+                "track_memory": True,
+                "paint_som": False,
+                "scene_graph": True,
+                "update_scene_memory": True,
+            },
+            "minimal": {
+                "detect": True,
+                "track_memory": False,
+                "paint_som": False,
+                "scene_graph": False,
+                "update_scene_memory": False,
+            },
+        }
+
+    @model_validator(mode="after")
+    def apply_preset(self):
+        if self.preset != "custom":
+            mapped = self.preset_map().get(self.preset)
+            if mapped is not None:
+                self.detect = mapped["detect"]
+                self.track_memory = mapped["track_memory"]
+                self.paint_som = mapped["paint_som"]
+                self.scene_graph = mapped["scene_graph"]
+                self.update_scene_memory = mapped["update_scene_memory"]
+                return self
+
+        # Promote to a named preset when toggles match exactly, otherwise keep custom.
+        for name, flags in self.preset_map().items():
+            if (
+                self.detect == flags["detect"]
+                and self.track_memory == flags["track_memory"]
+                and self.paint_som == flags["paint_som"]
+                and self.scene_graph == flags["scene_graph"]
+                and self.update_scene_memory == flags["update_scene_memory"]
+            ):
+                self.preset = name
+                return self
+        self.preset = "custom"
+        return self
+
+
 class AppConfig(BaseModel):
     system: dict
     detection: DetectionConfig
@@ -265,7 +378,33 @@ class AppConfig(BaseModel):
     visualization: VisConfig
     storage: StorageConfig = Field(default_factory=StorageConfig)
     fusion: FusionConfig = Field(default_factory=FusionConfig)
+    pipeline_controls: PipelineControls = Field(default_factory=PipelineControls)
     _config_path: Path | None = PrivateAttr(None)
+
+    @model_validator(mode="after")
+    def validate_pipeline_controls(self):
+        controls = self.pipeline_controls
+        if controls.track_memory and not controls.detect:
+            raise ValueError("pipeline_controls.track_memory requires detect=true")
+        if controls.paint_som and not controls.detect:
+            raise ValueError("pipeline_controls.paint_som requires detect=true")
+        if controls.update_scene_memory and not controls.scene_graph:
+            raise ValueError(
+                "pipeline_controls.update_scene_memory requires scene_graph=true"
+            )
+        if controls.update_scene_memory and not controls.track_memory:
+            raise ValueError(
+                "pipeline_controls.update_scene_memory requires track_memory=true"
+            )
+        if (
+            self.scene_graph.mode == "rules"
+            and controls.scene_graph
+            and not controls.detect
+        ):
+            raise ValueError(
+                "scene_graph.mode=rules requires detect=true when scene_graph stage is enabled"
+            )
+        return self
 
     @classmethod
     def load(cls, path: str = "config.yaml") -> "AppConfig":

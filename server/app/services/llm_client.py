@@ -9,6 +9,8 @@ import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
+from app.core.llm_contracts import normalize_call_kwargs
+from app.core.llm_contracts import normalize_openai_parse_kwargs
 from app.schemas.config import LLMConfig
 from app.services.model_io_common import extract_text_content
 from app.services.model_io_common import extract_text_from_openai_response
@@ -57,6 +59,7 @@ class OpenAITextProvider(BaseTextProvider):
         kwargs = dict(config.call_kwargs or {})
         if call_overrides:
             kwargs.update(call_overrides)
+        kwargs = normalize_call_kwargs(config.provider, kwargs)
 
         mode = resolve_structured_mode(
             config,
@@ -66,9 +69,7 @@ class OpenAITextProvider(BaseTextProvider):
         )
 
         if mode == "provider_native" and output_schema is not None:
-            parse_kwargs = dict(kwargs)
-            if "max_tokens" in parse_kwargs and "max_output_tokens" not in parse_kwargs:
-                parse_kwargs["max_output_tokens"] = parse_kwargs.pop("max_tokens")
+            parse_kwargs = normalize_openai_parse_kwargs(kwargs)
             try:
                 response = await self.client.responses.parse(
                     model=config.model_id,
@@ -86,7 +87,9 @@ class OpenAITextProvider(BaseTextProvider):
                 return LLMResponse(text=text, parsed=parsed, raw=response)
             except Exception as exc:
                 logger.warning(
-                    "OpenAI provider_native structured call failed, falling back to parse_output: %s",
+                    "OpenAI provider_native structured call failed, deterministically falling back to parse_output provider=%s model=%s error=%s",
+                    config.provider,
+                    config.model_id,
                     exc,
                 )
 
@@ -123,6 +126,7 @@ class GeminiTextProvider(BaseTextProvider):
         kwargs = dict(config.call_kwargs or {})
         if call_overrides:
             kwargs.update(call_overrides)
+        kwargs = normalize_call_kwargs(config.provider, kwargs)
         mode = resolve_structured_mode(
             config,
             output_schema=output_schema,
@@ -152,6 +156,10 @@ class GeminiTextProvider(BaseTextProvider):
             if schema_dict is not None:
                 generate_config.setdefault("response_mime_type", "application/json")
                 generate_config.setdefault("response_json_schema", schema_dict)
+            else:
+                logger.warning(
+                    "Gemini provider_native requested but schema conversion failed; continuing with parse_output-compatible response parsing"
+                )
         elif mode == "parse_output" and output_schema is not None:
             generate_config.setdefault("response_mime_type", "application/json")
 
@@ -214,6 +222,7 @@ class LocalHFTextProvider(BaseTextProvider):
         kwargs = dict(config.call_kwargs or {})
         if call_overrides:
             kwargs.update(call_overrides)
+        kwargs = normalize_call_kwargs(config.provider, kwargs)
 
         max_new_tokens = int(
             kwargs.pop("max_new_tokens", kwargs.pop("max_tokens", 256))

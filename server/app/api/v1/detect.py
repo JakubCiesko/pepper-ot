@@ -23,6 +23,7 @@ from fastapi import File
 from fastapi import Form
 from fastapi import HTTPException
 from fastapi import UploadFile
+import numpy as np
 from PIL import Image
 
 logger = logging.getLogger(__name__)
@@ -103,11 +104,15 @@ async def upload_data_to_dashboard(
     som_image = result.som_image
     metrics = result.metrics
     scene_graph = result.scene_graph
-    scene_graph_dict = scene_graph.as_dict() if scene_graph else {}
+    executed_stages = result.executed_stages
+    scene_graph_dict = scene_graph.as_dict() if scene_graph else []
     logger.debug(f"Current Scene State : {current_scene_state}")
     logger.debug(f"Current scene graph: {scene_graph_dict}")
     logger.info("Uploading data to dashboard...")
-    som_pil = Image.fromarray(som_image.astype("uint8"))
+    display_image = som_image
+    if display_image is None:
+        display_image = np.array(result.raw_image)
+    som_pil = Image.fromarray(display_image.astype("uint8"))
     buf = io.BytesIO()
     som_pil.save(buf, format="JPEG")
     som_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
@@ -122,6 +127,7 @@ async def upload_data_to_dashboard(
             else {"objects": [], "relationships": [], "timestamp": time.time()}
         ),
         "metrics": metrics,
+        "executed_stages": executed_stages,
     }
     await ws_manager.broadcast(payload)
     return payload

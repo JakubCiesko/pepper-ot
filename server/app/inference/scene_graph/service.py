@@ -1,6 +1,8 @@
 import logging
 from typing import Literal
 
+from PIL import Image
+
 from app.inference.scene_graph.rules_backend import RuleBasedSceneGraphBackend
 from app.inference.scene_graph.vlm_backend import VLMSceneGraphBackend
 from app.inference.types import DetectionObject
@@ -21,14 +23,25 @@ class SceneGraphService:
         self.rule_backend = rule_backend
 
     async def generate(
-        self, som_image, detections: list[DetectionObject]
+        self,
+        detections: list[DetectionObject],
+        *,
+        som_image=None,
+        raw_image: Image.Image | None = None,
     ) -> SceneGraph:
+        vlm_image = som_image if som_image is not None else raw_image
+
         match self.mode:
             case "rules":
                 return self.rule_backend.generate(detections)
             case "vlm":
-                return await self.vlm_backend.generate(som_image)
+                if vlm_image is None:
+                    return SceneGraph()
+                return await self.vlm_backend.generate(vlm_image)
             case _:
-                vlm_graph = await self.vlm_backend.generate(som_image)
+                if vlm_image is None:
+                    vlm_graph = SceneGraph()
+                else:
+                    vlm_graph = await self.vlm_backend.generate(vlm_image)
                 rules_graph = self.rule_backend.generate(detections)
                 return vlm_graph + rules_graph

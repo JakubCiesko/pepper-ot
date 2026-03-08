@@ -119,6 +119,7 @@ class MLState:
             scene_graph_service=scene_graph_service,
             fusion_config=self.config.fusion,
             vis_config=self.config.visualization,
+            pipeline_controls=self.config.pipeline_controls,
         )
 
         chat_system_prompt = self.config.chat.system_prompt.resolve(base_dir)

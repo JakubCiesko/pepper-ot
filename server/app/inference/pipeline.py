@@ -1,17 +1,22 @@
 from contextlib import asynccontextmanager
 import logging
 import time
+from typing import TYPE_CHECKING
+from typing import Any
 
 import numpy as np
 from PIL import Image
 
-from app.inference.detection.service import DetectionService
-from app.inference.memory.scene_memory import SceneMemory
 from app.inference.scene_graph.service import SceneGraphService
-from app.inference.scene_graph.som import SoMPainter
+from app.inference.types import DetectionObject
 from app.inference.types import PipelineResult
+from app.inference.types import SceneGraph
+from app.schemas.config import PipelineControls
 from app.schemas.config import VisConfig
 from app.schemas.robot import RobotMetadata
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +34,13 @@ async def timer(step_name: str, metrics: dict[str, float]):
 class VisualPipeline:
     def __init__(
         self,
-        detector: DetectionService,
-        memory: SceneMemory,
-        painter: SoMPainter,
+        detector: Any,
+        memory: Any,
+        painter: Any,
         scene_graph_service: SceneGraphService,
         fusion_config,
         vis_config: VisConfig,
+        pipeline_controls: PipelineControls,
     ):
         self.detector = detector
         self.memory = memory
@@ -42,6 +48,7 @@ class VisualPipeline:
         self.scene_graph_service = scene_graph_service
         self.fusion_config = fusion_config
         self.vis_config = vis_config
+        self.pipeline_controls = pipeline_controls
 
     def set_detection_threshold(self, threshold: float):
         logger.info(f"Setting detection threshold to: {threshold}")
@@ -50,52 +57,53 @@ class VisualPipeline:
     async def process(
         self, image: Image.Image, robot_metadata: RobotMetadata | None = None
     ) -> PipelineResult:
-        """
-        Runs the full See-Track-Understand loop.
-        """
-        # 1. DETECT (Get raw boxes, no IDs yet)
-
-        metrics = {}
+        controls = self.pipeline_controls
+        metrics: dict[str, float | str] = {}
+        stage_status: dict[str, dict[str, float | str]] = {}
+        executed_stages: list[str] = []
         logger.info(f"Processing image with metadata={robot_metadata}")
-        async with timer("detection_time", metrics):
-            raw_detections = self.detector.detect(image)
-        logger.info(f"Detected {len(raw_detections)} detections")
 
-        # 2. MEMORY (Assign Persistent IDs via ReID)
-        # This modifies the detection objects in-place or returns new ones
-        logger.info("Updating memory...")
-        async with timer("memory_update_time", metrics):
-            tracked_detections = self.memory.update(
-                image, raw_detections, robot_metadata, self.fusion_config
-            )
-        logger.info(f"{len(tracked_detections)} Tracked detections after memory update")
-        # 3. PAINT (Draw Set-of-Mark tags using the IDs)
-        # We need numpy for the painter, but we keep PIL for the VLM if needed
-        logger.info("Painting SoM over Image for VLM SGG")
-        async with timer("som_image_paint_time", metrics):
-            image_np = np.array(image)
-            som_image = self.painter.paint(
-                image_np,
-                tracked_detections,
-                bbox=self.vis_config.show_bbox,
-                mask=self.vis_config.show_mask,
-                polygon=self.vis_config.show_polygon,
-                class_names=self.vis_config.show_labels,
-            )
+        raw_detections = await self._run_detection(
+            image, controls, metrics, stage_status, executed_stages
+        )
+        tracked_detections = await self._run_tracking(
+            image,
+            raw_detections,
+            robot_metadata,
+            controls,
+            metrics,
+            stage_status,
+            executed_stages,
+        )
+        som_image = await self._run_som_paint(
+            image, tracked_detections, controls, metrics, stage_status, executed_stages
+        )
+        scene_graph = await self._run_scene_graph(
+            image,
+            som_image,
+            tracked_detections,
+            controls,
+            metrics,
+            stage_status,
+            executed_stages,
+        )
+        await self._run_scene_memory_update(
+            scene_graph, controls, metrics, stage_status, executed_stages
+        )
 
-        # 4. UNDERSTAND (Generate Scene Graph from SoM Image)
-        # We pass the tagged image so the VLM can reference "Object 1"
-        logger.info("Running SceneGraph generation with SoM Image...")
-        async with timer("scene_graph_generation_time", metrics):
-            scene_graph = await self.scene_graph_service.generate(
-                som_image, tracked_detections
-            )
-
-        logger.info("Updating memory with generated scene graph")
-        async with timer("scene_graph_memory_update_time", metrics):
-            self.memory.update_scene_graph(scene_graph)
-
-        metrics["total_processing"] = sum(metrics.values())
+        total = sum(
+            float(value)
+            for key, value in metrics.items()
+            if key.endswith("_time") and isinstance(value, (int, float))
+        )
+        metrics["total_processing"] = total
+        for stage_name, info in stage_status.items():
+            status = info.get("status", "unknown")
+            metrics[f"stage.{stage_name}.status"] = str(status)
+            if "duration" in info:
+                metrics[f"stage.{stage_name}.duration"] = float(info["duration"])
+            if "reason" in info:
+                metrics[f"stage.{stage_name}.reason"] = str(info["reason"])
 
         return PipelineResult(
             raw_image=image,
@@ -103,4 +111,164 @@ class VisualPipeline:
             detections=tracked_detections,
             scene_graph=scene_graph,
             metrics=metrics,
+            executed_stages=executed_stages,
         )
+
+    async def _run_detection(
+        self,
+        image: Image.Image,
+        controls: PipelineControls,
+        metrics: dict[str, float | str],
+        stage_status: dict[str, dict[str, float | str]],
+        executed_stages: list[str],
+    ) -> list[DetectionObject]:
+        if not controls.detect:
+            stage_status["detect"] = {"status": "skipped", "reason": "disabled"}
+            return []
+
+        async with timer("detection_time", metrics):
+            detections = self.detector.detect(image)
+        stage_status["detect"] = {
+            "status": "executed",
+            "duration": float(metrics.get("detection_time", 0.0)),
+        }
+        executed_stages.append("detect")
+        logger.info(f"Detected {len(detections)} detections")
+        return detections
+
+    async def _run_tracking(
+        self,
+        image: Image.Image,
+        detections: list[DetectionObject],
+        robot_metadata: RobotMetadata | None,
+        controls: PipelineControls,
+        metrics: dict[str, float | str],
+        stage_status: dict[str, dict[str, float | str]],
+        executed_stages: list[str],
+    ) -> list[DetectionObject]:
+        if not controls.track_memory:
+            for idx, det in enumerate(detections, start=1):
+                det.object_id = idx
+            stage_status["track_memory"] = {
+                "status": "skipped",
+                "reason": "disabled; assigned frame-local IDs",
+            }
+            return detections
+
+        if not detections:
+            stage_status["track_memory"] = {
+                "status": "skipped",
+                "reason": "no detections",
+            }
+            return detections
+
+        async with timer("memory_update_time", metrics):
+            tracked = self.memory.update(
+                image, detections, robot_metadata, self.fusion_config
+            )
+        stage_status["track_memory"] = {
+            "status": "executed",
+            "duration": float(metrics.get("memory_update_time", 0.0)),
+        }
+        executed_stages.append("track_memory")
+        logger.info(f"{len(tracked)} tracked detections after memory update")
+        return tracked
+
+    async def _run_som_paint(
+        self,
+        image: Image.Image,
+        detections: list[DetectionObject],
+        controls: PipelineControls,
+        metrics: dict[str, float | str],
+        stage_status: dict[str, dict[str, float | str]],
+        executed_stages: list[str],
+    ) -> np.ndarray | None:
+        if not controls.paint_som:
+            stage_status["paint_som"] = {"status": "skipped", "reason": "disabled"}
+            return None
+        if not controls.detect:
+            stage_status["paint_som"] = {
+                "status": "skipped",
+                "reason": "detection disabled",
+            }
+            return None
+
+        async with timer("som_image_paint_time", metrics):
+            image_np = np.array(image)
+            som_image = self.painter.paint(
+                image_np,
+                detections,
+                bbox=self.vis_config.show_bbox,
+                mask=self.vis_config.show_mask,
+                polygon=self.vis_config.show_polygon,
+                class_names=self.vis_config.show_labels,
+            )
+        stage_status["paint_som"] = {
+            "status": "executed",
+            "duration": float(metrics.get("som_image_paint_time", 0.0)),
+        }
+        executed_stages.append("paint_som")
+        return som_image
+
+    async def _run_scene_graph(
+        self,
+        image: Image.Image,
+        som_image: np.ndarray | None,
+        detections: list[DetectionObject],
+        controls: PipelineControls,
+        metrics: dict[str, float | str],
+        stage_status: dict[str, dict[str, float | str]],
+        executed_stages: list[str],
+    ) -> SceneGraph | None:
+        if not controls.scene_graph:
+            stage_status["scene_graph"] = {"status": "skipped", "reason": "disabled"}
+            return None
+
+        # Direct-image mode: no detection and no SoM.
+        if not controls.detect and som_image is None:
+            route = "direct_image"
+        else:
+            route = "som_image" if som_image is not None else "raw_image"
+
+        async with timer("scene_graph_generation_time", metrics):
+            scene_graph = await self.scene_graph_service.generate(
+                detections,
+                som_image=som_image,
+                raw_image=image,
+            )
+        stage_status["scene_graph"] = {
+            "status": "executed",
+            "duration": float(metrics.get("scene_graph_generation_time", 0.0)),
+            "reason": route,
+        }
+        executed_stages.append("scene_graph")
+        return scene_graph
+
+    async def _run_scene_memory_update(
+        self,
+        scene_graph: SceneGraph | None,
+        controls: PipelineControls,
+        metrics: dict[str, float | str],
+        stage_status: dict[str, dict[str, float | str]],
+        executed_stages: list[str],
+    ) -> None:
+        if not controls.update_scene_memory:
+            stage_status["update_scene_memory"] = {
+                "status": "skipped",
+                "reason": "disabled",
+            }
+            return
+        if scene_graph is None:
+            stage_status["update_scene_memory"] = {
+                "status": "skipped",
+                "reason": "scene_graph unavailable",
+            }
+            return
+
+        async with timer("scene_graph_memory_update_time", metrics):
+            self.memory.update_scene_graph(scene_graph)
+        stage_status["update_scene_memory"] = {
+            "status": "executed",
+            "duration": float(metrics.get("scene_graph_memory_update_time", 0.0)),
+        }
+        executed_stages.append("update_scene_memory")

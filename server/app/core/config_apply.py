@@ -56,6 +56,16 @@ _RULES: list[tuple[str, Callable, str]] = [
         "hot",
     ),
     (
+        "scene_graph.vlm.structured_schema",
+        attrgetter("scene_graph.vlm.structured_schema"),
+        "hot",
+    ),
+    (
+        "scene_graph.vlm.local_vlm_hints",
+        attrgetter("scene_graph.vlm.local_vlm_hints"),
+        "hot",
+    ),
+    (
         "scene_graph.vlm.system_prompt",
         attrgetter("scene_graph.vlm.system_prompt"),
         "hot",
@@ -117,6 +127,7 @@ _RULES: list[tuple[str, Callable, str]] = [
     ("storage.persist_last_state", attrgetter("storage.persist_last_state"), "hot"),
     ("storage.last_state_path", attrgetter("storage.last_state_path"), "hot"),
     ("storage.store_image", attrgetter("storage.store_image"), "hot"),
+    ("pipeline_controls", attrgetter("pipeline_controls"), "hot"),
 ]
 
 
@@ -141,6 +152,7 @@ def _update_pipeline(ml_state: MLState, new: AppConfig):
     )
     ml_state.pipeline.vis_config = new.visualization
     ml_state.pipeline.fusion_config = new.fusion
+    ml_state.pipeline.pipeline_controls = new.pipeline_controls
 
     # Update memory pruning settings
     if hasattr(ml_state.pipeline, "memory") and ml_state.pipeline.memory:
