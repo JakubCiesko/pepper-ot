@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import router as api_v1_router
-from app.core.state import ml_state
+from app.core.runtime.state import ml_state
 from app.dashboard import router as dashboard_router
 
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

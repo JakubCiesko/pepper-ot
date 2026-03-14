@@ -1,19 +1,24 @@
 import logging
 import os
 import signal
-import time
 from typing import Any
 
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Query
 
-from app.core.worker_protocol import DetectRPCRequest
-from app.core.worker_protocol import WorkerConfigRPCRequest
+from app.core.runtime.worker_protocol import DetectRPCRequest
+from app.core.runtime.worker_protocol import WorkerConfigRPCRequest
+from app.orchestration.memory_service import DomainNotFoundError
+from app.orchestration.memory_service import DomainValidationError
+from app.orchestration.memory_service import MemoryObjectCreate
+from app.orchestration.memory_service import MemoryObjectUpdate
+from app.orchestration.memory_service import MemoryRelationCreate
+from app.orchestration.memory_service import MemoryRelationUpdate
+from app.orchestration.memory_service import MemoryService
+from app.orchestration.runtime_adapter import WorkerProcessRuntimeAdapter
 from app.schemas.config import AppConfig
-from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
-from app.schemas.scene import TrackedObjectState
 from app.worker.runtime import WorkerRuntime
 
 logger = logging.getLogger(__name__)
@@ -22,6 +27,9 @@ logger = logging.getLogger(__name__)
 def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
     router = APIRouter()
 
+    def memory_service() -> MemoryService:
+        return MemoryService(WorkerProcessRuntimeAdapter(runtime))
+
     @router.get("/internal/health")
     async def health():
         return {"ok": True, "state": runtime.state}
@@ -29,7 +37,7 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
     @router.get("/internal/status")
     async def status():
         payload = runtime.status()
-        payload["pid"] = __import__("os").getpid()
+        payload["pid"] = os.getpid()
         return payload
 
     @router.post("/internal/config/reload")
@@ -51,10 +59,62 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         cfg = AppConfig(**cfg_raw)
         await runtime.apply_config(cfg, version, rebuild=False)
         if runtime.pipeline is not None:
+            base_dir = cfg._config_path.parent if cfg._config_path is not None else None
+
+            # Detect/track/visual runtime knobs
+            runtime.pipeline.detector.threshold = cfg.detection.confidence_threshold
+            runtime.pipeline.detector.device = cfg.detection.device
+            runtime.pipeline.detector.ontology = (
+                cfg.detection.resolve_ontology(base_dir)
+                if base_dir is not None
+                else cfg.detection.ontology
+            )
             runtime.pipeline.pipeline_controls = cfg.pipeline_controls
             runtime.pipeline.fusion_config = cfg.fusion
             runtime.pipeline.vis_config = cfg.visualization
-            runtime.pipeline.scene_graph_service.mode = cfg.scene_graph.mode
+            if hasattr(runtime.pipeline, "memory") and runtime.pipeline.memory:
+                runtime.pipeline.memory.set_limits(
+                    cfg.tracking.memory_max_age_seconds,
+                    cfg.tracking.memory_max_objects,
+                    cfg.tracking.memory_max_relations,
+                )
+                runtime.pipeline.memory.set_max_dormant_frames(
+                    cfg.tracking.max_dormant_frames
+                )
+                runtime.pipeline.memory.set_association_config(cfg.tracking.association)
+                runtime.pipeline.memory.set_feature_extraction_config(
+                    cfg.tracking.feature_extraction
+                )
+
+            # Scene graph runtime knobs, including VLM call_kwargs/prompt/ontology.
+            sg_service = runtime.pipeline.scene_graph_service
+            sg_service.mode = cfg.scene_graph.mode
+            vlm_backend = sg_service.vlm_backend
+            system_prompt = (
+                cfg.scene_graph.vlm.system_prompt.resolve(base_dir)
+                if base_dir is not None
+                else vlm_backend.system_prompt
+            )
+            user_prompt = (
+                cfg.scene_graph.vlm.user_prompt.resolve(base_dir)
+                if base_dir is not None and cfg.scene_graph.vlm.user_prompt is not None
+                else None
+            )
+            predicates, objects = (
+                cfg.scene_graph.vlm.ontology.resolve(base_dir)
+                if base_dir is not None
+                else (vlm_backend.predicates, vlm_backend.objects)
+            )
+            vlm_backend.update_runtime(
+                config=cfg.scene_graph.vlm,
+                predicates=predicates,
+                objects=objects,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                rebuild_client=False,
+            )
+            sg_service.rule_backend.rules_config = cfg.scene_graph.rules
+        await runtime.update_caption_runtime(cfg)
         return {
             "ok": True,
             "worker_state": runtime.state,
@@ -74,6 +134,16 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
     async def detect(request: DetectRPCRequest):
         return await runtime.detect(request.image_b64, request.robot_metadata)
 
+    @router.post("/internal/caption")
+    async def caption(request: dict[str, Any]):
+        image_b64 = request.get("image_b64")
+        if not isinstance(image_b64, str) or not image_b64:
+            raise HTTPException(status_code=400, detail="image_b64 is required")
+        prompt = request.get("prompt")
+        if prompt is not None and not isinstance(prompt, str):
+            raise HTTPException(status_code=400, detail="prompt must be string")
+        return await runtime.caption(image_b64, prompt_override=prompt)
+
     @router.post("/internal/shutdown")
     async def shutdown(_request: dict[str, Any]):
         loop = __import__("asyncio").get_running_loop()
@@ -82,8 +152,8 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
 
     @router.get("/internal/memory")
     async def get_memory():
-        state = await runtime.scene_state()
-        return state.model_dump()
+        state = await memory_service().get_memory()
+        return state.model_dump(mode="json")
 
     @router.get("/internal/memory/objects")
     async def get_memory_objects(
@@ -93,18 +163,16 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         limit: int = Query(50, ge=1),
         sort_by: str = Query("last_seen", pattern="^(last_seen|first_seen|hits)$"),
     ):
-        state = await runtime.scene_state()
-        objects = state.objects
-        if label:
-            objects = [o for o in objects if o.label == label]
-        if min_hits is not None:
-            objects = [o for o in objects if o.hits >= min_hits]
-        objects.sort(key=lambda o: getattr(o, sort_by), reverse=True)
-        objs_page = objects[skip : skip + limit]
-        return {
-            "objects": [o.model_dump() for o in objs_page],
-            "timestamp": state.timestamp,
-        }
+        try:
+            return await memory_service().list_objects(
+                label=label,
+                min_hits=min_hits,
+                skip=skip,
+                limit=limit,
+                sort_by=sort_by,
+            )
+        except DomainValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @router.get("/internal/memory/relations")
     async def get_memory_relations(
@@ -116,123 +184,78 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         skip: int = Query(0, ge=0),
         limit: int = Query(50, ge=1),
     ):
-        state = await runtime.scene_state()
-        rels = state.relationships
-        obj_map = {o.id: o.label for o in state.objects}
-        if subject_id is not None:
-            rels = [r for r in rels if r.subject_id == subject_id]
-        if subject_label is not None:
-            rels = [r for r in rels if obj_map.get(r.subject_id) == subject_label]
-        if predicate is not None:
-            rels = [r for r in rels if r.predicate == predicate]
-        if object_id is not None:
-            rels = [r for r in rels if r.object_id == object_id]
-        if object_label is not None:
-            rels = [r for r in rels if obj_map.get(r.object_id) == object_label]
-        rels_page = rels[skip : skip + limit]
-        return {
-            "relationships": [r.model_dump() for r in rels_page],
-            "timestamp": state.timestamp,
-        }
+        return await memory_service().list_relations(
+            subject_id=subject_id,
+            subject_label=subject_label,
+            predicate=predicate,
+            object_id=object_id,
+            object_label=object_label,
+            skip=skip,
+            limit=limit,
+        )
 
     @router.post("/internal/memory/upsert")
     async def upsert_memory(state: SceneState):
-        if not state.objects and not state.relationships:
-            raise HTTPException(status_code=400, detail="SceneState is empty")
-        await runtime.upsert_scene_state(state)
-        return {"ok": True}
+        try:
+            await memory_service().upsert_memory(state)
+            return {"ok": True}
+        except DomainValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @router.post("/internal/memory/reset")
     async def reset_memory(confirm: bool = Query(False)):
-        if not confirm:
-            raise HTTPException(
-                status_code=400,
-                detail="Reset not confirmed. Set confirm=true to proceed.",
-            )
-        await runtime.reset_memory()
-        return {"ok": True}
+        try:
+            await memory_service().reset_memory(confirm)
+            return {"ok": True}
+        except DomainValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @router.post("/internal/memory/object")
-    async def create_memory_object(payload: dict[str, Any]):
-        now = time.time()
-        await runtime.ensure_pipeline()
-        memory = runtime.pipeline.memory
-        object_id = payload.get("id")
-        if object_id is None:
-            object_id = memory.next_id
-        obj = TrackedObjectState(
-            id=int(object_id),
-            label=str(payload["label"]),
-            status=str(payload.get("status", "active")),
-            source=str(payload.get("source", "manual")),
-            attributes=list(payload.get("attributes", [])),
-            bearing_yaw=payload.get("bearing_yaw"),
-            bearing_pitch=payload.get("bearing_pitch"),
-            frame_id=payload.get("frame_id"),
-            scan_id=payload.get("scan_id"),
-            first_seen=float(payload.get("first_seen", now)),
-            last_seen=float(payload.get("last_seen", now)),
-            hits=int(payload.get("hits", 1)),
-            bbox=list(payload["bbox"]),
-        )
-        await runtime.create_object(obj)
-        return {"ok": True, "object": obj.model_dump()}
+    async def create_memory_object(payload: MemoryObjectCreate):
+        try:
+            obj = await memory_service().create_object(payload)
+            return {"ok": True, "object": obj.model_dump(mode="json")}
+        except DomainValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @router.patch("/internal/memory/object/{object_id}")
-    async def update_memory_object(object_id: int, payload: dict[str, Any]):
+    async def update_memory_object(object_id: int, payload: MemoryObjectUpdate):
         try:
-            updated = await runtime.patch_object(object_id, payload)
-            return {"ok": True, "object": updated.model_dump()}
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except ValueError as exc:
+            updated = await memory_service().update_object(object_id, payload)
+            return {"ok": True, "object": updated.model_dump(mode="json")}
+        except DomainValidationError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except DomainNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @router.delete("/internal/memory/object/{object_id}")
     async def delete_memory_object(
         object_id: int,
         cascade_relations: bool = Query(True),
     ):
-        deleted = await runtime.delete_object(object_id, cascade_relations)
-        if not deleted:
-            raise HTTPException(
-                status_code=404, detail=f"Object id={object_id} not found"
-            )
-        return {"ok": True}
+        try:
+            await memory_service().delete_object(object_id, cascade_relations)
+            return {"ok": True}
+        except DomainNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @router.post("/internal/memory/relation")
-    async def create_memory_relation(payload: Relationship):
-        await runtime.create_relation(payload)
-        return {"ok": True, "relationship": payload.model_dump()}
+    async def create_memory_relation(payload: MemoryRelationCreate):
+        try:
+            rel = await memory_service().create_relation(payload)
+            return {"ok": True, "relationship": rel.model_dump(mode="json")}
+        except DomainValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @router.patch("/internal/memory/relation")
-    async def update_memory_relation(payload: dict[str, Any]):
+    async def update_memory_relation(payload: MemoryRelationUpdate):
         try:
-            subject_id = int(payload["subject_id"])
-            predicate = str(payload["predicate"])
-            object_id = int(payload["object_id"])
-        except Exception as exc:
-            raise HTTPException(
-                status_code=400, detail="Missing relationship identity"
-            ) from exc
-        updates = {
-            "subject_id": payload.get("new_subject_id", payload.get("subject_id_new")),
-            "predicate": payload.get("new_predicate", payload.get("predicate_new")),
-            "object_id": payload.get("new_object_id", payload.get("object_id_new")),
-            "first_seen": payload.get("first_seen"),
-            "last_seen": payload.get("last_seen"),
-            "count": payload.get("count"),
-        }
-        updates = {k: v for k, v in updates.items() if v is not None}
-        try:
-            updated = await runtime.patch_relation(
-                subject_id, predicate, object_id, updates
-            )
-            return {"ok": True, "relationship": updated.model_dump()}
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except ValueError as exc:
+            updated = await memory_service().update_relation(payload)
+            return {"ok": True, "relationship": updated.model_dump(mode="json")}
+        except DomainValidationError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except DomainNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @router.delete("/internal/memory/relation")
     async def delete_memory_relation(
@@ -240,12 +263,10 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         predicate: str = Query(...),
         object_id: int = Query(...),
     ):
-        deleted = await runtime.delete_relation(subject_id, predicate, object_id)
-        if not deleted:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Relationship ({subject_id}, {predicate}, {object_id}) not found",
-            )
-        return {"ok": True}
+        try:
+            await memory_service().delete_relation(subject_id, predicate, object_id)
+            return {"ok": True}
+        except DomainNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return router

@@ -2,7 +2,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from operator import attrgetter
 
-from app.core.state import MLState
+from app.core.runtime.state import MLState
 from app.schemas.config import AppConfig
 
 
@@ -89,6 +89,20 @@ _RULES: list[tuple[str, Callable, str]] = [
     ("chat.structured_output", attrgetter("chat.structured_output"), "hot"),
     ("chat.system_prompt", attrgetter("chat.system_prompt"), "hot"),
     ("chat.context_template", attrgetter("chat.context_template"), "hot"),
+    # Caption
+    ("caption.provider", attrgetter("caption.provider"), "hard"),
+    ("caption.model_id", attrgetter("caption.model_id"), "hard"),
+    ("caption.base_url", attrgetter("caption.base_url"), "hard"),
+    ("caption.timeout_seconds", attrgetter("caption.timeout_seconds"), "hard"),
+    ("caption.api_key_env", attrgetter("caption.api_key_env"), "hard"),
+    ("caption.client_init_kwargs", attrgetter("caption.client_init_kwargs"), "hard"),
+    ("caption.device", attrgetter("caption.device"), "hard"),
+    ("caption.call_kwargs", attrgetter("caption.call_kwargs"), "hot"),
+    ("caption.structured_output", attrgetter("caption.structured_output"), "hot"),
+    ("caption.mode", attrgetter("caption.mode"), "hot"),
+    ("caption.max_words", attrgetter("caption.max_words"), "hot"),
+    ("caption.system_prompt", attrgetter("caption.system_prompt"), "hot"),
+    ("caption.user_prompt", attrgetter("caption.user_prompt"), "hot"),
     # Tracking
     (
         "tracking.feature_extraction.reid_model",
@@ -258,6 +272,32 @@ def _update_chat(ml_state: MLState, new: AppConfig):
     ml_state.chat_service.llm.update_runtime(new.chat)
 
 
+def _update_caption(ml_state: MLState, new: AppConfig):
+    if ml_state.caption_service is None:
+        return
+    base_dir = new._config_path.parent if new._config_path is not None else None
+    system_prompt = (
+        new.caption.system_prompt.resolve(base_dir)
+        if base_dir is not None
+        else ml_state.caption_service.system_prompt
+    )
+    user_prompt = (
+        new.caption.user_prompt.resolve(base_dir)
+        if base_dir is not None and new.caption.user_prompt is not None
+        else (
+            ml_state.caption_service.user_prompt
+            if new.caption.user_prompt is None
+            else None
+        )
+    )
+    ml_state.caption_service.update_runtime(
+        new.caption,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        rebuild_client=False,
+    )
+
+
 async def apply_hot_config(ml_state: MLState, new: AppConfig) -> None:
     ml_state.config = new
     ml_state.config_version += 1
@@ -267,6 +307,8 @@ async def apply_hot_config(ml_state: MLState, new: AppConfig) -> None:
 
     if ml_state.chat_service:
         _update_chat(ml_state, new)
+    if ml_state.caption_service:
+        _update_caption(ml_state, new)
 
     if ml_state.worker_manager:
         await ml_state.worker_manager.apply_hot_config(new, ml_state.config_version)

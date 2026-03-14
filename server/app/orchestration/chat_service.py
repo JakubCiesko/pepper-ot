@@ -2,10 +2,9 @@ import inspect
 import logging
 from typing import Any
 
-from app.inference.memory.scene_memory import SceneMemory
+from app.providers.llm_client import LLMClient
 from app.schemas.config import ChatConfig
 from app.schemas.scene import SceneState
-from app.services.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +13,7 @@ class ChatService:
     def __init__(
         self,
         config: ChatConfig,
-        memory: SceneMemory | Any,
+        memory: Any,
         system_prompt: str,
         context_template: str | None = None,
     ):
@@ -23,23 +22,6 @@ class ChatService:
         self.context_template = context_template
         self.llm = LLMClient(config)
 
-    async def compose_prompt(self):
-        world_context = await self._build_context_string()
-        system_definition_prompt = self.system_prompt
-        context_definition_prompt = (
-            self.context_template.format(context=world_context)
-            if self.context_template
-            else "Context:\n{context}"
-        )
-        system_prompt = f"{system_definition_prompt}\n{context_definition_prompt}"
-        return system_prompt
-
-    async def chat(self, user_query: str) -> str:
-        system_prompt = await self.compose_prompt()
-        logger.info(f"System prompt for LLM Chat: {system_prompt}")
-        logger.info(f"User prompt for LLM Chat: {user_query}")
-        return await self.llm.generate_text(system_prompt, user_query)
-
     async def _get_scene_state(self) -> SceneState:
         state_or_awaitable = self.memory.scene_state()
         if inspect.isawaitable(state_or_awaitable):
@@ -47,7 +29,6 @@ class ChatService:
         return state_or_awaitable
 
     async def _build_context_string(self) -> str:
-        # Iterate over self.memory.tracks and format text
         state = await self._get_scene_state()
         if not state.objects:
             return "You see nothing."
@@ -65,5 +46,43 @@ class ChatService:
         parts = ["Objects:"] + object_lines
         if relation_lines:
             parts += ["Relationships:"] + relation_lines
-
         return "\n".join(parts)
+
+    async def compose_prompt(self) -> str:
+        world_context = await self._build_context_string()
+        context_text = (
+            self.context_template.format(context=world_context)
+            if self.context_template
+            else f"Context:\n{world_context}"
+        )
+        return f"{self.system_prompt}\n{context_text}"
+
+    @staticmethod
+    def _format_history(history: list[tuple[str, str]] | None) -> str:
+        if not history:
+            return ""
+        lines = []
+        for role, text in history:
+            role_name = "User" if role == "user" else "Pepper"
+            lines.append(f"{role_name}: {text}")
+        return "\n".join(lines)
+
+    async def chat(
+        self,
+        user_query: str,
+        *,
+        conversation_history: list[tuple[str, str]] | None = None,
+    ) -> str:
+        system_prompt = await self.compose_prompt()
+        logger.info("Chat request received")
+        history_text = self._format_history(conversation_history)
+        if history_text:
+            user_prompt = (
+                "Conversation so far:\n"
+                f"{history_text}\n\n"
+                "Current user message:\n"
+                f"{user_query}"
+            )
+        else:
+            user_prompt = user_query
+        return await self.llm.generate_text(system_prompt, user_prompt)

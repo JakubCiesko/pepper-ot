@@ -6,7 +6,7 @@ from fastapi import WebSocket
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from app.core.ws_manager import ws_manager
+from app.core.infra.ws_manager import ws_manager
 from app.inference.detection.detectors import DetectionModelType
 
 logger = logging.getLogger(__name__)

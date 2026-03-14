@@ -6,6 +6,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" href="/static/pepper_icon.png"/>
     <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+    <script src="/static/js/conversation_panel.js" defer></script>
+    <script src="/static/js/memory_panel.js" defer></script>
+    <script src="/static/js/scene_graph_panel.js" defer></script>
     <script src="/static/js/dashboard_ws.js" defer></script>
     <script src="/static/js/dashboard_config.js" defer></script>
     <script src="/static/js/dashboard_utils.js" defer></script>
@@ -53,6 +56,11 @@
                     <span class="w-2 h-2 rounded-full" style="background: #64748b;"></span>
                     <span class="sidebar-label">Chat</span>
                     <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Chat</span>
+                </button>
+                <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-caption">
+                    <span class="w-2 h-2 rounded-full" style="background: #f59e0b;"></span>
+                    <span class="sidebar-label">Caption</span>
+                    <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Caption</span>
                 </button>
                 <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-runtime">
                     <span class="w-2 h-2 rounded-full" style="background: #31d46c;"></span>
@@ -162,9 +170,24 @@
 
                     <div class="xl:col-span-1 flex flex-col gap-6 h-full min-h-0">
                         <div class="panel border rounded-xl p-5 flex flex-col min-h-0">
-                            <h2 class="text-lg font-semibold mb-3">Pepper Says</h2>
+                            <h2 class="text-lg font-semibold mb-3">Pepper Conversation</h2>
                             <div id="sentences-content" class="panel-muted h-48 min-h-0 overflow-auto pr-1 whitespace-pre-wrap break-all">
                                 <p class="panel-muted">No messages yet...</p>
+                            </div>
+                            <div class="mt-3 space-y-2">
+                                <textarea id="conversation-input" rows="3" class="w-full border rounded px-3 py-2" placeholder="Ask Pepper about the scene..."></textarea>
+                                <div class="flex items-center gap-2">
+                                    <button id="conversation-send" class="px-3 py-2 text-sm rounded btn-primary font-semibold">Send</button>
+                                    <button id="conversation-new" class="px-3 py-2 text-sm rounded border panel-border panel-alt">New Conversation</button>
+                                    <span id="conversation-chat-id" class="text-xs panel-muted"></span>
+                                </div>
+                                <p id="conversation-status" class="text-xs panel-muted"></p>
+                            </div>
+                        </div>
+                        <div class="panel border rounded-xl p-5 flex flex-col min-h-0">
+                            <h2 class="text-lg font-semibold mb-3">Image Caption</h2>
+                            <div id="caption-content" class="panel-muted h-32 min-h-0 overflow-auto pr-1 whitespace-pre-wrap break-all">
+                                <p class="panel-muted">No caption yet...</p>
                             </div>
                         </div>
                         <div class="panel border rounded-xl p-5 flex-1 min-h-0">
@@ -624,6 +647,54 @@
                     <label class="block text-sm mt-4" for="chat-context">Context Template</label>
                     <p class="text-xs panel-muted mt-1">Template used to build chat context. If it contains <code>{context}</code>, backend injects current memory summary before LLM call. It is part of the system prompt.</p>
                     <textarea id="chat-context" rows="16" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                </div>
+            </section>
+
+            <section id="page-caption" class="page-panel mt-8 hidden">
+                <div class="panel border rounded-xl p-5">
+                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Caption</h3>
+                    <p class="text-xs panel-muted mb-4">
+                        Quick scene description endpoint for Pepper's immediate "What do you see?" response.
+                        The caption route can also trigger full detect in the background so memory and chat context keep updating.
+                    </p>
+                    <label class="block text-sm" for="caption-system">System Prompt</label>
+                    <p class="text-xs panel-muted mt-1">Global behavior for caption generation.</p>
+                    <textarea id="caption-system" rows="8" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <label class="block text-sm mt-4" for="caption-user">User Prompt</label>
+                    <p class="text-xs panel-muted mt-1">Default question template used when route-level prompt override is not provided.</p>
+                    <textarea id="caption-user" rows="6" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <label class="block text-sm mt-4">Caption Mode</label>
+                    <select id="caption-mode" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="prompted">prompted</option>
+                        <option value="unconditional">unconditional</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">Prompted uses the user prompt. Unconditional lets the model caption directly from image only.</p>
+                    <label class="block text-sm mt-4">Max Words</label>
+                    <input id="caption-max-words" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="24">
+                    <p class="text-xs panel-muted mt-1">Optional soft cap appended to prompt instructions.</p>
+                    <label class="block text-sm mt-4">Caption Device</label>
+                    <input id="caption-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cuda">
+                    <label class="block text-sm mt-4">Caption Provider</label>
+                    <select id="caption-provider" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="openai">openai</option>
+                        <option value="gemini">gemini</option>
+                        <option value="openai_compatible">openai_compatible</option>
+                        <option value="local_hf">local_hf</option>
+                        <option value="local_4bit">local_4bit</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">Use local_hf with BLIP model IDs for lightweight local captioning.</p>
+                    <label class="block text-sm mt-4">Caption Model ID</label>
+                    <input id="caption-model-id" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="Salesforce/blip-image-captioning-large">
+                    <label class="block text-sm mt-4">Caption Base URL</label>
+                    <input id="caption-base-url" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="http://localhost:8000/v1">
+                    <label class="block text-sm mt-4">Caption API Key Env</label>
+                    <input id="caption-api-key-env" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="OPENAI_API_KEY">
+                    <label class="block text-sm mt-4">Caption Client Init Kwargs (JSON)</label>
+                    <textarea id="caption-client-init-kwargs" rows="5" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"timeout": 60}'></textarea>
+                    <p id="caption-client-init-kwargs-status" class="text-xs panel-muted mt-1"></p>
+                    <label class="block text-sm mt-4">Caption Call Kwargs (JSON)</label>
+                    <textarea id="caption-call-kwargs" rows="5" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"max_new_tokens": 48}'></textarea>
+                    <p id="caption-call-kwargs-status" class="text-xs panel-muted mt-1"></p>
                 </div>
             </section>
         </main>

@@ -5,13 +5,13 @@ from typing import Any
 from pydantic import ValidationError
 import yaml
 
-from app.core.llm_contracts import provider_capability_matrix
+from app.core.config.llm_contracts import provider_capability_matrix
 from app.schemas.config import AppConfig
 from app.schemas.config import PipelineControls
 
 
 def config_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "config.yaml"
+    return Path(__file__).resolve().parents[3] / "config.yaml"
 
 
 def load_config(path: Path | None = None) -> AppConfig:
@@ -65,6 +65,17 @@ def resolve_config(cfg: AppConfig) -> dict[str, Any]:
         else None
     )
     resolved["chat"] = resolved_chat
+
+    resolved_caption = resolved.get("caption", {})
+    resolved_caption["resolved_system_prompt"] = cfg.caption.system_prompt.resolve(
+        base_dir
+    )
+    resolved_caption["resolved_user_prompt"] = (
+        cfg.caption.user_prompt.resolve(base_dir)
+        if cfg.caption.user_prompt is not None
+        else None
+    )
+    resolved["caption"] = resolved_caption
 
     return resolved
 
@@ -179,4 +190,7 @@ def _validate_paths(cfg: AppConfig):
     check(cfg.chat.system_prompt.path, prompt_roots, "chat.system_prompt")
     if cfg.chat.context_template is not None:
         check(cfg.chat.context_template.path, prompt_roots, "chat.context_template")
+    check(cfg.caption.system_prompt.path, prompt_roots, "caption.system_prompt")
+    if cfg.caption.user_prompt is not None:
+        check(cfg.caption.user_prompt.path, prompt_roots, "caption.user_prompt")
     check(cfg.detection.ontology_path, ontology_roots, "detection.ontology_path")

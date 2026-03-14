@@ -1,8 +1,8 @@
 import logging
 
-from app.core import config_apply
-from app.core import config_manager
-from app.core.state import ml_state
+from app.core.config import config_apply
+from app.core.config import config_manager
+from app.core.runtime.state import ml_state
 from fastapi import APIRouter
 from fastapi import File
 from fastapi import HTTPException

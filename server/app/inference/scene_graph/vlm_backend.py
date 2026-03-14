@@ -8,11 +8,11 @@ import numpy as np
 from PIL import Image
 
 from app.inference.types import SceneGraph
+from app.providers.vlm_client import BaseVLMClient
+from app.providers.vlm_client import build_vlm_client
 from app.schemas.config import SceneGraphVLMConfig
 from app.schemas.scene import SceneGraphRelation
 from app.schemas.scene import SceneGraphStructuredResponse
-from app.services.vlm_client import BaseVLMClient
-from app.services.vlm_client import build_vlm_client
 
 logger = logging.getLogger(__name__)
 

@@ -1,8 +1,8 @@
 import logging
 
-from app.core.state import ml_state
-from app.core.worker_errors import WorkerError
-from app.core.worker_types import StopReason
+from app.core.runtime.state import ml_state
+from app.core.runtime.worker_errors import WorkerError
+from app.core.runtime.worker_types import StopReason
 from fastapi import APIRouter
 from fastapi import HTTPException
 

@@ -2,15 +2,17 @@ from dataclasses import dataclass
 import logging
 from pathlib import Path
 
+from app.core.infra.storage import load_last_state
 from app.core.pipeline_factory import build_visual_pipeline
-from app.core.storage import load_last_state
-from app.core.worker_manager import WorkerManager
-from app.core.worker_types import StopReason
+from app.core.runtime.worker_manager import WorkerManager
+from app.core.runtime.worker_types import StopReason
 from app.inference.memory.chat_memory_proxy import EmptyChatMemory
 from app.inference.memory.chat_memory_proxy import WorkerChatMemoryProxy
 from app.inference.pipeline import VisualPipeline
+from app.orchestration.caption_service import CaptionService
+from app.orchestration.chat_service import ChatService
+from app.orchestration.conversation_service import ConversationService
 from app.schemas.config import AppConfig
-from app.services.chat import ChatService
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,8 @@ class MLState:
     pipeline: VisualPipeline | None = None
     worker_manager: WorkerManager | None = None
     chat_service: object | None = None
+    conversation_service: object | None = None
+    caption_service: object | None = None
     initialized: bool = False
     last_state: dict | None = None
     config_version: int = 0
@@ -107,6 +111,20 @@ class MLState:
             chat_memory,
             system_prompt=chat_system_prompt,
             context_template=chat_context_template,
+        )
+        self.conversation_service = ConversationService(max_messages=10)
+
+        caption_system_prompt = self.config.caption.system_prompt.resolve(base_dir)
+        caption_user_prompt = (
+            self.config.caption.user_prompt.resolve(base_dir)
+            if self.config.caption.user_prompt is not None
+            else None
+        )
+        self.caption_service = CaptionService(
+            self,
+            self.config.caption,
+            system_prompt=caption_system_prompt,
+            user_prompt=caption_user_prompt,
         )
 
 

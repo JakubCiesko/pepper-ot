@@ -8,7 +8,8 @@ import numpy as np
 from PIL import Image
 
 from app.core.pipeline_factory import build_visual_pipeline
-from app.core.worker_types import WorkerState
+from app.core.runtime.worker_types import WorkerState
+from app.providers.caption_client import CaptionClient
 from app.schemas.config import AppConfig
 from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
@@ -26,6 +27,9 @@ class WorkerRuntime:
         self.last_error: str | None = None
         self.config_version = 0
         self._lock = asyncio.Lock()
+        self.caption_client: CaptionClient | None = None
+        self.caption_system_prompt: str = ""
+        self.caption_user_prompt: str | None = None
 
     async def apply_config(self, cfg: AppConfig, version: int, rebuild: bool = True):
         async with self._lock:
@@ -33,6 +37,8 @@ class WorkerRuntime:
             self.config_version = version
             if rebuild and self.pipeline is not None:
                 self.pipeline = None
+            if rebuild and self.caption_client is not None:
+                self.caption_client = None
             self.state = WorkerState.READY
 
     async def ensure_pipeline(self):
@@ -46,6 +52,65 @@ class WorkerRuntime:
     async def warmup(self):
         await self.ensure_pipeline()
         self.last_active = time.time()
+
+    def _resolve_caption_prompt(self, source, default: str | None = None) -> str | None:
+        if source is None:
+            return default
+        base_dir = (
+            self.config._config_path.parent
+            if self.config is not None and self.config._config_path is not None
+            else None
+        )
+        if source.text is not None:
+            return source.text.strip()
+        if source.path is not None and base_dir is not None:
+            return source.resolve(base_dir)
+        return default
+
+    async def ensure_caption_client(self):
+        if self.config is None:
+            raise RuntimeError("worker config is not loaded")
+        if self.caption_client is None:
+            self.caption_client = CaptionClient(self.config.caption)
+            self.caption_system_prompt = (
+                self._resolve_caption_prompt(self.config.caption.system_prompt, "")
+                or ""
+            )
+            self.caption_user_prompt = self._resolve_caption_prompt(
+                self.config.caption.user_prompt, None
+            )
+
+    async def update_caption_runtime(self, cfg: AppConfig):
+        if self.caption_client is None:
+            return
+        self.caption_system_prompt = (
+            self._resolve_caption_prompt(
+                cfg.caption.system_prompt, self.caption_system_prompt
+            )
+            or ""
+        )
+        self.caption_user_prompt = self._resolve_caption_prompt(
+            cfg.caption.user_prompt, self.caption_user_prompt
+        )
+        self.caption_client.update_runtime(cfg.caption, rebuild_client=False)
+
+    def _final_caption_prompt(self, prompt_override: str | None) -> str:
+        if prompt_override and prompt_override.strip():
+            prompt = prompt_override.strip()
+        elif self.config is not None and self.config.caption.mode == "unconditional":
+            prompt = ""
+        else:
+            prompt = (self.caption_user_prompt or "").strip()
+
+        if (
+            self.config is not None
+            and self.config.caption.max_words is not None
+            and self.config.caption.max_words > 0
+        ):
+            prompt = (
+                f"{prompt}\nRespond in at most {int(self.config.caption.max_words)} words."
+            ).strip()
+        return prompt
 
     async def detect(self, image_b64: str, robot_metadata) -> dict[str, Any]:
         await self.ensure_pipeline()
@@ -88,6 +153,28 @@ class WorkerRuntime:
         finally:
             self.inflight_count = max(0, self.inflight_count - 1)
             self.state = WorkerState.READY
+
+    async def caption(
+        self, image_b64: str, prompt_override: str | None = None
+    ) -> dict[str, Any]:
+        await self.ensure_caption_client()
+        assert self.caption_client is not None
+        image_bytes = base64.b64decode(image_b64)
+        prompt = self._final_caption_prompt(prompt_override)
+        text = await self.caption_client.infer(
+            self.caption_system_prompt,
+            prompt,
+            image_bytes,
+        )
+        self.last_active = time.time()
+        return {
+            "ok": True,
+            "caption": text,
+            "provider": self.config.caption.provider if self.config else "",
+            "model_id": self.config.caption.model_id if self.config else "",
+            "worker_state": WorkerState.READY,
+            "config_version": self.config_version,
+        }
 
     async def scene_state(self) -> SceneState:
         await self.ensure_pipeline()

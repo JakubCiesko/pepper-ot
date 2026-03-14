@@ -9,17 +9,17 @@ import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
-from app.core.llm_contracts import normalize_call_kwargs
-from app.core.llm_contracts import normalize_openai_parse_kwargs
+from app.core.config.llm_contracts import normalize_call_kwargs
+from app.core.config.llm_contracts import normalize_openai_parse_kwargs
+from app.providers.model_io_common import extract_text_content
+from app.providers.model_io_common import extract_text_from_openai_response
+from app.providers.model_io_common import parse_structured_text
+from app.providers.model_io_common import resolve_structured_mode
+from app.providers.model_io_common import schema_to_json_schema
+from app.providers.model_io_common import validate_parsed_output
+from app.providers.provider_runtime import build_gemini_client_kwargs
+from app.providers.provider_runtime import build_openai_async_client_kwargs
 from app.schemas.config import LLMConfig
-from app.services.model_io_common import extract_text_content
-from app.services.model_io_common import extract_text_from_openai_response
-from app.services.model_io_common import parse_structured_text
-from app.services.model_io_common import resolve_structured_mode
-from app.services.model_io_common import schema_to_json_schema
-from app.services.model_io_common import validate_parsed_output
-from app.services.provider_runtime import build_gemini_client_kwargs
-from app.services.provider_runtime import build_openai_async_client_kwargs
 
 logger = logging.getLogger(__name__)
 

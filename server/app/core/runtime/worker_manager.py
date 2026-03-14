@@ -10,17 +10,17 @@ from uuid import uuid4
 
 import httpx
 
-from app.core.worker_errors import WorkerCircuitOpenError
-from app.core.worker_errors import WorkerProtocolError
-from app.core.worker_errors import WorkerQueueFullError
-from app.core.worker_errors import WorkerStartupTimeoutError
-from app.core.worker_errors import WorkerUnavailableError
-from app.core.worker_protocol import DetectRPCResponse
-from app.core.worker_protocol import WorkerStatusResponse
-from app.core.worker_types import RestartReason
-from app.core.worker_types import StopReason
-from app.core.worker_types import WorkerState
-from app.core.worker_types import WorkerStatusSnapshot
+from app.core.runtime.worker_errors import WorkerCircuitOpenError
+from app.core.runtime.worker_errors import WorkerProtocolError
+from app.core.runtime.worker_errors import WorkerQueueFullError
+from app.core.runtime.worker_errors import WorkerStartupTimeoutError
+from app.core.runtime.worker_errors import WorkerUnavailableError
+from app.core.runtime.worker_protocol import DetectRPCResponse
+from app.core.runtime.worker_protocol import WorkerStatusResponse
+from app.core.runtime.worker_types import RestartReason
+from app.core.runtime.worker_types import StopReason
+from app.core.runtime.worker_types import WorkerState
+from app.core.runtime.worker_types import WorkerStatusSnapshot
 from app.schemas.config import AppConfig
 
 logger = logging.getLogger(__name__)
@@ -302,7 +302,8 @@ class WorkerManager:
             )
 
         logger.info(f"Starting worker process; reason={reason.value}")
-        cwd = Path(__file__).resolve().parents[2]
+        # Run uvicorn from the server root so `app.*` imports resolve.
+        cwd = Path(__file__).resolve().parents[3]
         cmd = [
             sys.executable,
             "-m",

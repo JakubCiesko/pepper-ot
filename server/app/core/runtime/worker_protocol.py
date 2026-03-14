@@ -3,7 +3,7 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic import Field
 
-from app.core.worker_types import WorkerState
+from app.core.runtime.worker_types import WorkerState
 from app.schemas.robot import RobotMetadata
 
 

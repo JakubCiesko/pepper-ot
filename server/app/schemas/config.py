@@ -236,6 +236,30 @@ class ChatConfig(LLMConfig):
     context_template: PromptSource | None = None
 
 
+class CaptionConfig(LLMConfig):
+    mode: Literal["unconditional", "prompted"] = "prompted"
+    max_words: int | None = None
+    system_prompt: PromptSource = Field(
+        default_factory=lambda: PromptSource(
+            text=(
+                "You are Pepper robot vision caption module. "
+                "Describe the visible scene simply and briefly."
+            )
+        )
+    )
+    user_prompt: PromptSource | None = Field(
+        default_factory=lambda: PromptSource(text="What do you see?")
+    )
+    provider: Literal[
+        "openai",
+        "gemini",
+        "openai_compatible",
+        "local_hf",
+        "local_4bit",
+    ] = "local_hf"
+    model_id: str = "Salesforce/blip-image-captioning-large"
+
+
 class VisConfig(BaseModel):
     show_bbox: bool = True
     show_mask: bool = False
@@ -398,6 +422,7 @@ class AppConfig(BaseModel):
     tracking: TrackingConfig
     scene_graph: SceneGraphConfig
     chat: ChatConfig
+    caption: CaptionConfig = Field(default_factory=CaptionConfig)
     visualization: VisConfig
     storage: StorageConfig = Field(default_factory=StorageConfig)
     fusion: FusionConfig = Field(default_factory=FusionConfig)

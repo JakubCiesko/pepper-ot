@@ -86,6 +86,19 @@ const chatClientInitKwargs = document.getElementById("chat-client-init-kwargs");
 const chatClientInitKwargsStatus = document.getElementById("chat-client-init-kwargs-status");
 const chatCallKwargs = document.getElementById("chat-call-kwargs");
 const chatCallKwargsStatus = document.getElementById("chat-call-kwargs-status");
+const captionSystem = document.getElementById("caption-system");
+const captionUser = document.getElementById("caption-user");
+const captionMode = document.getElementById("caption-mode");
+const captionMaxWords = document.getElementById("caption-max-words");
+const captionDevice = document.getElementById("caption-device");
+const captionProvider = document.getElementById("caption-provider");
+const captionModelId = document.getElementById("caption-model-id");
+const captionBaseUrl = document.getElementById("caption-base-url");
+const captionApiKeyEnv = document.getElementById("caption-api-key-env");
+const captionClientInitKwargs = document.getElementById("caption-client-init-kwargs");
+const captionClientInitKwargsStatus = document.getElementById("caption-client-init-kwargs-status");
+const captionCallKwargs = document.getElementById("caption-call-kwargs");
+const captionCallKwargsStatus = document.getElementById("caption-call-kwargs-status");
 
 const applyBtn = document.getElementById("apply-config");
 const saveBtn = document.getElementById("save-config");
@@ -350,6 +363,18 @@ async function loadConfig() {
     chatClientInitKwargs.value = JSON.stringify(active.chat?.client_init_kwargs || {}, null, 2);
     chatCallKwargs.value = JSON.stringify(active.chat?.call_kwargs || {}, null, 2);
     chatProvider.dispatchEvent(new Event("change"));
+    const resolvedCaption = resolved.caption || {};
+    captionSystem.value = resolvedCaption.resolved_system_prompt || "";
+    captionUser.value = resolvedCaption.resolved_user_prompt || "";
+    captionMode.value = active.caption?.mode || "prompted";
+    captionMaxWords.value = active.caption?.max_words ?? "";
+    captionDevice.value = active.caption?.device || "";
+    captionProvider.value = active.caption?.provider || "local_hf";
+    captionModelId.value = active.caption?.model_id || "";
+    captionBaseUrl.value = active.caption?.base_url || "";
+    captionApiKeyEnv.value = active.caption?.api_key_env || "";
+    captionClientInitKwargs.value = JSON.stringify(active.caption?.client_init_kwargs || {}, null, 2);
+    captionCallKwargs.value = JSON.stringify(active.caption?.call_kwargs || {}, null, 2);
 
     sggMode.value = active.scene_graph?.mode || "hybrid";
     sggRulesJson.value = JSON.stringify(active.scene_graph?.rules?.rule_list || [], null, 2);
@@ -401,6 +426,8 @@ async function loadConfig() {
     setJsonValidationStatus(vlmCallKwargs, vlmCallKwargsStatus, "VLM Call Kwargs");
     setJsonValidationStatus(chatClientInitKwargs, chatClientInitKwargsStatus, "LLM Client Init Kwargs");
     setJsonValidationStatus(chatCallKwargs, chatCallKwargsStatus, "LLM Call Kwargs");
+    setJsonValidationStatus(captionClientInitKwargs, captionClientInitKwargsStatus, "Caption Client Init Kwargs");
+    setJsonValidationStatus(captionCallKwargs, captionCallKwargsStatus, "Caption Call Kwargs");
 }
 
 function buildPatch() {
@@ -415,6 +442,8 @@ function buildPatch() {
     const parsedVlmCallKwargs = parseJsonObject(vlmCallKwargs.value, "VLM Call Kwargs");
     const parsedChatClientInitKwargs = parseJsonObject(chatClientInitKwargs.value, "LLM Client Init Kwargs");
     const parsedChatCallKwargs = parseJsonObject(chatCallKwargs.value, "LLM Call Kwargs");
+    const parsedCaptionClientInitKwargs = parseJsonObject(captionClientInitKwargs.value, "Caption Client Init Kwargs");
+    const parsedCaptionCallKwargs = parseJsonObject(captionCallKwargs.value, "Caption Call Kwargs");
     const parsedWorkerRestartBackoff = parseNumberList(workerRestartBackoff.value);
     if (!parsedWorkerRestartBackoff.length) {
         throw new Error("Worker Restart Backoff must contain at least one positive number");
@@ -505,6 +534,19 @@ function buildPatch() {
             },
             system_prompt: {text: chatSystem.value},
             context_template: {text: chatContext.value},
+        },
+        caption: {
+            provider: captionProvider.value,
+            model_id: captionModelId.value.trim(),
+            device: captionDevice.value.trim() || null,
+            base_url: captionBaseUrl.value.trim() || null,
+            api_key_env: captionApiKeyEnv.value.trim() || null,
+            client_init_kwargs: parsedCaptionClientInitKwargs,
+            call_kwargs: parsedCaptionCallKwargs,
+            mode: captionMode.value,
+            max_words: captionMaxWords.value ? parseInt(captionMaxWords.value, 10) : null,
+            system_prompt: {text: captionSystem.value},
+            user_prompt: {text: captionUser.value},
         },
         worker: {
             enabled: workerEnabled.checked,
@@ -682,6 +724,8 @@ vlmClientInitKwargs.addEventListener("input", () => setJsonValidationStatus(vlmC
 vlmCallKwargs.addEventListener("input", () => setJsonValidationStatus(vlmCallKwargs, vlmCallKwargsStatus, "VLM Call Kwargs"));
 chatClientInitKwargs.addEventListener("input", () => setJsonValidationStatus(chatClientInitKwargs, chatClientInitKwargsStatus, "LLM Client Init Kwargs"));
 chatCallKwargs.addEventListener("input", () => setJsonValidationStatus(chatCallKwargs, chatCallKwargsStatus, "LLM Call Kwargs"));
+captionClientInitKwargs.addEventListener("input", () => setJsonValidationStatus(captionClientInitKwargs, captionClientInitKwargsStatus, "Caption Client Init Kwargs"));
+captionCallKwargs.addEventListener("input", () => setJsonValidationStatus(captionCallKwargs, captionCallKwargsStatus, "Caption Call Kwargs"));
 pipelinePreset.addEventListener("change", () => {
     if (pipelinePreset.value !== "custom") {
         applyPipelinePresetSelection(pipelinePreset.value);
