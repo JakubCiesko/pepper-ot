@@ -42,16 +42,36 @@ async def list_models():
         return {"models": [], "error": str(e)}
 
 
-@router.post("/dashboard/sentence")
-async def dashboard_sentence(payload: dict):
+@router.post("/dashboard/chat_message")
+async def dashboard_chat_message(payload: dict):
     """
-    Receive sentences spoken by Pepper and broadcast them to WebSocket clients.
-    Example payload: { "sentence": "Hello, I am Pepper!" }
+    Broadcast a canonical chat message event to dashboard WebSocket clients.
+    Example payload:
+    {
+      "text": "Hello",
+      "role": "assistant",
+      "chat_id": "optional-conversation-id"
+    }
     """
-    sentence = payload.get("sentence", "")
-    if not sentence:
-        return {"status": "error", "msg": "No sentence"}
+    text = str(payload.get("text", "")).strip()
+    if not text:
+        return {"status": "error", "msg": "No text"}
 
-    await ws_manager.broadcast({"type": "sentence", "text": sentence})
+    role = str(payload.get("role", "assistant")).strip().lower()
+    if role not in {"user", "assistant"}:
+        return {"status": "error", "msg": "Invalid role"}
 
+    chat_id = payload.get("chat_id")
+    await ws_manager.broadcast(
+        {
+            "type": "chat_message",
+            "chat_id": chat_id,
+            "message": {
+                "id": None,
+                "role": role,
+                "text": text,
+                "timestamp": None,
+            },
+        }
+    )
     return {"status": "ok"}

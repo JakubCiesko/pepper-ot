@@ -2,6 +2,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from operator import attrgetter
 
+from app.core.config.runtime_mutations import apply_pipeline_runtime_updates
+from app.core.config.runtime_mutations import apply_scene_graph_runtime_updates
+from app.core.config.runtime_mutations import resolve_base_dir
+from app.core.config.runtime_mutations import resolve_prompt_text
 from app.core.runtime.state import MLState
 from app.schemas.config import AppConfig
 
@@ -203,92 +207,44 @@ def diff_config(old, new) -> ConfigDiff:
 
 
 def _update_pipeline(ml_state: MLState, new: AppConfig):
-    base_dir = new._config_path.parent if new._config_path is not None else None
-    ml_state.pipeline.detector.threshold = new.detection.confidence_threshold
-    ml_state.pipeline.detector.device = new.detection.device
-    ml_state.pipeline.detector.ontology = (
-        new.detection.resolve_ontology(base_dir)
-        if base_dir is not None
-        else new.detection.ontology
-    )
-    ml_state.pipeline.vis_config = new.visualization
-    ml_state.pipeline.fusion_config = new.fusion
-    ml_state.pipeline.pipeline_controls = new.pipeline_controls
-
-    # Update memory pruning settings
-    if hasattr(ml_state.pipeline, "memory") and ml_state.pipeline.memory:
-        ml_state.pipeline.memory.set_limits(
-            new.tracking.memory_max_age_seconds,
-            new.tracking.memory_max_objects,
-            new.tracking.memory_max_relations,
-        )
-        ml_state.pipeline.memory.set_max_dormant_frames(new.tracking.max_dormant_frames)
-        ml_state.pipeline.memory.set_association_config(new.tracking.association)
-        ml_state.pipeline.memory.set_feature_extraction_config(
-            new.tracking.feature_extraction
-        )
-
-    # Update scene graph mode and runtime VLM/rules settings
-    ml_state.pipeline.scene_graph_service.mode = new.scene_graph.mode
-
+    base_dir = resolve_base_dir(new)
+    apply_pipeline_runtime_updates(ml_state.pipeline, new, base_dir)
     if ml_state.pipeline.scene_graph_service:
-        sg_service = ml_state.pipeline.scene_graph_service
-        vlm_backend = sg_service.vlm_backend
-        system_prompt = (
-            new.scene_graph.vlm.system_prompt.resolve(base_dir)
-            if base_dir is not None
-            else vlm_backend.system_prompt
+        apply_scene_graph_runtime_updates(
+            ml_state.pipeline.scene_graph_service,
+            new,
+            base_dir,
         )
-        user_prompt = (
-            new.scene_graph.vlm.user_prompt.resolve(base_dir)
-            if base_dir is not None and new.scene_graph.vlm.user_prompt is not None
-            else None
-        )
-        predicates, objects = (
-            new.scene_graph.vlm.ontology.resolve(base_dir)
-            if base_dir is not None
-            else (vlm_backend.predicates, vlm_backend.objects)
-        )
-        vlm_backend.update_runtime(
-            config=new.scene_graph.vlm,
-            predicates=predicates,
-            objects=objects,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            rebuild_client=False,
-        )
-        sg_service.rule_backend.rules_config = new.scene_graph.rules
 
 
 def _update_chat(ml_state: MLState, new: AppConfig):
-    base_dir = new._config_path.parent if new._config_path is not None else None
-    if base_dir is not None:
-        ml_state.chat_service.system_prompt = new.chat.system_prompt.resolve(base_dir)
-        ml_state.chat_service.context_template = (
-            new.chat.context_template.resolve(base_dir)
-            if new.chat.context_template is not None
-            else None
-        )
+    base_dir = resolve_base_dir(new)
+    ml_state.chat_service.system_prompt = resolve_prompt_text(
+        new.chat.system_prompt,
+        base_dir,
+        fallback=ml_state.chat_service.system_prompt,
+    )
+    ml_state.chat_service.context_template = resolve_prompt_text(
+        new.chat.context_template,
+        base_dir,
+        fallback=None,
+    )
     ml_state.chat_service.llm.update_runtime(new.chat)
 
 
 def _update_caption(ml_state: MLState, new: AppConfig):
     if ml_state.caption_service is None:
         return
-    base_dir = new._config_path.parent if new._config_path is not None else None
-    system_prompt = (
-        new.caption.system_prompt.resolve(base_dir)
-        if base_dir is not None
-        else ml_state.caption_service.system_prompt
+    base_dir = resolve_base_dir(new)
+    system_prompt = resolve_prompt_text(
+        new.caption.system_prompt,
+        base_dir,
+        fallback=ml_state.caption_service.system_prompt,
     )
-    user_prompt = (
-        new.caption.user_prompt.resolve(base_dir)
-        if base_dir is not None and new.caption.user_prompt is not None
-        else (
-            ml_state.caption_service.user_prompt
-            if new.caption.user_prompt is None
-            else None
-        )
+    user_prompt = resolve_prompt_text(
+        new.caption.user_prompt,
+        base_dir,
+        fallback=ml_state.caption_service.user_prompt,
     )
     ml_state.caption_service.update_runtime(
         new.caption,

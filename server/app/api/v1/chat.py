@@ -46,9 +46,6 @@ async def chat_endpoint(request: ChatRequest):
             "message": conversations.serialize_message(assistant_message),
         }
     )
-    await ws_manager.broadcast(
-        {"type": "sentence", "text": response_text, "chat_id": chat_id}
-    )
 
     return ChatResponse(
         chat_id=chat_id,

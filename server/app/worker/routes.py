@@ -7,6 +7,9 @@ from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Query
 
+from app.core.config.runtime_mutations import apply_pipeline_runtime_updates
+from app.core.config.runtime_mutations import apply_scene_graph_runtime_updates
+from app.core.config.runtime_mutations import resolve_base_dir
 from app.core.runtime.worker_protocol import DetectRPCRequest
 from app.core.runtime.worker_protocol import WorkerConfigRPCRequest
 from app.orchestration.memory_service import DomainNotFoundError
@@ -59,61 +62,13 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         cfg = AppConfig(**cfg_raw)
         await runtime.apply_config(cfg, version, rebuild=False)
         if runtime.pipeline is not None:
-            base_dir = cfg._config_path.parent if cfg._config_path is not None else None
-
-            # Detect/track/visual runtime knobs
-            runtime.pipeline.detector.threshold = cfg.detection.confidence_threshold
-            runtime.pipeline.detector.device = cfg.detection.device
-            runtime.pipeline.detector.ontology = (
-                cfg.detection.resolve_ontology(base_dir)
-                if base_dir is not None
-                else cfg.detection.ontology
+            base_dir = resolve_base_dir(cfg)
+            apply_pipeline_runtime_updates(runtime.pipeline, cfg, base_dir)
+            apply_scene_graph_runtime_updates(
+                runtime.pipeline.scene_graph_service,
+                cfg,
+                base_dir,
             )
-            runtime.pipeline.pipeline_controls = cfg.pipeline_controls
-            runtime.pipeline.fusion_config = cfg.fusion
-            runtime.pipeline.vis_config = cfg.visualization
-            if hasattr(runtime.pipeline, "memory") and runtime.pipeline.memory:
-                runtime.pipeline.memory.set_limits(
-                    cfg.tracking.memory_max_age_seconds,
-                    cfg.tracking.memory_max_objects,
-                    cfg.tracking.memory_max_relations,
-                )
-                runtime.pipeline.memory.set_max_dormant_frames(
-                    cfg.tracking.max_dormant_frames
-                )
-                runtime.pipeline.memory.set_association_config(cfg.tracking.association)
-                runtime.pipeline.memory.set_feature_extraction_config(
-                    cfg.tracking.feature_extraction
-                )
-
-            # Scene graph runtime knobs, including VLM call_kwargs/prompt/ontology.
-            sg_service = runtime.pipeline.scene_graph_service
-            sg_service.mode = cfg.scene_graph.mode
-            vlm_backend = sg_service.vlm_backend
-            system_prompt = (
-                cfg.scene_graph.vlm.system_prompt.resolve(base_dir)
-                if base_dir is not None
-                else vlm_backend.system_prompt
-            )
-            user_prompt = (
-                cfg.scene_graph.vlm.user_prompt.resolve(base_dir)
-                if base_dir is not None and cfg.scene_graph.vlm.user_prompt is not None
-                else None
-            )
-            predicates, objects = (
-                cfg.scene_graph.vlm.ontology.resolve(base_dir)
-                if base_dir is not None
-                else (vlm_backend.predicates, vlm_backend.objects)
-            )
-            vlm_backend.update_runtime(
-                config=cfg.scene_graph.vlm,
-                predicates=predicates,
-                objects=objects,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                rebuild_client=False,
-            )
-            sg_service.rule_backend.rules_config = cfg.scene_graph.rules
         await runtime.update_caption_runtime(cfg)
         return {
             "ok": True,

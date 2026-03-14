@@ -101,12 +101,6 @@ ws.onmessage = function(event) {
         }
         return;
     }
-    if (data.type === "sentence") {
-        if (window.PepperConversationPanel) {
-            window.PepperConversationPanel.handleLegacySentenceEvent(data);
-        }
-        return;
-    }
     if (data.type === "caption") {
         renderCaption(data.text);
         return;

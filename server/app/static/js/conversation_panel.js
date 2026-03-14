@@ -128,13 +128,6 @@
         appendConversationMessage(payload?.message || {});
     }
 
-    function handleLegacySentenceEvent(payload) {
-        if (payload?.chat_id) {
-            return;
-        }
-        appendConversationMessage({ role: "assistant", text: payload?.text || "" });
-    }
-
     function init() {
         if (conversationSend) {
             conversationSend.addEventListener("click", () => {
@@ -161,6 +154,5 @@
         init,
         loadLatestConversation,
         handleChatMessageEvent,
-        handleLegacySentenceEvent,
     };
 })();
