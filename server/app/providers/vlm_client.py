@@ -236,7 +236,7 @@ class LocalHFVLMClient(BaseVLMClient):
 
         model_kwargs = dict(config.client_init_kwargs or {})
         model_kwargs.setdefault("trust_remote_code", trust_remote_code)
-        model_kwargs.setdefault("torch_dtype", dtype)
+        model_kwargs.setdefault("dtype", dtype)
 
         if "device_map" not in model_kwargs:
             model_kwargs["device_map"] = (

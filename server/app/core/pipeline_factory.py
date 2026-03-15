@@ -3,7 +3,7 @@ from pathlib import Path
 from app.inference.detection.detectors import DetectionModelType
 from app.inference.detection.service import DetectionService
 from app.inference.memory.scene_memory import SceneMemory
-from app.inference.pipeline import VisualPipeline
+from app.inference.pipeline import PerceptionPipeline
 from app.inference.scene_graph.rules_backend import RuleBasedSceneGraphBackend
 from app.inference.scene_graph.service import SceneGraphService
 from app.inference.scene_graph.som import SoMPainter
@@ -11,7 +11,7 @@ from app.inference.scene_graph.vlm_backend import VLMSceneGraphBackend
 from app.schemas.config import AppConfig
 
 
-def build_visual_pipeline(config: AppConfig) -> VisualPipeline:
+def build_perception_pipeline(config: AppConfig) -> PerceptionPipeline:
     base_dir = (
         config._config_path.parent if config._config_path is not None else Path.cwd()
     )
@@ -61,7 +61,7 @@ def build_visual_pipeline(config: AppConfig) -> VisualPipeline:
         vlm_backend=vlm_backend,
         rule_backend=rule_backend,
     )
-    return VisualPipeline(
+    return PerceptionPipeline(
         detector=detector,
         memory=memory,
         painter=painter,

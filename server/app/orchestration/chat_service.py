@@ -1,7 +1,7 @@
 import inspect
 import logging
-from typing import Any
 
+from app.inference.memory.scene_memory import SceneMemory
 from app.providers.llm_client import LLMClient
 from app.schemas.config import ChatConfig
 from app.schemas.scene import SceneState
@@ -13,7 +13,7 @@ class ChatService:
     def __init__(
         self,
         config: ChatConfig,
-        memory: Any,
+        memory: SceneMemory,
         system_prompt: str,
         context_template: str | None = None,
     ):

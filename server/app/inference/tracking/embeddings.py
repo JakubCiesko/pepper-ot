@@ -58,7 +58,9 @@ class FeatureExtractor:
         self.device = device
         self.model = self.model.to(self.device)
 
-    def prepare_crops(self, image: Image.Image, detections: list[DetectionObject]):
+    def prepare_crops(
+        self, image: Image.Image, detections: list[DetectionObject]
+    ) -> list[Image.Image]:
         crops = []
         logger.info(f"Preparing crops of detected images with size: {self.target_size}")
         for det in detections:

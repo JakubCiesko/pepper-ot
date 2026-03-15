@@ -1,6 +1,7 @@
 import logging
 
 import numpy as np
+from numpy.typing import NDArray
 from scipy.optimize import linear_sum_assignment
 
 from app.inference.types import DetectionObject
@@ -12,7 +13,9 @@ logger = logging.getLogger(__file__)
 class Associator:
     """Matches tracks with new detections."""
 
-    def __init__(self, w_vis=0.8, w_geo=0.2, match_threshold=0.4):
+    def __init__(
+        self, w_vis: float = 0.8, w_geo: float = 0.2, match_threshold: float = 0.4
+    ):
         logger.info(
             f"Initializing Associator with w_vis={w_vis}, w_geo={w_geo}, match_threshold={match_threshold}"
         )
@@ -26,7 +29,7 @@ class Associator:
         tracks: list[TrackedObject],
         detections: list[DetectionObject],
         embeddings: np.ndarray,
-    ):
+    ) -> NDArray:
         """
         Creates a Cost Matrix where rows=tracks, cols=detections.
         Cost is low if they are the same object.
@@ -72,7 +75,7 @@ class Associator:
         tracks: list[TrackedObject],
         detections: list[DetectionObject],
         embeddings: np.ndarray,
-    ):
+    ) -> tuple[list[tuple[int, int]], list[int], list[int]]:
         if not tracks:
             logger.info(
                 f"No tracked objects, returning all ({len(detections)}) detections as unmatched."
@@ -88,9 +91,9 @@ class Associator:
         cost_matrix = self.compute_cost(tracks, detections, embeddings)
         row_idx, col_idx = linear_sum_assignment(cost_matrix)
 
-        matches = []
-        matched_tracks = set()
-        matched_dets = set()
+        matches: list[tuple[int, int]] = []
+        matched_tracks: set[TrackedObject] = set()
+        matched_dets: set[DetectionObject] = set()
 
         logger.info(
             f"Matching new detections and old tracked objects with distance (1-similarity) match_threshold={self.match_threshold}"

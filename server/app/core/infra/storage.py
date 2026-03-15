@@ -38,9 +38,9 @@ def save_last_image(path: Path, image_b64: str) -> None:
     tmp.replace(path)
 
 
-async def save_last_state_async(path: Path, payload: dict) -> None:
+async def save_last_state_async(path: Path, payload: dict):
     await asyncio.to_thread(save_last_state, path, payload)
 
 
-async def save_last_image_async(path: Path, image_b64: str) -> None:
+async def save_last_image_async(path: Path, image_b64: str):
     await asyncio.to_thread(save_last_image, path, image_b64)

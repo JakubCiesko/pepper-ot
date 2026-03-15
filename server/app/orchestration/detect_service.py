@@ -12,7 +12,7 @@ from PIL import Image
 from app.core.infra.storage import save_last_image_async
 from app.core.infra.storage import save_last_state_async
 from app.core.infra.ws_manager import ws_manager
-from app.core.runtime.state import MLState
+from app.core.runtime.state import AppState
 from app.orchestration.runtime_adapter import memory_payload
 from app.orchestration.runtime_adapter import resolve_runtime_adapter
 from app.schemas.robot import PersonMetadata
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class DetectService:
-    def __init__(self, state: MLState):
+    def __init__(self, state: AppState):
         self.state = state
 
     @staticmethod

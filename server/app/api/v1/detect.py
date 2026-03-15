@@ -1,6 +1,6 @@
 import logging
 
-from app.core.runtime.state import ml_state
+from app.core.runtime.state import app_state
 from app.orchestration.detect_service import DetectService
 from app.schemas.scene import DetectionResponse
 from fastapi import APIRouter
@@ -18,9 +18,35 @@ async def detect_endpoint(
     metadata: str | None = Form(None),
     publish: bool = Form(True),
 ):
+    """
+    Run the perception pipeline on an uploaded image and return detected objects.
+
+    Behavior:
+    - Reads the uploaded image bytes.
+    - Parses optional robot metadata from JSON form field.
+    - Executes detection via DetectService (local pipeline or worker-backed runtime).
+    - Optionally publishes resulting state/events to websocket subscribers.
+
+    Args:
+        file: Uploaded image file (multipart/form-data).
+        metadata: Optional JSON string with robot metadata (pose, camera info, frame IDs).
+        publish: If True, allows service-layer broadcasting/persistence side effects.
+
+    Returns:
+        DetectionResponse including:
+            - request/response id
+            - detected objects
+            - timestamp
+            - image dimensions
+
+    Raises:
+        HTTPException: Propagated from DetectService for invalid image/metadata
+        or runtime processing errors.
+    """
+
     logger.info("Detection endpoint called")
     image_bytes = await file.read()
-    service = DetectService(ml_state)
+    service = DetectService(app_state)
     robot_metadata = service.parse_metadata(metadata)
     response = await service.process(image_bytes, robot_metadata, publish)
     logger.info("Detection endpoint completed: %s", response.id)

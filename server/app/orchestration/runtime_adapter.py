@@ -6,8 +6,8 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from app.core.runtime.state import MLState
-from app.core.runtime.worker_manager import WorkerManager
+from app.core.runtime.state import AppState
+from app.core.runtime.worker_client.manager import WorkerManager
 from app.schemas.robot import RobotMetadata
 from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
@@ -15,7 +15,7 @@ from app.schemas.scene import TrackedObjectState
 
 
 class LocalRuntimeAdapter:
-    def __init__(self, state: MLState):
+    def __init__(self, state: AppState):
         self.state = state
 
     async def detect(
@@ -230,7 +230,7 @@ class WorkerProcessRuntimeAdapter:
         return self.runtime.pipeline.memory.next_id
 
 
-def resolve_runtime_adapter(state: MLState):
+def resolve_runtime_adapter(state: AppState):
     use_worker = bool(
         state.config
         and state.config.worker.enabled

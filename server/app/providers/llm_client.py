@@ -190,7 +190,7 @@ class LocalHFTextProvider(BaseTextProvider):
 
         model_kwargs = dict(config.client_init_kwargs or {})
         model_kwargs.setdefault("trust_remote_code", True)
-        model_kwargs.setdefault("torch_dtype", dtype)
+        model_kwargs.setdefault("dtype", dtype)
         if "device_map" not in model_kwargs:
             model_kwargs["device_map"] = (
                 "auto" if requested_device.startswith("cuda") else {"": "cpu"}

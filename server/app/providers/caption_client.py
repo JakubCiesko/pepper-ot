@@ -26,16 +26,17 @@ class LocalBLIPCaptionClient:
         model_kwargs = dict(config.client_init_kwargs or {})
         processor_kwargs = dict(model_kwargs.pop("processor_kwargs", {}))
         if requested_device.startswith("cuda"):
-            model_kwargs.setdefault("torch_dtype", torch.float16)
+            model_kwargs.setdefault("dtype", torch.float16)
 
         self.processor = BlipProcessor.from_pretrained(
-            config.model_id, **processor_kwargs
+            config.model_id, **processor_kwargs, use_fast=True
         )
         self.model = BlipForConditionalGeneration.from_pretrained(
             config.model_id, **model_kwargs
         ).to(self.device)
         self.model.eval()
 
+    # TODO: WORK ON THIS MAINLY INFER, STUPID
     def update_runtime(self, config: CaptionConfig):
         self.config = config
 

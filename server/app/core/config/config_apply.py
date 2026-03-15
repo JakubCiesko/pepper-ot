@@ -6,7 +6,7 @@ from app.core.config.runtime_mutations import apply_pipeline_runtime_updates
 from app.core.config.runtime_mutations import apply_scene_graph_runtime_updates
 from app.core.config.runtime_mutations import resolve_base_dir
 from app.core.config.runtime_mutations import resolve_prompt_text
-from app.core.runtime.state import MLState
+from app.core.runtime.state import AppState
 from app.schemas.config import AppConfig
 
 
@@ -16,8 +16,8 @@ class ConfigDiff:
     hard: list[str]
 
 
-def _changed(old, new) -> bool:
-    return old != new
+# def _changed(old, new) -> bool:
+#     return old != new
 
 
 _RULES: list[tuple[str, Callable, str]] = [
@@ -206,7 +206,7 @@ def diff_config(old, new) -> ConfigDiff:
     return ConfigDiff(hot=hot, hard=hard)
 
 
-def _update_pipeline(ml_state: MLState, new: AppConfig):
+def _update_pipeline(ml_state: AppState, new: AppConfig):
     base_dir = resolve_base_dir(new)
     apply_pipeline_runtime_updates(ml_state.pipeline, new, base_dir)
     if ml_state.pipeline.scene_graph_service:
@@ -217,7 +217,7 @@ def _update_pipeline(ml_state: MLState, new: AppConfig):
         )
 
 
-def _update_chat(ml_state: MLState, new: AppConfig):
+def _update_chat(ml_state: AppState, new: AppConfig):
     base_dir = resolve_base_dir(new)
     ml_state.chat_service.system_prompt = resolve_prompt_text(
         new.chat.system_prompt,
@@ -232,7 +232,7 @@ def _update_chat(ml_state: MLState, new: AppConfig):
     ml_state.chat_service.llm.update_runtime(new.chat)
 
 
-def _update_caption(ml_state: MLState, new: AppConfig):
+def _update_caption(ml_state: AppState, new: AppConfig):
     if ml_state.caption_service is None:
         return
     base_dir = resolve_base_dir(new)
@@ -254,7 +254,7 @@ def _update_caption(ml_state: MLState, new: AppConfig):
     )
 
 
-async def apply_hot_config(ml_state: MLState, new: AppConfig) -> None:
+async def apply_hot_config(ml_state: AppState, new: AppConfig):
     ml_state.config = new
     ml_state.config_version += 1
 

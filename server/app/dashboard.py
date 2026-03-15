@@ -12,7 +12,7 @@ from app.inference.detection.detectors import DetectionModelType
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory="app/static/templates")
 
 
 @router.get("/dashboard")

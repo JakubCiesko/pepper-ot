@@ -10,8 +10,8 @@ from fastapi import Query
 from app.core.config.runtime_mutations import apply_pipeline_runtime_updates
 from app.core.config.runtime_mutations import apply_scene_graph_runtime_updates
 from app.core.config.runtime_mutations import resolve_base_dir
-from app.core.runtime.worker_protocol import DetectRPCRequest
-from app.core.runtime.worker_protocol import WorkerConfigRPCRequest
+from app.core.runtime.worker_client.rpc import DetectRPCRequest
+from app.core.runtime.worker_client.rpc import WorkerConfigRPCRequest
 from app.orchestration.memory_service import DomainNotFoundError
 from app.orchestration.memory_service import DomainValidationError
 from app.orchestration.memory_service import MemoryObjectCreate

@@ -2,7 +2,7 @@ import logging
 
 from app.core.config import config_apply
 from app.core.config import config_manager
-from app.core.runtime.state import ml_state
+from app.core.runtime.state import app_state
 from fastapi import APIRouter
 from fastapi import File
 from fastapi import HTTPException
@@ -26,7 +26,7 @@ async def get_config():
     - contracts: runtime behavior contracts/capabilities
     """
     saved = config_manager.load_config()
-    active = ml_state.config or saved
+    active = app_state.config or saved
     hard_reload_fields = [
         path for path, _, mode in config_apply._RULES if mode == "hard"
     ]
@@ -59,7 +59,7 @@ async def get_state():
     - scene graph
     - memory snapshot
     """
-    return ml_state.last_state or {
+    return app_state.last_state or {
         "image": None,
         "objects": [],
         "scene_graph": [],
@@ -78,19 +78,19 @@ async def patch_config(request: Request):
     3. Applies in-place, so-called hot changes immediately when possible.
     4. Rebuilds the pipeline if required (so-called hard changes)
     """
-    if ml_state.config is None:
+    if app_state.config is None:
         raise HTTPException(status_code=503, detail="Config not initialized")
     data = await request.json()
     try:
         logger.info(f"Applying patch to config, with data: {data}")
-        updated = config_manager.apply_patch(ml_state.config, data)
-        diff = config_apply.diff_config(ml_state.config, updated)
+        updated = config_manager.apply_patch(app_state.config, data)
+        diff = config_apply.diff_config(app_state.config, updated)
         # needs rebuild
         if diff.hard:
             logger.info(
                 f"Hard changes detected: {diff.hard}. Rebuilding with new config."
             )
-            await ml_state.apply_config(updated)
+            await app_state.apply_config(updated)
             return {
                 "ok": True,
                 "reloaded": True,
@@ -98,7 +98,7 @@ async def patch_config(request: Request):
                 "requires_reload": diff.hard,
             }
         # can change settings, no need to rebuild
-        await config_apply.apply_hot_config(ml_state, updated)
+        await config_apply.apply_hot_config(app_state, updated)
         return {
             "ok": True,
             "reloaded": False,
@@ -107,7 +107,7 @@ async def patch_config(request: Request):
         }
     except ValueError as exc:
         logger.error(
-            f"Error applying patch to config: {None or ml_state.config}, error: {exc}"
+            f"Error applying patch to config: {None or app_state.config}, error: {exc}"
         )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -119,10 +119,10 @@ async def save_config():
 
     Uses a temporary file and replace strategy to avoid corruption.
     """
-    if ml_state.config is None:
+    if app_state.config is None:
         raise HTTPException(status_code=503, detail="Config not initialized")
     path = config_manager.config_path()
-    yaml_text = config_manager.dump_config_yaml(ml_state.config)
+    yaml_text = config_manager.dump_config_yaml(app_state.config)
     tmp = path.with_suffix(".tmp")
     logger.debug(f"Saving config to temp path: {tmp}")
     tmp.write_text(yaml_text, encoding="utf-8")
@@ -139,7 +139,7 @@ async def reload_config():
     """
     logger.info("Reloading config")
     cfg = config_manager.load_config()
-    await ml_state.apply_config(cfg)
+    await app_state.apply_config(cfg)
     return {"ok": True}
 
 
@@ -154,7 +154,7 @@ async def upload_config(file: UploadFile = File(...)):
     try:
         logger.info(f"Parsing and applying uploaded yaml config: {content}")
         cfg = config_manager.parse_uploaded_yaml(content)
-        await ml_state.apply_config(cfg)
+        await app_state.apply_config(cfg)
         return {"ok": True}
     except ValueError as exc:
         logger.error("Invalid uploaded configuration")
@@ -173,7 +173,7 @@ async def download_config(source: str | None = None):
     if source == "saved":
         cfg = config_manager.load_config()
     else:
-        cfg = ml_state.config or config_manager.load_config()
+        cfg = app_state.config or config_manager.load_config()
 
     # TODO: HIDE API KEYS IF PRESENT! but they are only passed as env vars...
     yaml_text = config_manager.dump_config_yaml(cfg)

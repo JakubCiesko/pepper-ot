@@ -1,6 +1,6 @@
 import time
 
-from app.core.runtime.worker_manager import WorkerManager
+from app.core.runtime.worker_client.manager import WorkerManager
 from app.schemas.scene import SceneState
 
 

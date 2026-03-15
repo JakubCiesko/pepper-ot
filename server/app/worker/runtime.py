@@ -7,8 +7,8 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from app.core.pipeline_factory import build_visual_pipeline
-from app.core.runtime.worker_types import WorkerState
+from app.core.pipeline_factory import build_perception_pipeline
+from app.core.runtime.worker_client.types import WorkerState
 from app.providers.caption_client import CaptionClient
 from app.schemas.config import AppConfig
 from app.schemas.scene import Relationship
@@ -46,7 +46,7 @@ class WorkerRuntime:
             raise RuntimeError("worker config is not loaded")
         if self.pipeline is None:
             self.state = WorkerState.STARTING
-            self.pipeline = build_visual_pipeline(self.config)
+            self.pipeline = build_perception_pipeline(self.config)
             self.state = WorkerState.READY
 
     async def warmup(self):

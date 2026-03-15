@@ -1,7 +1,7 @@
 import logging
 
 from app.core.infra.ws_manager import ws_manager
-from app.core.runtime.state import ml_state
+from app.core.runtime.state import app_state
 from app.orchestration.detect_service import DetectService
 from app.schemas.caption import CaptionResponse
 from fastapi import APIRouter
@@ -22,16 +22,37 @@ async def caption_endpoint(
     run_detect: bool = Form(True),
     publish: bool = Form(True),
 ):
-    if ml_state.caption_service is None:
+    """
+    Generate a caption for an uploaded image and optionally trigger background detection.
+
+    This endpoint is optimized for fast "what do you see?" responses while preserving
+    grounding quality through optional asynchronous detect/memory updates.
+
+    Args:
+        file: Uploaded image file (multipart/form-data).
+        metadata: Optional JSON string with robot metadata (head pose, frame info, etc.).
+            Parsed using DetectService metadata parser for consistency with detect routes.
+        prompt: Optional per-request caption prompt override.
+        run_detect: If True, starts full detect pipeline in background so memory/chat
+            context can be refreshed for follow-up turns.
+        publish: If True, broadcasts caption event to dashboard websocket clients.
+
+    Returns:
+        CaptionResponse: Caption text plus provider/model metadata and detect trigger flags.
+
+    Raises:
+        HTTPException: 503 if caption service is unavailable in runtime state.
+    """
+    if app_state.caption_service is None:
         raise HTTPException(
             status_code=503, detail="Caption service is not initialized."
         )
 
     image_bytes = await file.read()
-    detect_service = DetectService(ml_state)
+    detect_service = DetectService(app_state)
     robot_metadata = detect_service.parse_metadata(metadata)
 
-    result = await ml_state.caption_service.caption_with_optional_detect(
+    result = await app_state.caption_service.caption_with_optional_detect(
         image_bytes,
         metadata=robot_metadata,
         run_detect=run_detect,

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import router as api_v1_router
-from app.core.runtime.state import ml_state
+from app.core.runtime.state import app_state
 from app.dashboard import router as dashboard_router
 
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
@@ -28,13 +28,13 @@ logger.info("Initializing FastAPI server...")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Startup: Initializing MLState...")
-    await ml_state.initialize("./config.yaml")
-    logger.info("Startup: MLState ready.")
+    logger.info("Startup: Initializing AppState...")
+    await app_state.initialize("./config.yaml")
+    logger.info("Startup: AppState ready.")
     yield
     logger.info("Shutdown: Cleaning up...")
-    if ml_state.worker_manager is not None:
-        await ml_state.worker_manager.close()
+    if app_state.worker_manager is not None:
+        await app_state.worker_manager.close()
 
 
 app = FastAPI(

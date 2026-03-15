@@ -10,7 +10,7 @@ from app.schemas.config import CaptionConfig
 from app.schemas.robot import RobotMetadata
 
 if TYPE_CHECKING:
-    from app.core.runtime.state import MLState
+    from app.core.runtime.state import AppState
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class CaptionService:
     def __init__(
         self,
-        state: "MLState",
+        state: "AppState",
         config: CaptionConfig,
         *,
         system_prompt: str,

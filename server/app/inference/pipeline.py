@@ -28,7 +28,7 @@ async def timer(step_name: str, metrics: dict[str, float]):
     logger.info(f"{step_name} took {duration} seconds")
 
 
-class VisualPipeline:
+class PerceptionPipeline:
     def __init__(
         self,
         detector: Any,
@@ -75,6 +75,11 @@ class VisualPipeline:
         som_image = await self._run_som_paint(
             image, tracked_detections, controls, metrics, stage_status, executed_stages
         )
+        # fallback
+        if som_image is None:
+            logger.info("SoM image is None, fallback to som_image=image")
+            som_image = image
+
         scene_graph = await self._run_scene_graph(
             image,
             som_image,
@@ -84,6 +89,7 @@ class VisualPipeline:
             stage_status,
             executed_stages,
         )
+
         await self._run_scene_memory_update(
             scene_graph, controls, metrics, stage_status, executed_stages
         )
@@ -94,13 +100,6 @@ class VisualPipeline:
             if key.endswith("_time") and isinstance(value, (int, float))
         )
         metrics["total_processing"] = total
-        # for stage_name, info in stage_status.items():
-        #     status = info.get("status", "unknown")
-        #     metrics[f"stage.{stage_name}.status"] = str(status)
-        #     if "duration" in info:
-        #         metrics[f"stage.{stage_name}.duration"] = float(info["duration"])
-        #     if "reason" in info:
-        #         metrics[f"stage.{stage_name}.reason"] = str(info["reason"])
 
         return PipelineResult(
             raw_image=image,

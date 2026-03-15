@@ -3,12 +3,12 @@ import logging
 from pathlib import Path
 
 from app.core.infra.storage import load_last_state
-from app.core.pipeline_factory import build_visual_pipeline
-from app.core.runtime.worker_manager import WorkerManager
-from app.core.runtime.worker_types import StopReason
+from app.core.pipeline_factory import build_perception_pipeline
+from app.core.runtime.worker_client.manager import WorkerManager
+from app.core.runtime.worker_client.types import StopReason
 from app.inference.memory.chat_memory_proxy import EmptyChatMemory
 from app.inference.memory.chat_memory_proxy import WorkerChatMemoryProxy
-from app.inference.pipeline import VisualPipeline
+from app.inference.pipeline import PerceptionPipeline
 from app.orchestration.caption_service import CaptionService
 from app.orchestration.chat_service import ChatService
 from app.orchestration.conversation_service import ConversationService
@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class MLState:
+class AppState:
     config: AppConfig | None = None
-    pipeline: VisualPipeline | None = None
+    pipeline: PerceptionPipeline | None = None
     worker_manager: WorkerManager | None = None
     chat_service: ChatService | None = None
     conversation_service: ConversationService | None = None
@@ -30,13 +30,13 @@ class MLState:
     config_version: int = 0
 
     async def initialize(self, config_path: str | None = None):
-        logger.info("Initializing ML App State")
+        logger.info("Initializing App State")
         if self.initialized:
-            logger.info("ML App State already initialized. Returning.")
+            logger.info("App State already initialized. Returning.")
             return
 
         pth = config_path or "config.yaml"
-        logger.info(f"Loading ML App State config from {pth}")
+        logger.info(f"Loading App State config from {pth}")
         self.config = AppConfig.load(pth)
         self.config_version = 0
         logger.info("Loaded config")
@@ -51,10 +51,10 @@ class MLState:
         await self.apply_config(self.config)
 
         self.initialized = True
-        logger.info("MLState initialized")
+        logger.info("AppState initialized")
 
     async def reload_pipeline(self):
-        logger.info("Reloading ML App State. Starting Initialization.")
+        logger.info("Reloading App State. Starting Initialization.")
         self.initialized = False
         self.pipeline = None
         if self.worker_manager is not None:
@@ -90,15 +90,17 @@ class MLState:
     async def _apply_runtime_mode(self):
         assert self.config is not None
         if self.config.worker.enabled:
-            logger.info("Worker mode enabled: skipping in-process VisualPipeline build")
+            logger.info(
+                "Worker mode enabled: skipping in-process PerceptionPipeline build"
+            )
             self.pipeline = None
             if self.worker_manager:
                 await self.worker_manager.start_monitor()
                 await self.worker_manager.hard_reload(self.config, self.config_version)
             return
 
-        logger.info("Initializing in-process VisualPipeline inference engine.")
-        self.pipeline = build_visual_pipeline(self.config)
+        logger.info("Initializing in-process PerceptionPipeline inference engine.")
+        self.pipeline = build_perception_pipeline(self.config)
         if self.worker_manager:
             await self.worker_manager.stop_monitor()
             await self.worker_manager.stop(StopReason.MANUAL)
@@ -156,4 +158,4 @@ class MLState:
         )
 
 
-ml_state = MLState()
+app_state = AppState()
