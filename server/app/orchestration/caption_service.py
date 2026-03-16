@@ -92,10 +92,6 @@ class CaptionService:
                 and isinstance(self.state.config.system, dict)
                 else None
             )
-            logger.info(
-                "Caption output language enforcement mode: %s",
-                output_language or "default",
-            )
             return await enforce_output_language(text, output_language)
         self._ensure_client()
         assert self.client is not None
@@ -105,10 +101,6 @@ class CaptionService:
             if self.state.config is not None
             and isinstance(self.state.config.system, dict)
             else None
-        )
-        logger.info(
-            "Caption output language enforcement mode: %s",
-            output_language or "default",
         )
         return await enforce_output_language(text, output_language)
 

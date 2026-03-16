@@ -725,7 +725,6 @@ saveBtn.addEventListener("click", saveConfig);
 reloadBtn.addEventListener("click", reloadConfig);
 downloadBtn.addEventListener("click", () => downloadConfig("active"));
 downloadSavedBtn.addEventListener("click", () => downloadConfig("saved"));
-outputLanguageSelect.addEventListener("change", applyConfig);
 
 uploadInput.addEventListener("change", event => {
     const file = event.target.files[0];

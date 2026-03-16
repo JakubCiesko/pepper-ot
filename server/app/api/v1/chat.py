@@ -66,9 +66,6 @@ async def chat_endpoint(request: ChatRequest):
         if app_state.config is not None and isinstance(app_state.config.system, dict)
         else None
     )
-    logger.info(
-        "Chat output language enforcement mode: %s", output_language or "default"
-    )
     response_text = await enforce_output_language(response_text, output_language)
     assistant_message = await conversations.add_message(
         chat_id, "assistant", response_text
