@@ -56,6 +56,7 @@ class PerceptionPipeline:
     ) -> PipelineResult:
         controls = self.pipeline_controls
         metrics: dict[str, float | str] = {}
+        # TODO: drop stage_status completely
         stage_status: dict[str, dict[str, float | str]] = {}
         executed_stages: list[str] = []
         logger.info(f"Processing image with metadata={robot_metadata}")
