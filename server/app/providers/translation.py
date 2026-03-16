@@ -13,6 +13,10 @@ class TranslationService:
     #        "translate.google.cz",
     #        "translate.google.sk"
     #    ]
+    DEFAULT_LANGS = {
+        "src": "en",
+        "dest": "cs",
+    }
 
     def __init__(self, source_lang: str | None = None, target_lang: str | None = None):
         self.source_lang = source_lang
@@ -21,17 +25,37 @@ class TranslationService:
             # service_urls=self.URLS
         )
 
+    async def detect_language(self, text: str | list[str]) -> list[str]:
+        result = await self.translator.detect(text)
+        if isinstance(result, list):
+            return [r.lang for r in result]
+        return [result.lang]
+
     async def run_translation_checks(
         self, translation_output: str | list[str], dest_lang: str
     ) -> bool:
         """Sometimes the translation can fail, in that case it is better to retry the translation"""
-        translation_output = (
-            [translation_output]
-            if isinstance(translation_output, str)
-            else translation_output
-        )
-        results = [await self.translator.detect(trans) for trans in translation_output]
-        return all(r.lang == dest_lang for r in results)
+        langs = await self.detect_language(translation_output)
+        return all(lang == dest_lang for lang in langs)
+
+    async def enforce_language(
+        self, text: str | list[str], language: str | None = None
+    ) -> str | list[str]:
+        language = language or self.target_lang or self.DEFAULT_LANGS["dest"]
+        languages = await self.detect_language(text)
+        if all(lang == language for lang in languages):
+            return text
+        # otherwise some texts are not translated, find out which
+        wrong_language_text_indices = [
+            i for i, lang in enumerate(languages) if lang != language
+        ]
+        # enforce list
+        texts = [text] if isinstance(text, str) else text
+        wrong_texts = [texts[i] for i in wrong_language_text_indices]
+        fixed, _ = await self.translate(wrong_texts, "auto", language, run_checks=True)
+        for fix, i in zip(fixed, wrong_language_text_indices, strict=True):
+            texts[i] = fix
+        return texts if len(texts) > 1 else texts[0]
 
     async def translate(
         self,
@@ -39,10 +63,18 @@ class TranslationService:
         source_lang: str | None = None,
         target_lang: str | None = None,
         run_checks: bool = True,
-    ) -> list[str]:
+    ) -> tuple[list[str], bool]:
         # if nothing passed or initialized, default fallback to en->cs translation
-        src = (self.source_lang or "en") if source_lang is None else source_lang
-        dest = (self.target_lang or "cs") if target_lang is None else target_lang
+        src = (
+            (self.source_lang or self.DEFAULT_LANGS["src"])
+            if source_lang is None
+            else source_lang
+        )
+        dest = (
+            (self.target_lang or self.DEFAULT_LANGS["dest"])
+            if target_lang is None
+            else target_lang
+        )
         translation = await self.translator.translate(text, src=src, dest=dest)
         translation_output = (
             [trans.text for trans in translation]
