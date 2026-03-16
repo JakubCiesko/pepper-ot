@@ -63,7 +63,8 @@ class TranslationService:
         source_lang: str | None = None,
         target_lang: str | None = None,
         run_checks: bool = True,
-    ) -> tuple[list[str], bool]:
+        max_retries: int = 2,
+    ) -> tuple[str | list[str], bool]:
         # if nothing passed or initialized, default fallback to en->cs translation
         src = (
             (self.source_lang or self.DEFAULT_LANGS["src"])
@@ -75,22 +76,35 @@ class TranslationService:
             if target_lang is None
             else target_lang
         )
-        translation = await self.translator.translate(text, src=src, dest=dest)
-        translation_output = (
-            [trans.text for trans in translation]
-            if isinstance(translation, list)
-            else translation.text
-        )
-        translation_ok = (
-            await self.run_translation_checks(translation_output, dest)
-            if run_checks
-            else True
-        )
-        if run_checks and not translation_ok:
-            translation_output, translation_ok = await self.translate(
-                text, source_lang, target_lang, run_checks
+        retries = max(0, int(max_retries))
+        last_output: str | list[str] = text
+        for _attempt in range(retries + 1):
+            translation = await self.translator.translate(text, src=src, dest=dest)
+            translation_output = (
+                [trans.text for trans in translation]
+                if isinstance(translation, list)
+                else translation.text
             )
-        return translation_output, translation_ok
+            last_output = translation_output
+            if not run_checks:
+                return translation_output, True
+            translation_ok = await self.run_translation_checks(translation_output, dest)
+            if translation_ok:
+                return translation_output, True
+        return last_output, False
+
+
+async def enforce_output_language(text: str, output_language: str | None) -> str:
+    mode = (output_language or "default").strip().lower()
+    if mode == "default":
+        return text
+    if mode == "english":
+        translated = await czech_to_english.enforce_language(text)
+        return translated if isinstance(translated, str) else translated[0]
+    if mode == "czech":
+        translated = await english_to_czech.enforce_language(text)
+        return translated if isinstance(translated, str) else translated[0]
+    return text
 
 
 english_to_czech = TranslationService(source_lang="en", target_lang="cs")

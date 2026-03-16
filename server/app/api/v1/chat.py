@@ -3,6 +3,7 @@ import logging
 from app.core.infra.ws_manager import ws_manager
 from app.core.runtime.state import app_state
 from app.orchestration.conversation_service import ConversationService
+from app.providers.translation import enforce_output_language
 from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse
 from fastapi import APIRouter
@@ -59,6 +60,16 @@ async def chat_endpoint(request: ChatRequest):
         request.query,
         conversation_history=history,
     )
+    logger.info(f"Received LLM response: {response_text}")
+    output_language = (
+        app_state.config.system.get("output_language")
+        if app_state.config is not None and isinstance(app_state.config.system, dict)
+        else None
+    )
+    logger.info(
+        "Chat output language enforcement mode: %s", output_language or "default"
+    )
+    response_text = await enforce_output_language(response_text, output_language)
     assistant_message = await conversations.add_message(
         chat_id, "assistant", response_text
     )
@@ -70,7 +81,7 @@ async def chat_endpoint(request: ChatRequest):
             "message": conversations.serialize_message(assistant_message),
         }
     )
-
+    logger.info(f"CHAT: {chat_id} RESPONSE: {response_text}")
     return ChatResponse(
         chat_id=chat_id,
         sentence=response_text,

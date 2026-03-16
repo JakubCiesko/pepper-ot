@@ -2,7 +2,7 @@ const slider = document.getElementById("threshold-slider");
 const input = document.getElementById("threshold-input");
 const backendSelect = document.getElementById("backend-select");
 const detectionDevice = document.getElementById("detection-device");
-const languageSelect = document.getElementById("language-select");
+const outputLanguageSelect = document.getElementById("output-language-select");
 
 const visBbox = document.getElementById("vis-bbox");
 const visMask = document.getElementById("vis-mask");
@@ -79,9 +79,6 @@ const chatProvider = document.getElementById("chat-provider");
 const chatModelId = document.getElementById("chat-model-id");
 const chatBaseUrl = document.getElementById("chat-base-url");
 const chatApiKeyEnv = document.getElementById("chat-api-key-env");
-const chatStructuredMode = document.getElementById("chat-structured-strategy");
-const chatStructuredStrict = document.getElementById("chat-structured-strict");
-const chatStructuredCapability = document.getElementById("chat-structured-capability");
 const chatClientInitKwargs = document.getElementById("chat-client-init-kwargs");
 const chatClientInitKwargsStatus = document.getElementById("chat-client-init-kwargs-status");
 const chatCallKwargs = document.getElementById("chat-call-kwargs");
@@ -316,7 +313,7 @@ async function loadConfig() {
     setThreshold(active.detection.confidence_threshold ?? 0.5);
     backendSelect.value = active.detection.backend || "rt_detr";
     detectionDevice.value = active.detection.device || "cuda";
-    languageSelect.value = active.system.language || "en";
+    outputLanguageSelect.value = active.system.output_language || "default";
 
     visBbox.checked = !!active.visualization.show_bbox;
     visMask.checked = !!active.visualization.show_mask;
@@ -358,11 +355,8 @@ async function loadConfig() {
     chatModelId.value = active.chat?.model_id || "";
     chatBaseUrl.value = active.chat?.base_url || "";
     chatApiKeyEnv.value = active.chat?.api_key_env || "";
-    chatStructuredMode.value = active.chat?.structured_output?.mode || "parse_output";
-    chatStructuredStrict.value = String(active.chat?.structured_output?.strict ?? true);
     chatClientInitKwargs.value = JSON.stringify(active.chat?.client_init_kwargs || {}, null, 2);
     chatCallKwargs.value = JSON.stringify(active.chat?.call_kwargs || {}, null, 2);
-    chatProvider.dispatchEvent(new Event("change"));
     const resolvedCaption = resolved.caption || {};
     captionSystem.value = resolvedCaption.resolved_system_prompt || "";
     captionUser.value = resolvedCaption.resolved_user_prompt || "";
@@ -420,8 +414,6 @@ async function loadConfig() {
     memoryMaxRelations.value = tracking.memory_max_relations ?? 500;
 
     updateStructuredCapabilityHint(vlmProvider, vlmStructuredMode, vlmStructuredCapability);
-    updateStructuredCapabilityHint(chatProvider, chatStructuredMode, chatStructuredCapability);
-
     setJsonValidationStatus(vlmClientInitKwargs, vlmClientInitKwargsStatus, "VLM Client Init Kwargs");
     setJsonValidationStatus(vlmCallKwargs, vlmCallKwargsStatus, "VLM Call Kwargs");
     setJsonValidationStatus(chatClientInitKwargs, chatClientInitKwargsStatus, "LLM Client Init Kwargs");
@@ -451,7 +443,7 @@ function buildPatch() {
 
     return {
         system: {
-            language: languageSelect.value,
+            output_language: outputLanguageSelect.value,
         },
         detection: {
             backend: backendSelect.value,
@@ -528,10 +520,6 @@ function buildPatch() {
             api_key_env: chatApiKeyEnv.value.trim() || null,
             client_init_kwargs: parsedChatClientInitKwargs,
             call_kwargs: parsedChatCallKwargs,
-            structured_output: {
-                mode: chatStructuredMode.value,
-                strict: chatStructuredStrict.value === "true",
-            },
             system_prompt: {text: chatSystem.value},
             context_template: {text: chatContext.value},
         },
@@ -713,13 +701,6 @@ vlmProvider.addEventListener("change", () => {
 vlmStructuredMode.addEventListener("change", () => {
     updateStructuredCapabilityHint(vlmProvider, vlmStructuredMode, vlmStructuredCapability);
 });
-chatProvider.addEventListener("change", () => {
-    updateStructuredCapabilityHint(chatProvider, chatStructuredMode, chatStructuredCapability);
-});
-chatStructuredMode.addEventListener("change", () => {
-    updateStructuredCapabilityHint(chatProvider, chatStructuredMode, chatStructuredCapability);
-});
-
 vlmClientInitKwargs.addEventListener("input", () => setJsonValidationStatus(vlmClientInitKwargs, vlmClientInitKwargsStatus, "VLM Client Init Kwargs"));
 vlmCallKwargs.addEventListener("input", () => setJsonValidationStatus(vlmCallKwargs, vlmCallKwargsStatus, "VLM Call Kwargs"));
 chatClientInitKwargs.addEventListener("input", () => setJsonValidationStatus(chatClientInitKwargs, chatClientInitKwargsStatus, "LLM Client Init Kwargs"));
@@ -744,6 +725,7 @@ saveBtn.addEventListener("click", saveConfig);
 reloadBtn.addEventListener("click", reloadConfig);
 downloadBtn.addEventListener("click", () => downloadConfig("active"));
 downloadSavedBtn.addEventListener("click", () => downloadConfig("saved"));
+outputLanguageSelect.addEventListener("change", applyConfig);
 
 uploadInput.addEventListener("change", event => {
     const file = event.target.files[0];

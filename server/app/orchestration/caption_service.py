@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from app.providers.caption_client import CaptionClient
+from app.providers.translation import enforce_output_language
 from app.schemas.config import CaptionConfig
 from app.schemas.robot import RobotMetadata
 
@@ -84,10 +85,32 @@ class CaptionService:
                     "prompt": prompt,
                 },
             )
-            return str(payload.get("caption", "")).strip()
+            text = str(payload.get("caption", "")).strip()
+            output_language = (
+                self.state.config.system.get("output_language")
+                if self.state.config is not None
+                and isinstance(self.state.config.system, dict)
+                else None
+            )
+            logger.info(
+                "Caption output language enforcement mode: %s",
+                output_language or "default",
+            )
+            return await enforce_output_language(text, output_language)
         self._ensure_client()
         assert self.client is not None
-        return await self.client.infer(self.system_prompt, prompt, image_bytes)
+        text = await self.client.infer(self.system_prompt, prompt, image_bytes)
+        output_language = (
+            self.state.config.system.get("output_language")
+            if self.state.config is not None
+            and isinstance(self.state.config.system, dict)
+            else None
+        )
+        logger.info(
+            "Caption output language enforcement mode: %s",
+            output_language or "default",
+        )
+        return await enforce_output_language(text, output_language)
 
     async def caption_with_optional_detect(
         self,
