@@ -59,6 +59,7 @@ async def caption_endpoint(
         publish=publish,
         prompt_override=prompt,
     )
+    logger.info(f"Returning caption: {result['caption']}")
     if publish:
         await ws_manager.broadcast({"type": "caption", "text": result["caption"]})
     return CaptionResponse(**result)

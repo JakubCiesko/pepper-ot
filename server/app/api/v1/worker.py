@@ -63,6 +63,7 @@ async def worker_warmup():
     try:
         await app_state.worker_manager.warmup()
         status = await app_state.worker_manager.get_worker_status()
+        logger.info(f"Worker status: {status}")
         return {"ok": True, "status": status.model_dump(mode="json")}
     except WorkerError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
