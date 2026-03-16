@@ -25,7 +25,7 @@ async def timer(step_name: str, metrics: dict[str, float]):
     t1 = time.perf_counter()
     duration = t1 - t0
     metrics[step_name] = duration
-    logger.info(f"{step_name} took {duration} seconds")
+    logger.info("%s took %f seconds", step_name, duration)
 
 
 class PerceptionPipeline:
@@ -48,7 +48,7 @@ class PerceptionPipeline:
         self.pipeline_controls = pipeline_controls
 
     def set_detection_threshold(self, threshold: float):
-        logger.info(f"Setting detection threshold to: {threshold}")
+        logger.info("Setting detection threshold to: %.2f", threshold)
         self.detector.threshold = threshold
 
     async def process(
@@ -59,7 +59,7 @@ class PerceptionPipeline:
         # TODO: drop stage_status completely
         stage_status: dict[str, dict[str, float | str]] = {}
         executed_stages: list[str] = []
-        logger.info(f"Processing image with metadata={robot_metadata}")
+        logger.info("Processing image with robot metadata=%s", robot_metadata)
 
         raw_detections = await self._run_detection(
             image, controls, metrics, stage_status, executed_stages
@@ -130,7 +130,7 @@ class PerceptionPipeline:
             "duration": float(metrics.get("detection_time", 0.0)),
         }
         executed_stages.append("detect")
-        logger.info(f"Detected {len(detections)} detections")
+        logger.info("Detected %d detections", len(detections))
         return detections
 
     async def _run_tracking(
@@ -168,7 +168,7 @@ class PerceptionPipeline:
             "duration": float(metrics.get("memory_update_time", 0.0)),
         }
         executed_stages.append("track_memory")
-        logger.info(f"{len(tracked)} tracked detections after memory update")
+        logger.info("%d tracked detections after memory update", len(tracked))
         return tracked
 
     async def _run_som_paint(

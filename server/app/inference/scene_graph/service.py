@@ -30,7 +30,11 @@ class SceneGraphService:
         raw_image: Image.Image | None = None,
     ) -> SceneGraph:
         vlm_image = som_image if som_image is not None else raw_image
-
+        logger.info(
+            "Generating scene graph with mode=%s for %d detections",
+            self.mode,
+            len(detections),
+        )
         match self.mode:
             case "rules":
                 return self.rule_backend.generate(detections)

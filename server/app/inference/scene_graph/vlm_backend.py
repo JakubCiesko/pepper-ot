@@ -152,7 +152,7 @@ class VLMSceneGraphBackend:
             )
         except Exception as exc:
             logger.warning(
-                f"Structured VLM generation failed, falling back to raw mode: {exc}"
+                "Structured VLM generation failed, falling back to raw mode: %s", exc
             )
             raw, parsed = await self.client.infer(
                 self.system_prompt,
@@ -179,6 +179,6 @@ class VLMSceneGraphBackend:
             data = self._parse_json(repaired)
             if not data:
                 logger.warning("VLM repair failed, returning empty scene graph")
-        logger.debug(f"User VLM Prompt: {user_prompt}")
-        logger.debug(f"Raw VLM Response: {raw}")
+        logger.debug("User VLM Prompt: %s", user_prompt)
+        logger.debug("Raw VLM Response: %s", raw)
         return SceneGraph.from_list(data, raw=raw)

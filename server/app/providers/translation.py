@@ -1,7 +1,11 @@
+import logging
+
 from googletrans import Translator
 
 # TODO: add translate gemma? otherwise enforce translation via prompt engineering
 # I think translation is best to be kept as the last layer, and the overall server logic should run in english (no translation of detection classes, and english-only ontologies)
+
+logger = logging.getLogger(__name__)
 
 
 class TranslationService:
@@ -19,11 +23,17 @@ class TranslationService:
     }
 
     def __init__(self, source_lang: str | None = None, target_lang: str | None = None):
+        logger.info(
+            "Initializing TranslationService(src_lang=%s, target_lang=%s)",
+            source_lang,
+            target_lang,
+        )
         self.source_lang = source_lang
         self.target_lang = target_lang
         self.translator = Translator(
             # service_urls=self.URLS
         )
+        logger.info("Initialized TranslationService(%s, %s)", source_lang, target_lang)
 
     async def detect_language(self, text: str | list[str]) -> list[str]:
         result = await self.translator.detect(text)
@@ -41,6 +51,7 @@ class TranslationService:
     async def enforce_language(
         self, text: str | list[str], language: str | None = None
     ) -> str | list[str]:
+        logger.debug("Enforcing language %s, on text %s", language, text)
         language = language or self.target_lang or self.DEFAULT_LANGS["dest"]
         languages = await self.detect_language(text)
         if all(lang == language for lang in languages):
@@ -66,6 +77,12 @@ class TranslationService:
         max_retries: int = 2,
     ) -> tuple[str | list[str], bool]:
         # if nothing passed or initialized, default fallback to en->cs translation
+        logger.debug(
+            "Running translation from %s to %s languages for text: %s",
+            source_lang,
+            target_lang,
+            text,
+        )
         src = (
             (self.source_lang or self.DEFAULT_LANGS["src"])
             if source_lang is None
@@ -99,9 +116,11 @@ async def enforce_output_language(text: str, output_language: str | None) -> str
     if mode == "default":
         return text
     if mode == "english":
+        logger.info("Enforcing english for text: %s", text[:25] + "...")
         translated = await czech_to_english.enforce_language(text)
         return translated if isinstance(translated, str) else translated[0]
     if mode == "czech":
+        logger.info("Enforcing czech for text: %s", text[:25] + "...")
         translated = await english_to_czech.enforce_language(text)
         return translated if isinstance(translated, str) else translated[0]
     return text

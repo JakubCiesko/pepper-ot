@@ -63,7 +63,7 @@ async def worker_warmup():
     try:
         await app_state.worker_manager.warmup()
         status = await app_state.worker_manager.get_worker_status()
-        logger.info(f"Worker status: {status}")
+        logger.info("Worker status: %s", status)
         return {"ok": True, "status": status.model_dump(mode="json")}
     except WorkerError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -93,4 +93,5 @@ async def worker_stop():
         raise HTTPException(status_code=503, detail="Worker manager not initialized")
     await app_state.worker_manager.stop(StopReason.MANUAL)
     status = await app_state.worker_manager.get_worker_status()
+    logger.info("Worker status after stop: %s", status)
     return {"ok": True, "status": status.model_dump(mode="json")}

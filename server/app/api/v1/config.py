@@ -82,13 +82,13 @@ async def patch_config(request: Request):
         raise HTTPException(status_code=503, detail="Config not initialized")
     data = await request.json()
     try:
-        logger.info(f"Applying patch to config, with data: {data}")
+        logger.info("Applying patch to config, with data: %s", data)
         updated = config_manager.apply_patch(app_state.config, data)
         diff = config_apply.diff_config(app_state.config, updated)
         # needs rebuild
         if diff.hard:
             logger.info(
-                f"Hard changes detected: {diff.hard}. Rebuilding with new config."
+                "Hard changes detected: %s. Rebuilding with new config.", diff.hard
             )
             await app_state.apply_config(updated)
             return {
@@ -107,7 +107,9 @@ async def patch_config(request: Request):
         }
     except ValueError as exc:
         logger.error(
-            f"Error applying patch to config: {None or app_state.config}, error: {exc}"
+            "Error applying patch to config: %s, error: %s",
+            None or app_state.config,
+            exc,
         )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -124,9 +126,9 @@ async def save_config():
     path = config_manager.config_path()
     yaml_text = config_manager.dump_config_yaml(app_state.config)
     tmp = path.with_suffix(".tmp")
-    logger.debug(f"Saving config to temp path: {tmp}")
+    logger.debug("Saving config to temp path: %s", tmp)
     tmp.write_text(yaml_text, encoding="utf-8")
-    logger.debug(f"Replacing temp {tmp} for {path}")
+    logger.debug("Replacing temp %s for %s", tmp, path)
     tmp.replace(path)
     logger.info("Configuration saved")
     return {"ok": True, "path": str(path)}
@@ -152,7 +154,7 @@ async def upload_config(file: UploadFile = File(...)):
     """
     content = await file.read()
     try:
-        logger.info(f"Parsing and applying uploaded yaml config: {content}")
+        logger.info("Parsing and applying uploaded yaml config: %s", content)
         cfg = config_manager.parse_uploaded_yaml(content)
         await app_state.apply_config(cfg)
         return {"ok": True}
@@ -178,7 +180,7 @@ async def download_config(source: str | None = None):
     # TODO: HIDE API KEYS IF PRESENT! but they are only passed as env vars...
     yaml_text = config_manager.dump_config_yaml(cfg)
     filename = "config_saved.yaml" if source == "saved" else "config.yaml"
-    logger.info(f"User downloading config from source={source}")
+    logger.info("User downloading config from source=%s", source)
     headers = {"Content-Disposition": f"attachment; filename={filename}"}
     return Response(
         content=yaml_text,

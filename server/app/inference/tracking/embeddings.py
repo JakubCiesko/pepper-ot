@@ -31,13 +31,13 @@ class FeatureExtractor:
         reid_model = reid_model or self.REPO
         target_size = target_size or self.TARGET_SIZE
         self.target_size = target_size
-        logger.info(f"Loading model ({reid_model}) on {self.device}...")
+        logger.info("Loading model (%s) on device={%s}...", reid_model, self.device)
         if isinstance(resampling_method, str):
             try:
                 resampling_method = getattr(Image.Resampling, resampling_method)
             except Exception as e:
                 logger.exception(
-                    f"Resampling method {resampling_method} not supported: {e}"
+                    "Resampling method %s not supported: %s", resampling_method, e
                 )
                 logger.info("Fallback to BICUBIC resampling.")
                 resampling_method = Image.Resampling.BICUBIC
@@ -54,7 +54,7 @@ class FeatureExtractor:
         logger.info("Image FeatureExtractor Model loaded.")
 
     def set_device(self, device: str):
-        logger.info(f"Setting extractor device to {device}")
+        logger.info("Setting extractor device to %s", device)
         self.device = device
         self.model = self.model.to(self.device)
 
@@ -62,7 +62,9 @@ class FeatureExtractor:
         self, image: Image.Image, detections: list[DetectionObject]
     ) -> list[Image.Image]:
         crops = []
-        logger.info(f"Preparing crops of detected images with size: {self.target_size}")
+        logger.info(
+            "Preparing crops of detected images with size: %s", self.target_size
+        )
         for det in detections:
             # bbox is [x1, y1, x2, y2]
             # Convert float bbox to int
@@ -84,7 +86,11 @@ class FeatureExtractor:
 
             crops.append(crop)
         logger.info(
-            f"Prepared {len(crops)} crops of detected objects in image with size: {self.target_size}, resampling method: {self.resampling_method}"
+            "Prepared %d crops of detected objects in image with size: "
+            "%s, resampling method: %s",
+            len(crops),
+            self.target_size,
+            self.resampling_method,
         )
         return crops
 
@@ -115,5 +121,5 @@ class FeatureExtractor:
 
             # 3. Normalize for Cosine Similarity
             summary = summary / summary.norm(p=2, dim=-1, keepdim=True)
-        logger.info(f"Extracted {len(summary)} normalized embeddings.")
+        logger.info("Extracted %d normalized embeddings.", len(summary))
         return summary.cpu().float().numpy()

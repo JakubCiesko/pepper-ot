@@ -17,7 +17,10 @@ class Associator:
         self, w_vis: float = 0.8, w_geo: float = 0.2, match_threshold: float = 0.4
     ):
         logger.info(
-            f"Initializing Associator with w_vis={w_vis}, w_geo={w_geo}, match_threshold={match_threshold}"
+            "Initializing Associator with w_vis=%.2f, w_geo=%.2f, match_threshold=%.2f",
+            w_vis,
+            w_geo,
+            match_threshold,
         )
         self.w_vis = w_vis
         self.w_geo = w_geo
@@ -35,7 +38,9 @@ class Associator:
         Cost is low if they are the same object.
         """
         logger.debug(
-            f"Computing cost matrix for Hungarian Algorithm with geometry weight = {self.w_geo}, visual weight = {self.w_vis}"
+            "Computing cost matrix for Hungarian Algorithm with geometry weight = %.2f, visual weight = %.2f",
+            self.w_geo,
+            self.w_vis,
         )
         cost_matrix = np.zeros((len(tracks), len(detections)))
 
@@ -78,12 +83,14 @@ class Associator:
     ) -> tuple[list[tuple[int, int]], list[int], list[int]]:
         if not tracks:
             logger.info(
-                f"No tracked objects, returning all ({len(detections)}) detections as unmatched."
+                "No tracked objects, returning all (%d) detections as unmatched.",
+                len(detections),
             )
             return [], [], list(range(len(detections)))
         if not detections:
             logger.info(
-                f"No detected objects, returning all ({len(tracks)}) tracked objects as unmatched tracks."
+                "No detected objects, returning all (%d) tracked objects as unmatched tracks.",
+                len(tracks),
             )
             return [], list(range(len(tracks))), []
 
@@ -96,7 +103,9 @@ class Associator:
         matched_dets: set[DetectionObject] = set()
 
         logger.info(
-            f"Matching new detections and old tracked objects with distance (1-similarity) match_threshold={self.match_threshold}"
+            "Matching new detections and old tracked objects with distance (1-similarity) "
+            "match_threshold=%.2f",
+            self.match_threshold,
         )
         for r, c in zip(row_idx, col_idx, strict=False):
             if cost_matrix[r, c] < self.match_threshold:

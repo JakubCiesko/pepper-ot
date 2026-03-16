@@ -36,7 +36,7 @@ class AppState:
             return
 
         pth = config_path or "config.yaml"
-        logger.info(f"Loading App State config from {pth}")
+        logger.info("Loading App State config from %s", pth)
         self.config = AppConfig.load(pth)
         self.config_version = 0
         logger.info("Loaded config")
@@ -122,7 +122,10 @@ class AppState:
             else None
         )
         logger.info(
-            f"Initializing ChatService with chat_system_prompt {chat_system_prompt} and chat_context_template {chat_context_template}"
+            "Initializing ChatService with chat_system_prompt "
+            "%s and chat_context_template %s",
+            chat_system_prompt,
+            chat_context_template,
         )
         chat_memory = self._build_chat_memory_adapter()
         self.chat_service = ChatService(

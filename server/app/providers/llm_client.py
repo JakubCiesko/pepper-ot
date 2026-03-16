@@ -87,7 +87,8 @@ class OpenAITextProvider(BaseTextProvider):
                 return LLMResponse(text=text, parsed=parsed, raw=response)
             except Exception as exc:
                 logger.warning(
-                    "OpenAI provider_native structured call failed, deterministically falling back to parse_output provider=%s model=%s error=%s",
+                    "OpenAI provider_native structured call failed, deterministically "
+                    "falling back to parse_output provider=%s model=%s error=%s",
                     config.provider,
                     config.model_id,
                     exc,
@@ -158,7 +159,8 @@ class GeminiTextProvider(BaseTextProvider):
                 generate_config.setdefault("response_json_schema", schema_dict)
             else:
                 logger.warning(
-                    "Gemini provider_native requested but schema conversion failed; continuing with parse_output-compatible response parsing"
+                    "Gemini provider_native requested but schema conversion failed; "
+                    "continuing with parse_output-compatible response parsing"
                 )
         elif mode == "parse_output" and output_schema is not None:
             generate_config.setdefault("response_mime_type", "application/json")

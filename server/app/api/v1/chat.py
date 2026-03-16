@@ -60,7 +60,7 @@ async def chat_endpoint(request: ChatRequest):
         request.query,
         conversation_history=history,
     )
-    logger.info(f"Received LLM response: {response_text}")
+    logger.info("Received LLM response: %s", response_text)
     output_language = (
         app_state.config.system.get("output_language")
         if app_state.config is not None and isinstance(app_state.config.system, dict)
@@ -78,7 +78,7 @@ async def chat_endpoint(request: ChatRequest):
             "message": conversations.serialize_message(assistant_message),
         }
     )
-    logger.info(f"CHAT: {chat_id} RESPONSE: {response_text}")
+    logger.info("CHAT: %s RESPONSE: %s", chat_id, response_text)
     return ChatResponse(
         chat_id=chat_id,
         sentence=response_text,

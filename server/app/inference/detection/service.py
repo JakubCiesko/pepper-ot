@@ -35,7 +35,11 @@ class DetectionService:
         threshold: float = 0.5,
     ):
         logger.info(
-            f"Loading DetectionService with model_name={model_name}, model_path={model_path}, device={device}, threshold={threshold}"
+            "Loading DetectionService with model_name=%s, model_path=%s, device=%s, threshold=%.2f",
+            model_name,
+            model_path,
+            device,
+            threshold,
         )
         self.backend = model_name
         self.model_path = (
@@ -46,7 +50,7 @@ class DetectionService:
         self._ontology = ontology
         self._threshold = threshold
         self._device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        logger.info(f"Loading Detection Model: {self.model_path} on {self.device}")
+        logger.info("Loading Detection Model: %s on %s", self.model_path, self.device)
         self.model = DetectionModelRegistry.load_detector(
             model_name, self.device, threshold, ontology
         )
@@ -59,13 +63,14 @@ class DetectionService:
     @threshold.setter
     def threshold(self, value: float):
         logger.debug(
-            f"Updating DetectionService threshold to {value}. Propagating down to the model"
+            "Updating DetectionService threshold to %f. Propagating down to the model",
+            value,
         )
         self._threshold = value
 
         if hasattr(self.model, "threshold"):
             self.model.threshold = value
-            logger.info(f"Detection Threshold set to {self.model.threshold}")
+            logger.info("Detection Threshold set to %.2f", self.model.threshold)
 
     @property
     def device(self) -> str | None | torch.device:
@@ -73,11 +78,11 @@ class DetectionService:
 
     @device.setter
     def device(self, device: str | torch.device):
-        logger.debug(f"Updating DetectionService device to {device}")
+        logger.debug("Updating DetectionService device to %s", device)
         self._device = device
         if hasattr(self.model, "device"):
             self.model.device = device
-            logger.info(f"Detection Model device set to {device}")
+            logger.info("Detection Model device set to %s", device)
 
     @property
     def ontology(self) -> list[str] | None:
@@ -88,7 +93,9 @@ class DetectionService:
         self._ontology = ontology
         if hasattr(self.model, "set_ontology"):
             logger.info(
-                f"Updating DetectionService ontology to {len(ontology) if ontology else 0} objects: [{','.join(ontology[:5] if ontology else [])}...]"
+                "Updating DetectionService ontology to %d objects: %s",
+                len(ontology) if ontology else 0,
+                ontology[:5] if ontology else [],
             )
             self.model.set_ontology(ontology)
 
@@ -102,7 +109,7 @@ class DetectionService:
         Returns:
             list[DetectionObject]: List of detected objects with bounding boxes, labels, and confidence scores.
         """
-        logger.debug(f"Running DetectionService with backend: {self.backend}")
+        logger.debug("Running DetectionService with backend: %s", self.backend)
         return self.model.predict(image)
 
     def __call__(self, image: Image.Image) -> list[DetectionObject]:

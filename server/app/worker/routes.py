@@ -7,13 +7,12 @@ from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Query
 
+from app.api.v1.memory_route_utils import run_memory_action
 from app.core.config.runtime_mutations import apply_pipeline_runtime_updates
 from app.core.config.runtime_mutations import apply_scene_graph_runtime_updates
 from app.core.config.runtime_mutations import resolve_base_dir
 from app.core.runtime.worker_client.rpc import DetectRPCRequest
 from app.core.runtime.worker_client.rpc import WorkerConfigRPCRequest
-from app.orchestration.memory_service import DomainNotFoundError
-from app.orchestration.memory_service import DomainValidationError
 from app.orchestration.memory_service import MemoryObjectCreate
 from app.orchestration.memory_service import MemoryObjectUpdate
 from app.orchestration.memory_service import MemoryRelationCreate
@@ -45,6 +44,9 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
 
     @router.post("/internal/config/reload")
     async def config_reload(request: WorkerConfigRPCRequest):
+        logger.info(
+            "Worker internal config reload requested version=%s", request.config_version
+        )
         cfg = AppConfig(**request.config)
         await runtime.apply_config(cfg, request.config_version, rebuild=True)
         return {
@@ -59,6 +61,7 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         if not isinstance(cfg_raw, dict):
             raise HTTPException(status_code=400, detail="config must be an object")
         version = int(request.get("config_version", runtime.config_version))
+        logger.info("Worker internal hot config update requested version=%s", version)
         cfg = AppConfig(**cfg_raw)
         await runtime.apply_config(cfg, version, rebuild=False)
         if runtime.pipeline is not None:
@@ -78,6 +81,7 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
 
     @router.post("/internal/warmup")
     async def warmup(_request: dict[str, Any]):
+        logger.info("Worker internal warmup requested")
         await runtime.warmup()
         return {
             "ok": True,
@@ -87,6 +91,7 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
 
     @router.post("/internal/detect")
     async def detect(request: DetectRPCRequest):
+        logger.info("Worker internal detect requested")
         return await runtime.detect(request.image_b64, request.robot_metadata)
 
     @router.post("/internal/caption")
@@ -97,6 +102,7 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         prompt = request.get("prompt")
         if prompt is not None and not isinstance(prompt, str):
             raise HTTPException(status_code=400, detail="prompt must be string")
+        logger.info("Worker internal caption requested")
         return await runtime.caption(image_b64, prompt_override=prompt)
 
     @router.post("/internal/shutdown")
@@ -118,16 +124,16 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         limit: int = Query(50, ge=1),
         sort_by: str = Query("last_seen", pattern="^(last_seen|first_seen|hits)$"),
     ):
-        try:
-            return await memory_service().list_objects(
+        service = memory_service()
+        return await run_memory_action(
+            lambda: service.list_objects(
                 label=label,
                 min_hits=min_hits,
                 skip=skip,
                 limit=limit,
                 sort_by=sort_by,
             )
-        except DomainValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        )
 
     @router.get("/internal/memory/relations")
     async def get_memory_relations(
@@ -139,78 +145,67 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         skip: int = Query(0, ge=0),
         limit: int = Query(50, ge=1),
     ):
-        return await memory_service().list_relations(
-            subject_id=subject_id,
-            subject_label=subject_label,
-            predicate=predicate,
-            object_id=object_id,
-            object_label=object_label,
-            skip=skip,
-            limit=limit,
+        service = memory_service()
+        return await run_memory_action(
+            lambda: service.list_relations(
+                subject_id=subject_id,
+                subject_label=subject_label,
+                predicate=predicate,
+                object_id=object_id,
+                object_label=object_label,
+                skip=skip,
+                limit=limit,
+            )
         )
 
     @router.post("/internal/memory/upsert")
     async def upsert_memory(state: SceneState):
-        try:
-            await memory_service().upsert_memory(state)
-            return {"ok": True}
-        except DomainValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        service = memory_service()
+        await run_memory_action(lambda: service.upsert_memory(state))
+        return {"ok": True}
 
     @router.post("/internal/memory/reset")
     async def reset_memory(confirm: bool = Query(False)):
-        try:
-            await memory_service().reset_memory(confirm)
-            return {"ok": True}
-        except DomainValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        service = memory_service()
+        await run_memory_action(lambda: service.reset_memory(confirm))
+        return {"ok": True}
 
     @router.post("/internal/memory/object")
     async def create_memory_object(payload: MemoryObjectCreate):
-        try:
-            obj = await memory_service().create_object(payload)
-            return {"ok": True, "object": obj.model_dump(mode="json")}
-        except DomainValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        service = memory_service()
+        obj = await run_memory_action(lambda: service.create_object(payload))
+        return {"ok": True, "object": obj.model_dump(mode="json")}
 
     @router.patch("/internal/memory/object/{object_id}")
     async def update_memory_object(object_id: int, payload: MemoryObjectUpdate):
-        try:
-            updated = await memory_service().update_object(object_id, payload)
-            return {"ok": True, "object": updated.model_dump(mode="json")}
-        except DomainValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        except DomainNotFoundError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        service = memory_service()
+        updated = await run_memory_action(
+            lambda: service.update_object(object_id, payload)
+        )
+        return {"ok": True, "object": updated.model_dump(mode="json")}
 
     @router.delete("/internal/memory/object/{object_id}")
     async def delete_memory_object(
         object_id: int,
         cascade_relations: bool = Query(True),
     ):
-        try:
-            await memory_service().delete_object(object_id, cascade_relations)
-            return {"ok": True}
-        except DomainNotFoundError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        service = memory_service()
+        await run_memory_action(
+            lambda: service.delete_object(object_id, cascade_relations)
+        )
+        return {"ok": True}
 
     @router.post("/internal/memory/relation")
     async def create_memory_relation(payload: MemoryRelationCreate):
-        try:
-            rel = await memory_service().create_relation(payload)
-            return {"ok": True, "relationship": rel.model_dump(mode="json")}
-        except DomainValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        service = memory_service()
+        rel = await run_memory_action(lambda: service.create_relation(payload))
+        return {"ok": True, "relationship": rel.model_dump(mode="json")}
 
     @router.patch("/internal/memory/relation")
     async def update_memory_relation(payload: MemoryRelationUpdate):
-        try:
-            updated = await memory_service().update_relation(payload)
-            return {"ok": True, "relationship": updated.model_dump(mode="json")}
-        except DomainValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        except DomainNotFoundError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        service = memory_service()
+        updated = await run_memory_action(lambda: service.update_relation(payload))
+        return {"ok": True, "relationship": updated.model_dump(mode="json")}
 
     @router.delete("/internal/memory/relation")
     async def delete_memory_relation(
@@ -218,10 +213,10 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         predicate: str = Query(...),
         object_id: int = Query(...),
     ):
-        try:
-            await memory_service().delete_relation(subject_id, predicate, object_id)
-            return {"ok": True}
-        except DomainNotFoundError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        service = memory_service()
+        await run_memory_action(
+            lambda: service.delete_relation(subject_id, predicate, object_id)
+        )
+        return {"ok": True}
 
     return router

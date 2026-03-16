@@ -64,7 +64,7 @@ class DetectionModelRegistry:
         Returns:
             Path | None: Path to the model file, or None if no file is required (e.g., RF-DETR or OWL-V2).
         """
-        logger.info(f"Ensuring model {model_name}")
+        logger.info("Ensuring model %s", model_name)
         url = cls.REGISTRY[model_name]
         if url is None:
             return None

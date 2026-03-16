@@ -48,7 +48,7 @@ async def detect_endpoint(
     image_bytes = await file.read()
     service = DetectService(app_state)
     robot_metadata = service.parse_metadata(metadata)
-    logger.info(f"Running detection with received robot metadata: {robot_metadata}")
+    logger.info("Running detection with received robot metadata: %s", robot_metadata)
     response = await service.process(image_bytes, robot_metadata, publish)
     logger.info("Detection endpoint completed: %s", response.id)
     return response

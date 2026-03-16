@@ -1,4 +1,3 @@
-import logging
 import time
 from typing import Any
 
@@ -10,8 +9,6 @@ from app.orchestration.runtime_adapter import memory_payload
 from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
 from app.schemas.scene import TrackedObjectState
-
-logger = logging.getLogger(__name__)
 
 
 class DomainValidationError(ValueError):
