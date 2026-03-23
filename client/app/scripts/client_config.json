@@ -32,7 +32,9 @@
       0,
       35
     ],
-    "settle_seconds": 0.6
+    "settle_seconds": 0.6,
+    "fake_camera": false,
+    "fake_camera_path": "/home/jakub-ciesko/Desktop/test-imgs/test/one"
   },
   "language": {
     "default_dialog_language": "en",

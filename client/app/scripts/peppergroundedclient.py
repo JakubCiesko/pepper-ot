@@ -49,8 +49,8 @@ class PepperGroundedClient(object):
         self.session_store.set_server_base_url(self.config["server"].get("base_url"))
 
         self.transport = PepperServerTransport(self.config, self.logger)
-        #self.camera_adapter = FakeCameraAdapter("/home/jakub-ciesko/Desktop/test-imgs/test/one", self.logger)#
-        self.camera_adapter=CameraAdapter(self.services, self.config, self.logger)
+        self.camera_adapter = None
+        self._initialize_camera_adapter()
         self.pose_adapter = PoseAdapter(self.services, self.logger)
         self.face_adapter = FaceAdapter(self.services, self.config, self.logger)
         self.people_adapter = PeopleAdapter(self.services, self.config, self.logger)
@@ -83,6 +83,15 @@ class PepperGroundedClient(object):
             self.tablet_adapter,
             self.logger,
         )
+
+    @qi.nobind
+    def _initialize_camera_adapter(self):
+        if self.config["capture"].get("fake_camera", False) and self.config["capture"].get("fake_camera_path", None):
+            self.logger.info("Using fake camera for testing and simulation, path: %s", self.config["capture"]["fake_camera_path"])
+            self.camera_adapter = FakeCameraAdapter(self.config["capture"].get("fake_camera_path"), self.logger)
+        else:
+            self.logger.info("Using default robot camera")
+            self.camera_adapter=CameraAdapter(self.services, self.config, self.logger)
 
     @qi.nobind
     def on_start(self):
@@ -208,6 +217,10 @@ class PepperGroundedClient(object):
         self.transport.update_config(self.config)
         self.face_adapter.start()
         self.robot_context.start()
+        self._initialize_camera_adapter()
+        if self.turn_manager:
+            self.turn_manager.camera_adapter = self.camera_adapter
+        self.logger.info("New config: %s", self.config)
         self.logger.info("Client config reloaded")
 
 
