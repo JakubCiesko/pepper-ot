@@ -44,7 +44,12 @@ async def detect_endpoint(
         or runtime processing errors.
     """
 
-    logger.info("Detection endpoint called")
+    logger.info(
+        "Detection endpoint called with file=%s, metadata=%s, publish=%s",
+        file.filename,
+        metadata,
+        publish,
+    )
     image_bytes = await file.read()
     service = DetectService(app_state)
     robot_metadata = service.parse_metadata(metadata)

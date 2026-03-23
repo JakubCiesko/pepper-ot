@@ -41,7 +41,7 @@ async def chat_endpoint(request: ChatRequest):
     """
     if app_state.chat_service is None or app_state.conversation_service is None:
         raise HTTPException(status_code=503, detail="Chat Service is not initialized.")
-
+    logger.info("Chat endpoint triggered with request: %s", request)
     conversations: ConversationService = app_state.conversation_service
     conversation = await conversations.ensure_conversation(request.chat_id)
     chat_id = conversation.chat_id
@@ -62,9 +62,14 @@ async def chat_endpoint(request: ChatRequest):
     )
     logger.info("Received LLM response: %s", response_text)
     output_language = (
-        app_state.config.system.get("output_language")
-        if app_state.config is not None and isinstance(app_state.config.system, dict)
-        else None
+        request.language
+        if request.language is not None
+        else (
+            app_state.config.system.get("output_language")
+            if app_state.config is not None
+            and isinstance(app_state.config.system, dict)
+            else None
+        )
     )
     response_text = await enforce_output_language(response_text, output_language)
     assistant_message = await conversations.add_message(

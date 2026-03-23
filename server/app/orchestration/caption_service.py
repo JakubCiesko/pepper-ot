@@ -70,6 +70,7 @@ class CaptionService:
         image_bytes: bytes,
         *,
         prompt_override: str | None = None,
+        language: str | None = None,
     ) -> str:
         prompt = self._final_user_prompt(prompt_override)
         if (
@@ -87,10 +88,14 @@ class CaptionService:
             )
             text = str(payload.get("caption", "")).strip()
             output_language = (
-                self.state.config.system.get("output_language")
-                if self.state.config is not None
-                and isinstance(self.state.config.system, dict)
-                else None
+                language
+                if language is not None
+                else (
+                    self.state.config.system.get("output_language")
+                    if self.state.config is not None
+                    and isinstance(self.state.config.system, dict)
+                    else None
+                )
             )
             return await enforce_output_language(text, output_language)
         self._ensure_client()
@@ -112,8 +117,11 @@ class CaptionService:
         run_detect: bool,
         publish: bool,
         prompt_override: str | None = None,
+        language: str | None = None,
     ) -> dict:
-        caption_text = await self.caption(image_bytes, prompt_override=prompt_override)
+        caption_text = await self.caption(
+            image_bytes, prompt_override=prompt_override, language=language
+        )
         detect_request_id: str | None = None
         if run_detect:
             detect_request_id = str(uuid4())

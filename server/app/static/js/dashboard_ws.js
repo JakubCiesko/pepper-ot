@@ -1,4 +1,4 @@
-const ws = new WebSocket(`ws://${location.host}/dashboard/events`);
+const ws = new WebSocket(`wss://${location.host}/dashboard/events`);
 
 const detectionsContainer = document.getElementById("detections-content");
 const annotatedImage = document.getElementById("annotated-image");

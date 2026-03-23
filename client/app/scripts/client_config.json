@@ -1,0 +1,73 @@
+{
+  "app": {
+    "app_id": "com.aldebaran.PepperGroundedClient",
+    "service_name": "PepperGroundedClient"
+  },
+  "behavior": {
+    "allow_scan_summary_chat": true,
+    "auto_refresh_before_chat": false,
+    "auto_restore_head_pose": true,
+    "caption_retry_on_timeout": true,
+    "caption_run_detect": true,
+    "max_query_chars": 500,
+    "show_dashboard_during_scan": false,
+    "show_dashboard_on_start": false,
+    "speak_acknowledgements": true
+  },
+  "capture": {
+    "camera_id": 0,
+    "color_space": 11,
+    "fps": 10,
+    "frame_prefix": "pepper_frame",
+    "head_move_speed": 0.15,
+    "jpeg_quality": 90,
+    "refresh_ttl_seconds": 25,
+    "resolution": 2,
+    "scan_head_pitch": -0.1,
+    "scan_prefix": "pepper_scan",
+    "scan_summary_query_cs": "Stručne popíš, co teď vidíš na základě aktuální vizuální paměti.",
+    "scan_summary_query_en": "Briefly describe what you can see now using the current visual memory.",
+    "scan_yaws_deg": [
+      -35,
+      0,
+      35
+    ],
+    "settle_seconds": 0.6
+  },
+  "language": {
+    "default_dialog_language": "en",
+    "output_language_mode": "czech"
+  },
+  "server": {
+    "base_url": "http://127.0.0.1:8000",
+    "caption_path": "/api/v1/caption",
+    "caption_timeout_seconds": 10,
+    "chat_path": "/api/v1/chat",
+    "chat_timeout_seconds": 10,
+    "config_patch_path": "/api/v1/config",
+    "config_timeout_seconds": 10,
+    "dashboard_url": "http://127.0.0.1:8000/dashboard",
+    "detect_path": "/api/v1/detect",
+    "detect_timeout_seconds": 60,
+    "publish": true,
+    "verify_tls": true
+  },
+  "social": {
+    "enable_engagement_zones": true,
+    "enable_face_characteristics": true,
+    "enable_face_detection": true,
+    "enable_gaze_analysis": true,
+    "enable_people_perception": true,
+    "enable_sitting_detection": true,
+    "enable_sonar": true,
+    "enable_waving_detection": true,
+    "expression_labels": [
+      "neutral",
+      "happy",
+      "surprised",
+      "angry",
+      "sad"
+    ],
+    "face_match_max_angle_rad": 0.35
+  }
+}

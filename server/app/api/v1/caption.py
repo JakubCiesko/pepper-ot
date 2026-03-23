@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# TODO: create caption request?
 @router.post("/caption", response_model=CaptionResponse)
 async def caption_endpoint(
     file: UploadFile = File(...),
@@ -21,6 +22,7 @@ async def caption_endpoint(
     prompt: str | None = Form(None),
     run_detect: bool = Form(True),
     publish: bool = Form(True),
+    language: str | None = Form(None),
 ):
     """
     Generate a caption for an uploaded image and optionally trigger background detection.
@@ -47,8 +49,17 @@ async def caption_endpoint(
         raise HTTPException(
             status_code=503, detail="Caption service is not initialized."
         )
-
+    logger.info(
+        "Caption endpoint triggered with args filename=%s, "
+        "metadata=%s, prompt=%s, run_detect=%s, publish=%s",
+        file.filename,
+        metadata,
+        prompt,
+        run_detect,
+        publish,
+    )
     image_bytes = await file.read()
+    # TODO: why create whole service?
     detect_service = DetectService(app_state)
     robot_metadata = detect_service.parse_metadata(metadata)
 
@@ -58,8 +69,9 @@ async def caption_endpoint(
         run_detect=run_detect,
         publish=publish,
         prompt_override=prompt,
+        language=language,
     )
-    logger.info("Returning caption: %s", result["caption"])
+    logger.info("Returning caption: %s", result)
     if publish:
         await ws_manager.broadcast({"type": "caption", "text": result["caption"]})
     return CaptionResponse(**result)

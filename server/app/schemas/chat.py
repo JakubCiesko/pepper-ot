@@ -8,6 +8,7 @@ class ChatRequest(BaseModel):
     chat_id: str | None = None
     conversation_id: str | None = None
     use_rag: bool = True
+    language: str | None = None
 
     @model_validator(mode="after")
     def normalize_chat_id(self):

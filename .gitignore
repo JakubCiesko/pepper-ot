@@ -11,7 +11,7 @@ research/notebooks/unsloth*
 data/
 server/detection_models/*.pt
 server/detection_models/*.json
-experiments/
+#experiments/
 public_html/
 plans/
 detection_models/
@@ -23,3 +23,6 @@ gpu-server-main/
 dino/
 presentation/
 **/tests/
+old_client/
+naoqi_docs/
+experiments/

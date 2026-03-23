@@ -1,8 +1,12 @@
 from contextlib import asynccontextmanager
 import logging
+import os
+import sys
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from pydantic_settings import BaseSettings
+from pyngrok import ngrok
 
 from app.api.v1 import router as api_v1_router
 from app.core.runtime.state import app_state
@@ -23,7 +27,25 @@ for uv_logger in ("uvicorn", "uvicorn.error", "uvicorn.access"):
     logging.getLogger(uv_logger).setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
-logger.info("Initializing FastAPI server...")
+
+
+class ServerSettings(BaseSettings):
+    BASE_URL: str = "http://localhost:8000"
+    USE_NGROK: bool = os.environ.get("USE_NGROK", "False") == "True"
+
+
+SERVER_SETTINGS = ServerSettings()
+
+logger.info(
+    f"Initializing FastAPI server with settings: {SERVER_SETTINGS.model_dump()}"
+)
+
+
+if SERVER_SETTINGS.USE_NGROK:
+    port = sys.argv[sys.argv.index("--port") + 1] if "--port" in sys.argv else "8000"
+    public_url = ngrok.connect(port).public_url
+    logger.info(f'ngrok tunnel "{public_url}" -> "http://127.0.0.1:{port}"')
+    SERVER_SETTINGS.BASE_URL = public_url
 
 
 @asynccontextmanager
@@ -35,6 +57,9 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown: Cleaning up...")
     if app_state.worker_manager is not None:
         await app_state.worker_manager.close()
+    if SERVER_SETTINGS.USE_NGROK:
+        ngrok.kill()
+        logger.info("Shutdown: Killed NGrok Tunnels")
 
 
 app = FastAPI(

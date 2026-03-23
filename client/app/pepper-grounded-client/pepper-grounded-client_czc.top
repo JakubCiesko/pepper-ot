@@ -1,0 +1,58 @@
+topic: ~pepper-grounded-client()
+language: czc
+
+concept:(look) [
+    "co vidíš"
+    "co kolem sebe vidíš"
+    "podívej se"
+    "mrkni se"
+    "co vidíš před sebou"
+    "popiš co vidíš"
+    "popiš co teď vidíš"
+    "co se kolem tebe děje"
+    "řekni co vidíš"
+    "řekni co se před tebou děje"
+    "řekni co se děje"
+    "popiš co se děje"
+    "popiš co se teď děje"
+]
+
+concept:(scan) [
+    "rozhlídni se"
+    "naskenuj místnost"
+    "podívej se všude"
+    "udelěj sken místnosti"
+    "naskenuj své okoli"
+    "naskenuj okolí"
+]
+
+concept:(reset_session) [
+    "začneme znovu"
+    "resetuj konverzaci"
+    "zapomeň konverzaci"
+    "nová konverzace"
+]
+
+concept:(show_dashboard) [
+    "ukaž dashboard"
+    "otevři dashboard"
+    "ukaž svuj dashboard"
+]
+
+u:(~look)
+    "Dobře."
+    ^sCall(PepperGroundedClient.look("cs"))
+
+u:(~scan)
+    "Dej mi chvilku, jen se pořádně rozhlédnu"
+    ^sCall(PepperGroundedClient.scan("cs"))
+
+u:(~reset_session)
+    "Tak fajn. Už si nic nepamatuju."
+    ^sCall(PepperGroundedClient.resetConversation())
+
+u:(~show_dashboard)
+    ^sCall(PepperGroundedClient.showDashboard())
+
+u:(_*)
+    ^sCall(PepperGroundedClient.ask("cs", $1))

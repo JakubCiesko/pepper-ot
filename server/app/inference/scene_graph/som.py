@@ -72,7 +72,7 @@ class SoMPainter:
         max_line_thickness: int = 8,
         min_text_padding: int = 10,
         max_text_padding: int = 30,
-    ) -> np.ndarray:
+    ) -> NDArray:
         """
         Applies SoM visualization to an image.
         """
@@ -163,12 +163,12 @@ class SoMPainter:
     @staticmethod
     def bboxes_to_masks(
         image: Image.Image | NDArray,
-        bboxes: np.ndarray,
+        bboxes: NDArray,
         scale: float = 0.25,
         iter_count: int = 5,
         use_roi_grab_cut: bool = True,
         max_mask_workers: int | None = None,
-    ) -> np.ndarray:
+    ) -> NDArray:
         """
         Convert bounding boxes to approximate masks using GrabCut.
         ROI mode runs GrabCut per bounding box crop over a scaled frame.
