@@ -17,6 +17,12 @@ concept:(look) [
     "popiš co se teď děje"
 ]
 
+
+# TODO: musis make pkg, potom scp na auroru z pepper_root/my_apps/, potom make install, add logview, add uninstall?
+# stabilizuj
+# ngrok kill na finally alebo za yield
+
+
 concept:(scan) [
     "rozhlídni se"
     "naskenuj místnost"
@@ -41,18 +47,15 @@ concept:(show_dashboard) [
 
 u:(~look)
     "Dobře."
-    ^sCall(PepperGroundedClient.look("cs"))
+    ^pCall(PepperGroundedClient.look("cs"))
 
 u:(~scan)
     "Dej mi chvilku, jen se pořádně rozhlédnu"
-    ^sCall(PepperGroundedClient.scan("cs"))
+    ^pCall(PepperGroundedClient.scan("cs"))
 
 u:(~reset_session)
     "Tak fajn. Už si nic nepamatuju."
-    ^sCall(PepperGroundedClient.resetConversation())
+    ^pCall(PepperGroundedClient.resetConversation())
 
 u:(~show_dashboard)
     ^sCall(PepperGroundedClient.showDashboard())
-
-u:(_*)
-    ^sCall(PepperGroundedClient.ask("cs", $1))
