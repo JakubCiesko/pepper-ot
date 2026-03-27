@@ -86,3 +86,53 @@ body:not(.theme-dark) .text-slate-300 { color: var(--panel-text) !important; }
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+.sg-carousel-track {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+}
+
+.sg-carousel-item {
+    flex: 0 0 184px;
+    border: 2px solid var(--panel-border);
+    border-radius: 0.6rem;
+    background: var(--panel-bg-2);
+    cursor: pointer;
+    padding: 0.5rem;
+    text-align: left;
+    transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.sg-carousel-item:hover {
+    border-color: var(--panel-accent-2);
+    transform: translateY(-1px);
+}
+
+.sg-carousel-item.active {
+    border-color: var(--panel-accent);
+}
+
+.sg-carousel-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.sg-carousel-meta {
+    margin-top: 0.25rem;
+    font-size: 0.7rem;
+    color: var(--panel-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sg-carousel-preview {
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    color: var(--panel-muted);
+    line-height: 1.2;
+    max-height: 2.4em;
+    overflow: hidden;
+}

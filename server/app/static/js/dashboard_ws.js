@@ -4,10 +4,16 @@ const detectionsContainer = document.getElementById("detections-content");
 const annotatedImage = document.getElementById("annotated-image");
 const inferenceMetricsContainer = document.getElementById("inference-metrics");
 const captionContainer = document.getElementById("caption-content");
+
 const liveCarouselTrack = document.getElementById("live-carousel-track");
 const liveCarouselPrev = document.getElementById("live-carousel-prev");
 const liveCarouselNext = document.getElementById("live-carousel-next");
 const liveCarouselIndex = document.getElementById("live-carousel-index");
+
+const sgCarouselTrack = document.getElementById("sg-carousel-track");
+const sgCarouselPrev = document.getElementById("sg-carousel-prev");
+const sgCarouselNext = document.getElementById("sg-carousel-next");
+const sgCarouselIndex = document.getElementById("sg-carousel-index");
 
 const MAX_LIVE_FRAMES = 10;
 const liveFrames = [];
@@ -87,37 +93,27 @@ function formatFrameTimestamp(ts) {
     return new Date(ts * 1000).toLocaleTimeString();
 }
 
-function updateCarouselIndexLabel() {
-    if (!liveCarouselIndex) return;
-    if (liveFrames.length === 0 || activeLiveFrameIndex < 0) {
-        liveCarouselIndex.textContent = "0 / 0";
-        return;
-    }
-    liveCarouselIndex.textContent = `${activeLiveFrameIndex + 1} / ${liveFrames.length}`;
+function updateCarouselIndexLabels() {
+    const text = liveFrames.length === 0 || activeLiveFrameIndex < 0
+        ? "0 / 0"
+        : `${activeLiveFrameIndex + 1} / ${liveFrames.length}`;
+    if (liveCarouselIndex) liveCarouselIndex.textContent = text;
+    if (sgCarouselIndex) sgCarouselIndex.textContent = text;
 }
 
-function renderActiveLiveFrame() {
-    if (!annotatedImage) return;
-    if (activeLiveFrameIndex < 0 || activeLiveFrameIndex >= liveFrames.length) return;
-    const frame = liveFrames[activeLiveFrameIndex];
-    annotatedImage.src = `data:image/jpeg;base64,${frame.image}`;
-}
-
-function setActiveLiveFrame(index) {
-    if (!Number.isInteger(index)) return;
-    if (index < 0 || index >= liveFrames.length) return;
-    activeLiveFrameIndex = index;
-    renderActiveLiveFrame();
-    renderLiveCarousel();
+function summarizeSceneGraph(sceneGraph) {
+    const rels = Array.isArray(sceneGraph) ? sceneGraph : [];
+    if (rels.length === 0) return "No relations";
+    const sample = rels
+        .slice(0, 2)
+        .map(edge => `${edge.sub} ${edge.rel} ${edge.obj}`)
+        .join(" | ");
+    return rels.length > 2 ? `${sample} ...` : sample;
 }
 
 function renderLiveCarousel() {
     if (!liveCarouselTrack) return;
     liveCarouselTrack.innerHTML = "";
-    if (liveFrames.length === 0) {
-        updateCarouselIndexLabel();
-        return;
-    }
     liveFrames.forEach((frame, idx) => {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -138,47 +134,108 @@ function renderLiveCarousel() {
 
         liveCarouselTrack.appendChild(btn);
     });
-    updateCarouselIndexLabel();
 }
 
-function pushLiveFrame(imageBase64, timestamp) {
-    if (typeof imageBase64 !== "string" || imageBase64.length === 0) return;
-    if (liveFrames.length > 0 && liveFrames[0].image === imageBase64) {
-        if (Number.isFinite(timestamp)) {
-            liveFrames[0].timestamp = timestamp;
-            renderLiveCarousel();
-        }
-        return;
-    }
-    liveFrames.unshift({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-        image: imageBase64,
-        timestamp: Number.isFinite(timestamp) ? timestamp : Date.now() / 1000,
+function renderSceneGraphCarousel() {
+    if (!sgCarouselTrack) return;
+    sgCarouselTrack.innerHTML = "";
+    liveFrames.forEach((frame, idx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `sg-carousel-item ${idx === activeLiveFrameIndex ? "active" : ""}`;
+        btn.setAttribute("aria-label", `Scene graph ${idx + 1}`);
+        btn.addEventListener("click", () => setActiveLiveFrame(idx));
+
+        const title = document.createElement("div");
+        title.className = "sg-carousel-title";
+        title.textContent = `${Array.isArray(frame.scene_graph) ? frame.scene_graph.length : 0} relations`;
+        btn.appendChild(title);
+
+        const meta = document.createElement("div");
+        meta.className = "sg-carousel-meta";
+        meta.textContent = formatFrameTimestamp(frame.timestamp);
+        btn.appendChild(meta);
+
+        const preview = document.createElement("div");
+        preview.className = "sg-carousel-preview";
+        preview.textContent = summarizeSceneGraph(frame.scene_graph);
+        btn.appendChild(preview);
+
+        sgCarouselTrack.appendChild(btn);
     });
-    if (liveFrames.length > MAX_LIVE_FRAMES) {
-        liveFrames.length = MAX_LIVE_FRAMES;
-    }
-    activeLiveFrameIndex = 0;
-    renderActiveLiveFrame();
-    renderLiveCarousel();
 }
 
-function renderDetectionPayload(data) {
-    renderDetections(data.objects, data.colors);
-    renderMetrics(data.metrics);
-    if (data.image) {
-        pushLiveFrame(data.image, data.timestamp);
+function renderActiveFrameSnapshot() {
+    if (activeLiveFrameIndex < 0 || activeLiveFrameIndex >= liveFrames.length) return;
+    const frame = liveFrames[activeLiveFrameIndex];
+
+    if (annotatedImage && frame.image) {
+        annotatedImage.src = `data:image/jpeg;base64,${frame.image}`;
     }
+    renderDetections(frame.objects, frame.colors);
+    renderMetrics(frame.metrics);
+
     if (window.PepperMemoryPanel) {
-        window.PepperMemoryPanel.renderMemory(data.memory || {});
+        window.PepperMemoryPanel.renderMemory(frame.memory || {});
     }
     if (window.PepperSceneGraphPanel) {
         window.PepperSceneGraphPanel.renderSceneGraph(
-            data.scene_graph || [],
-            data.memory || {}
+            frame.scene_graph || [],
+            frame.memory || {}
         );
     }
-    updateSummaries(data);
+    updateSummaries(frame);
+}
+
+function setActiveLiveFrame(index) {
+    if (!Number.isInteger(index)) return;
+    if (index < 0 || index >= liveFrames.length) return;
+    activeLiveFrameIndex = index;
+    renderActiveFrameSnapshot();
+    renderLiveCarousel();
+    renderSceneGraphCarousel();
+    updateCarouselIndexLabels();
+}
+
+function snapshotFromPayload(data) {
+    return {
+        id: data.id || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        timestamp: Number.isFinite(data.timestamp) ? data.timestamp : Date.now() / 1000,
+        image: data.image || "",
+        objects: Array.isArray(data.objects) ? data.objects : [],
+        colors: data.colors && typeof data.colors === "object" ? data.colors : {},
+        metrics: data.metrics && typeof data.metrics === "object" ? data.metrics : {},
+        memory: data.memory && typeof data.memory === "object" ? data.memory : {},
+        scene_graph: Array.isArray(data.scene_graph) ? data.scene_graph : [],
+    };
+}
+
+function isSameAsLatest(frame) {
+    if (liveFrames.length === 0) return false;
+    const latest = liveFrames[0];
+    if (frame.id && latest.id && frame.id === latest.id) return true;
+    return latest.image === frame.image && latest.timestamp === frame.timestamp;
+}
+
+function pushFrameSnapshot(data) {
+    const frame = snapshotFromPayload(data);
+    if (!frame.image) return;
+
+    if (isSameAsLatest(frame)) {
+        liveFrames[0] = frame;
+        setActiveLiveFrame(0);
+        return;
+    }
+
+    liveFrames.unshift(frame);
+    if (liveFrames.length > MAX_LIVE_FRAMES) {
+        liveFrames.length = MAX_LIVE_FRAMES;
+    }
+    setActiveLiveFrame(0);
+}
+
+function renderDetectionPayload(data) {
+    pushFrameSnapshot(data);
 }
 
 ws.onmessage = function(event) {
@@ -217,6 +274,22 @@ async function loadLastState() {
     }
 }
 
+function goToPrevFrame() {
+    if (liveFrames.length === 0) return;
+    const next = activeLiveFrameIndex <= 0
+        ? liveFrames.length - 1
+        : activeLiveFrameIndex - 1;
+    setActiveLiveFrame(next);
+}
+
+function goToNextFrame() {
+    if (liveFrames.length === 0) return;
+    const next = activeLiveFrameIndex >= liveFrames.length - 1
+        ? 0
+        : activeLiveFrameIndex + 1;
+    setActiveLiveFrame(next);
+}
+
 if (window.PepperMemoryPanel) {
     window.PepperMemoryPanel.init();
 }
@@ -228,24 +301,18 @@ if (window.PepperConversationPanel) {
 }
 
 if (liveCarouselPrev) {
-    liveCarouselPrev.addEventListener("click", () => {
-        if (liveFrames.length === 0) return;
-        const next = activeLiveFrameIndex <= 0
-            ? liveFrames.length - 1
-            : activeLiveFrameIndex - 1;
-        setActiveLiveFrame(next);
-    });
+    liveCarouselPrev.addEventListener("click", goToPrevFrame);
 }
 if (liveCarouselNext) {
-    liveCarouselNext.addEventListener("click", () => {
-        if (liveFrames.length === 0) return;
-        const next = activeLiveFrameIndex >= liveFrames.length - 1
-            ? 0
-            : activeLiveFrameIndex + 1;
-        setActiveLiveFrame(next);
-    });
+    liveCarouselNext.addEventListener("click", goToNextFrame);
 }
-updateCarouselIndexLabel();
+if (sgCarouselPrev) {
+    sgCarouselPrev.addEventListener("click", goToPrevFrame);
+}
+if (sgCarouselNext) {
+    sgCarouselNext.addEventListener("click", goToNextFrame);
+}
+updateCarouselIndexLabels();
 
 loadLastState();
 if (window.PepperConversationPanel) {

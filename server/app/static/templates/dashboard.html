@@ -279,6 +279,21 @@
                         <div id="scene-graph-panel" class="tab-panel hidden" data-tab-group="live">
                             <h2 class="text-lg font-semibold mb-3">Scene Graph</h2>
                             <p class="text-xs panel-muted mb-3">Structured relationship graph generated from current detections using the selected SGG mode.</p>
+                            <div id="sg-carousel" class="mb-4">
+                                <div class="flex items-center justify-between gap-2 mb-2">
+                                    <h3 class="text-sm font-semibold">Recent Scene Graphs</h3>
+                                    <div class="flex items-center gap-2">
+                                        <button id="sg-carousel-prev" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Prev</button>
+                                        <span id="sg-carousel-index" class="text-xs panel-muted">0 / 0</span>
+                                        <button id="sg-carousel-next" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Next</button>
+                                    </div>
+                                </div>
+                                <div
+                                    id="sg-carousel-track"
+                                    class="sg-carousel-track"
+                                    aria-label="Recent scene graphs carousel"
+                                ></div>
+                            </div>
                             <div>
                                 <div class="flex items-center gap-2 mb-2">
                                     <button id="sg-zoom-in" class="px-2 py-1 text-xs rounded border panel-border panel-alt">Zoom In</button>
