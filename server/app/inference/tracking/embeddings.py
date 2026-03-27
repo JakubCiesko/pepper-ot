@@ -31,7 +31,7 @@ class FeatureExtractor:
         reid_model = reid_model or self.REPO
         target_size = target_size or self.TARGET_SIZE
         self.target_size = target_size
-        logger.info("Loading model (%s) on device={%s}...", reid_model, self.device)
+        logger.info("Loading model (%s) on device=%s...", reid_model, self.device)
         if isinstance(resampling_method, str):
             try:
                 resampling_method = getattr(Image.Resampling, resampling_method)

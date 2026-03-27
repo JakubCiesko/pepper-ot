@@ -7,7 +7,7 @@ from scipy.optimize import linear_sum_assignment
 from app.inference.types import InferenceDetectionObject
 from app.inference.types import TrackedObject
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 class Associator:

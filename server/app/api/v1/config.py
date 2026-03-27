@@ -27,9 +27,7 @@ async def get_config():
     """
     saved = config_manager.load_config()
     active = app_state.config or saved
-    hard_reload_fields = [
-        path for path, _, mode in config_apply._RULES if mode == "hard"
-    ]
+    hard_reload_fields = config_apply.hard_fields()
     return {
         "active": config_manager.dump_config(active),
         "saved": config_manager.dump_config(saved),

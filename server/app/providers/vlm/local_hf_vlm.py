@@ -6,7 +6,7 @@ from typing import Any
 
 from PIL import Image
 import torch
-from transformers import AutoModelForVision2Seq
+from transformers import AutoModelForImageTextToText
 from transformers import AutoProcessor
 
 from app.core.config.llm_contracts import normalize_call_kwargs
@@ -43,7 +43,7 @@ class LocalHFVLMClient(BaseVLMClient):
                 "auto" if requested_device.startswith("cuda") else {"": "cpu"}
             )
 
-        self.model = AutoModelForVision2Seq.from_pretrained(
+        self.model = AutoModelForImageTextToText.from_pretrained(
             config.model_id,
             **model_kwargs,
         )

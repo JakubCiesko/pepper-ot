@@ -287,3 +287,7 @@ class SoMPainter:
 
         resolved = [m if m is not None else empty_mask() for m in masks]
         return np.stack(resolved, axis=0)
+
+    # TODO: use Sam for mask generation from prompt + bounding boxes
+    def sam_bboxes_to_masks(self, image):
+        pass

@@ -15,7 +15,7 @@ from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
 from app.schemas.scene import TrackedObjectState
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 class SceneMemory:
