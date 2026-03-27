@@ -4,6 +4,14 @@ const detectionsContainer = document.getElementById("detections-content");
 const annotatedImage = document.getElementById("annotated-image");
 const inferenceMetricsContainer = document.getElementById("inference-metrics");
 const captionContainer = document.getElementById("caption-content");
+const liveCarouselTrack = document.getElementById("live-carousel-track");
+const liveCarouselPrev = document.getElementById("live-carousel-prev");
+const liveCarouselNext = document.getElementById("live-carousel-next");
+const liveCarouselIndex = document.getElementById("live-carousel-index");
+
+const MAX_LIVE_FRAMES = 10;
+const liveFrames = [];
+let activeLiveFrameIndex = -1;
 
 function renderCaption(text) {
     if (!text || !captionContainer) return;
@@ -74,11 +82,92 @@ function updateSummaries(payload) {
     if (summaryRelations) summaryRelations.textContent = payload.scene_graph ? payload.scene_graph.length : "—";
 }
 
+function formatFrameTimestamp(ts) {
+    if (!Number.isFinite(ts)) return "Unknown time";
+    return new Date(ts * 1000).toLocaleTimeString();
+}
+
+function updateCarouselIndexLabel() {
+    if (!liveCarouselIndex) return;
+    if (liveFrames.length === 0 || activeLiveFrameIndex < 0) {
+        liveCarouselIndex.textContent = "0 / 0";
+        return;
+    }
+    liveCarouselIndex.textContent = `${activeLiveFrameIndex + 1} / ${liveFrames.length}`;
+}
+
+function renderActiveLiveFrame() {
+    if (!annotatedImage) return;
+    if (activeLiveFrameIndex < 0 || activeLiveFrameIndex >= liveFrames.length) return;
+    const frame = liveFrames[activeLiveFrameIndex];
+    annotatedImage.src = `data:image/jpeg;base64,${frame.image}`;
+}
+
+function setActiveLiveFrame(index) {
+    if (!Number.isInteger(index)) return;
+    if (index < 0 || index >= liveFrames.length) return;
+    activeLiveFrameIndex = index;
+    renderActiveLiveFrame();
+    renderLiveCarousel();
+}
+
+function renderLiveCarousel() {
+    if (!liveCarouselTrack) return;
+    liveCarouselTrack.innerHTML = "";
+    if (liveFrames.length === 0) {
+        updateCarouselIndexLabel();
+        return;
+    }
+    liveFrames.forEach((frame, idx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `live-carousel-item ${idx === activeLiveFrameIndex ? "active" : ""}`;
+        btn.setAttribute("aria-label", `Frame ${idx + 1}`);
+        btn.addEventListener("click", () => setActiveLiveFrame(idx));
+
+        const img = document.createElement("img");
+        img.className = "live-carousel-thumb";
+        img.src = `data:image/jpeg;base64,${frame.image}`;
+        img.alt = `Recent frame ${idx + 1}`;
+        btn.appendChild(img);
+
+        const meta = document.createElement("div");
+        meta.className = "live-carousel-meta";
+        meta.textContent = formatFrameTimestamp(frame.timestamp);
+        btn.appendChild(meta);
+
+        liveCarouselTrack.appendChild(btn);
+    });
+    updateCarouselIndexLabel();
+}
+
+function pushLiveFrame(imageBase64, timestamp) {
+    if (typeof imageBase64 !== "string" || imageBase64.length === 0) return;
+    if (liveFrames.length > 0 && liveFrames[0].image === imageBase64) {
+        if (Number.isFinite(timestamp)) {
+            liveFrames[0].timestamp = timestamp;
+            renderLiveCarousel();
+        }
+        return;
+    }
+    liveFrames.unshift({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        image: imageBase64,
+        timestamp: Number.isFinite(timestamp) ? timestamp : Date.now() / 1000,
+    });
+    if (liveFrames.length > MAX_LIVE_FRAMES) {
+        liveFrames.length = MAX_LIVE_FRAMES;
+    }
+    activeLiveFrameIndex = 0;
+    renderActiveLiveFrame();
+    renderLiveCarousel();
+}
+
 function renderDetectionPayload(data) {
     renderDetections(data.objects, data.colors);
     renderMetrics(data.metrics);
-    if (data.image && annotatedImage) {
-        annotatedImage.src = `data:image/jpeg;base64,${data.image}`;
+    if (data.image) {
+        pushLiveFrame(data.image, data.timestamp);
     }
     if (window.PepperMemoryPanel) {
         window.PepperMemoryPanel.renderMemory(data.memory || {});
@@ -137,6 +226,26 @@ if (window.PepperSceneGraphPanel) {
 if (window.PepperConversationPanel) {
     window.PepperConversationPanel.init();
 }
+
+if (liveCarouselPrev) {
+    liveCarouselPrev.addEventListener("click", () => {
+        if (liveFrames.length === 0) return;
+        const next = activeLiveFrameIndex <= 0
+            ? liveFrames.length - 1
+            : activeLiveFrameIndex - 1;
+        setActiveLiveFrame(next);
+    });
+}
+if (liveCarouselNext) {
+    liveCarouselNext.addEventListener("click", () => {
+        if (liveFrames.length === 0) return;
+        const next = activeLiveFrameIndex >= liveFrames.length - 1
+            ? 0
+            : activeLiveFrameIndex + 1;
+        setActiveLiveFrame(next);
+    });
+}
+updateCarouselIndexLabel();
 
 loadLastState();
 if (window.PepperConversationPanel) {

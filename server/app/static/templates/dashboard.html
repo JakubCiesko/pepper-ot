@@ -166,6 +166,21 @@
                         <h2 class="text-lg font-semibold mb-3">Live Feed</h2>
                         <p class="text-xs panel-muted mb-3">Latest processed frame with active SoM overlays from the current pipeline configuration.</p>
                         <img id="annotated-image" class="w-full h-auto rounded-lg border panel-border" src="/static/pepper_icon.png" alt="Annotated Detection Image">
+                        <div id="live-carousel" class="mt-4">
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <h3 class="text-sm font-semibold">Recent Frames</h3>
+                                <div class="flex items-center gap-2">
+                                    <button id="live-carousel-prev" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Prev</button>
+                                    <span id="live-carousel-index" class="text-xs panel-muted">0 / 0</span>
+                                    <button id="live-carousel-next" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Next</button>
+                                </div>
+                            </div>
+                            <div
+                                id="live-carousel-track"
+                                class="live-carousel-track"
+                                aria-label="Recent detected frames carousel"
+                            ></div>
+                        </div>
                     </div>
 
                     <div class="xl:col-span-1 flex flex-col gap-6 h-full min-h-0">
