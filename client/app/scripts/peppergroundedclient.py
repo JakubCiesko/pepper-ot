@@ -9,21 +9,21 @@ import os
 
 import qi
 
-from pepper_client import config as client_config
-from pepper_client import speech_policy
-from pepper_client.camera_adapter import CameraAdapter, FakeCameraAdapter
-from pepper_client.face_adapter import FaceAdapter
-from pepper_client.metadata_builder import MetadataBuilder
-from pepper_client.people_adapter import PeopleAdapter
-from pepper_client.pose_adapter import PoseAdapter
-from pepper_client.robot_context import RobotContextCollector
-from pepper_client.session_store import SessionStore
-from pepper_client.social_adapter import SocialAdapter
-from pepper_client.sonar_adapter import SonarAdapter
-from pepper_client.speech_adapter import SpeechAdapter
-from pepper_client.tablet_adapter import TabletAdapter
-from pepper_client.transport import PepperServerTransport
-from pepper_client.turn_manager import TurnManager
+from pepper_client.utils import config as client_config
+from pepper_client.interaction import speech_policy
+from pepper_client.perception.camera_adapter import CameraAdapter, FakeCameraAdapter
+from pepper_client.perception.face_adapter import FaceAdapter
+from pepper_client.utils.metadata_builder import MetadataBuilder
+from pepper_client.perception.people_adapter import PeopleAdapter
+from pepper_client.perception.pose_adapter import PoseAdapter
+from pepper_client.perception.robot_context import RobotContextCollector
+from pepper_client.core.session_store import SessionStore
+from pepper_client.perception.social_adapter import SocialAdapter
+from pepper_client.perception.sonar_adapter import SonarAdapter
+from pepper_client.interaction.speech_adapter import SpeechAdapter
+from pepper_client.interaction.tablet_adapter import TabletAdapter
+from pepper_client.core.transport import PepperServerTransport
+from pepper_client.core.turn_manager import TurnManager
 import stk.logging
 import stk.runner
 import stk.services

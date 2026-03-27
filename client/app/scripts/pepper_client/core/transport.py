@@ -2,12 +2,12 @@ import json
 
 import requests
 
-from pepper_client import logging_utils
-from pepper_client import speech_policy
-from pepper_client.error_policy import ConfigUpdateError
-from pepper_client.error_policy import MalformedResponseError
-from pepper_client.error_policy import ServerTimeoutError
-from pepper_client.error_policy import ServerUnavailableError
+from pepper_client.utils import logging_utils
+from pepper_client.interaction import speech_policy
+from pepper_client.utils.error_policy import ConfigUpdateError
+from pepper_client.utils.error_policy import MalformedResponseError
+from pepper_client.utils.error_policy import ServerTimeoutError
+from pepper_client.utils.error_policy import ServerUnavailableError
 
 
 class PepperServerTransport(object):

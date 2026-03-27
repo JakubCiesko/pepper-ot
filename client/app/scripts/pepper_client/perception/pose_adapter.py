@@ -1,4 +1,4 @@
-from pepper_client import time_utils
+from pepper_client.utils import time_utils
 
 
 class PoseAdapter(object):

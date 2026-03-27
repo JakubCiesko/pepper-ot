@@ -1,14 +1,14 @@
 import threading
 
-from pepper_client import ids
-from pepper_client import scan_planner
-from pepper_client import speech_policy
-from pepper_client import time_utils
-from pepper_client.error_policy import CameraCaptureError
-from pepper_client.error_policy import MalformedResponseError
-from pepper_client.error_policy import ServerTimeoutError
-from pepper_client.error_policy import ServerUnavailableError
-from pepper_client.error_policy import fallback_message
+from pepper_client.utils import ids
+from pepper_client.perception import scan_planner
+from pepper_client.interaction import speech_policy
+from pepper_client.utils import time_utils
+from pepper_client.utils.error_policy import CameraCaptureError
+from pepper_client.utils.error_policy import MalformedResponseError
+from pepper_client.utils.error_policy import ServerTimeoutError
+from pepper_client.utils.error_policy import ServerUnavailableError
+from pepper_client.utils.error_policy import fallback_message
 
 
 class TurnManager(object):

@@ -3,7 +3,7 @@ import time
 
 from PIL import Image
 
-from pepper_client.error_policy import CameraCaptureError
+from pepper_client.utils.error_policy import CameraCaptureError
 
 
 class CameraAdapter(object):
