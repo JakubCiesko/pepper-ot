@@ -6,7 +6,7 @@ from PIL import Image
 from app.inference.memory.state_store import SceneMemoryStore
 from app.inference.tracking.associator import Associator
 from app.inference.tracking.embeddings import FeatureExtractor
-from app.inference.types import DetectionObject
+from app.inference.types import InferenceDetectionObject
 from app.inference.types import SceneGraph
 from app.schemas.config import AssociationConfig
 from app.schemas.config import FeatureExtractionConfig
@@ -86,10 +86,10 @@ class SceneMemory:
     def update(
         self,
         image: Image.Image,
-        detections: list[DetectionObject],
+        detections: list[InferenceDetectionObject],
         robot_metadata: RobotMetadata | None = None,
         fusion_config=None,
-    ) -> list[DetectionObject]:
+    ) -> list[InferenceDetectionObject]:
         """
         Main pipeline step:
         1. Extract embeddings

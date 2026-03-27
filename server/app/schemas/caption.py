@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 from uuid import uuid4
 
@@ -13,3 +14,26 @@ class CaptionResponse(BaseModel):
     detect_started: bool = False
     detect_request_id: str | None = None
     timestamp: float
+
+
+class CaptionFormRequest(BaseModel):
+    metadata: str | None = Field(
+        default=None,
+        description="JSON string with RobotMetadata payload",
+    )
+    prompt: str | None = Field(
+        default=None,
+        description="Optional prompt override for caption generation",
+    )
+    run_detect: bool = Field(
+        default=True,
+        description="Run full detect pipeline in background",
+    )
+    publish: bool = Field(
+        default=True,
+        description="Broadcast caption event to dashboard/ws",
+    )
+    language: Literal["default", "english", "czech"] | None = Field(
+        default=None,
+        description="Optional per-request output language override",
+    )

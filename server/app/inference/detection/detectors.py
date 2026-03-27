@@ -10,7 +10,7 @@ from transformers import Owlv2ForObjectDetection
 from transformers import Owlv2Processor
 from ultralytics.engine.model import Model
 
-from app.inference.types import DetectionObject
+from app.inference.types import InferenceDetectionObject
 
 
 class DetectionModelType(StrEnum):
@@ -42,7 +42,7 @@ class BaseDetector(ABC):
         pass
 
     @abstractmethod
-    def predict(self, image: Image.Image) -> list[DetectionObject]:
+    def predict(self, image: Image.Image) -> list[InferenceDetectionObject]:
         """
         Run inference on a single image.
 
@@ -50,7 +50,7 @@ class BaseDetector(ABC):
             image (PIL.Image.Image): The image to run detection on.
 
         Returns:
-            list[DetectionObject]: A list of DetectionObject instances.
+            list[InferenceDetectionObject]: A list of DetectionObject instances.
         """
         pass
 
@@ -83,11 +83,11 @@ class UltralyticsDetector(BaseDetector):
         self.model.fuse()
         self.model.eval()
 
-    def predict(self, image: Image.Image) -> list[DetectionObject]:
+    def predict(self, image: Image.Image) -> list[InferenceDetectionObject]:
         results = self.model.predict(image, device=self.device, verbose=False)
 
         detections = [
-            DetectionObject(
+            InferenceDetectionObject(
                 class_id=int(cls),
                 object_id=i,
                 label=self.model.names[int(cls)],
@@ -128,10 +128,10 @@ class RoboflowDetector(BaseDetector):
         self.model.__init__(device=value)
         self.model.optimize_for_inference()
 
-    def predict(self, image: Image.Image) -> list[DetectionObject]:
+    def predict(self, image: Image.Image) -> list[InferenceDetectionObject]:
         results = self.model.predict(image, threshold=self.threshold)
         detections = [
-            DetectionObject(
+            InferenceDetectionObject(
                 class_id=class_id,
                 object_id=i,
                 label=COCO_CLASSES.get(class_id),
@@ -207,7 +207,7 @@ class Owlv2Detector(BaseDetector):
 
     def predict(
         self, image: Image.Image, ontology: list[str] | None = None
-    ) -> list[DetectionObject]:
+    ) -> list[InferenceDetectionObject]:
         """
         Run OWL-ViT inference on an image using the cached or updated ontology.
 
@@ -216,7 +216,7 @@ class Owlv2Detector(BaseDetector):
             ontology (list[str] | None): Optional ontology override for this prediction.
 
         Returns:
-            list[DetectionObject]: List of detected objects with labels, confidence, and bounding boxes.
+            list[InferenceDetectionObject]: List of detected objects with labels, confidence, and bounding boxes.
         """
         # custom ontology
         if ontology is not None:
@@ -240,7 +240,7 @@ class Owlv2Detector(BaseDetector):
             text_labels=text_labels,
         )
         detections = [
-            DetectionObject(
+            InferenceDetectionObject(
                 class_id=text_labels[0].index(text_label),
                 object_id=i,
                 label=text_label,

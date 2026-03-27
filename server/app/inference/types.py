@@ -13,7 +13,7 @@ from pydantic import Field
 from app.schemas.robot import RobotMetadata
 
 
-class DetectionObject(BaseModel):
+class InferenceDetectionObject(BaseModel):
     class_id: int = Field(..., description="Class ID")
     label: str = Field(..., description="Object label")
     confidence: float = Field(..., description="Detection confidence")
@@ -42,7 +42,7 @@ class TrackedObject:
         """Returns (x_center, y_center)"""
         return ((self.bbox[0] + self.bbox[2]) / 2, (self.bbox[1] + self.bbox[3]) / 2)
 
-    def update(self, det: DetectionObject, embedding: np.ndarray):
+    def update(self, det: InferenceDetectionObject, embedding: np.ndarray):
         """Update state with new observation."""
         self.bbox = det.bbox
         self.confidence = det.confidence
@@ -224,7 +224,7 @@ class PipelineResult:
 
     raw_image: Image.Image
     som_image: np.ndarray | None  # The image with tags drawn on it
-    detections: list[DetectionObject]  # List of objects with persistent IDs
+    detections: list[InferenceDetectionObject]  # List of objects with persistent IDs
     scene_graph: SceneGraph | None  # The semantic relationships
     metrics: dict[str, Any]
     executed_stages: list[str] = field(default_factory=list)

@@ -7,7 +7,7 @@ import torch
 from transformers import AutoModel
 from transformers import CLIPImageProcessor
 
-from app.inference.types import DetectionObject
+from app.inference.types import InferenceDetectionObject
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class FeatureExtractor:
         self.model = self.model.to(self.device)
 
     def prepare_crops(
-        self, image: Image.Image, detections: list[DetectionObject]
+        self, image: Image.Image, detections: list[InferenceDetectionObject]
     ) -> list[Image.Image]:
         crops = []
         logger.info(
@@ -94,7 +94,9 @@ class FeatureExtractor:
         )
         return crops
 
-    def extract(self, image: Image.Image, detections: list[DetectionObject]) -> NDArray:
+    def extract(
+        self, image: Image.Image, detections: list[InferenceDetectionObject]
+    ) -> NDArray:
         """
         Crops the image based on detections and returns a batch of embeddings.
         Returns: (N, D) array where N=len(detections)

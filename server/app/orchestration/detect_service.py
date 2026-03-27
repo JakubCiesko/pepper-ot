@@ -15,9 +15,9 @@ from app.core.infra.ws_manager import ws_manager
 from app.core.runtime.state import AppState
 from app.orchestration.runtime_adapter import memory_payload
 from app.orchestration.runtime_adapter import resolve_runtime_adapter
+from app.schemas.detect import DetectionResponse
 from app.schemas.robot import PersonMetadata
 from app.schemas.robot import RobotMetadata
-from app.schemas.scene import DetectionResponse
 
 logger = logging.getLogger(__name__)
 

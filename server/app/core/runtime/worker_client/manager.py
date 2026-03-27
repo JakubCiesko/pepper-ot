@@ -27,7 +27,7 @@ class WorkerManager(WorkerMonitorMixin, WorkerProcessMixin, WorkerRPCMixin):
         self.config = config
         self._state = WorkerState.STOPPED
         self._process: asyncio.subprocess.Process | None = None
-        self._start_lock = asyncio.Lock()
+        self._lifecycle_lock = asyncio.Lock()
         self._startup_event = asyncio.Event()
         self._startup_waiters = 0
         self._inflight_count = 0
@@ -103,13 +103,14 @@ class WorkerManager(WorkerMonitorMixin, WorkerProcessMixin, WorkerRPCMixin):
         )
 
     async def hard_reload(self, config: AppConfig, version: int):
-        await self.update_config(config)
-        self._config_version = version
-        if not self.enabled:
-            await self.stop(StopReason.CONFIG_RELOAD)
-            return
-        logger.info("Applying hard reload marker version=%s", version)
-        await self.stop(StopReason.CONFIG_RELOAD)
+        async with self._lifecycle_lock:
+            await self.update_config(config)
+            self._config_version = version
+            if not self.enabled:
+                await self._stop_unlocked(StopReason.CONFIG_RELOAD)
+                return
+            logger.info("Applying hard reload marker version=%s", version)
+            await self._stop_unlocked(StopReason.CONFIG_RELOAD)
 
     async def warmup(self):
         logger.info("Worker warmup requested")

@@ -6,7 +6,7 @@ import torch
 
 from app.inference.detection.detectors import DetectionModelType
 from app.inference.detection.model_registry import DetectionModelRegistry
-from app.inference.types import DetectionObject
+from app.inference.types import InferenceDetectionObject
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class DetectionService:
             )
             self.model.set_ontology(ontology)
 
-    def detect(self, image: Image.Image) -> list[DetectionObject]:
+    def detect(self, image: Image.Image) -> list[InferenceDetectionObject]:
         """
         Run object detection on a single image.
 
@@ -107,10 +107,10 @@ class DetectionService:
             image (PIL.Image.Image): Image to run detection on.
 
         Returns:
-            list[DetectionObject]: List of detected objects with bounding boxes, labels, and confidence scores.
+            list[InferenceDetectionObject]: List of detected objects with bounding boxes, labels, and confidence scores.
         """
         logger.debug("Running DetectionService with backend: %s", self.backend)
         return self.model.predict(image)
 
-    def __call__(self, image: Image.Image) -> list[DetectionObject]:
+    def __call__(self, image: Image.Image) -> list[InferenceDetectionObject]:
         return self.detect(image)

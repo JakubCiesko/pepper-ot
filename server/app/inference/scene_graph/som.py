@@ -7,7 +7,7 @@ from numpy.typing import NDArray
 from PIL import Image
 import supervision as sv
 
-from app.inference.types import DetectionObject
+from app.inference.types import InferenceDetectionObject
 
 
 class SoMPainter:
@@ -53,7 +53,7 @@ class SoMPainter:
     def paint(
         self,
         image: NDArray | Image.Image,
-        detections: list[DetectionObject],
+        detections: list[InferenceDetectionObject],
         class_names: bool = False,
         bbox: bool = False,
         mask: bool = False,

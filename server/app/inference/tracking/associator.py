@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.optimize import linear_sum_assignment
 
-from app.inference.types import DetectionObject
+from app.inference.types import InferenceDetectionObject
 from app.inference.types import TrackedObject
 
 logger = logging.getLogger(__file__)
@@ -30,7 +30,7 @@ class Associator:
     def compute_cost(
         self,
         tracks: list[TrackedObject],
-        detections: list[DetectionObject],
+        detections: list[InferenceDetectionObject],
         embeddings: np.ndarray,
     ) -> NDArray:
         """
@@ -78,7 +78,7 @@ class Associator:
     def match(
         self,
         tracks: list[TrackedObject],
-        detections: list[DetectionObject],
+        detections: list[InferenceDetectionObject],
         embeddings: np.ndarray,
     ) -> tuple[list[tuple[int, int]], list[int], list[int]]:
         if not tracks:
@@ -99,8 +99,8 @@ class Associator:
         row_idx, col_idx = linear_sum_assignment(cost_matrix)
 
         matches: list[tuple[int, int]] = []
-        matched_tracks: set[TrackedObject] = set()
-        matched_dets: set[DetectionObject] = set()
+        matched_tracks: set[int] = set()
+        matched_dets: set[int] = set()
 
         logger.info(
             "Matching new detections and old tracked objects with distance (1-similarity) "
@@ -116,6 +116,9 @@ class Associator:
         unmatched_tracks = [i for i in range(len(tracks)) if i not in matched_tracks]
         unmatched_dets = [i for i in range(len(detections)) if i not in matched_dets]
         logger.info(
-            f"#{len(matches)} matches #{len(matches)} unmatched tracked objects #{len(matches)} unmatched detected objects"
+            "#matches=%d #unmatched tracked objects=%d #unmatched detected objects=%d",
+            len(matches),
+            len(unmatched_tracks),
+            len(unmatched_dets),
         )
         return matches, unmatched_tracks, unmatched_dets

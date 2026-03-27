@@ -237,7 +237,6 @@ class WorkerRuntimeConfig(BaseModel):
     )
     circuit_breaker_cooldown_seconds: int = Field(default=30, gt=0)
     auto_warmup_on_startup: bool = False
-    chat_in_worker: bool = False
 
     @model_validator(mode="after")
     def validate_restart_backoff_seconds(self):

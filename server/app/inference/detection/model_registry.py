@@ -30,7 +30,7 @@ class DetectionModelRegistry:
         REGISTRY (dict[DetectionModelType, str|None]): Maps model types to download URLs.
     """
 
-    MODELS_DIR = Path.cwd().parent.parent / "detection_models"
+    MODELS_DIR = Path(__file__).resolve().parents[3] / "detection_models"
 
     # Registry of models used in the project; can be expanded
     REGISTRY = {
@@ -51,7 +51,7 @@ class DetectionModelRegistry:
         Returns:
             Path: Path to the local model file.
         """
-        return cls.MODELS_DIR / cls.REGISTRY[model_name.value].split("/")[-1]
+        return cls.MODELS_DIR / cls.REGISTRY[model_name].split("/")[-1]
 
     @classmethod
     def ensure_model(cls, model_name: DetectionModelType) -> Path | None:

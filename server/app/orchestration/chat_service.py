@@ -74,7 +74,7 @@ class ChatService:
         conversation_history: list[tuple[str, str]] | None = None,
     ) -> str:
         system_prompt = await self.compose_prompt()
-        logger.info("Chat request received")
+        logger.debug("Chat request received")
         history_text = self._format_history(conversation_history)
         if history_text:
             user_prompt = (

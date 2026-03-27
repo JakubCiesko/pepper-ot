@@ -19,12 +19,15 @@ logger = logging.getLogger(__name__)
 
 
 class WorkerProcessMixin:
-    async def stop(self, reason: StopReason):
-        if self._process is None:
+    async def _stop_unlocked(self, reason: StopReason):
+
+        if self._process is None or self._state in {
+            WorkerState.STOPPED,
+            WorkerState.STOPPING,
+        }:
             self._state = WorkerState.STOPPED
             await self._cleanup_stream_tasks()
             return
-
         logger.info("Stopping worker process reason=%s", reason.value)
         self._state = WorkerState.STOPPING
         try:
@@ -52,6 +55,10 @@ class WorkerProcessMixin:
         self._process = None
         self._state = WorkerState.STOPPED
         self._started_at = None
+
+    async def stop(self, reason: StopReason):
+        async with self._lifecycle_lock:
+            await self._stop_unlocked(reason)
 
     async def _start_worker(self, reason: RestartReason):
         self._state = WorkerState.STARTING
@@ -131,7 +138,7 @@ class WorkerProcessMixin:
             self._last_error = str(exc)
             self._state = WorkerState.FAILED
             self._startup_event.set()
-            await self.stop(StopReason.FAILURE)
+            await self._stop_unlocked(StopReason.FAILURE)
             raise WorkerStartupTimeoutError(str(exc)) from exc
 
     async def _wait_until_healthy(self, timeout: float):

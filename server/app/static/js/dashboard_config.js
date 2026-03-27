@@ -58,7 +58,6 @@ const workerRestartWindow = document.getElementById("worker-restart-window");
 const workerRestartBackoff = document.getElementById("worker-restart-backoff");
 const workerCircuitBreakerCooldown = document.getElementById("worker-circuit-breaker-cooldown");
 const workerAutoWarmup = document.getElementById("worker-auto-warmup-on-startup");
-const workerChatInWorker = document.getElementById("worker-chat-in-worker");
 
 const memoryMaxDormantFrames = document.getElementById("memory-max-dormant-frames");
 const memoryAssocVisualWeight = document.getElementById("memory-assoc-visual-weight");
@@ -396,7 +395,6 @@ async function loadConfig() {
     workerRestartBackoff.value = (worker.restart_backoff_seconds || [1.0, 3.0, 10.0]).join(", ");
     workerCircuitBreakerCooldown.value = worker.circuit_breaker_cooldown_seconds ?? 30;
     workerAutoWarmup.checked = !!worker.auto_warmup_on_startup;
-    workerChatInWorker.checked = !!worker.chat_in_worker;
 
     const tracking = active.tracking || {};
     const assoc = tracking.association || {};
@@ -552,7 +550,7 @@ function buildPatch() {
             restart_backoff_seconds: parsedWorkerRestartBackoff,
             circuit_breaker_cooldown_seconds: parseInt(workerCircuitBreakerCooldown.value, 10) || 30,
             auto_warmup_on_startup: workerAutoWarmup.checked,
-            chat_in_worker: workerChatInWorker.checked,
+
         },
         pipeline_controls: {
             preset: pipelinePreset.value,

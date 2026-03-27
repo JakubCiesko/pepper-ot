@@ -1,8 +1,10 @@
 import logging
+from typing import Annotated
 
 from app.core.infra.ws_manager import ws_manager
 from app.core.runtime.state import app_state
 from app.orchestration.detect_service import DetectService
+from app.schemas.caption import CaptionFormRequest
 from app.schemas.caption import CaptionResponse
 from fastapi import APIRouter
 from fastapi import File
@@ -14,15 +16,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# TODO: create caption request?
+default_form = CaptionFormRequest()
+
+
 @router.post("/caption", response_model=CaptionResponse)
 async def caption_endpoint(
     file: UploadFile = File(...),
-    metadata: str | None = Form(None),
-    prompt: str | None = Form(None),
-    run_detect: bool = Form(True),
-    publish: bool = Form(True),
-    language: str | None = Form(None),
+    form: Annotated[CaptionFormRequest, Form()] = default_form,
 ):
     """
     Generate a caption for an uploaded image and optionally trigger background detection.
@@ -53,25 +53,24 @@ async def caption_endpoint(
         "Caption endpoint triggered with args filename=%s, "
         "metadata=%s, prompt=%s, run_detect=%s, publish=%s",
         file.filename,
-        metadata,
-        prompt,
-        run_detect,
-        publish,
+        form.metadata,
+        form.prompt,
+        form.run_detect,
+        form.publish,
     )
     image_bytes = await file.read()
-    # TODO: why create whole service?
-    detect_service = DetectService(app_state)
-    robot_metadata = detect_service.parse_metadata(metadata)
+
+    robot_metadata = DetectService.parse_metadata(form.metadata)
 
     result = await app_state.caption_service.caption_with_optional_detect(
         image_bytes,
         metadata=robot_metadata,
-        run_detect=run_detect,
-        publish=publish,
-        prompt_override=prompt,
-        language=language,
+        run_detect=form.run_detect,
+        publish=form.publish,
+        prompt_override=form.prompt,
+        language=form.language,
     )
     logger.info("Returning caption: %s", result)
-    if publish:
+    if form.publish:
         await ws_manager.broadcast({"type": "caption", "text": result["caption"]})
     return CaptionResponse(**result)

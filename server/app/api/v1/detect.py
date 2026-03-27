@@ -1,8 +1,10 @@
 import logging
+from typing import Annotated
 
 from app.core.runtime.state import app_state
 from app.orchestration.detect_service import DetectService
-from app.schemas.scene import DetectionResponse
+from app.schemas.detect import DetectFormRequest
+from app.schemas.detect import DetectionResponse
 from fastapi import APIRouter
 from fastapi import File
 from fastapi import Form
@@ -11,12 +13,13 @@ from fastapi import UploadFile
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+default_form = DetectFormRequest()
+
 
 @router.post("/detect", response_model=DetectionResponse)
 async def detect_endpoint(
     file: UploadFile = File(...),
-    metadata: str | None = Form(None),
-    publish: bool = Form(True),
+    form: Annotated[DetectFormRequest, Form()] = default_form,
 ):
     """
     Run the perception pipeline on an uploaded image and return detected objects.
@@ -47,13 +50,13 @@ async def detect_endpoint(
     logger.info(
         "Detection endpoint called with file=%s, metadata=%s, publish=%s",
         file.filename,
-        metadata,
-        publish,
+        form.metadata,
+        form.publish,
     )
     image_bytes = await file.read()
     service = DetectService(app_state)
-    robot_metadata = service.parse_metadata(metadata)
+    robot_metadata = service.parse_metadata(form.metadata)
     logger.info("Running detection with received robot metadata: %s", robot_metadata)
-    response = await service.process(image_bytes, robot_metadata, publish)
+    response = await service.process(image_bytes, robot_metadata, form.publish)
     logger.info("Detection endpoint completed: %s", response.id)
     return response

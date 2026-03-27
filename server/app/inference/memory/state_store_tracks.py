@@ -1,6 +1,6 @@
 import time
 
-from app.inference.types import DetectionObject
+from app.inference.types import InferenceDetectionObject
 from app.inference.types import TrackedObject
 
 
@@ -37,7 +37,7 @@ class SceneMemoryStoreTracksMixin:
         self.relations_state.clear()
         self.next_id = 1
 
-    def create_track(self, det: DetectionObject, embedding) -> int:
+    def create_track(self, det: InferenceDetectionObject, embedding) -> int:
         object_id = self.next_id
         self.tracks[object_id] = TrackedObject(
             id=object_id,

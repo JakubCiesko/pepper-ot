@@ -73,6 +73,16 @@ class CaptionService:
         language: str | None = None,
     ) -> str:
         prompt = self._final_user_prompt(prompt_override)
+        output_language = (
+            language
+            if language is not None
+            else (
+                self.state.config.system.get("output_language")
+                if self.state.config is not None
+                and isinstance(self.state.config.system, dict)
+                else None
+            )
+        )
         if (
             self.state.config is not None
             and self.state.config.worker.enabled
@@ -87,26 +97,10 @@ class CaptionService:
                 },
             )
             text = str(payload.get("caption", "")).strip()
-            output_language = (
-                language
-                if language is not None
-                else (
-                    self.state.config.system.get("output_language")
-                    if self.state.config is not None
-                    and isinstance(self.state.config.system, dict)
-                    else None
-                )
-            )
             return await enforce_output_language(text, output_language)
         self._ensure_client()
         assert self.client is not None
         text = await self.client.infer(self.system_prompt, prompt, image_bytes)
-        output_language = (
-            self.state.config.system.get("output_language")
-            if self.state.config is not None
-            and isinstance(self.state.config.system, dict)
-            else None
-        )
         return await enforce_output_language(text, output_language)
 
     async def caption_with_optional_detect(

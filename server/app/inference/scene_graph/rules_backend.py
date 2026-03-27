@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import math
 
-from app.inference.types import DetectionObject
+from app.inference.types import InferenceDetectionObject
 from app.inference.types import SceneGraph
 from app.inference.types import SceneGraphEdge
 from app.schemas.config import SGGRule
@@ -12,7 +12,7 @@ from app.schemas.config import SGGRulesConfig
 class RuleBasedSceneGraphBackend:
     rules_config: SGGRulesConfig
 
-    def generate(self, detections: list[DetectionObject]) -> SceneGraph:
+    def generate(self, detections: list[InferenceDetectionObject]) -> SceneGraph:
         if not self.rules_config.enabled:
             return SceneGraph()
         dets = [d for d in detections if d.object_id is not None]
@@ -28,7 +28,7 @@ class RuleBasedSceneGraphBackend:
     def _apply_rule(
         self,
         rule: SGGRule,
-        dets: list[DetectionObject],
+        dets: list[InferenceDetectionObject],
         centers: dict[int, tuple[float, float]],
     ) -> list[SceneGraphEdge]:
         edges: list[SceneGraphEdge] = []
@@ -51,8 +51,8 @@ class RuleBasedSceneGraphBackend:
     def _match(
         self,
         rule: SGGRule,
-        sub: DetectionObject,
-        obj: DetectionObject,
+        sub: InferenceDetectionObject,
+        obj: InferenceDetectionObject,
         centers: dict[int, tuple[float, float]],
     ) -> bool:
         sx, sy = centers[sub.object_id]

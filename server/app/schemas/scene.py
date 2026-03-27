@@ -1,25 +1,5 @@
-from uuid import UUID
-from uuid import uuid4
-
 from pydantic import BaseModel
 from pydantic import Field
-
-
-class DetectionObject(BaseModel):
-    label: str = Field(..., description="Object label")
-    confidence: float = Field(..., description="Detection confidence")
-    bbox: list[float] = Field(..., description="[x1, y1, x2, y2]")
-    object_id: int | None = Field(None, description="Persistent tracking ID")
-
-
-class DetectionResponse(BaseModel):
-    id: UUID | str | int | None = Field(
-        default_factory=uuid4, description="Persistent Detection Response ID"
-    )
-    objects: list[DetectionObject] | list[dict]
-    timestamp: float
-    image_width: int
-    image_height: int
 
 
 # This serves for structured output for openai and gemini

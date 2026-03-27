@@ -2,7 +2,7 @@ import time
 
 from PIL import Image
 
-from app.inference.types import DetectionObject
+from app.inference.types import InferenceDetectionObject
 from app.schemas.robot import RobotMetadata
 from app.schemas.scene import TrackedObjectState
 
@@ -66,7 +66,7 @@ class SceneMemoryStoreObjectsMixin:
 
     def update_objects_from_detections(
         self,
-        detections: list[DetectionObject],
+        detections: list[InferenceDetectionObject],
         robot_metadata: RobotMetadata | None,
         image: Image.Image,
     ):

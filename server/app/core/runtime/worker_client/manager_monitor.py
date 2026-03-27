@@ -62,7 +62,7 @@ class WorkerMonitorMixin:
             finally:
                 self._startup_waiters = max(0, self._startup_waiters - 1)
 
-        async with self._start_lock:
+        async with self._lifecycle_lock:
             if self._process and self._state in {WorkerState.READY, WorkerState.BUSY}:
                 return
             await self._start_worker(reason)

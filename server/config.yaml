@@ -242,7 +242,6 @@ worker:
   restart_backoff_seconds: [1.0, 3.0, 10.0]
   circuit_breaker_cooldown_seconds: 30
   auto_warmup_on_startup: true
-  chat_in_worker: false
 
 pipeline_controls:
   preset: "full"

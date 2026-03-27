@@ -5,6 +5,7 @@ from pathlib import Path
 from app.core.infra.storage import load_last_state
 from app.core.pipeline_factory import build_perception_pipeline
 from app.core.runtime.worker_client.manager import WorkerManager
+from app.core.runtime.worker_client.types import RestartReason
 from app.core.runtime.worker_client.types import StopReason
 from app.inference.memory.chat_memory_proxy import EmptyChatMemory
 from app.inference.memory.chat_memory_proxy import WorkerChatMemoryProxy
@@ -39,7 +40,11 @@ class AppState:
         logger.info("Loading App State config from %s", pth)
         self.config = AppConfig.load(pth)
         self.config_version = 0
-        logger.info("Loaded config")
+        logger.debug(
+            "Config loaded from %s. Config: %s",
+            pth,
+            self.config.model_dump() if self.config else None,
+        )
         if self.config.storage.persist_last_state:
             base_dir = (
                 self.config._config_path.parent
@@ -70,6 +75,7 @@ class AppState:
         base_dir = self._resolve_base_dir()
         self._initialize_chat_components(base_dir)
         self._initialize_caption_component(base_dir)
+        await self._finalize_worker_startup()
 
     def _resolve_base_dir(self) -> Path:
         assert self.config is not None
@@ -157,8 +163,20 @@ class AppState:
             self.config.caption,
             system_prompt=caption_system_prompt,
             user_prompt=caption_user_prompt,
-            rebuild_client=True,
+            rebuild_client=not self.config.worker.enabled,
         )
+
+    async def _finalize_worker_startup(self):
+        if (
+            self.config is not None
+            and self.config.worker.enabled
+            and self.config.worker.auto_warmup_on_startup
+            and self.worker_manager is not None
+        ):
+            logger.info(
+                "Automatically warming up the worker at startup because of config.worker.auto_warmup_on_startup"
+            )
+            await self.worker_manager.ensure_started(RestartReason.MANUAL_WARMUP)
 
 
 app_state = AppState()

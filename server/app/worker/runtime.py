@@ -121,7 +121,11 @@ class WorkerRuntime:
             image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
             result = await self.pipeline.process(image, robot_metadata)
             som = result.som_image if result.som_image is not None else np.array(image)
-            som_pil = Image.fromarray(som.astype("uint8"))
+            som_pil = (
+                Image.fromarray(som.astype("uint8"))
+                if not isinstance(som, Image.Image)
+                else som
+            )
             buf = io.BytesIO()
             som_pil.save(buf, format="JPEG")
             image_out = base64.b64encode(buf.getvalue()).decode("utf-8")

@@ -5,7 +5,7 @@ from PIL import Image
 
 from app.inference.scene_graph.rules_backend import RuleBasedSceneGraphBackend
 from app.inference.scene_graph.vlm_backend import VLMSceneGraphBackend
-from app.inference.types import DetectionObject
+from app.inference.types import InferenceDetectionObject
 from app.inference.types import SceneGraph
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class SceneGraphService:
 
     async def generate(
         self,
-        detections: list[DetectionObject],
+        detections: list[InferenceDetectionObject],
         *,
         som_image=None,
         raw_image: Image.Image | None = None,

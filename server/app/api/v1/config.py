@@ -177,7 +177,6 @@ async def download_config(source: str | None = None):
     else:
         cfg = app_state.config or config_manager.load_config()
 
-    # TODO: HIDE API KEYS IF PRESENT! but they are only passed as env vars...
     yaml_text = config_manager.dump_config_yaml(cfg)
     filename = "config_saved.yaml" if source == "saved" else "config.yaml"
     logger.info("User downloading config from source=%s", source)

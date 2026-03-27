@@ -2,14 +2,14 @@ import math
 
 from PIL import Image
 
-from app.inference.types import DetectionObject
+from app.inference.types import InferenceDetectionObject
 from app.schemas.robot import RobotMetadata
 
 
 class SceneMemoryStoreGeometryMixin:
     @staticmethod
     def compute_bearing(
-        det: DetectionObject,
+        det: InferenceDetectionObject,
         robot_metadata: RobotMetadata | None,
         image: Image.Image,
     ) -> tuple[float, float] | None:
@@ -34,11 +34,11 @@ class SceneMemoryStoreGeometryMixin:
 
     def fuse_people_perception(
         self,
-        detections: list[DetectionObject],
+        detections: list[InferenceDetectionObject],
         robot_metadata: RobotMetadata | None,
         image: Image.Image,
         fusion_config,
-    ) -> list[DetectionObject]:
+    ) -> list[InferenceDetectionObject]:
         if robot_metadata is None or not robot_metadata.people:
             return detections
 
@@ -96,7 +96,7 @@ class SceneMemoryStoreGeometryMixin:
             if x2 <= x1 or y2 <= y1:
                 continue
 
-            det = DetectionObject(
+            det = InferenceDetectionObject(
                 class_id=-1,
                 label="person",
                 confidence=1.0,
