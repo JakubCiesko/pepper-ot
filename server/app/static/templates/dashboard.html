@@ -44,8 +44,8 @@
                 </button>
                 <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-scene">
                     <span class="w-2 h-2 rounded-full" style="background: var(--panel-accent-3);"></span>
-                    <span class="sidebar-label">Scene Representation</span>
-                    <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Scene Representation</span>
+                    <span class="sidebar-label">Scene Representation - Scene Graph</span>
+                    <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Scene Representation - Scene Graph</span>
                 </button>
                 <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-memory-settings">
                     <span class="w-2 h-2 rounded-full" style="background: #0ea5e9;"></span>
@@ -311,7 +311,7 @@
 
             <section id="page-scene" class="page-panel mt-8 hidden">
                 <div class="panel border rounded-xl p-5">
-                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Scene Representation</h3>
+                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Scene Representation - Scene Graph</h3>
                     <label class="block text-sm">System Prompt</label>
                     <p class="text-xs panel-muted mt-1">Global instructions for VLM scene-graph generation, used on every frame in VLM/Hybrid mode.</p>
                     <textarea id="vlm-system" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
@@ -396,8 +396,13 @@
                     <p class="text-xs panel-muted mt-1">Rule-based scene graph configuration used in Rules and Hybrid modes (predicate type, thresholds, constraints).</p>
                     <textarea id="sgg-rules-json" rows="10" class="w-full border rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>
 
-                    <div class="mt-8 border-t panel-border pt-6">
-                        <h4 class="text-sm uppercase tracking-widest panel-muted mb-4">Visualization</h4>
+
+                </div>
+                <br>
+                <div class="panel border rounded-xl p-5">
+
+
+                        <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Visualization - SoM Prompting</h3>
                         <div class="grid grid-cols-2 gap-3 text-sm">
                             <label class="flex items-center gap-2"><input id="vis-bbox" type="checkbox">BBox</label>
                             <label class="flex items-center gap-2"><input id="vis-mask" type="checkbox">Mask</label>
@@ -418,7 +423,7 @@
                             <option value="track">Track</option>
                         </select>
                         <p class="text-xs panel-muted mt-1">Color mapping strategy: by detection order, class, or track id.</p>
-                    </div>
+
                 </div>
             </section>
 
