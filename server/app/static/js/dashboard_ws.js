@@ -298,6 +298,18 @@ function goToNextFrame() {
     setActiveLiveFrame(next);
 }
 
+function getActiveFrameSnapshot() {
+    if (activeLiveFrameIndex < 0 || activeLiveFrameIndex >= liveFrames.length) {
+        return null;
+    }
+    const frame = liveFrames[activeLiveFrameIndex];
+    return frame ? { ...frame } : null;
+}
+
+window.PepperLiveFeed = {
+    getActiveFrameSnapshot,
+};
+
 if (window.PepperMemoryPanel) {
     window.PepperMemoryPanel.init();
 }

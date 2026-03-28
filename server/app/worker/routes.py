@@ -105,6 +105,26 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         logger.info("Worker internal caption requested")
         return await runtime.caption(image_b64, prompt_override=prompt)
 
+    @router.post("/internal/vision_chat")
+    async def vision_chat(request: dict[str, Any]):
+        image_b64 = request.get("image_b64")
+        user_prompt = request.get("user_prompt")
+        system_prompt = request.get("system_prompt")
+        if not isinstance(image_b64, str) or not image_b64:
+            raise HTTPException(status_code=400, detail="image_b64 is required")
+        if not isinstance(user_prompt, str) or not user_prompt.strip():
+            raise HTTPException(status_code=400, detail="user_prompt is required")
+        if system_prompt is not None and not isinstance(system_prompt, str):
+            raise HTTPException(status_code=400, detail="system_prompt must be string")
+        logger.info("Worker internal vision_chat requested")
+        return await runtime.vision_chat(
+            image_b64,
+            user_prompt=user_prompt.strip(),
+            system_prompt=(
+                system_prompt.strip() if isinstance(system_prompt, str) else None
+            ),
+        )
+
     @router.post("/internal/shutdown")
     async def shutdown(_request: dict[str, Any]):
         loop = __import__("asyncio").get_running_loop()

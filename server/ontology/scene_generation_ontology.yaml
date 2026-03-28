@@ -6,7 +6,7 @@ predicates:
     - behind
     - above
     - below
-    - on
+    - "on"
     - under
     - inside
     - near

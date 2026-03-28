@@ -107,6 +107,15 @@ class PromptSource(BaseModel):
             return data.strip()
         return (self.text or "").strip()
 
+    def strip(self):
+        return self.text.strip() if self.text else ""
+
+    def __str__(self):
+        return self.text if self.text else ""
+
+    def __repr__(self):
+        return self.text if self.text else ""
+
 
 # TODO: use this in object detection
 class OntologySource(BaseModel):

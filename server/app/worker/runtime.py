@@ -183,6 +183,37 @@ class WorkerRuntime:
             "config_version": self.config_version,
         }
 
+    async def vision_chat(
+        self,
+        image_b64: str,
+        user_prompt: str,
+        system_prompt: str | None = None,
+    ) -> dict[str, Any]:
+        await self.ensure_pipeline()
+        image_bytes = base64.b64decode(image_b64)
+        backend = self.pipeline.scene_graph_service.vlm_backend
+        # I USE LLM PROMPT!
+        system = (
+            system_prompt
+            if system_prompt is not None
+            else self.config.chat.system_prompt
+        )
+        text, _parsed = await backend.client.infer(
+            system,
+            user_prompt,
+            image_bytes,
+            output_schema=None,
+        )
+        self.last_active = time.time()
+        return {
+            "ok": True,
+            "answer": text,
+            "provider": backend.config.provider,
+            "model_id": backend.config.model_id,
+            "worker_state": WorkerState.READY,
+            "config_version": self.config_version,
+        }
+
     async def scene_state(self) -> SceneState:
         await self.ensure_pipeline()
         return self.pipeline.memory.scene_state()

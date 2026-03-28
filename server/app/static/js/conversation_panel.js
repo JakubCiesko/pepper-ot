@@ -5,6 +5,9 @@
     const conversationNew = document.getElementById("conversation-new");
     const conversationStatus = document.getElementById("conversation-status");
     const conversationChatId = document.getElementById("conversation-chat-id");
+    const conversationRouteSelect = document.getElementById(
+        "conversation-route-select"
+    );
 
     let activeChatId = null;
 
@@ -17,6 +20,21 @@
     function updateChatIdLabel() {
         if (!conversationChatId) return;
         conversationChatId.textContent = activeChatId ? `chat_id: ${activeChatId}` : "";
+    }
+
+    function selectedRoute() {
+        const value = conversationRouteSelect?.value || "chat";
+        return value === "vision_chat" ? "vision_chat" : "chat";
+    }
+
+    function base64ToBlob(base64, mimeType = "image/jpeg") {
+        const binary = atob(base64);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return new Blob([bytes], { type: mimeType });
     }
 
     function appendConversationMessage(message) {
@@ -61,29 +79,65 @@
         const original = conversationSend.textContent;
         conversationSend.textContent = "Sending...";
         try {
-            const res = await fetch("/api/v1/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    query,
-                    chat_id: activeChatId,
-                }),
-            });
-            if (!res.ok) {
-                let detail = "Failed to send message";
-                try {
-                    const body = await res.json();
-                    detail = body.detail || detail;
-                } catch {
-                    // ignore
+            const route = selectedRoute();
+            if (route === "chat") {
+                const res = await fetch("/api/v1/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        query,
+                        chat_id: activeChatId,
+                    }),
+                });
+                if (!res.ok) {
+                    let detail = "Failed to send message";
+                    try {
+                        const body = await res.json();
+                        detail = body.detail || detail;
+                    } catch {
+                        // ignore
+                    }
+                    throw new Error(detail);
                 }
-                throw new Error(detail);
+                const payload = await res.json();
+                activeChatId = payload.chat_id || activeChatId;
+                updateChatIdLabel();
+                conversationInput.value = "";
+                setConversationStatus("Message sent via /api/v1/chat");
+            } else {
+                const frame = window.PepperLiveFeed?.getActiveFrameSnapshot?.() || null;
+                if (!frame || !frame.image) {
+                    throw new Error(
+                        "No active frame image available. Run detect first."
+                    );
+                }
+                appendConversationMessage({ role: "user", text: query });
+                const imageBlob = base64ToBlob(frame.image, "image/jpeg");
+                const form = new FormData();
+                form.append("file", imageBlob, "live_frame.jpg");
+                form.append("query", query);
+                const res = await fetch("/api/v1/vision_chat", {
+                    method: "POST",
+                    body: form,
+                });
+                if (!res.ok) {
+                    let detail = "Failed to send vision chat message";
+                    try {
+                        const body = await res.json();
+                        detail = body.detail || detail;
+                    } catch {
+                        // ignore
+                    }
+                    throw new Error(detail);
+                }
+                const payload = await res.json();
+                appendConversationMessage({
+                    role: "assistant",
+                    text: payload.answer || "",
+                });
+                conversationInput.value = "";
+                setConversationStatus("Message sent via /api/v1/vision_chat");
             }
-            const payload = await res.json();
-            activeChatId = payload.chat_id || activeChatId;
-            updateChatIdLabel();
-            conversationInput.value = "";
-            setConversationStatus("Message sent");
         } catch (err) {
             setConversationStatus(err.message || "Failed to send message", false);
         } finally {
@@ -145,6 +199,20 @@
         if (conversationNew) {
             conversationNew.addEventListener("click", () => {
                 startNewConversation();
+            });
+        }
+        if (conversationRouteSelect) {
+            conversationRouteSelect.addEventListener("change", () => {
+                const route = selectedRoute();
+                if (route === "vision_chat") {
+                    setConversationStatus(
+                        "Vision chat mode enabled. Replies come from /api/v1/vision_chat."
+                    );
+                } else {
+                    setConversationStatus(
+                        "Chat mode enabled. Replies come from /api/v1/chat."
+                    );
+                }
             });
         }
         updateChatIdLabel();

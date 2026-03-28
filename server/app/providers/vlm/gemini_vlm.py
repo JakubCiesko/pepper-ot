@@ -54,7 +54,8 @@ class GeminiVLMClient(BaseVLMClient):
         )
 
         generation_config = kwargs.pop("generate_content_config", {})
-        generation_config.setdefault("system_instruction", system_prompt)
+        if system_prompt and system_prompt.strip():
+            generation_config.setdefault("system_instruction", system_prompt.strip())
         if mode == "provider_native" and output_schema is not None:
             schema_dict = schema_to_json_schema(output_schema)
             if schema_dict is not None:

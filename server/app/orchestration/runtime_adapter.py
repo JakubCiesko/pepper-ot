@@ -60,6 +60,29 @@ class LocalRuntimeAdapter:
             "config_version": self.state.config_version,
         }
 
+    async def vision_chat(
+        self,
+        image_bytes: bytes,
+        user_prompt: str,
+        system_prompt: str | None = None,
+    ) -> dict[str, Any]:
+        if self.state.pipeline is None:
+            raise RuntimeError("Pipeline not initialized")
+        backend = self.state.pipeline.scene_graph_service.vlm_backend
+        system = system_prompt if system_prompt is not None else backend.system_prompt
+        text, _parsed = await backend.client.infer(
+            system,
+            user_prompt,
+            image_bytes,
+            output_schema=None,
+        )
+        return {
+            "ok": True,
+            "answer": text,
+            "provider": backend.config.provider,
+            "model_id": backend.config.model_id,
+        }
+
     def _memory(self):
         if self.state.pipeline is None or self.state.pipeline.memory is None:
             raise RuntimeError("Memory not initialized")
@@ -108,6 +131,23 @@ class WorkerRuntimeAdapter:
         self, image_bytes: bytes, metadata: RobotMetadata
     ) -> dict[str, Any]:
         return await self.worker_manager.detect(image_bytes, metadata)
+
+    async def vision_chat(
+        self,
+        image_bytes: bytes,
+        user_prompt: str,
+        system_prompt: str | None = None,
+    ) -> dict[str, Any]:
+        payload = await self.worker_manager.request(
+            "POST",
+            "/internal/vision_chat",
+            json={
+                "image_b64": base64.b64encode(image_bytes).decode("utf-8"),
+                "user_prompt": user_prompt,
+                "system_prompt": system_prompt,
+            },
+        )
+        return payload
 
     async def scene_state(self) -> SceneState:
         payload = await self.worker_manager.request("GET", "/internal/memory")

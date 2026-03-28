@@ -186,6 +186,11 @@
                     <div class="xl:col-span-1 flex flex-col gap-6 h-full min-h-0">
                         <div class="panel border rounded-xl p-5 flex flex-col min-h-0">
                             <h2 class="text-lg font-semibold mb-3">Pepper Conversation</h2>
+                            <label class="block text-xs panel-muted mb-1">Conversation Endpoint</label>
+                            <select id="conversation-route-select" class="w-full border rounded px-3 py-2 mb-3">
+                                <option value="chat">/api/v1/chat (memory-grounded)</option>
+                                <option value="vision_chat">/api/v1/vision_chat (image-direct)</option>
+                            </select>
                             <label class="block text-xs panel-muted mb-1">Output Language Enforcement</label>
                             <select id="output-language-select" class="w-full border rounded px-3 py-2 mb-3">
                                 <option value="default">Default (no enforcement)</option>
