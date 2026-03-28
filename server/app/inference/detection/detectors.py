@@ -172,7 +172,7 @@ class Owlv2Detector(BaseDetector):
         self.model_path = model_path or default_path
         self.model = Owlv2ForObjectDetection.from_pretrained(self.model_path).to(device)
         self.processor = Owlv2Processor.from_pretrained(
-            self.processor_path, use_fast=True
+            self.processor_path, backend="torchvision"  # use_fast=True
         )
         self._device = device
         self.threshold = threshold

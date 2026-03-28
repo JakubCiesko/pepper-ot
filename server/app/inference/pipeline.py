@@ -27,6 +27,7 @@ async def timer(step_name: str, metrics: dict[str, float]):
     logger.info("%s took %f seconds", step_name, duration)
 
 
+# TODO: add caption as part of this, time it, run it for every image, make it browsable, and pass it as context, part of memory
 class PerceptionPipeline:
     def __init__(
         self,

@@ -29,7 +29,7 @@ class LocalBLIPCaptionClient:
             model_kwargs.setdefault("dtype", torch.float16)
 
         self.processor = BlipProcessor.from_pretrained(
-            config.model_id, **processor_kwargs, use_fast=True
+            config.model_id, **processor_kwargs, backend="torchvision"  # use_fast=True
         )
         self.model = BlipForConditionalGeneration.from_pretrained(
             config.model_id, **model_kwargs

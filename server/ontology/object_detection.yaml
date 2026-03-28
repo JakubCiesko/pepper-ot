@@ -1,17 +1,57 @@
 objects:
-  - cat
-  - floor tile
-  - hairstyle
+  # Agents & Apparel
+  - person
+  - robot
   - glasses
+  - hat
+  - jacket
+  - shirt
+  - pants
+  - shoes
+  - backpack
+  - handbag
+  - suitcase
+  - bag
+  - fruit
+  - food
+  - animal
+  - book
+  - scissors
+
+  # Core Furniture & Environmental Structure
+  - desk
+  - office chair
+  - storage cabinet
+  - shelving unit
+  - table
+  - sofa
+  - trash can
   - door
   - window
-  - floor
-  - sneakers
-  - running boots
-  - jacket
-  - black cat
-  - person
-  - chair
-  - table
-  - computer
-  - monitor
+
+  # IT & Workstation Hardware
+  - computer monitor
+  - keyboard
+  - computer mouse
+  - desktop tower
+  - laptop
+  - headphones
+  - power strip
+
+  # Specialized Office & Lab Equipment
+  - lab equipment
+  - projector screen
+  - whiteboard
+
+  # Common Clutter & Interaction Objects
+  - storage bin
+  - document
+  - drinking bottle
+  - coffee mug
+  - cable bundle
+  - cardboard box
+  - potted plant
+  - pen
+  - mobile phone
+  - wall clock
+  - sink

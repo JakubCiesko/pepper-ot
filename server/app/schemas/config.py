@@ -37,7 +37,7 @@ class DetectionConfig(BaseModel):
 
 
 class StructuredOutputConfig(BaseModel):
-    mode: Literal["provider_native", "parse_output"] = "parse_output"
+    mode: Literal["provider_native", "parse_output", "instructor"] = "parse_output"
     strict: bool = True
 
 

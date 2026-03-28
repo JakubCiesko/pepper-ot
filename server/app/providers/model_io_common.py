@@ -5,11 +5,12 @@ from typing import Literal
 
 from pydantic import TypeAdapter
 
+from app.core.config.llm_contracts import provider_capability_matrix
 from app.schemas.config import LLMConfig
 
 logger = logging.getLogger(__name__)
 
-StructuredMode = Literal["provider_native", "parse_output"]
+StructuredMode = Literal["provider_native", "parse_output", "instructor"]
 
 
 def extract_text_content(content: Any) -> str:
@@ -79,10 +80,41 @@ def resolve_structured_mode(
 ) -> StructuredMode:
     if output_schema is None:
         return "parse_output"
-    mode = config.structured_output.mode
-    if mode == "provider_native" and not supports_native_structured:
+
+    capability_matrix = provider_capability_matrix().get(
+        "structured_output_support", {}
+    )
+    provider_key = str(config.provider)
+    provider_caps = capability_matrix.get(provider_key, {})
+
+    supports_native_from_matrix = bool(provider_caps.get("provider_native", False))
+    supports_instructor_from_matrix = bool(provider_caps.get("instructor", False))
+
+    # Keep this parameter for compatibility at call sites; matrix remains source of truth.
+    if (
+        supports_native_structured != supports_native_from_matrix
+        and provider_key in capability_matrix
+    ):
         logger.warning(
-            "Structured mode provider_native requested for provider=%s but not supported; using parse_output",
+            "Structured native support mismatch provider=%s provider_name=%s callsite=%s matrix=%s; using matrix",
+            provider_key,
+            provider_name,
+            supports_native_structured,
+            supports_native_from_matrix,
+        )
+
+    mode = config.structured_output.mode
+    if mode == "provider_native" and not supports_native_from_matrix:
+        logger.warning(
+            "Structured mode provider_native requested for provider=%s provider_name=%s but not supported; using parse_output",
+            provider_key,
+            provider_name,
+        )
+        return "parse_output"
+    if mode == "instructor" and not supports_instructor_from_matrix:
+        logger.warning(
+            "Structured mode instructor requested for provider=%s provider_name=%s but not supported; using parse_output",
+            provider_key,
             provider_name,
         )
         return "parse_output"

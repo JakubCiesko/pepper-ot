@@ -4,6 +4,7 @@ import base64
 import logging
 from typing import Any
 
+import instructor
 from openai import AsyncOpenAI
 
 from app.core.config.llm_contracts import normalize_call_kwargs
@@ -28,6 +29,9 @@ class OpenAIVLMClient(BaseVLMClient):
     ):
         self.config = config
         self.client = AsyncOpenAI(**(client_kwargs or {}))
+        self.instructor_client = instructor.from_openai(
+            self.client, mode=instructor.Mode.TOOLS
+        )
         self.supports_native_structured = supports_native_structured
         logger.info(
             "OpenAIVLMClient initialized provider=%s model=%s",
@@ -96,25 +100,58 @@ class OpenAIVLMClient(BaseVLMClient):
                     self.config.model_id,
                     exc,
                 )
+                logger.info(
+                    "Changing VLM structured output mode to instructor as fallback"
+                )
+                # let's try instructor
+                mode = "instructor"
 
+        standard_messages = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{encoded}"},
+                    },
+                ],
+            },
+        ]
+        if mode == "instructor" and output_schema is not None:
+            try:
+                parsed_instructor = (
+                    await self.instructor_client.chat.completions.create(
+                        model=self.config.model_id,
+                        messages=standard_messages,
+                        response_model=output_schema,
+                        **kwargs,
+                    )
+                )
+                text_fallback = (
+                    parsed_instructor.model_dump_json()
+                    if hasattr(parsed_instructor, "model_dump_json")
+                    else str(parsed_instructor)
+                )
+                return text_fallback, parsed_instructor
+            except Exception as exc:
+                logger.warning(
+                    "Instructor VLM structured call failed, falling back to parse_output provider=%s model=%s error=%s",
+                    self.config.provider,
+                    self.config.model_id,
+                    exc,
+                )
+                logger.info(
+                    "Changing VLM structured output mode to parse_output as fallback"
+                )
+                mode = "parse_output"
         if mode == "parse_output" and output_schema is not None:
             kwargs.setdefault("response_format", {"type": "json_object"})
 
         response = await self.client.chat.completions.create(
             model=self.config.model_id,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": user_prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{encoded}"},
-                        },
-                    ],
-                },
-            ],
+            messages=standard_messages,
             **kwargs,
         )
         content = response.choices[0].message.content if response.choices else ""

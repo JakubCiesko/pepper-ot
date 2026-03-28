@@ -198,9 +198,9 @@ function updateStructuredCapabilityHint(providerEl, modeEl, targetEl) {
     const provider = providerEl.value;
     const mode = modeEl.value;
     const matrix = configContracts.structured_output_support || {};
-    const supports = matrix[provider]?.provider_native;
-    if (mode === "provider_native" && supports === false) {
-        targetEl.textContent = `Provider ${provider} does not support provider_native; backend will deterministically fall back to parse_output.`;
+    const supports = matrix[provider]?.[mode];
+    if (supports === false) {
+        targetEl.textContent = `Provider ${provider} does not support ${mode}; backend will deterministically fall back to parse_output.`;
         targetEl.classList.add("text-amber-600");
         targetEl.classList.remove("panel-muted");
         return;

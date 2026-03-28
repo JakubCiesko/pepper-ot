@@ -14,7 +14,7 @@ from app.schemas.config import AppConfig
 
 ReloadMode = Literal["hot", "hard"]
 
-
+# TODO: let each component live in its own process and make it almost hot reload?
 if TYPE_CHECKING:
     from app.core.runtime.state import AppState
 
@@ -102,7 +102,7 @@ RELOAD_RULES: list[ReloadRule] = [
     ReloadRule(
         "detection.device",
         attrgetter("detection.device"),
-        "hot",
+        "hard",
         _apply_pipeline_group,
     ),
     # objects
@@ -280,7 +280,7 @@ RELOAD_RULES: list[ReloadRule] = [
     ReloadRule(
         "tracking.feature_extraction.device",
         attrgetter("tracking.feature_extraction.device"),
-        "hot",
+        "hard",
         _apply_pipeline_group,
     ),
     ReloadRule(

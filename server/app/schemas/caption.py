@@ -37,3 +37,7 @@ class CaptionFormRequest(BaseModel):
         default=None,
         description="Optional per-request output language override",
     )
+    resize_image: bool = Field(
+        default=True,
+        description="Resize image before running detection to mitigate GPU load",
+    )

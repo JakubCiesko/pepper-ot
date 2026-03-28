@@ -1,6 +1,7 @@
 import logging
 from typing import Annotated
 
+import app.api.v1.image_utils as img_utils
 from app.core.infra.ws_manager import ws_manager
 from app.core.runtime.state import app_state
 from app.orchestration.detect_service import DetectService
@@ -59,7 +60,8 @@ async def caption_endpoint(
         form.publish,
     )
     image_bytes = await file.read()
-
+    if form.resize_image:
+        image_bytes = img_utils.resize_image_bytes(image_bytes)
     robot_metadata = DetectService.parse_metadata(form.metadata)
 
     result = await app_state.caption_service.caption_with_optional_detect(

@@ -7,11 +7,31 @@ ProviderName = str
 def provider_capability_matrix() -> dict[str, Any]:
     return {
         "structured_output_support": {
-            "openai": {"provider_native": True, "parse_output": True},
-            "gemini": {"provider_native": True, "parse_output": True},
-            "openai_compatible": {"provider_native": False, "parse_output": True},
-            "local_hf": {"provider_native": False, "parse_output": True},
-            "local_4bit": {"provider_native": False, "parse_output": True},
+            "openai": {
+                "provider_native": True,
+                "parse_output": True,
+                "instructor": True,
+            },
+            "gemini": {
+                "provider_native": True,
+                "parse_output": True,
+                "instructor": False,
+            },
+            "openai_compatible": {
+                "provider_native": False,
+                "parse_output": True,
+                "instructor": True,
+            },
+            "local_hf": {
+                "provider_native": False,
+                "parse_output": True,
+                "instructor": False,
+            },
+            "local_4bit": {
+                "provider_native": False,
+                "parse_output": True,
+                "instructor": False,
+            },
         },
         "base_url_support": {
             "openai": True,

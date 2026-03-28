@@ -31,3 +31,7 @@ class DetectFormRequest(BaseModel):
         default=True,
         description="Broadcast detection event to dashboard/ws",
     )
+    resize_image: bool = Field(
+        default=True,
+        description="Resize image before running detection to mitigate GPU load",
+    )
