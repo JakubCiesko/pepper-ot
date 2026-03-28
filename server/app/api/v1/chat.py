@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# TODO: work on this, the serialization of conversation is weird.
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
@@ -83,12 +84,17 @@ async def chat_endpoint(request: ChatRequest):
             "message": conversations.serialize_message(assistant_message),
         }
     )
-    logger.info("CHAT: %s RESPONSE: %s", chat_id, response_text)
+    metadata: dict[str, str] = {
+        "model_id": app_state.config.chat.model_id,
+        "provider": app_state.config.chat.provider,
+    }
+    logger.info("CHAT: %s RESPONSE: %s METADATA: %s", chat_id, response_text, metadata)
     return ChatResponse(
         chat_id=chat_id,
         sentence=response_text,
         source_object_ids=[],
         confidence=1.0,
+        metadata=metadata,
     )
 
 

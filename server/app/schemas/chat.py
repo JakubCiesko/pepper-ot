@@ -21,3 +21,4 @@ class ChatResponse(BaseModel):
     sentence: str
     source_object_ids: list[int] = Field(default_factory=list)
     confidence: float
+    metadata: dict[str, str]
