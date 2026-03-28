@@ -85,6 +85,8 @@ class TrackingConfig(BaseModel):
     memory_max_age_seconds: int = 60
     memory_max_objects: int = 200
     memory_max_relations: int = 500
+    memory_max_captions: int = 100
+    caption_max_age_seconds: int = 600
 
 
 class PromptSource(BaseModel):
@@ -249,11 +251,13 @@ class PipelineControls(BaseModel):
     preset: Literal[
         "full",
         "detect_only",
+        "caption_only",
         "vlm_only",
         "rules_only",
         "minimal",
         "custom",
     ] = "full"
+    caption: bool = True
     detect: bool = True
     track_memory: bool = True
     paint_som: bool = True
@@ -264,6 +268,7 @@ class PipelineControls(BaseModel):
     def preset_map() -> dict[str, dict[str, bool]]:
         return {
             "full": {
+                "caption": True,
                 "detect": True,
                 "track_memory": True,
                 "paint_som": True,
@@ -271,13 +276,23 @@ class PipelineControls(BaseModel):
                 "update_scene_memory": True,
             },
             "detect_only": {
+                "caption": False,
                 "detect": True,
                 "track_memory": False,
                 "paint_som": False,
                 "scene_graph": False,
                 "update_scene_memory": False,
             },
+            "caption_only": {
+                "caption": True,
+                "detect": False,
+                "track_memory": False,
+                "paint_som": False,
+                "scene_graph": False,
+                "update_scene_memory": False,
+            },
             "vlm_only": {
+                "caption": False,
                 "detect": False,
                 "track_memory": False,
                 "paint_som": False,
@@ -285,6 +300,7 @@ class PipelineControls(BaseModel):
                 "update_scene_memory": False,
             },
             "rules_only": {
+                "caption": False,
                 "detect": True,
                 "track_memory": True,
                 "paint_som": False,
@@ -292,6 +308,7 @@ class PipelineControls(BaseModel):
                 "update_scene_memory": True,
             },
             "minimal": {
+                "caption": False,
                 "detect": True,
                 "track_memory": False,
                 "paint_som": False,
@@ -305,6 +322,7 @@ class PipelineControls(BaseModel):
         if self.preset != "custom":
             mapped = self.preset_map().get(self.preset)
             if mapped is not None:
+                self.caption = mapped["caption"]
                 self.detect = mapped["detect"]
                 self.track_memory = mapped["track_memory"]
                 self.paint_som = mapped["paint_som"]
@@ -315,7 +333,8 @@ class PipelineControls(BaseModel):
         # Promote to a named preset when toggles match exactly, otherwise keep custom.
         for name, flags in self.preset_map().items():
             if (
-                self.detect == flags["detect"]
+                self.caption == flags["caption"]
+                and self.detect == flags["detect"]
                 and self.track_memory == flags["track_memory"]
                 and self.paint_som == flags["paint_som"]
                 and self.scene_graph == flags["scene_graph"]

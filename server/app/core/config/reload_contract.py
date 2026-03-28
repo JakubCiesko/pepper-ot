@@ -325,6 +325,18 @@ RELOAD_RULES: list[ReloadRule] = [
         "hot",
         _apply_pipeline_group,
     ),
+    ReloadRule(
+        "tracking.memory_max_captions",
+        attrgetter("tracking.memory_max_captions"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "tracking.caption_max_age_seconds",
+        attrgetter("tracking.caption_max_age_seconds"),
+        "hot",
+        _apply_pipeline_group,
+    ),
     # Storage
     ReloadRule(
         "storage.persist_last_state", attrgetter("storage.persist_last_state"), "hot"

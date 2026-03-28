@@ -1,5 +1,6 @@
 import inspect
 import logging
+from typing import Any
 
 from app.inference.memory.scene_memory import SceneMemory
 from app.providers.llm_client import LLMClient
@@ -7,6 +8,11 @@ from app.schemas.config import ChatConfig
 from app.schemas.scene import SceneState
 
 logger = logging.getLogger(__name__)
+
+
+class _SafeTemplateDict(dict[str, Any]):
+    def __missing__(self, key: str):
+        return "{" + key + "}"
 
 
 class ChatService:
@@ -48,13 +54,40 @@ class ChatService:
             parts += ["Relationships:"] + relation_lines
         return "\n".join(parts)
 
+    async def _latest_caption(self) -> str:
+        state = await self._get_scene_state()
+        captions = sorted(state.captions, key=lambda c: c.last_seen, reverse=True)
+        if not captions:
+            return "No caption available."
+        return captions[0].text
+
+    async def _recent_captions(self, limit: int = 5) -> str:
+        state = await self._get_scene_state()
+        captions = sorted(state.captions, key=lambda c: c.last_seen, reverse=True)[
+            :limit
+        ]
+        if not captions:
+            return "No recent captions."
+        lines = [f"- {caption.text}" for caption in captions if caption.text]
+        return "\n".join(lines) if lines else "No recent captions."
+
     async def compose_prompt(self) -> str:
         world_context = await self._build_context_string()
-        context_text = (
-            self.context_template.format(context=world_context)
-            if self.context_template
-            else f"Context:\n{world_context}"
-        )
+        latest_caption = await self._latest_caption()
+        captions_recent = await self._recent_captions()
+        if self.context_template:
+            template_values = _SafeTemplateDict(
+                context=world_context,
+                caption=latest_caption,
+                captions_recent=captions_recent,
+            )
+            context_text = self.context_template.format_map(template_values)
+        else:
+            context_text = (
+                f"Context:\n{world_context}\n\n"
+                f"Latest Caption:\n{latest_caption}\n\n"
+                f"Recent Captions:\n{captions_recent}"
+            )
         return f"{self.system_prompt}\n{context_text}"
 
     @staticmethod
@@ -74,7 +107,7 @@ class ChatService:
         conversation_history: list[tuple[str, str]] | None = None,
     ) -> str:
         system_prompt = await self.compose_prompt()
-        logger.debug("Chat request received")
+        logger.debug("Chat request received, system prompt: %s", system_prompt)
         history_text = self._format_history(conversation_history)
         if history_text:
             user_prompt = (

@@ -37,6 +37,7 @@ const vlmCallKwargsStatus = document.getElementById("vlm-call-kwargs-status");
 const sggMode = document.getElementById("sgg-mode");
 const sggRulesJson = document.getElementById("sgg-rules-json");
 const pipelinePreset = document.getElementById("pipeline-preset");
+const pipelineCaption = document.getElementById("pipeline-caption");
 const pipelineDetect = document.getElementById("pipeline-detect");
 const pipelineTrackMemory = document.getElementById("pipeline-track-memory");
 const pipelinePaintSom = document.getElementById("pipeline-paint-som");
@@ -113,11 +114,12 @@ const APPLY_DEBOUNCE_MS = 500;
 let configContracts = {};
 
 const PIPELINE_PRESETS_FALLBACK = {
-    full: {detect: true, track_memory: true, paint_som: true, scene_graph: true, update_scene_memory: true},
-    detect_only: {detect: true, track_memory: false, paint_som: false, scene_graph: false, update_scene_memory: false},
-    vlm_only: {detect: false, track_memory: false, paint_som: false, scene_graph: true, update_scene_memory: false},
-    rules_only: {detect: true, track_memory: true, paint_som: false, scene_graph: true, update_scene_memory: true},
-    minimal: {detect: true, track_memory: false, paint_som: false, scene_graph: false, update_scene_memory: false},
+    full: {caption: true, detect: true, track_memory: true, paint_som: true, scene_graph: true, update_scene_memory: true},
+    detect_only: {caption: false, detect: true, track_memory: false, paint_som: false, scene_graph: false, update_scene_memory: false},
+    caption_only: {caption: true, detect: false, track_memory: false, paint_som: false, scene_graph: false, update_scene_memory: false},
+    vlm_only: {caption: false, detect: false, track_memory: false, paint_som: false, scene_graph: true, update_scene_memory: false},
+    rules_only: {caption: false, detect: true, track_memory: true, paint_som: false, scene_graph: true, update_scene_memory: true},
+    minimal: {caption: false, detect: true, track_memory: false, paint_som: false, scene_graph: false, update_scene_memory: false},
 };
 
 function setThreshold(value) {
@@ -218,6 +220,7 @@ function applyPipelinePresetSelection(selectedPreset) {
     const map = pipelinePresetMap();
     const presetValues = map[selectedPreset];
     if (!presetValues) return;
+    pipelineCaption.checked = !!presetValues.caption;
     pipelineDetect.checked = !!presetValues.detect;
     pipelineTrackMemory.checked = !!presetValues.track_memory;
     pipelinePaintSom.checked = !!presetValues.paint_som;
@@ -228,6 +231,7 @@ function applyPipelinePresetSelection(selectedPreset) {
 function derivePipelinePreset() {
     const map = pipelinePresetMap();
     const current = {
+        caption: !!pipelineCaption.checked,
         detect: !!pipelineDetect.checked,
         track_memory: !!pipelineTrackMemory.checked,
         paint_som: !!pipelinePaintSom.checked,
@@ -238,6 +242,7 @@ function derivePipelinePreset() {
     for (const name of names) {
         const cfg = map[name];
         if (
+            !!cfg.caption === current.caption &&
             !!cfg.detect === current.detect &&
             !!cfg.track_memory === current.track_memory &&
             !!cfg.paint_som === current.paint_som &&
@@ -273,6 +278,9 @@ function updatePipelineControlsUi() {
     }
     if (!pipelineTrackMemory.checked) {
         summary.push("Tracking disabled: IDs are frame-local only.");
+    }
+    if (pipelineCaption.checked && !pipelineDetect.checked) {
+        summary.push("Caption-only path active (fast frame description).");
     }
     if (!pipelinePaintSom.checked && pipelineSceneGraph.checked) {
         summary.push("Scene graph uses raw image (no SoM overlay).");
@@ -373,6 +381,7 @@ async function loadConfig() {
     sggRulesJson.value = JSON.stringify(active.scene_graph?.rules?.rule_list || [], null, 2);
     const controls = active.pipeline_controls || {};
     pipelinePreset.value = controls.preset || "full";
+    pipelineCaption.checked = controls.caption ?? true;
     pipelineDetect.checked = controls.detect ?? true;
     pipelineTrackMemory.checked = controls.track_memory ?? true;
     pipelinePaintSom.checked = controls.paint_som ?? true;
@@ -554,6 +563,7 @@ function buildPatch() {
         },
         pipeline_controls: {
             preset: pipelinePreset.value,
+            caption: pipelineCaption.checked,
             detect: pipelineDetect.checked,
             track_memory: pipelineTrackMemory.checked,
             paint_som: pipelinePaintSom.checked,
@@ -711,6 +721,7 @@ pipelinePreset.addEventListener("change", () => {
     }
     updatePipelineControlsUi();
 });
+pipelineCaption.addEventListener("change", updatePipelineControlsUi);
 pipelineDetect.addEventListener("change", updatePipelineControlsUi);
 pipelineTrackMemory.addEventListener("change", updatePipelineControlsUi);
 pipelinePaintSom.addEventListener("change", updatePipelineControlsUi);

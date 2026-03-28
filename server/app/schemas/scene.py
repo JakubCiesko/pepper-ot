@@ -38,7 +38,21 @@ class TrackedObjectState(BaseModel):
     bbox: list[float]
 
 
+class SceneCaptionState(BaseModel):
+    id: str
+    text: str
+    provider: str | None = None
+    model_id: str | None = None
+    source: str = "pipeline_caption"
+    frame_id: str | None = None
+    scan_id: str | None = None
+    first_seen: float
+    last_seen: float
+    count: int = 1
+
+
 class SceneState(BaseModel):
     objects: list[TrackedObjectState]
     relationships: list[Relationship]
+    captions: list[SceneCaptionState] = Field(default_factory=list)
     timestamp: float

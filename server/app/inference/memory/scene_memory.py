@@ -12,6 +12,7 @@ from app.schemas.config import AssociationConfig
 from app.schemas.config import FeatureExtractionConfig
 from app.schemas.robot import RobotMetadata
 from app.schemas.scene import Relationship
+from app.schemas.scene import SceneCaptionState
 from app.schemas.scene import SceneState
 from app.schemas.scene import TrackedObjectState
 
@@ -26,6 +27,8 @@ class SceneMemory:
         memory_max_age_seconds: int = 60,
         memory_max_objects: int = 200,
         memory_max_relations: int = 500,
+        memory_max_captions: int = 100,
+        caption_max_age_seconds: int = 600,
         max_dormant_frames: int = 30,
         association_config: AssociationConfig | None = None,
         feature_extraction_config: FeatureExtractionConfig | None = None,
@@ -35,6 +38,8 @@ class SceneMemory:
             memory_max_age_seconds=memory_max_age_seconds,
             memory_max_objects=memory_max_objects,
             memory_max_relations=memory_max_relations,
+            memory_max_captions=memory_max_captions,
+            caption_max_age_seconds=caption_max_age_seconds,
         )
         self._lock = threading.Lock()
         self.max_dormant_frames = max_dormant_frames
@@ -184,9 +189,22 @@ class SceneMemory:
         with self._lock:
             self.store.prune_memory()
 
-    def set_limits(self, max_age_seconds: int, max_objects: int, max_relations: int):
+    def set_limits(
+        self,
+        max_age_seconds: int,
+        max_objects: int,
+        max_relations: int,
+        max_captions: int = 100,
+        caption_max_age_seconds: int = 600,
+    ):
         with self._lock:
-            self.store.set_limits(max_age_seconds, max_objects, max_relations)
+            self.store.set_limits(
+                max_age_seconds,
+                max_objects,
+                max_relations,
+                max_captions=max_captions,
+                caption_max_age_seconds=caption_max_age_seconds,
+            )
 
     def set_max_dormant_frames(self, max_dormant_frames: int):
         if max_dormant_frames < 0:
@@ -223,6 +241,15 @@ class SceneMemory:
             return
         with self._lock:
             self.store.update_scene_graph(scene_graph)
+
+    def upsert_caption(self, caption: SceneCaptionState):
+        with self._lock:
+            self.store.upsert_caption(caption)
+
+    def recent_captions(self, limit: int = 5) -> list[SceneCaptionState]:
+        with self._lock:
+            self.store.prune_memory()
+            return self.store.recent_captions(limit)
 
     def scene_state(self) -> SceneState:
         with self._lock:

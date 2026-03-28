@@ -129,7 +129,9 @@ function renderLiveCarousel() {
 
         const meta = document.createElement("div");
         meta.className = "live-carousel-meta";
-        meta.textContent = formatFrameTimestamp(frame.timestamp);
+        const hasCaption =
+            typeof frame.caption === "string" && frame.caption.trim().length > 0;
+        meta.textContent = `${formatFrameTimestamp(frame.timestamp)} • caption ${hasCaption ? "yes" : "no"}`;
         btn.appendChild(meta);
 
         liveCarouselTrack.appendChild(btn);
@@ -172,6 +174,7 @@ function renderActiveFrameSnapshot() {
     if (annotatedImage && frame.image) {
         annotatedImage.src = `data:image/jpeg;base64,${frame.image}`;
     }
+    renderCaption(frame.caption || "No caption for this frame.");
     renderDetections(frame.objects, frame.colors);
     renderMetrics(frame.metrics);
 
@@ -207,6 +210,11 @@ function snapshotFromPayload(data) {
         metrics: data.metrics && typeof data.metrics === "object" ? data.metrics : {},
         memory: data.memory && typeof data.memory === "object" ? data.memory : {},
         scene_graph: Array.isArray(data.scene_graph) ? data.scene_graph : [],
+        caption: typeof data.caption === "string" ? data.caption : "",
+        caption_provider:
+            typeof data.caption_provider === "string" ? data.caption_provider : "",
+        caption_model_id:
+            typeof data.caption_model_id === "string" ? data.caption_model_id : "",
     };
 }
 

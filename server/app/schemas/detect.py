@@ -20,6 +20,9 @@ class DetectionResponse(BaseModel):
     timestamp: float
     image_width: int
     image_height: int
+    caption: str | None = None
+    caption_provider: str | None = None
+    caption_model_id: str | None = None
 
 
 class DetectFormRequest(BaseModel):

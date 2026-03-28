@@ -16,6 +16,8 @@
     const memRelCreate = document.getElementById("mem-rel-create");
     const memRelUpdate = document.getElementById("mem-rel-update");
     const memRelDelete = document.getElementById("mem-rel-delete");
+    const memRefresh = document.getElementById("mem-refresh");
+    const memReset = document.getElementById("mem-reset");
 
     function secondsAgo(ts) {
         if (!ts) return "n/a";
@@ -169,6 +171,41 @@
     }
 
     function bindMemoryCrud() {
+        if (memRefresh) {
+            memRefresh.addEventListener("click", async () => {
+                try {
+                    await refreshMemoryFromApi();
+                    showMemoryEditorStatus("Memory refreshed");
+                } catch (err) {
+                    showMemoryEditorStatus(
+                        err.message || "Failed to refresh memory",
+                        false
+                    );
+                }
+            });
+        }
+
+        if (memReset) {
+            memReset.addEventListener("click", async () => {
+                const ok = window.confirm(
+                    "Reset scene memory? This removes all tracked objects and relationships."
+                );
+                if (!ok) return;
+                try {
+                    await doMemoryRequest("/api/v1/memory/reset?confirm=true", {
+                        method: "POST",
+                    });
+                    await refreshMemoryFromApi();
+                    showMemoryEditorStatus("Memory reset");
+                } catch (err) {
+                    showMemoryEditorStatus(
+                        err.message || "Failed to reset memory",
+                        false
+                    );
+                }
+            });
+        }
+
         if (memObjCreate) {
             memObjCreate.addEventListener("click", async () => {
                 try {

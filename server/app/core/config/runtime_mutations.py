@@ -38,6 +38,8 @@ def apply_pipeline_runtime_updates(
             cfg.tracking.memory_max_age_seconds,
             cfg.tracking.memory_max_objects,
             cfg.tracking.memory_max_relations,
+            max_captions=cfg.tracking.memory_max_captions,
+            caption_max_age_seconds=cfg.tracking.caption_max_age_seconds,
         )
         pipeline.memory.set_max_dormant_frames(cfg.tracking.max_dormant_frames)
         pipeline.memory.set_association_config(cfg.tracking.association)

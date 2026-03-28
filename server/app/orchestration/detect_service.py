@@ -76,6 +76,9 @@ class DetectService:
             "image": result.get("image_b64"),
             "objects": result.get("objects", []),
             "scene_graph": result.get("scene_graph", []),
+            "caption": result.get("caption"),
+            "caption_provider": result.get("caption_provider"),
+            "caption_model_id": result.get("caption_model_id"),
             "memory": result.get("memory", memory_payload()),
             "metrics": result.get("metrics", {}),
             "executed_stages": result.get("executed_stages", []),
@@ -90,6 +93,9 @@ class DetectService:
             timestamp=time.time(),
             image_width=int(result.get("image_width", image.width)),
             image_height=int(result.get("image_height", image.height)),
+            caption=payload.get("caption"),
+            caption_provider=payload.get("caption_provider"),
+            caption_model_id=payload.get("caption_model_id"),
         )
 
     async def _update_and_persist(self, payload: dict[str, Any]):

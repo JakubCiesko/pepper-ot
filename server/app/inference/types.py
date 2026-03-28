@@ -228,3 +228,6 @@ class PipelineResult:
     scene_graph: SceneGraph | None  # The semantic relationships
     metrics: dict[str, Any]
     executed_stages: list[str] = field(default_factory=list)
+    caption: str | None = None
+    caption_provider: str | None = None
+    caption_model_id: str | None = None

@@ -31,6 +31,9 @@ class DetectRPCResponse(WorkerRPCResponse):
     image_b64: str | None = None
     objects: list[dict[str, Any]] = Field(default_factory=list)
     scene_graph: list[dict[str, Any]] = Field(default_factory=list)
+    caption: str | None = None
+    caption_provider: str | None = None
+    caption_model_id: str | None = None
     memory: dict[str, Any] = Field(default_factory=dict)
     metrics: dict[str, Any] = Field(default_factory=dict)
     executed_stages: list[str] = Field(default_factory=list)

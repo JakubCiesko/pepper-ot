@@ -17,6 +17,7 @@ from app.schemas.scene import SceneGraphStructuredResponse
 logger = logging.getLogger(__name__)
 
 
+# TODO: post filtering of invalid graphs
 class VLMSceneGraphBackend:
     def __init__(
         self,

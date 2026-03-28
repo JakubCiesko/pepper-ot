@@ -2,10 +2,12 @@ from contextlib import asynccontextmanager
 import logging
 import time
 from typing import Any
+from uuid import uuid4
 
 import numpy as np
 from PIL import Image
 
+from app.inference.caption.service import CaptionInferenceService
 from app.inference.scene_graph.service import SceneGraphService
 from app.inference.types import InferenceDetectionObject
 from app.inference.types import PipelineResult
@@ -13,6 +15,7 @@ from app.inference.types import SceneGraph
 from app.schemas.config import PipelineControls
 from app.schemas.config import VisConfig
 from app.schemas.robot import RobotMetadata
+from app.schemas.scene import SceneCaptionState
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +30,6 @@ async def timer(step_name: str, metrics: dict[str, float]):
     logger.info("%s took %f seconds", step_name, duration)
 
 
-# TODO: add caption as part of this, time it, run it for every image, make it browsable, and pass it as context, part of memory
 class PerceptionPipeline:
     def __init__(
         self,
@@ -35,6 +37,7 @@ class PerceptionPipeline:
         memory: Any,
         painter: Any,
         scene_graph_service: SceneGraphService,
+        caption_service: CaptionInferenceService | None,
         fusion_config,
         vis_config: VisConfig,
         pipeline_controls: PipelineControls,
@@ -43,6 +46,7 @@ class PerceptionPipeline:
         self.memory = memory
         self.painter = painter
         self.scene_graph_service = scene_graph_service
+        self.caption_service = caption_service
         self.fusion_config = fusion_config
         self.vis_config = vis_config
         self.pipeline_controls = pipeline_controls
@@ -56,9 +60,15 @@ class PerceptionPipeline:
     ) -> PipelineResult:
         controls = self.pipeline_controls
         metrics: dict[str, float | str] = {}
+        caption_text: str | None = None
+        caption_provider: str | None = None
+        caption_model_id: str | None = None
 
         executed_stages: list[str] = []
         logger.info("Processing image with robot metadata=%s", robot_metadata)
+        caption_text, caption_provider, caption_model_id = await self._run_caption(
+            image, controls, metrics, executed_stages
+        )
 
         raw_detections = await self._run_detection(
             image, controls, metrics, executed_stages
@@ -88,6 +98,15 @@ class PerceptionPipeline:
             executed_stages,
         )
 
+        await self._run_caption_memory_update(
+            caption_text,
+            caption_provider,
+            caption_model_id,
+            robot_metadata,
+            metrics,
+            executed_stages,
+        )
+
         await self._run_scene_memory_update(
             scene_graph, controls, metrics, executed_stages
         )
@@ -104,9 +123,69 @@ class PerceptionPipeline:
             som_image=som_image,
             detections=tracked_detections,
             scene_graph=scene_graph,
+            caption=caption_text,
+            caption_provider=caption_provider,
+            caption_model_id=caption_model_id,
             metrics=metrics,
             executed_stages=executed_stages,
         )
+
+    async def _run_caption(
+        self,
+        image: Image.Image,
+        controls: PipelineControls,
+        metrics: dict[str, float | str],
+        executed_stages: list[str],
+    ) -> tuple[str | None, str | None, str | None]:
+        if not controls.caption:
+            return None, None, None
+        if self.caption_service is None:
+            logger.warning(
+                "Pipeline caption stage enabled but caption_service is not configured"
+            )
+            return None, None, None
+
+        try:
+            async with timer("caption_time", metrics):
+                result = await self.caption_service.caption_image(image)
+            executed_stages.append("caption")
+            return result.text, result.provider, result.model_id
+        except Exception as exc:
+            logger.warning("Caption stage failed, continuing pipeline: %s", exc)
+            return None, None, None
+
+    async def _run_caption_memory_update(
+        self,
+        caption_text: str | None,
+        caption_provider: str | None,
+        caption_model_id: str | None,
+        robot_metadata: RobotMetadata | None,
+        metrics: dict[str, float | str],
+        executed_stages: list[str],
+    ) -> None:
+        if not caption_text:
+            return
+        if self.memory is None:
+            return
+        if not hasattr(self.memory, "upsert_caption"):
+            return
+
+        now = time.time()
+        caption_state = SceneCaptionState(
+            id=str(uuid4()),
+            text=caption_text,
+            provider=caption_provider,
+            model_id=caption_model_id,
+            source="pipeline_caption",
+            frame_id=robot_metadata.frame_id if robot_metadata else None,
+            scan_id=robot_metadata.scan_id if robot_metadata else None,
+            first_seen=now,
+            last_seen=now,
+            count=1,
+        )
+        async with timer("caption_memory_update_time", metrics):
+            self.memory.upsert_caption(caption_state)
+        executed_stages.append("update_caption_memory")
 
     async def _run_detection(
         self,

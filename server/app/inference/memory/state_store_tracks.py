@@ -20,21 +20,35 @@ class SceneMemoryStoreTracksMixin:
             if track.frames_since_seen > max_dormant_frames:
                 self.tracks.pop(track.id, None)
 
-    def set_limits(self, max_age_seconds: int, max_objects: int, max_relations: int):
+    def set_limits(
+        self,
+        max_age_seconds: int,
+        max_objects: int,
+        max_relations: int,
+        max_captions: int = 100,
+        caption_max_age_seconds: int = 600,
+    ):
         if max_age_seconds <= 0:
             raise ValueError("max_age_seconds must be > 0")
         if max_objects <= 0:
             raise ValueError("max_objects must be > 0")
         if max_relations <= 0:
             raise ValueError("max_relations must be > 0")
+        if max_captions <= 0:
+            raise ValueError("max_captions must be > 0")
+        if caption_max_age_seconds <= 0:
+            raise ValueError("caption_max_age_seconds must be > 0")
         self.memory_max_age_seconds = max_age_seconds
         self.memory_max_objects = max_objects
         self.memory_max_relations = max_relations
+        self.memory_max_captions = max_captions
+        self.caption_max_age_seconds = caption_max_age_seconds
 
     def reset(self):
         self.tracks.clear()
         self.objects_state.clear()
         self.relations_state.clear()
+        self.captions_state.clear()
         self.next_id = 1
 
     def create_track(self, det: InferenceDetectionObject, embedding) -> int:
@@ -61,6 +75,7 @@ class SceneMemoryStoreTracksMixin:
     def prune_memory(self):
         now = time.time()
         cutoff = now - self.memory_max_age_seconds
+        caption_cutoff = now - self.caption_max_age_seconds
 
         stale_object_ids = {
             obj_id
@@ -109,6 +124,21 @@ class SceneMemoryStoreTracksMixin:
             stale_track_ids.update(track.id for track in sorted_tracks[:overflow])
         for track_id in stale_track_ids:
             self.tracks.pop(track_id, None)
+
+        stale_caption_ids = {
+            caption_id
+            for caption_id, caption in self.captions_state.items()
+            if caption.last_seen < caption_cutoff
+        }
+        if len(self.captions_state) > self.memory_max_captions:
+            sorted_captions = sorted(
+                self.captions_state.values(),
+                key=lambda c: c.last_seen,
+            )
+            overflow = len(self.captions_state) - self.memory_max_captions
+            stale_caption_ids.update(c.id for c in sorted_captions[:overflow])
+        for caption_id in stale_caption_ids:
+            self.captions_state.pop(caption_id, None)
 
     def snapshot(self) -> list[dict]:
         return [
