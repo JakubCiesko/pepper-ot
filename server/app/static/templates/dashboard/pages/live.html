@@ -1,10 +1,6 @@
             <section id="page-live" class="page-panel mt-8">
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                    <!--<div class="panel border rounded-xl p-5">
-                        <p class="text-md uppercase tracking-widest panel-muted">Frames</p>
-                        <div class="text-2xl font-semibold mt-2">Live</div>
-                        <p class="panel-muted text-md mt-2">Streaming</p>
-                    </div>-->
+
                     <div class="panel border rounded-xl p-5">
                         <p class="text-md uppercase tracking-widest panel-muted">Objects</p>
                         <div class="text-2xl font-semibold mt-2" id="summary-objects">—</div>
@@ -17,10 +13,6 @@
                         <div class="text-2xl font-semibold mt-2" id="summary-memory">—</div>
                         <p class="panel-muted text-md mt-2">Tracked items</p>
                     </div>
-<!--                    <div class="panel border rounded-xl p-5">-->
-<!--                        -->
-<!--                        <p class="panel-muted text-md mt-2">Scene graph</p>-->
-<!--                    </div>-->
 
                     <div class="panel border rounded-xl p-5">
                         <h2 class="text-lg font-semibold mb-3">Inference Metrics</h2>
@@ -52,16 +44,16 @@
                             >
                                 Process Image
                             </button>
-                            <span id="process-image-name" class="text-xs panel-muted"></span>
+                            <span id="process-image-name" class="text-md panel-muted"></span>
                         </div>
                         <img id="annotated-image" class="w-full h-auto rounded-lg border panel-border" src="/static/pepper_icon.png" alt="Annotated Detection Image">
                         <div id="live-carousel" class="mt-4">
                             <div class="flex items-center justify-between gap-2 mb-2">
                                 <h3 class="text-md font-semibold">Recent Frames</h3>
                                 <div class="flex items-center gap-2">
-                                    <button id="live-carousel-prev" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Prev</button>
-                                    <span id="live-carousel-index" class="text-xs panel-muted">0 / 0</span>
-                                    <button id="live-carousel-next" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Next</button>
+                                    <button id="live-carousel-prev" class="px-2 py-1 text-md rounded border panel-border panel-alt" type="button">Prev</button>
+                                    <span id="live-carousel-index" class="text-md panel-muted">0 / 0</span>
+                                    <button id="live-carousel-next" class="px-2 py-1 text-md rounded border panel-border panel-alt" type="button">Next</button>
                                 </div>
                             </div>
                             <div
@@ -75,12 +67,12 @@
                     <div class="xl:col-span-1 flex flex-col gap-6 h-full min-h-0">
                         <div class="panel border rounded-xl p-5 flex flex-col min-h-0">
                             <h2 class="text-lg font-semibold mb-3">Pepper Conversation</h2>
-                            <label class="block text-xs panel-muted mb-1">Conversation Endpoint</label>
+                            <label class="block text-md panel-muted mb-1">Conversation Endpoint</label>
                             <select id="conversation-route-select" class="w-full border rounded px-3 py-2 mb-3">
                                 <option value="chat">/api/v1/chat (memory-grounded)</option>
                                 <option value="vision_chat">/api/v1/vision_chat (image-direct)</option>
                             </select>
-                            <label class="block text-xs panel-muted mb-1">Output Language Enforcement</label>
+                            <label class="block text-md panel-muted mb-1">Output Language Enforcement</label>
                             <select id="output-language-select" class="w-full border rounded px-3 py-2 mb-3">
                                 <option value="default">Default (no enforcement)</option>
                                 <option value="english">English</option>
@@ -94,7 +86,7 @@
                                 <div class="flex items-center gap-2">
                                     <button id="conversation-send" class="px-3 py-2 text-md rounded btn-primary font-semibold">Send</button>
                                     <button id="conversation-new" class="px-3 py-2 text-md rounded border panel-border panel-alt">New Conversation</button>
-                                    <span id="conversation-chat-id" class="text-xs panel-muted"></span>
+                                    <span id="conversation-chat-id" class="text-md panel-muted"></span>
                                 </div>
                                 <p id="conversation-status" class="text-md panel-muted"></p>
                             </div>
@@ -126,14 +118,14 @@
                             <div class="flex flex-wrap items-center gap-2 mb-3">
                                 <button
                                     id="mem-refresh"
-                                    class="px-3 py-1 text-xs rounded border panel-border panel-alt"
+                                    class="px-3 py-1 text-md rounded border panel-border panel-alt"
                                     type="button"
                                 >
                                     Refresh Memory
                                 </button>
                                 <button
                                     id="mem-reset"
-                                    class="px-3 py-1 text-xs rounded border panel-border panel-alt"
+                                    class="px-3 py-1 text-md rounded border panel-border panel-alt"
                                     type="button"
                                 >
                                     Reset Memory
@@ -156,9 +148,9 @@
                                         <input id="mem-obj-attrs" type="text" class="col-span-2 border rounded px-2 py-1" placeholder="attributes (comma-separated)">
                                     </div>
                                     <div class="flex flex-wrap gap-2 mt-3">
-                                        <button id="mem-obj-create" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Create</button>
-                                        <button id="mem-obj-update" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Update</button>
-                                        <button id="mem-obj-delete" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Delete</button>
+                                        <button id="mem-obj-create" class="px-3 py-1 text-md rounded border panel-border panel-alt">Create</button>
+                                        <button id="mem-obj-update" class="px-3 py-1 text-md rounded border panel-border panel-alt">Update</button>
+                                        <button id="mem-obj-delete" class="px-3 py-1 text-md rounded border panel-border panel-alt">Delete</button>
                                     </div>
                                     <p class="text-md panel-muted mt-2">Create inserts a new object, Update modifies by ID, and Delete removes the object with attached relationships.</p>
                                 </div>
@@ -172,9 +164,9 @@
                                         <input id="mem-rel-count" type="number" min="1" class="col-span-2 border rounded px-2 py-1" placeholder="count (optional)">
                                     </div>
                                     <div class="flex flex-wrap gap-2 mt-3">
-                                        <button id="mem-rel-create" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Create</button>
-                                        <button id="mem-rel-update" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Update</button>
-                                        <button id="mem-rel-delete" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Delete</button>
+                                        <button id="mem-rel-create" class="px-3 py-1 text-md rounded border panel-border panel-alt">Create</button>
+                                        <button id="mem-rel-update" class="px-3 py-1 text-md rounded border panel-border panel-alt">Update</button>
+                                        <button id="mem-rel-delete" class="px-3 py-1 text-md rounded border panel-border panel-alt">Delete</button>
                                     </div>
                                     <p class="text-md panel-muted mt-2">Relations are identified by <code>subject_id</code>, <code>predicate</code>, and <code>object_id</code>.</p>
                                 </div>
@@ -193,9 +185,9 @@
                                 <div class="flex items-center justify-between gap-2 mb-2">
                                     <h3 class="text-md font-semibold">Recent Scene Graphs</h3>
                                     <div class="flex items-center gap-2">
-                                        <button id="sg-carousel-prev" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Prev</button>
-                                        <span id="sg-carousel-index" class="text-xs panel-muted">0 / 0</span>
-                                        <button id="sg-carousel-next" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Next</button>
+                                        <button id="sg-carousel-prev" class="px-2 py-1 text-md rounded border panel-border panel-alt" type="button">Prev</button>
+                                        <span id="sg-carousel-index" class="text-md panel-muted">0 / 0</span>
+                                        <button id="sg-carousel-next" class="px-2 py-1 text-md rounded border panel-border panel-alt" type="button">Next</button>
                                     </div>
                                 </div>
                                 <div
@@ -206,9 +198,9 @@
                             </div>
                             <div>
                                 <div class="flex items-center gap-2 mb-2">
-                                    <button id="sg-zoom-in" class="px-2 py-1 text-xs rounded border panel-border panel-alt">Zoom In</button>
-                                    <button id="sg-zoom-out" class="px-2 py-1 text-xs rounded border panel-border panel-alt">Zoom Out</button>
-                                    <button id="sg-fit" class="px-2 py-1 text-xs rounded border panel-border panel-alt">Center</button>
+                                    <button id="sg-zoom-in" class="px-2 py-1 text-md rounded border panel-border panel-alt">Zoom In</button>
+                                    <button id="sg-zoom-out" class="px-2 py-1 text-md rounded border panel-border panel-alt">Zoom Out</button>
+                                    <button id="sg-fit" class="px-2 py-1 text-md rounded border panel-border panel-alt">Center</button>
                                 </div>
                                 <div id="scene-graph-canvas" class="h-[360px] rounded border panel-border panel-alt"></div>
                             </div>
@@ -222,6 +214,77 @@
                                 </details>
                             </div>
                         </div>
+                    </div>
+                </div>
+                <br>
+                <hr>
+                <br>
+                <div class="grid grid-cols-1 xl:grid-cols-1">
+
+                    <div class="panel border rounded-xl p-5">
+                        <details>
+                            <summary class="cursor-pointer text-lg font-semibold">System Description & Architecture</summary>
+                            <div class="mt-4 space-y-4 text-lg panel-muted leading-relaxed">
+                                <p>
+                                    This dashboard is the runtime control and inspection surface for the Pepper perception stack.
+                                    A frame enters the system through <code>/api/v1/detect</code> (robot upload, dashboard upload,
+                                    or external client), then flows through a configurable pipeline that can run captioning, object
+                                    detection, tracking/memory association, SoM painting, scene-graph generation, and memory updates.
+                                    Every stage can be enabled or disabled in runtime pipeline controls.
+                                </p>
+
+                                <p>
+                                    The server has two execution modes. In in-process mode, the full pipeline runs directly in the API
+                                    process. In worker mode, the API process acts as an orchestrator and forwards heavy inference work to
+                                    the internal worker process over internal HTTP endpoints. Worker mode isolates GPU-heavy components and
+                                    supports lifecycle controls such as warmup, stop, hard reload, and health checks.
+                                </p>
+
+                                <p>
+                                    At the core is a unified state model. Detections are represented with persistent IDs where possible.
+                                    The tracker uses appearance embeddings and geometry-based matching to associate current detections with
+                                    existing tracked objects. Scene memory stores objects, relationships, and captions over time, and is
+                                    exposed in this Live page both as human-readable summaries and editable memory CRUD controls.
+                                </p>
+
+                                <p>
+                                    Scene graph generation is pluggable and supports three modes:
+                                    <code>vlm</code> (vision-language model only),
+                                    <code>rules</code> (deterministic geometric/rule engine),
+                                    and <code>hybrid</code> (merge of both).
+                                    The SoM image (boxes, masks, labels, polygons) can be used as model input to improve grounding.
+                                    In rules mode, graph edges are generated from relative geometry and optional deterministic attributes
+                                    such as color extracted per detection crop.
+                                </p>
+
+                                <p>
+                                    Captioning is designed as a fast first-pass scene description for immediate robot response.
+                                    It can run as part of the detect pipeline and persist captions into memory. Chat endpoints then build
+                                    grounded context from memory state, relationships, and recent captions. The conversation service tracks
+                                    chat history per <code>chat_id</code> and streams messages to dashboard clients over websocket events.
+                                </p>
+
+                                <p>
+                                    Runtime observability is exposed through this Live page:
+                                    inference timing metrics per stage, current frame overlays, recent-frame and recent-scene-graph carousels,
+                                    memory summaries, raw JSON debug views, and live websocket-fed updates. The goal is to make every stage
+                                    inspectable, measurable, and tunable without code changes.
+                                </p>
+
+                                <p>
+                                    Configuration is patchable at runtime through <code>/api/v1/config</code>.
+                                    The reload contract decides whether a change is hot-applied or requires hard worker reload.
+                                    This keeps development fast while preserving correctness for sensitive changes such as model/provider
+                                    switches, visualization backend switches (for example GrabCut to SAM), and other lifecycle-critical updates.
+                                </p>
+
+                                <p>
+                                    In short, this system is an orchestration layer for grounded robot perception:
+                                    it converts raw camera frames into structured, persistent, and queryable world state that can power
+                                    conversational behavior, explainable scene reasoning, and controllable debugging in real time.
+                                </p>
+                            </div>
+                        </details>
                     </div>
                 </div>
             </section>
