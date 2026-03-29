@@ -40,9 +40,11 @@ def build_perception_pipeline(config: AppConfig) -> PerceptionPipeline:
         feature_extraction_config=config.tracking.feature_extraction,
     )
     painter = SoMPainter(
+        mask_backend=config.visualization.mask_backend,
         line_thickness=config.visualization.line_thickness,
         color_lookup=config.visualization.color_lookup,
         mask_opacity=config.visualization.mask_opacity,
+        device=config.visualization.device,
     )
     vlm_system_prompt = config.scene_graph.vlm.system_prompt.resolve(base_dir)
     vlm_user_prompt = (

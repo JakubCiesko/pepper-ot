@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import logging
 import os
 
 import cv2
@@ -9,6 +10,8 @@ import supervision as sv
 
 from app.inference.types import InferenceDetectionObject
 
+logger = logging.getLogger(__name__)
+
 
 class SoMPainter:
     """Handles Set-of-Mark overlay on pictures for scene graph generation (https://som-gpt4v.github.io/)"""
@@ -18,6 +21,8 @@ class SoMPainter:
         line_thickness: int = 2,
         color_lookup: str = "index",
         mask_opacity: float = 0.5,
+        mask_backend: str = "grabcut",
+        device: str = "cuda",
     ):
         lookup = {
             "index": sv.ColorLookup.INDEX,
@@ -45,10 +50,38 @@ class SoMPainter:
         self._base_text_scale = float(self.label_annotator.text_scale)
         self._base_text_thickness = int(self.label_annotator.text_thickness)
         self._base_text_padding = int(self.label_annotator.text_padding)
+        self.mask_backend = (
+            mask_backend if mask_backend in {"grabcut", "sam"} else "grabcut"
+        )
+        self.device = device
+        self.processor = None
+        self.model = None
 
     @staticmethod
     def _clamp(value: float, min_value: float, max_value: float) -> float:
         return max(min_value, min(value, max_value))
+
+    def _ensure_sam_loaded(self) -> bool:
+        if self.mask_backend != "sam":
+            return False
+        if self.processor is not None and self.model is not None:
+            return True
+        try:
+            # Lazy import so startup does not fail when transformers/SAM isn't available.
+            from transformers import Sam3Model  # type: ignore
+            from transformers import Sam3Processor  # type: ignore
+
+            self.processor = Sam3Processor.from_pretrained("facebook/sam3")
+            self.model = Sam3Model.from_pretrained("facebook/sam3").to(self.device)
+            logger.info("SAM3 mask backend initialized on device=%s", self.device)
+            return True
+        except Exception as exc:
+            logger.warning(
+                "Failed to initialize SAM3 (%s). Falling back to grabcut masks.", exc
+            )
+            self.mask_backend = "grabcut"
+            self.processor, self.model = None, None
+            return False
 
     def paint(
         self,
@@ -127,18 +160,19 @@ class SoMPainter:
         xyxy = np.array([det.bbox for det in detections], dtype=np.float32)
         if xyxy.size == 0:
             xyxy = xyxy.reshape(0, 4)
-        masks = (
-            self.bboxes_to_masks(
-                image=image,
-                bboxes=xyxy,
-                scale=grab_cut_scale,
-                iter_count=grab_cut_iter_count,
-                use_roi_grab_cut=use_roi_grab_cut,
-                max_mask_workers=max_mask_workers,
-            )
-            if mask or polygon
-            else None
-        )
+        masks = None
+        if mask or polygon:
+            if self.mask_backend == "sam":
+                masks = self.sam_bboxes_to_masks(image=image, bboxes=xyxy)
+            if masks is None:
+                masks = self.bboxes_to_masks(
+                    image=image,
+                    bboxes=xyxy,
+                    scale=grab_cut_scale,
+                    iter_count=grab_cut_iter_count,
+                    use_roi_grab_cut=use_roi_grab_cut,
+                    max_mask_workers=max_mask_workers,
+                )
         conf = np.array([det.confidence for det in detections], dtype=np.float32)
         ids = np.array([det.class_id for det in detections], dtype=np.int32)
         detections = sv.Detections(xyxy=xyxy, confidence=conf, class_id=ids, mask=masks)
@@ -288,6 +322,144 @@ class SoMPainter:
         resolved = [m if m is not None else empty_mask() for m in masks]
         return np.stack(resolved, axis=0)
 
-    # TODO: use Sam for mask generation from prompt + bounding boxes
-    def sam_bboxes_to_masks(self, image):
-        pass
+    @staticmethod
+    def _bbox_iou(a: NDArray, b: NDArray) -> float:
+        ax1, ay1, ax2, ay2 = map(float, a)
+        bx1, by1, bx2, by2 = map(float, b)
+        ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+        ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+        inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
+        if inter <= 0.0:
+            return 0.0
+        area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+        area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+        union = area_a + area_b - inter
+        return inter / union if union > 0.0 else 0.0
+
+    def sam_bboxes_to_masks(
+        self,
+        image: Image.Image | NDArray,
+        bboxes: NDArray,
+        threshold: float = 0.5,
+        mask_threshold: float = 0.5,
+    ) -> NDArray | None:
+        """
+        Convert bounding boxes to object masks using SAM3 box prompts.
+        Returns bool masks of shape (n, H, W), or None on failure (so caller can fallback).
+        """
+        if bboxes is None:
+            return None
+        if len(bboxes) == 0:
+            if isinstance(image, Image.Image):
+                h, w = image.height, image.width
+            else:
+                h, w = image.shape[:2]
+            return np.empty((0, h, w), dtype=bool)
+
+        if not self._ensure_sam_loaded():
+            return None
+
+        try:
+            import torch  # type: ignore
+        except Exception as exc:
+            logger.warning(
+                "Torch unavailable for SAM3: %s. Falling back to grabcut.", exc
+            )
+            self.mask_backend = "grabcut"
+            return None
+
+        try:
+            if isinstance(image, Image.Image):
+                pil_img = image.convert("RGB")
+                img_h, img_w = pil_img.height, pil_img.width
+            else:
+                arr = np.asarray(image)
+                if arr.ndim == 2:
+                    arr = np.stack([arr, arr, arr], axis=-1)
+                elif arr.ndim == 3 and arr.shape[2] == 4:
+                    arr = arr[:, :, :3]
+                pil_img = Image.fromarray(arr.astype(np.uint8)).convert("RGB")
+                img_h, img_w = arr.shape[:2]
+
+            clipped_boxes: list[list[float]] = []
+            for box in bboxes:
+                x1, y1, x2, y2 = map(float, box)
+                x1 = max(0.0, min(x1, img_w - 1.0))
+                y1 = max(0.0, min(y1, img_h - 1.0))
+                x2 = max(x1 + 1.0, min(x2, float(img_w)))
+                y2 = max(y1 + 1.0, min(y2, float(img_h)))
+                clipped_boxes.append([x1, y1, x2, y2])
+
+            if not clipped_boxes:
+                return np.empty((0, img_h, img_w), dtype=bool)
+
+            box_labels = [[1 for _ in clipped_boxes]]
+            inputs = self.processor(
+                images=pil_img,
+                input_boxes=[clipped_boxes],
+                input_boxes_labels=box_labels,
+                return_tensors="pt",
+            )
+            inputs = inputs.to(self.device)
+
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+
+            target_sizes = inputs.get("original_sizes")
+            if target_sizes is None:
+                target_sizes = [[img_h, img_w]]
+            else:
+                target_sizes = target_sizes.tolist()
+
+            results = self.processor.post_process_instance_segmentation(
+                outputs,
+                threshold=threshold,
+                mask_threshold=mask_threshold,
+                target_sizes=target_sizes,
+            )
+            result = results[0] if results else {}
+            masks_pred = result.get("masks")
+            boxes_pred = result.get("boxes")
+
+            out = np.zeros((len(clipped_boxes), img_h, img_w), dtype=bool)
+            if masks_pred is None or boxes_pred is None:
+                return out
+
+            if hasattr(masks_pred, "detach"):
+                masks_np = masks_pred.detach().cpu().numpy()
+            else:
+                masks_np = np.asarray(masks_pred)
+            if masks_np.ndim == 2:
+                masks_np = masks_np[None, ...]
+            masks_np = masks_np.astype(bool)
+
+            if hasattr(boxes_pred, "detach"):
+                boxes_np = boxes_pred.detach().cpu().numpy()
+            else:
+                boxes_np = np.asarray(boxes_pred)
+            boxes_np = np.asarray(boxes_np, dtype=np.float32).reshape(-1, 4)
+
+            # Assign one best SAM mask per requested box by IoU.
+            for i, in_box in enumerate(clipped_boxes):
+                if len(boxes_np) == 0 or len(masks_np) == 0:
+                    break
+                best_idx = -1
+                best_iou = 0.0
+                in_box_np = np.asarray(in_box, dtype=np.float32)
+                for j, pred_box in enumerate(boxes_np):
+                    iou = self._bbox_iou(in_box_np, pred_box)
+                    if iou > best_iou:
+                        best_iou = iou
+                        best_idx = j
+                if best_idx >= 0 and best_iou >= 0.05:
+                    out[i] = masks_np[best_idx]
+                else:
+                    # Conservative fallback: keep bbox rectangle for this item.
+                    x1, y1, x2, y2 = map(int, in_box)
+                    out[i, y1:y2, x1:x2] = True
+            return out
+        except Exception as exc:
+            logger.warning(
+                "SAM3 mask inference failed, falling back to grabcut: %s", exc
+            )
+            return None

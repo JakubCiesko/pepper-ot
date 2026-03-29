@@ -119,6 +119,8 @@ visualization:
   line_thickness: 2
   mask_opacity: 0.5
   color_lookup: "index"
+  mask_backend: "grabcut"
+  device: "cuda"
 
 storage:
   persist_last_state: false

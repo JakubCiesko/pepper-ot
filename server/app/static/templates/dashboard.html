@@ -410,6 +410,15 @@
                             <option value="track">Track</option>
                         </select>
                         <p class="text-xs panel-muted mt-1">Color mapping strategy: by detection order, class, or track id.</p>
+                        <label class="block text-sm mt-4" for="vis-mask-backend">Mask Backend</label>
+                        <select id="vis-mask-backend" class="w-full border rounded px-3 py-2 mt-1">
+                            <option value="grabcut">GrabCut</option>
+                            <option value="sam">SAM3</option>
+                        </select>
+                        <p class="text-xs panel-muted mt-1">Mask generation backend for SoM masks and polygons. SAM3 is heavier and may fall back to GrabCut if unavailable.</p>
+                        <label class="block text-sm mt-4" for="vis-device">Mask Backend Device</label>
+                        <input id="vis-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cuda">
+                        <p class="text-xs panel-muted mt-1">Device for SAM backend (e.g. <code>cuda</code>, <code>cpu</code>, <code>cuda:0</code>).</p>
 
                 </div>
             </section>
@@ -417,6 +426,15 @@
             <section id="page-scene" class="page-panel mt-8 hidden">
                 <div class="panel border rounded-xl p-5">
                     <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Scene Representation - Scene Graph</h3>
+                    <div>
+                        <label class="block text-sm">SGG Mode</label>
+                        <select id="sgg-mode" class="w-full border rounded px-3 py-2 mt-1">
+                            <option value="vlm">VLM</option>
+                            <option value="rules">Rules</option>
+                            <option value="hybrid">Hybrid</option>
+                        </select>
+                        <p class="text-xs panel-muted mt-1">VLM uses only model output. Rules uses only rule engine. Hybrid merges both.</p>
+                    </div>
                     <label class="block text-sm">System Prompt</label>
                     <p class="text-xs panel-muted mt-1">Global instructions for VLM scene-graph generation, used on every frame in VLM/Hybrid mode.</p>
                     <textarea id="vlm-system" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
@@ -489,15 +507,7 @@
                     <p class="text-xs panel-muted mt-1">Predicate vocabulary used for scene relationships and prompt conditioning.</p>
                     <textarea id="vlm-predicates" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
 
-                    <div>
-                        <label class="block text-sm">SGG Mode</label>
-                        <select id="sgg-mode" class="w-full border rounded px-3 py-2 mt-1">
-                            <option value="vlm">VLM</option>
-                            <option value="rules">Rules</option>
-                            <option value="hybrid">Hybrid</option>
-                        </select>
-                        <p class="text-xs panel-muted mt-1">VLM uses only model output. Rules uses only rule engine. Hybrid merges both.</p>
-                    </div>
+
                     <label class="block text-sm mt-4" for="sgg-rules-json">Rules (JSON array)</label>
                     <p class="text-xs panel-muted mt-1">Rule-based scene graph configuration used in Rules and Hybrid modes (predicate type, thresholds, constraints).</p>
                     <textarea id="sgg-rules-json" rows="10" class="w-full border rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>

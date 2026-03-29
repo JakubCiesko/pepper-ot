@@ -11,6 +11,8 @@ const visLabels = document.getElementById("vis-labels");
 const visLine = document.getElementById("vis-line");
 const visOpacity = document.getElementById("vis-opacity");
 const visColor = document.getElementById("vis-color");
+const visMaskBackend = document.getElementById("vis-mask-backend");
+const visDevice = document.getElementById("vis-device");
 const storagePersist = document.getElementById("storage-persist");
 const storageImage = document.getElementById("storage-image");
 const storagePath = document.getElementById("storage-path");
@@ -329,6 +331,8 @@ async function loadConfig() {
     visLine.value = active.visualization.line_thickness ?? 2;
     visOpacity.value = active.visualization.mask_opacity ?? 0.5;
     visColor.value = active.visualization.color_lookup || "index";
+    visMaskBackend.value = active.visualization.mask_backend || "grabcut";
+    visDevice.value = active.visualization.device || "cuda";
 
     storagePersist.checked = !!active.storage?.persist_last_state;
     storageImage.checked = !!active.storage?.store_image;
@@ -466,6 +470,8 @@ function buildPatch() {
             line_thickness: parseInt(visLine.value, 10),
             mask_opacity: parseFloat(visOpacity.value),
             color_lookup: visColor.value,
+            mask_backend: visMaskBackend.value || "grabcut",
+            device: visDevice.value.trim() || "cuda",
         },
         storage: {
             persist_last_state: storagePersist.checked,

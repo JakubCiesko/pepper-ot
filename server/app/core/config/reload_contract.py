@@ -188,6 +188,16 @@ RELOAD_RULES: list[ReloadRule] = [
     ),
     # Visualization -- not only this, it affects sgg!
     ReloadRule(
+        "visualization.mask_backend",
+        attrgetter("visualization.mask_backend"),
+        "hard",
+    ),
+    ReloadRule(
+        "visualization.device",
+        attrgetter("visualization.device"),
+        "hard",
+    ),
+    ReloadRule(
         "visualization", attrgetter("visualization"), "hot", _apply_pipeline_group
     ),
     # SGG

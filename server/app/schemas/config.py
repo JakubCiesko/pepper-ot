@@ -191,6 +191,8 @@ class VisConfig(BaseModel):
     line_thickness: int = 2
     mask_opacity: float = 0.5
     color_lookup: Literal["index", "class", "track"] = "index"
+    mask_backend: Literal["grabcut", "sam"] = "grabcut"
+    device: str = "cuda"
 
 
 class StorageConfig(BaseModel):
