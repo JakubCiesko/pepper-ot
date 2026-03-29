@@ -41,11 +41,11 @@ class SceneGraphService:
             case "vlm":
                 if vlm_image is None:
                     return SceneGraph()
-                return await self.vlm_backend.generate(vlm_image)
+                return await self.vlm_backend.generate(vlm_image, detections)
             case _:
                 if vlm_image is None:
                     vlm_graph = SceneGraph()
                 else:
-                    vlm_graph = await self.vlm_backend.generate(vlm_image)
+                    vlm_graph = await self.vlm_backend.generate(vlm_image, detections)
                 rules_graph = self.rule_backend.generate(detections)
                 return vlm_graph + rules_graph

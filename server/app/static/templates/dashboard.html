@@ -42,6 +42,11 @@
                     <span class="sidebar-label">Detection</span>
                     <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">Detection</span>
                 </button>
+                <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-som">
+                    <span class="w-2 h-2 rounded-full" style="background: var(--panel-accent-9);"></span>
+                    <span class="sidebar-label">SoM Prompting & Visualization</span>
+                    <span class="sidebar-tooltip absolute left-full ml-2 text-xs px-2 py-1 rounded panel-alt border panel-border">SoM Prompting & Visualization</span>
+                </button>
                 <button class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3" data-page-target="page-scene">
                     <span class="w-2 h-2 rounded-full" style="background: var(--panel-accent-3);"></span>
                     <span class="sidebar-label">Scene Representation - Scene Graph</span>
@@ -165,6 +170,28 @@
                     <div class="xl:col-span-2 panel border rounded-xl p-5">
                         <h2 class="text-lg font-semibold mb-3">Live Feed</h2>
                         <p class="text-xs panel-muted mb-3">Latest processed frame with active SoM overlays from the current pipeline configuration.</p>
+                        <div class="flex flex-wrap items-center gap-2 mb-3">
+                            <label
+                                for="process-image-input"
+                                class="px-3 py-2 text-sm rounded border panel-border panel-alt cursor-pointer"
+                            >
+                                Upload Image
+                            </label>
+                            <input
+                                id="process-image-input"
+                                type="file"
+                                accept="image/*"
+                                class="hidden"
+                            >
+                            <button
+                                id="process-image-btn"
+                                class="px-3 py-2 text-sm rounded btn-primary font-semibold"
+                                type="button"
+                            >
+                                Process Image
+                            </button>
+                            <span id="process-image-name" class="text-xs panel-muted"></span>
+                        </div>
                         <img id="annotated-image" class="w-full h-auto rounded-lg border panel-border" src="/static/pepper_icon.png" alt="Annotated Detection Image">
                         <div id="live-carousel" class="mt-4">
                             <div class="flex items-center justify-between gap-2 mb-2">
@@ -360,6 +387,33 @@
                 </div>
             </section>
 
+            <section id="page-som" class="page-panel mt-8 hidden">
+                <div class="panel border rounded-xl p-5">
+                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">SoM Prompting & Visualization</h3>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <label class="flex items-center gap-2"><input id="vis-bbox" type="checkbox">BBox</label>
+                            <label class="flex items-center gap-2"><input id="vis-mask" type="checkbox">Mask</label>
+                            <label class="flex items-center gap-2"><input id="vis-polygon" type="checkbox">Polygon</label>
+                            <label class="flex items-center gap-2"><input id="vis-labels" type="checkbox">Labels</label>
+                        </div>
+                        <p class="text-xs panel-muted mt-2">Controls SoM overlays used for dashboard output and scene-graph input image.</p>
+                        <label class="block text-sm mt-4" for="vis-line">Line Thickness</label>
+                        <input id="vis-line" type="number" min="1" max="10" class="w-full border rounded px-3 py-2 mt-1">
+                        <p class="text-xs panel-muted mt-1">Base thickness for rendered boxes and polygons.</p>
+                        <label class="block text-sm mt-4" for="vis-opacity">Mask Opacity</label>
+                        <input id="vis-opacity" type="number" min="0" max="1" step="0.05" class="w-full border rounded px-3 py-2 mt-1">
+                        <p class="text-xs panel-muted mt-1">Opacity of mask overlays (0 transparent, 1 opaque).</p>
+                        <label class="block text-sm mt-4" for="vis-color">Color Lookup</label>
+                        <select id="vis-color" class="w-full border rounded px-3 py-2 mt-1">
+                            <option value="index">Index</option>
+                            <option value="class">Class</option>
+                            <option value="track">Track</option>
+                        </select>
+                        <p class="text-xs panel-muted mt-1">Color mapping strategy: by detection order, class, or track id.</p>
+
+                </div>
+            </section>
+
             <section id="page-scene" class="page-panel mt-8 hidden">
                 <div class="panel border rounded-xl p-5">
                     <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Scene Representation - Scene Graph</h3>
@@ -448,33 +502,6 @@
                     <p class="text-xs panel-muted mt-1">Rule-based scene graph configuration used in Rules and Hybrid modes (predicate type, thresholds, constraints).</p>
                     <textarea id="sgg-rules-json" rows="10" class="w-full border rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>
 
-
-                </div>
-                <br>
-                <div class="panel border rounded-xl p-5">
-
-
-                        <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Visualization - SoM Prompting</h3>
-                        <div class="grid grid-cols-2 gap-3 text-sm">
-                            <label class="flex items-center gap-2"><input id="vis-bbox" type="checkbox">BBox</label>
-                            <label class="flex items-center gap-2"><input id="vis-mask" type="checkbox">Mask</label>
-                            <label class="flex items-center gap-2"><input id="vis-polygon" type="checkbox">Polygon</label>
-                            <label class="flex items-center gap-2"><input id="vis-labels" type="checkbox">Labels</label>
-                        </div>
-                        <p class="text-xs panel-muted mt-2">Controls SoM overlays used for dashboard output and scene-graph input image.</p>
-                        <label class="block text-sm mt-4" for="vis-line">Line Thickness</label>
-                        <input id="vis-line" type="number" min="1" max="10" class="w-full border rounded px-3 py-2 mt-1">
-                        <p class="text-xs panel-muted mt-1">Base thickness for rendered boxes and polygons.</p>
-                        <label class="block text-sm mt-4" for="vis-opacity">Mask Opacity</label>
-                        <input id="vis-opacity" type="number" min="0" max="1" step="0.05" class="w-full border rounded px-3 py-2 mt-1">
-                        <p class="text-xs panel-muted mt-1">Opacity of mask overlays (0 transparent, 1 opaque).</p>
-                        <label class="block text-sm mt-4" for="vis-color">Color Lookup</label>
-                        <select id="vis-color" class="w-full border rounded px-3 py-2 mt-1">
-                            <option value="index">Index</option>
-                            <option value="class">Class</option>
-                            <option value="track">Track</option>
-                        </select>
-                        <p class="text-xs panel-muted mt-1">Color mapping strategy: by detection order, class, or track id.</p>
 
                 </div>
             </section>

@@ -14,6 +14,9 @@ const sgCarouselTrack = document.getElementById("sg-carousel-track");
 const sgCarouselPrev = document.getElementById("sg-carousel-prev");
 const sgCarouselNext = document.getElementById("sg-carousel-next");
 const sgCarouselIndex = document.getElementById("sg-carousel-index");
+const processImageInput = document.getElementById("process-image-input");
+const processImageBtn = document.getElementById("process-image-btn");
+const processImageName = document.getElementById("process-image-name");
 
 const MAX_LIVE_FRAMES = 10;
 const liveFrames = [];
@@ -310,6 +313,52 @@ window.PepperLiveFeed = {
     getActiveFrameSnapshot,
 };
 
+async function processUploadedImage() {
+    if (!processImageInput || !processImageBtn) return;
+    const file = processImageInput.files?.[0];
+    if (!file) {
+        if (typeof showStatusMessage === "function") {
+            showStatusMessage("Select an image first.", false);
+        }
+        return;
+    }
+
+    processImageBtn.disabled = true;
+    const originalText = processImageBtn.textContent;
+    processImageBtn.textContent = "Processing...";
+    try {
+        const form = new FormData();
+        form.append("file", file);
+        form.append("publish", "true");
+        const res = await fetch("/api/v1/detect", {
+            method: "POST",
+            body: form,
+        });
+        if (!res.ok) {
+            let detail = "Failed to process image";
+            try {
+                const body = await res.json();
+                detail = body.detail || detail;
+            } catch {
+                // ignore
+            }
+            throw new Error(detail);
+        }
+        if (typeof showStatusMessage === "function") {
+            showStatusMessage("Image submitted to /api/v1/detect");
+        }
+        processImageInput.value = "";
+        if (processImageName) processImageName.textContent = "";
+    } catch (err) {
+        if (typeof showStatusMessage === "function") {
+            showStatusMessage(err.message || "Failed to process image", false);
+        }
+    } finally {
+        processImageBtn.disabled = false;
+        processImageBtn.textContent = originalText;
+    }
+}
+
 if (window.PepperMemoryPanel) {
     window.PepperMemoryPanel.init();
 }
@@ -331,6 +380,17 @@ if (sgCarouselPrev) {
 }
 if (sgCarouselNext) {
     sgCarouselNext.addEventListener("click", goToNextFrame);
+}
+if (processImageInput) {
+    processImageInput.addEventListener("change", () => {
+        const file = processImageInput.files?.[0];
+        if (processImageName) {
+            processImageName.textContent = file ? file.name : "";
+        }
+    });
+}
+if (processImageBtn) {
+    processImageBtn.addEventListener("click", processUploadedImage);
 }
 updateCarouselIndexLabels();
 

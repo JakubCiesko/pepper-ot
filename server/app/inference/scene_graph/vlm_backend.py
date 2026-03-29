@@ -7,7 +7,9 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
+from app.inference.types import InferenceDetectionObject
 from app.inference.types import SceneGraph
+from app.inference.types import SceneGraphEdge
 from app.providers.vlm_client import BaseVLMClient
 from app.providers.vlm_client import build_vlm_client
 from app.schemas.config import SceneGraphVLMConfig
@@ -137,7 +139,9 @@ class VLMSceneGraphBackend:
         return "Focus on spatial, semantic, and functional relationships."
 
     async def generate(
-        self, image: Path | bytes | Image.Image | np.ndarray
+        self,
+        image: Path | bytes | Image.Image | np.ndarray,
+        detections: list[InferenceDetectionObject],
     ) -> SceneGraph:
         image_bytes = self._to_bytes(image)
         user_prompt = self._build_user_prompt()
@@ -180,6 +184,86 @@ class VLMSceneGraphBackend:
             data = self._parse_json(repaired)
             if not data:
                 logger.warning("VLM repair failed, returning empty scene graph")
-        logger.debug("User VLM Prompt: %s", user_prompt)
-        logger.debug("Raw VLM Response: %s", raw)
-        return SceneGraph.from_list(data, raw=raw)
+        logger.info(
+            "VLM input: SYSTEM_PROMPT=[%s], USER_PROMPT=[%s]; VLM RAW OUTPUT=[%s]",
+            self.system_prompt,
+            user_prompt,
+            raw,
+        )
+        scene_graph = SceneGraph.from_list(data, raw=raw)
+        scene_graph = self.fix_overgeneration(scene_graph, detections)
+        return scene_graph
+
+    def fix_overgeneration(
+        self, scene_graph: SceneGraph, detections: list[InferenceDetectionObject] | None
+    ) -> SceneGraph:
+        if not detections:
+            logger.info(
+                "No detections (det=%s) passed to fix potential overgeneration."
+                "Returning original scene graph",
+                detections,
+            )
+            return scene_graph
+        # only labels and ids appearing in detections can be part of the current scene graph
+        id_to_label = {}
+        logger.info(
+            "Filtering scene graph based on current list of detections (%d dets)",
+            len(detections),
+        )
+        for det in detections:
+            if det.object_id is None:
+                # can be but should not be
+                continue
+            obj_id = str(det.object_id)
+            label = (det.label or "").strip() or "object"
+            id_to_label[obj_id] = label
+        # case: no obj ids, TODO: decide whether to return the original SG or empty SG... But should be really empty,
+        #  because it is overgenerated then...
+        if not id_to_label:
+            logger.info(
+                "No valid mapping of ids to labels for detections, returning empty scene graph."
+            )
+            return SceneGraph(edges=[], no_label_edges=[], raw=scene_graph.raw)
+        # case: mapping works
+        filtered_with_labels, filtered_without_labels = [], []
+        source_edges = (
+            scene_graph.no_label_edges or scene_graph.edges
+        )  # prefering just the id-edges
+        dropped_edges: list[tuple[str, str, str]] = (
+            []
+        )  # will be used for logging dropped edges
+        for edge in source_edges:
+            sub_id = SceneGraph._normalize_id(edge.sub)
+            obj_id = SceneGraph._normalize_id(edge.obj)
+            rel = str(edge.rel).strip()
+            if not sub_id or not obj_id or not rel:
+                dropped_edges.append((sub_id, rel, obj_id))
+                continue
+            if sub_id not in id_to_label or obj_id not in id_to_label:
+                dropped_edges.append((sub_id, rel, obj_id))
+                continue  # skip hallucinated edges and objects
+            filtered_without_labels.append(
+                SceneGraphEdge(sub=sub_id, obj=obj_id, rel=rel)
+            )
+            sub_label, obj_label = id_to_label[sub_id], id_to_label[obj_id]
+            filtered_with_labels.append(
+                SceneGraphEdge(
+                    sub=f"{sub_label}_{sub_id}", obj=f"{obj_label}_{obj_id}", rel=rel
+                )
+            )
+
+        logger.info(
+            "Filtered scene graph removing overgeneration: # edges with labels %d -> %d, "
+            "# edges without labels %d -> %d. First 5 dropped edges: %s",
+            len(scene_graph.edges),
+            len(filtered_with_labels),
+            len(scene_graph.no_label_edges),
+            len(filtered_without_labels),
+            dropped_edges[:5],
+        )
+        # inherit raw scene graph
+        return SceneGraph(
+            edges=filtered_with_labels,
+            no_label_edges=filtered_without_labels,
+            raw=scene_graph.raw,
+        )
