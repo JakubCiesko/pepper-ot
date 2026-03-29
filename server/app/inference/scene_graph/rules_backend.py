@@ -1,5 +1,11 @@
+import colorsys
 from dataclasses import dataclass
 import math
+
+import fast_colorthief
+import numpy as np
+from numpy.typing import NDArray
+from PIL import Image
 
 from app.inference.types import InferenceDetectionObject
 from app.inference.types import SceneGraph
@@ -12,7 +18,9 @@ from app.schemas.config import SGGRulesConfig
 class RuleBasedSceneGraphBackend:
     rules_config: SGGRulesConfig
 
-    def generate(self, detections: list[InferenceDetectionObject]) -> SceneGraph:
+    def generate(
+        self, image: Image.Image | None, detections: list[InferenceDetectionObject]
+    ) -> SceneGraph:
         if not self.rules_config.enabled:
             return SceneGraph()
         dets = [d for d in detections if d.object_id is not None]
@@ -21,8 +29,59 @@ class RuleBasedSceneGraphBackend:
         det_id_to_label = {d.object_id: d.label for d in detections}
         centers = {d.object_id: _center(d.bbox) for d in dets}
         no_label_edges: list[SceneGraphEdge] = []
+        # rules
         for rule in self.rules_config.rule_list:
             no_label_edges.extend(self._apply_rule(rule, dets, centers))
+        # colors
+        if image is not None:
+            if isinstance(image, Image.Image):
+                # PIL's internal conversion is highly optimized in C
+                img_np = np.asarray(image.convert("RGBA"))
+            else:
+                img_np = np.asarray(image)
+                # Pad NumPy arrays to 4 channels if they arrive as 3-channel (RGB/BGR)
+                if img_np.ndim == 3 and img_np.shape[2] == 3:
+                    alpha_channel = np.full(
+                        (img_np.shape[0], img_np.shape[1], 1), 255, dtype=img_np.dtype
+                    )
+                    img_np = np.concatenate((img_np, alpha_channel), axis=2)
+                # Handle edge case: grayscale images (1 channel)
+                elif img_np.ndim == 2:
+                    img_np = np.stack(
+                        (img_np, img_np, img_np, np.full_like(img_np, 255)), axis=2
+                    )
+            img_h, img_w = img_np.shape[:2]
+            for d in detections:
+                x1, y1, x2, y2 = map(int, d.bbox)
+                x1, x2 = max(0, x1), min(img_w, x2)
+                y1, y2 = max(0, y1), min(img_h, y2)
+
+                w, h = x2 - x1, y2 - y1
+                # filter nonsense
+                if w <= 0 or h <= 0:
+                    continue
+                # skip small bboxes TODO:HARDCODED VALUES OUT, or make relative:
+                min_edge_ratio = min(w, h) / min(img_w, img_h)
+                if min_edge_ratio < 0.05:
+                    continue
+                # if min(w, h) < 120:
+                #     continue
+
+                crop_np = img_np[y1:y2, x1:x2]
+                try:
+                    if not crop_np.flags["C_CONTIGUOUS"]:
+                        crop_np = np.ascontiguousarray(crop_np)
+                    color_rel = _extract_color(crop_np)
+                    no_label_edges.append(
+                        SceneGraphEdge(
+                            sub=d.object_id,
+                            rel=color_rel,
+                            obj=d.object_id,
+                        )
+                    )
+                except Exception:
+                    continue
+
         label_edges = [
             SceneGraphEdge(
                 sub=f"{det_id_to_label[edge.sub]}_{edge.sub}",
@@ -144,7 +203,7 @@ def _inside_ratio(inner: list[float], outer: list[float]) -> float:
     ox1, oy1, ox2, oy2 = outer
     inter_x1, inter_y1 = max(ix1, ox1), max(iy1, oy1)
     inter_x2, inter_y2 = min(ix2, ox2), min(iy2, oy2)
-    inter = max(0, inter_x2 - inter_x1) * max(0, inter_y2 - inter_y1)
+    inter = max(0.0, inter_x2 - inter_x1) * max(0.0, inter_y2 - inter_y1)
     area_inner = (ix2 - ix1) * (iy2 - iy1)
     return inter / area_inner if area_inner > 0 else 0.0
 
@@ -166,3 +225,52 @@ def _range_check(
     if min_val is not None and value < float(min_val):
         return False
     return not (max_val is not None and value > float(max_val))
+
+
+def _extract_color(image_np: NDArray) -> str:
+    # TODO: test, vibe coded
+    dominant_color_rgb = fast_colorthief.get_dominant_color(image_np, quality=1)
+    r8, g8, b8 = dominant_color_rgb
+    r, g, b = r8 / 255.0, g8 / 255.0, b8 / 255.0
+    h, s, v = colorsys.rgb_to_hsv(r, g, b)
+    h_deg = h * 360.0
+
+    # Achromatic handling first (most important for robustness)
+    if v <= 0.14:
+        return "is_black"
+    if s <= 0.10 and v >= 0.90:
+        return "is_white"
+    if s <= 0.16:
+        # light vs dark gray split (optional; keeps richer vocabulary)
+        return "is_light_gray" if v >= 0.60 else "is_gray"
+
+    # Brown as dark orange range
+    if 15 <= h_deg < 45 and 0.20 <= v <= 0.75:
+        return "is_brown"
+
+    # Hue buckets (chromatic)
+    if h_deg >= 345 or h_deg < 12:
+        return "is_red"
+    if 12 <= h_deg < 25:
+        return "is_orange"
+    if 25 <= h_deg < 50:
+        return "is_yellow"
+    if 50 <= h_deg < 75:
+        return "is_lime"
+    if 75 <= h_deg < 160:
+        return "is_green"
+    if 160 <= h_deg < 190:
+        return "is_cyan"
+    if 190 <= h_deg < 230:
+        return "is_blue"
+    if 230 <= h_deg < 255:
+        return "is_navy"
+    if 255 <= h_deg < 285:
+        return "is_purple"
+    if 285 <= h_deg < 330:
+        return "is_magenta"
+    if 330 <= h_deg < 345:
+        return "is_pink"
+
+    # Fallback
+    return "is_gray"

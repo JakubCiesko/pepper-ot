@@ -35,9 +35,10 @@ class SceneGraphService:
             self.mode,
             len(detections),
         )
+        # pass raw to rules because colors get distorted by bboxes colors
         match self.mode:
             case "rules":
-                return self.rule_backend.generate(detections)
+                return self.rule_backend.generate(raw_image, detections)
             case "vlm":
                 if vlm_image is None:
                     return SceneGraph()
@@ -48,7 +49,7 @@ class SceneGraphService:
                 else:
                     vlm_graph = await self.vlm_backend.generate(vlm_image, detections)
                 logger.info("HYBRID SGG, VLM output: %s", vlm_graph)
-                rules_graph = self.rule_backend.generate(detections)
+                rules_graph = self.rule_backend.generate(raw_image, detections)
                 logger.info("HYBRID SGG, RULES output: %s", rules_graph)
                 out = vlm_graph + rules_graph
                 logger.info("HYBRID SGG, VLM + RULES output: %s", out)

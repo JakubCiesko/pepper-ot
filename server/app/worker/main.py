@@ -35,5 +35,5 @@ async def lifespan(_app: FastAPI):
     logger.info("Worker process shutdown")
 
 
-app = FastAPI(title="Pepper Worker Internal API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Pepper Worker Internal API", version="1.0.0", lifespan=lifespan)
 app.include_router(build_worker_router(runtime))
