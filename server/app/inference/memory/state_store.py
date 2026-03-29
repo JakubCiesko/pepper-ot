@@ -52,12 +52,17 @@ class SceneMemoryStore(
         )
 
     def scene_state(self) -> SceneState:
-        return SceneState(
+        scene_state = SceneState(
             objects=list(self.objects_state.values()),
             relationships=list(self.relations_state.values()),
             captions=list(self.captions_state.values()),
             timestamp=time.time(),
         )
+        logger.debug(
+            "SceneMemoryStore returning Current Scene State: %s",
+            scene_state.model_dump_json(),
+        )
+        return scene_state
 
     def upsert_scene_state(self, state: SceneState):
         now = time.time()

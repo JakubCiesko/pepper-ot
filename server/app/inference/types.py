@@ -18,7 +18,7 @@ class InferenceDetectionObject(BaseModel):
     label: str = Field(..., description="Object label")
     confidence: float = Field(..., description="Detection confidence")
     bbox: list[float] = Field(..., description="[x1, y1, x2, y2]")
-    object_id: int | None = Field(None, description="Persistent tracking ID")
+    object_id: int | str | None = Field(None, description="Persistent tracking ID")
 
 
 @dataclass
@@ -210,10 +210,15 @@ class SceneGraph:
     def __add__(self, other: "SceneGraph") -> "SceneGraph":
         if not isinstance(other, SceneGraph):
             return NotImplemented
+        # TODO: test whether get back to edges= self.no_label... or edges = self.edges as now.
         merged = SceneGraph(
-            edges=self.no_label_edges + other.no_label_edges,
+            edges=self.edges + other.edges,
             no_label_edges=self.no_label_edges + other.no_label_edges,
-            raw=None,
+            raw=(
+                self.raw + other.raw
+                if self.raw and other.raw
+                else (self.raw or other.raw)
+            ),
         )
         return merged
 

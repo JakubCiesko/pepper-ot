@@ -240,7 +240,12 @@ class SceneMemory:
         if scene_graph is None:
             return
         with self._lock:
+            logger.info("Updating SceneMemory with SceneGraph=%s", scene_graph)
             self.store.update_scene_graph(scene_graph)
+            logger.debug(
+                "Scene Memory updated to SceneMemory=%s",
+                self.store.scene_state().model_dump_json(),
+            )
 
     def upsert_caption(self, caption: SceneCaptionState):
         with self._lock:

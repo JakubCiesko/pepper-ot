@@ -331,7 +331,14 @@ class LLMClient:
     async def generate_text(self, system_prompt: str, user_prompt: str) -> str:
         try:
             response = await self.generate(system_prompt, user_prompt)
-            return response.text or "I'm not sure what to say."
+            response = response.text or "I'm not sure what to say."
+            logger.info(
+                "LLMClient Text Generation, SYSTEM_PROMPT=[%s], USER_PROMPT=[%s], LLM_OUTPUT=[%s]",
+                system_prompt,
+                user_prompt,
+                response,
+            )
+            return response
         except Exception as exc:
             logger.error(f"LLM generation error: {exc}")
             return "I am having trouble connecting to my language center right now."

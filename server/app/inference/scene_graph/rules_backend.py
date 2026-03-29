@@ -18,12 +18,20 @@ class RuleBasedSceneGraphBackend:
         dets = [d for d in detections if d.object_id is not None]
         if not dets:
             return SceneGraph()
-
+        det_id_to_label = {d.object_id: d.label for d in detections}
         centers = {d.object_id: _center(d.bbox) for d in dets}
-        edges: list[SceneGraphEdge] = []
+        no_label_edges: list[SceneGraphEdge] = []
         for rule in self.rules_config.rule_list:
-            edges.extend(self._apply_rule(rule, dets, centers))
-        return SceneGraph.from_list([e.__dict__ for e in edges])
+            no_label_edges.extend(self._apply_rule(rule, dets, centers))
+        label_edges = [
+            SceneGraphEdge(
+                sub=f"{det_id_to_label[edge.sub]}_{edge.sub}",
+                rel=edge.rel,
+                obj=f"{det_id_to_label[edge.obj]}_{edge.obj}",
+            )
+            for edge in no_label_edges
+        ]
+        return SceneGraph(no_label_edges=no_label_edges, edges=label_edges, raw="")
 
     def _apply_rule(
         self,
@@ -41,9 +49,9 @@ class RuleBasedSceneGraphBackend:
                 if self._match(rule, sub, obj, centers):
                     edges.append(
                         SceneGraphEdge(
-                            sub=str(sub.object_id),
+                            sub=sub.object_id,
                             rel=rule.predicate,
-                            obj=str(obj.object_id),
+                            obj=obj.object_id,
                         )
                     )
         return edges

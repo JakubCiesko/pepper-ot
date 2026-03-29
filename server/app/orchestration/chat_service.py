@@ -39,13 +39,15 @@ class ChatService:
         if not state.objects:
             return "You see nothing."
 
+        obj_id_to_label = {obj.id: obj.label for obj in state.objects}
+
         object_lines = []
         for obj in state.objects:
             attrs = ", ".join(obj.attributes) if obj.attributes else "no attributes"
             object_lines.append(f"- ID {obj.id}: {obj.label} ({attrs})")
-
+        # TODO: what if memory fkcsup ? need to filter only presnet in obj_id_to_label?
         relation_lines = [
-            f"- {rel.subject_id} {rel.predicate} {rel.object_id}"
+            f"- {obj_id_to_label[rel.subject_id]}_{rel.subject_id} {rel.predicate} {obj_id_to_label[rel.object_id]}_{rel.object_id}"
             for rel in state.relationships
         ]
 
