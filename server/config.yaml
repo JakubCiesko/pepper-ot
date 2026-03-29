@@ -28,7 +28,7 @@ scene_graph:
   mode: "vlm"
   vlm:
     provider: "gemini"
-    model_id: "gemini-3.1-flash-lite-preview" #"gpt-5-mini-2025-08-07"
+    model_id: "gemini-2.5-flash-lite"#"gemini-3.1-flash-lite-preview" #"gpt-5-mini-2025-08-07"
     device: "cuda"
     base_url: null
     api_key_env: "GEMINI_API_KEY" #pragma: allowlist secret
@@ -48,126 +48,54 @@ scene_graph:
   rules:
     enabled: true
     rule_list:
-      - predicate: "next_to"
-        type: "spatial"
-        thresholds:
-          max_distance: 80
-        constraints:
-          labels_any: []
-
       - predicate: "left_of"
         type: "directional"
         thresholds:
           axis: "x"
-          max_delta: -20
+          max_delta: -35
 
       - predicate: "right_of"
         type: "directional"
         thresholds:
           axis: "x"
-          min_delta: 20
+          min_delta: 35
 
       - predicate: "above"
         type: "directional"
         thresholds:
           axis: "y"
-          max_delta: -20
+          max_delta: -25
 
       - predicate: "below"
         type: "directional"
         thresholds:
           axis: "y"
-          min_delta: 20
-
-      - predicate: "overlapping"
-        type: "overlap"
-        thresholds:
-          min_iou: 0.2
-
-      - predicate: "inside"
-        type: "containment"
-        thresholds:
-          min_inside: 0.6
-
-      - predicate: "touching"
-        type: "spatial"
-        thresholds:
-          max_distance: 10
+          min_delta: 25
 
       - predicate: "near"
         type: "spatial"
         thresholds:
           max_distance: 120
 
+      - predicate: "next_to"
+        type: "spatial"
+        thresholds:
+          min_distance: 25
+          max_distance: 90
+
       - predicate: "far_from"
         type: "spatial"
         thresholds:
-          min_distance: 250
+          min_distance: 220
 
-      - predicate: "aligned_with"
-        type: "directional"
+      - predicate: "in_front_of"
+        type: "overlap"
         thresholds:
-          axis: "y"
-          min_delta: -15
-          max_delta: 15
-
-      - predicate: "centered_on"
-        type: "directional"
-        thresholds:
-          axis: "x"
-          min_delta: -25
-          max_delta: 25
-
-      - predicate: "supporting"
-        type: "directional"
-        thresholds:
-          axis: "y"
-          min_delta: 10
-          max_delta: 80
-        constraints:
-          labels_any: []
-
-      - predicate: "resting_on"
-        type: "directional"
-        thresholds:
-          axis: "y"
-          max_delta: -5
-        constraints:
-          labels_any: []
-
-      - predicate: "wearing"
-        type: "label_pair"
-        constraints:
-          subject_labels: ["person"]
-          object_labels: ["glasses"]
-
-      - predicate: "holding"
-        type: "label_pair"
-        constraints:
-          subject_labels: ["person"]
-          object_labels: ["cup", "bottle", "phone", "bag", "book"]
-
-      - predicate: "riding"
-        type: "label_pair"
-        constraints:
-          subject_labels: ["person"]
-          object_labels: ["bicycle", "motorcycle", "horse"]
-
-      - predicate: "sitting_on"
-        type: "label_pair"
-        constraints:
-          subject_labels: ["person", "cat", "dog"]
-          object_labels: ["chair", "sofa", "bench", "bed"]
-
-      - predicate: "standing_on"
-        type: "label_pair"
-        constraints:
-          subject_labels: ["person"]
-          object_labels: ["floor", "ground", "platform", "stage"]
+          min_iou: 0.9
 
 chat:
   provider: "gemini"
-  model_id: "gemini-3.1-flash-lite-preview"#"gpt-4o"
+  model_id: "gemini-2.5-flash-lite"#"gpt-4o"
   device: "cuda"
   base_url: null
   api_key_env: "GEMINI_API_KEY" #pragma: allowlist secret
@@ -218,8 +146,7 @@ caption:
   mode: unconditional
   max_words: null
   system_prompt:
-    text: You are Pepper robot vision caption module. Describe the visible scene simply
-      and briefly.
+    text: Describe the visible scene thoroughly but simply.
     path: null
   user_prompt:
     text: What do you see?
@@ -245,6 +172,7 @@ worker:
 
 pipeline_controls:
   preset: "full"
+  caption: true
   detect: true
   track_memory: true
   paint_som: true
