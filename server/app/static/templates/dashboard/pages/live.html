@@ -1,0 +1,227 @@
+            <section id="page-live" class="page-panel mt-8">
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <!--<div class="panel border rounded-xl p-5">
+                        <p class="text-xs uppercase tracking-widest panel-muted">Frames</p>
+                        <div class="text-2xl font-semibold mt-2">Live</div>
+                        <p class="panel-muted text-xs mt-2">Streaming</p>
+                    </div>-->
+                    <div class="panel border rounded-xl p-5">
+                        <p class="text-xs uppercase tracking-widest panel-muted">Objects</p>
+                        <div class="text-2xl font-semibold mt-2" id="summary-objects">—</div>
+                        <p class="text-xs uppercase tracking-widest panel-muted">Relations</p>
+                        <div class="text-2xl font-semibold mt-2" id="summary-relations">—</div>
+                        <p class="panel-muted text-xs mt-2">Current frame</p>
+                    </div>
+                    <div class="panel border rounded-xl p-5">
+                        <p class="text-xs uppercase tracking-widest panel-muted">Memory</p>
+                        <div class="text-2xl font-semibold mt-2" id="summary-memory">—</div>
+                        <p class="panel-muted text-xs mt-2">Tracked items</p>
+                    </div>
+<!--                    <div class="panel border rounded-xl p-5">-->
+<!--                        -->
+<!--                        <p class="panel-muted text-xs mt-2">Scene graph</p>-->
+<!--                    </div>-->
+
+                    <div class="panel border rounded-xl p-5">
+                        <h2 class="text-lg font-semibold mb-3">Inference Metrics</h2>
+                        <div id="inference-metrics" class="panel-muted">
+                            <p class="panel-muted">No metrics recorded yet...</p>
+                        </div>
+                    </div>
+
+                    <div class="xl:col-span-2 panel border rounded-xl p-5">
+                        <h2 class="text-lg font-semibold mb-3">Live Feed</h2>
+                        <p class="text-xs panel-muted mb-3">Latest processed frame with active SoM overlays from the current pipeline configuration.</p>
+                        <div class="flex flex-wrap items-center gap-2 mb-3">
+                            <label
+                                for="process-image-input"
+                                class="px-3 py-2 text-sm rounded border panel-border panel-alt cursor-pointer"
+                            >
+                                Upload Image
+                            </label>
+                            <input
+                                id="process-image-input"
+                                type="file"
+                                accept="image/*"
+                                class="hidden"
+                            >
+                            <button
+                                id="process-image-btn"
+                                class="px-3 py-2 text-sm rounded btn-primary font-semibold"
+                                type="button"
+                            >
+                                Process Image
+                            </button>
+                            <span id="process-image-name" class="text-xs panel-muted"></span>
+                        </div>
+                        <img id="annotated-image" class="w-full h-auto rounded-lg border panel-border" src="/static/pepper_icon.png" alt="Annotated Detection Image">
+                        <div id="live-carousel" class="mt-4">
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <h3 class="text-sm font-semibold">Recent Frames</h3>
+                                <div class="flex items-center gap-2">
+                                    <button id="live-carousel-prev" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Prev</button>
+                                    <span id="live-carousel-index" class="text-xs panel-muted">0 / 0</span>
+                                    <button id="live-carousel-next" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Next</button>
+                                </div>
+                            </div>
+                            <div
+                                id="live-carousel-track"
+                                class="live-carousel-track"
+                                aria-label="Recent detected frames carousel"
+                            ></div>
+                        </div>
+                    </div>
+
+                    <div class="xl:col-span-1 flex flex-col gap-6 h-full min-h-0">
+                        <div class="panel border rounded-xl p-5 flex flex-col min-h-0">
+                            <h2 class="text-lg font-semibold mb-3">Pepper Conversation</h2>
+                            <label class="block text-xs panel-muted mb-1">Conversation Endpoint</label>
+                            <select id="conversation-route-select" class="w-full border rounded px-3 py-2 mb-3">
+                                <option value="chat">/api/v1/chat (memory-grounded)</option>
+                                <option value="vision_chat">/api/v1/vision_chat (image-direct)</option>
+                            </select>
+                            <label class="block text-xs panel-muted mb-1">Output Language Enforcement</label>
+                            <select id="output-language-select" class="w-full border rounded px-3 py-2 mb-3">
+                                <option value="default">Default (no enforcement)</option>
+                                <option value="english">English</option>
+                                <option value="czech">Czech</option>
+                            </select>
+                            <div id="sentences-content" class="panel-muted h-48 min-h-0 overflow-auto pr-1 whitespace-pre-wrap break-all">
+                                <p class="panel-muted">No messages yet...</p>
+                            </div>
+                            <div class="mt-3 space-y-2">
+                                <textarea id="conversation-input" rows="3" class="w-full border rounded px-3 py-2" placeholder="Ask Pepper about the scene..."></textarea>
+                                <div class="flex items-center gap-2">
+                                    <button id="conversation-send" class="px-3 py-2 text-sm rounded btn-primary font-semibold">Send</button>
+                                    <button id="conversation-new" class="px-3 py-2 text-sm rounded border panel-border panel-alt">New Conversation</button>
+                                    <span id="conversation-chat-id" class="text-xs panel-muted"></span>
+                                </div>
+                                <p id="conversation-status" class="text-xs panel-muted"></p>
+                            </div>
+                        </div>
+                        <div class="panel border rounded-xl p-5 flex flex-col min-h-0">
+                            <h2 class="text-lg font-semibold mb-3">Image Caption</h2>
+                            <div id="caption-content" class="panel-muted h-32 min-h-0 overflow-auto pr-1 whitespace-pre-wrap break-all">
+                                <p class="panel-muted">No caption yet...</p>
+                            </div>
+                        </div>
+                        <div class="panel border rounded-xl p-5 flex-1 min-h-0">
+                            <h2 class="text-lg font-semibold mb-3">Detected Objects</h2>
+                            <p class="text-xs panel-muted mb-3">Current-frame detections after thresholding and tracking ID assignment.</p>
+                            <div id="detections-content" class="panel-muted max-h-96 overflow-auto pr-1">
+                                <p class="panel-muted">No detections yet...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="xl:col-span-4 panel border rounded-xl p-5">
+                        <div class="flex items-center gap-2 mb-4">
+                            <button class="tab-btn px-3 py-2 text-sm rounded border panel-border" data-tab-group="live" data-tab-target="memory-panel">Memory</button>
+                            <button class="tab-btn px-3 py-2 text-sm rounded border panel-border" data-tab-group="live" data-tab-target="scene-graph-panel">Scene Graph</button>
+                        </div>
+
+                        <div id="memory-panel" class="tab-panel" data-tab-group="live">
+                            <h2 class="text-lg font-semibold mb-3">Scene Memory</h2>
+                            <p class="text-xs panel-muted mb-3">Persistent world state accumulated across frames (objects, attributes, and relationships).</p>
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <button
+                                    id="mem-refresh"
+                                    class="px-3 py-1 text-xs rounded border panel-border panel-alt"
+                                    type="button"
+                                >
+                                    Refresh Memory
+                                </button>
+                                <button
+                                    id="mem-reset"
+                                    class="px-3 py-1 text-xs rounded border panel-border panel-alt"
+                                    type="button"
+                                >
+                                    Reset Memory
+                                </button>
+                            </div>
+                            <div id="memory-content" class="panel-muted max-h-72 overflow-auto pr-1">
+                                <p class="panel-muted">No tracked objects yet...</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t panel-border">
+                                <p class="text-xs panel-muted">Manual Memory CRUD: create, update or delete objects and relationships directly.</p>
+                            </div>
+                            <div class="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                <div class="border panel-border rounded p-3 panel-alt">
+                                    <h3 class="text-sm font-semibold mb-2">Object Editor</h3>
+                                    <p class="text-xs panel-muted mb-2">Use <span class="font-medium">Prefill</span> on an object card, edit fields, then Update/Delete.</p>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <input id="mem-obj-id" type="number" class="border rounded px-2 py-1" placeholder="id (optional)">
+                                        <input id="mem-obj-label" type="text" class="border rounded px-2 py-1" placeholder="label">
+                                        <input id="mem-obj-bbox" type="text" class="col-span-2 border rounded px-2 py-1" placeholder="bbox x1,y1,x2,y2">
+                                        <input id="mem-obj-attrs" type="text" class="col-span-2 border rounded px-2 py-1" placeholder="attributes (comma-separated)">
+                                    </div>
+                                    <div class="flex flex-wrap gap-2 mt-3">
+                                        <button id="mem-obj-create" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Create</button>
+                                        <button id="mem-obj-update" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Update</button>
+                                        <button id="mem-obj-delete" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Delete</button>
+                                    </div>
+                                    <p class="text-xs panel-muted mt-2">Create inserts a new object, Update modifies by ID, and Delete removes the object with attached relationships.</p>
+                                </div>
+                                <div class="border panel-border rounded p-3 panel-alt">
+                                    <h3 class="text-sm font-semibold mb-2">Relation Editor</h3>
+                                    <p class="text-xs panel-muted mb-2">Use <span class="font-medium">Prefill</span> on a relation card for quick edits.</p>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <input id="mem-rel-subject" type="number" class="border rounded px-2 py-1" placeholder="subject id">
+                                        <input id="mem-rel-object" type="number" class="border rounded px-2 py-1" placeholder="object id">
+                                        <input id="mem-rel-predicate" type="text" class="col-span-2 border rounded px-2 py-1" placeholder="predicate">
+                                        <input id="mem-rel-count" type="number" min="1" class="col-span-2 border rounded px-2 py-1" placeholder="count (optional)">
+                                    </div>
+                                    <div class="flex flex-wrap gap-2 mt-3">
+                                        <button id="mem-rel-create" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Create</button>
+                                        <button id="mem-rel-update" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Update</button>
+                                        <button id="mem-rel-delete" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Delete</button>
+                                    </div>
+                                    <p class="text-xs panel-muted mt-2">Relations are identified by <code>subject_id</code>, <code>predicate</code>, and <code>object_id</code>.</p>
+                                </div>
+                            </div>
+                            <p id="memory-editor-status" class="text-xs panel-muted mt-3"></p>
+                            <details class="mt-4">
+                                <summary class="cursor-pointer panel-muted text-sm">Raw Memory JSON</summary>
+                                <pre id="memory-raw" class="text-xs panel-muted mt-2 overflow-auto"></pre>
+                            </details>
+                        </div>
+
+                        <div id="scene-graph-panel" class="tab-panel hidden" data-tab-group="live">
+                            <h2 class="text-lg font-semibold mb-3">Scene Graph</h2>
+                            <p class="text-xs panel-muted mb-3">Structured relationship graph generated from current detections using the selected SGG mode.</p>
+                            <div id="sg-carousel" class="mb-4">
+                                <div class="flex items-center justify-between gap-2 mb-2">
+                                    <h3 class="text-sm font-semibold">Recent Scene Graphs</h3>
+                                    <div class="flex items-center gap-2">
+                                        <button id="sg-carousel-prev" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Prev</button>
+                                        <span id="sg-carousel-index" class="text-xs panel-muted">0 / 0</span>
+                                        <button id="sg-carousel-next" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Next</button>
+                                    </div>
+                                </div>
+                                <div
+                                    id="sg-carousel-track"
+                                    class="sg-carousel-track"
+                                    aria-label="Recent scene graphs carousel"
+                                ></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <button id="sg-zoom-in" class="px-2 py-1 text-xs rounded border panel-border panel-alt">Zoom In</button>
+                                    <button id="sg-zoom-out" class="px-2 py-1 text-xs rounded border panel-border panel-alt">Zoom Out</button>
+                                    <button id="sg-fit" class="px-2 py-1 text-xs rounded border panel-border panel-alt">Center</button>
+                                </div>
+                                <div id="scene-graph-canvas" class="h-[360px] rounded border panel-border panel-alt"></div>
+                            </div>
+                            <div class="mt-4">
+                                <div id="scene-graph-content" class="panel-muted max-h-60 overflow-auto border panel-border rounded p-3 panel-alt">
+                                    <p class="panel-muted">No relations yet...</p>
+                                </div>
+                                <details class="mt-4">
+                                    <summary class="cursor-pointer panel-muted text-sm">Raw SceneGraph JSON</summary>
+                                    <pre id="scene-graph-raw" class="text-xs panel-muted mt-2 overflow-auto"></pre>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>

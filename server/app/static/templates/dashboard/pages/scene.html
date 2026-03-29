@@ -1,0 +1,92 @@
+            <section id="page-scene" class="page-panel mt-8 hidden">
+                <div class="panel border rounded-xl p-5">
+                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Scene Representation - Scene Graph</h3>
+                    <div>
+                        <label class="block text-sm">SGG Mode</label>
+                        <select id="sgg-mode" class="w-full border rounded px-3 py-2 mt-1">
+                            <option value="vlm">VLM</option>
+                            <option value="rules">Rules</option>
+                            <option value="hybrid">Hybrid</option>
+                        </select>
+                        <p class="text-xs panel-muted mt-1">VLM uses only model output. Rules uses only rule engine. Hybrid merges both.</p>
+                    </div>
+                    <label class="block text-sm">System Prompt</label>
+                    <p class="text-xs panel-muted mt-1">Global instructions for VLM scene-graph generation, used on every frame in VLM/Hybrid mode.</p>
+                    <textarea id="vlm-system" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <label class="block text-sm mt-4">VLM Device</label>
+                    <input id="vlm-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cuda">
+                    <p class="text-xs panel-muted mt-1">Inference device for scene-graph VLM backend.</p>
+                    <label class="block text-sm mt-4">VLM Provider</label>
+                    <select id="vlm-provider" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="openai">openai</option>
+                        <option value="gemini">gemini</option>
+                        <option value="openai_compatible">openai_compatible</option>
+                        <option value="local_hf">local_hf</option>
+                        <option value="local_4bit">local_4bit</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">Selects inference backend. <code>openai_compatible</code> targets OpenAI-style servers such as local vLLM or Ollama gateways.</p>
+                    <label class="block text-sm mt-4">VLM Model ID</label>
+                    <input id="vlm-model-id" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="gpt-4.1-mini">
+                    <p class="text-xs panel-muted mt-1">Model name sent to the selected provider (exact provider-specific identifier).</p>
+                    <label class="block text-sm mt-4">VLM Base URL</label>
+                    <input id="vlm-base-url" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="http://localhost:8000/v1">
+                    <p class="text-xs panel-muted mt-1">Optional API endpoint override. Required for <code>openai_compatible</code> providers.</p>
+                    <label class="block text-sm mt-4">VLM API Key Env</label>
+                    <input id="vlm-api-key-env" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="OPENAI_API_KEY">
+                    <p class="text-xs panel-muted mt-1">Environment variable name used to resolve credentials at runtime (the key itself is never stored here).</p>
+                    <label class="block text-sm mt-4">VLM Structured Mode</label>
+                    <select id="vlm-structured-strategy" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="provider_native">provider_native</option>
+                        <option value="parse_output">parse_output</option>
+                        <option value="instructor">instructor</option>
+                    </select>
+                    <p id="vlm-structured-capability" class="text-xs panel-muted mt-1"></p>
+                    <label class="block text-sm mt-4">VLM Structured Strict</label>
+                    <select id="vlm-structured-strict" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="true">true</option>
+                        <option value="false">false</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">When true, malformed or missing structured output raises an error; when false, parsing failures degrade to empty parsed payloads.</p>
+                    <label class="block text-sm mt-4">VLM Structured Schema</label>
+                    <select id="vlm-structured-schema" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="scene_graph">scene_graph</option>
+                        <option value="relationship_list">relationship_list</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">Chooses expected response schema: wrapped scene-graph object or direct list of relationships.</p>
+                    <label class="block text-sm mt-4">Local VLM Prompt Template Style</label>
+                    <select id="vlm-local-prompt-style" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="auto">auto</option>
+                        <option value="chatml">chatml</option>
+                        <option value="plain">plain</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">Controls local template rendering strategy. Use <code>plain</code> to force simple fallback prompts for fragile models.</p>
+                    <label class="block text-sm mt-4">Local VLM Image Token Strategy</label>
+                    <select id="vlm-local-image-token-strategy" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="auto">auto</option>
+                        <option value="single">single</option>
+                        <option value="multi">multi</option>
+                    </select>
+                    <p class="text-xs panel-muted mt-1">Hint for local multimodal prompt formatting. Useful when model families expect specific image-token conventions.</p>
+                    <label class="block text-sm mt-4">VLM Client Init Kwargs (JSON)</label>
+                    <textarea id="vlm-client-init-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"timeout": 120}'></textarea>
+                    <p class="text-xs panel-muted mt-1">Advanced provider client options applied during client construction (connection/auth/transport-level settings).</p>
+                    <p id="vlm-client-init-kwargs-status" class="text-xs panel-muted mt-1"></p>
+                    <label class="block text-sm mt-4">VLM Call Kwargs (JSON)</label>
+                    <textarea id="vlm-call-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"max_tokens": 1024, "temperature": 0.2}'></textarea>
+                    <p class="text-xs panel-muted mt-1">Advanced per-request generation arguments (sampling, token limits, provider call knobs).</p>
+                    <p id="vlm-call-kwargs-status" class="text-xs panel-muted mt-1"></p>
+                    <label class="block text-sm mt-4">User Prompt</label>
+                    <p class="text-xs panel-muted mt-1">Per-frame instruction template. If it contains <code>{predicates}</code>, backend replaces it with the ontology predicate list before VLM inference.</p>
+                    <textarea id="vlm-user" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <label class="block text-sm mt-4">Ontology Predicates (one per line)</label>
+                    <p class="text-xs panel-muted mt-1">Predicate vocabulary used for scene relationships and prompt conditioning.</p>
+                    <textarea id="vlm-predicates" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+
+
+                    <label class="block text-sm mt-4" for="sgg-rules-json">Rules (JSON array)</label>
+                    <p class="text-xs panel-muted mt-1">Rule-based scene graph configuration used in Rules and Hybrid modes (predicate type, thresholds, constraints).</p>
+                    <textarea id="sgg-rules-json" rows="10" class="w-full border rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>
+
+
+                </div>
+            </section>
