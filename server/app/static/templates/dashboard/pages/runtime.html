@@ -1,11 +1,11 @@
             <section id="page-runtime" class="page-panel mt-8 hidden">
                 <div class="panel border rounded-xl p-5">
-                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Runtime Orchestration</h3>
-                    <p class="text-xs panel-muted mb-4">Controls for process-level orchestration (worker lifecycle) and frame-level pipeline stage execution.</p>
+                    <h3 class="text-md uppercase tracking-widest panel-muted mb-4">Runtime Orchestration</h3>
+                    <p class="text-md panel-muted mb-4">Controls for process-level orchestration (worker lifecycle) and frame-level pipeline stage execution.</p>
 
                     <div class="mt-2">
-                        <h4 class="text-sm uppercase tracking-widest panel-muted mb-3">Pipeline Stage Controls</h4>
-                        <label class="block text-sm">Pipeline Preset</label>
+                        <h4 class="text-md uppercase tracking-widest panel-muted mb-3">Pipeline Stage Controls</h4>
+                        <label class="block text-md">Pipeline Preset</label>
                         <select id="pipeline-preset" class="w-full border rounded px-3 py-2 mt-1">
                             <option value="full">full</option>
                             <option value="detect_only">detect_only</option>
@@ -15,8 +15,8 @@
                             <option value="minimal">minimal</option>
                             <option value="custom">custom</option>
                         </select>
-                        <p class="text-xs panel-muted mt-1">Preset profile for stage toggles. Selecting a non-custom preset overwrites individual stage switches.</p>
-                        <div class="grid grid-cols-2 gap-3 text-sm mt-4">
+                        <p class="text-md panel-muted mt-1">Preset profile for stage toggles. Selecting a non-custom preset overwrites individual stage switches.</p>
+                        <div class="grid grid-cols-2 gap-3 text-md mt-4">
                             <label class="flex items-center gap-2"><input id="pipeline-caption" type="checkbox">Caption</label>
                             <label class="flex items-center gap-2"><input id="pipeline-detect" type="checkbox">Detect</label>
                             <label class="flex items-center gap-2"><input id="pipeline-track-memory" type="checkbox">Track Memory</label>
@@ -24,74 +24,74 @@
                             <label class="flex items-center gap-2"><input id="pipeline-scene-graph" type="checkbox">Scene Graph</label>
                             <label class="flex items-center gap-2"><input id="pipeline-update-scene-memory" type="checkbox">Update Scene Memory</label>
                         </div>
-                        <p id="pipeline-summary" class="text-xs panel-muted mt-2"></p>
+                        <p id="pipeline-summary" class="text-md panel-muted mt-2"></p>
                     </div>
 
                     <div class="mt-8 border-t panel-border pt-6">
-                        <h4 class="text-sm uppercase tracking-widest panel-muted mb-3">Worker Process Controls</h4>
-                        <label class="flex items-center gap-2 text-sm">
+                        <h4 class="text-md uppercase tracking-widest panel-muted mb-3">Worker Process Controls</h4>
+                        <label class="flex items-center gap-2 text-md">
                             <input id="worker-enabled" type="checkbox">
                             Enable dedicated worker process
                         </label>
-                        <p class="text-xs panel-muted mt-1">When enabled, detect/memory workloads run in a separate process. This is the default recommended mode for GPU VRAM lifecycle control.</p>
+                        <p class="text-md panel-muted mt-1">When enabled, detect/memory workloads run in a separate process. This is the default recommended mode for GPU VRAM lifecycle control.</p>
 
-                        <label class="block text-sm mt-4">Worker Host</label>
+                        <label class="block text-xlg mt-4">Worker Host</label>
                         <input id="worker-host" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="127.0.0.1">
-                        <p class="text-xs panel-muted mt-1">Bind host used by the internal worker API server.</p>
+                        <p class="text-md panel-muted mt-1">Bind host used by the internal worker API server.</p>
 
-                        <label class="block text-sm mt-4">Worker Port</label>
+                        <label class="block text-xlg mt-4">Worker Port</label>
                         <input id="worker-port" type="number" min="1" max="65535" class="w-full border rounded px-3 py-2 mt-1" placeholder="8765">
-                        <p class="text-xs panel-muted mt-1">Bind port used by the internal worker API server.</p>
+                        <p class="text-md panel-muted mt-1">Bind port used by the internal worker API server.</p>
 
-                        <label class="block text-sm mt-4">Idle Timeout (seconds)</label>
+                        <label class="block text-xlg mt-4">Idle Timeout (seconds)</label>
                         <input id="worker-idle-timeout" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="600">
-                        <p class="text-xs panel-muted mt-1">Worker self-terminates after this many idle seconds to release VRAM.</p>
+                        <p class="text-md panel-muted mt-1">Worker self-terminates after this many idle seconds to release VRAM.</p>
 
-                        <label class="block text-sm mt-4">Idle Check Interval (seconds)</label>
+                        <label class="block text-xlg mt-4">Idle Check Interval (seconds)</label>
                         <input id="worker-idle-check-interval" type="number" min="0.1" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="2.0">
-                        <p class="text-xs panel-muted mt-1">Polling interval for idle teardown checks.</p>
+                        <p class="text-md panel-muted mt-1">Polling interval for idle teardown checks.</p>
 
-                        <label class="block text-sm mt-4">Startup Timeout (seconds)</label>
+                        <label class="block text-xlg mt-4">Startup Timeout (seconds)</label>
                         <input id="worker-startup-timeout" type="number" min="1" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="120.0">
-                        <p class="text-xs panel-muted mt-1">Max allowed time for worker boot/health before startup is considered failed.</p>
+                        <p class="text-md panel-muted mt-1">Max allowed time for worker boot/health before startup is considered failed.</p>
 
-                        <label class="block text-sm mt-4">Request Timeout (seconds)</label>
+                        <label class="block text-xlg mt-4">Request Timeout (seconds)</label>
                         <input id="worker-request-timeout" type="number" min="1" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="180.0">
-                        <p class="text-xs panel-muted mt-1">Timeout used for orchestrator-to-worker internal requests.</p>
+                        <p class="text-md panel-muted mt-1">Timeout used for orchestrator-to-worker internal requests.</p>
 
-                        <label class="block text-sm mt-4">Shutdown Grace (seconds)</label>
+                        <label class="block text-xlg mt-4">Shutdown Grace (seconds)</label>
                         <input id="worker-shutdown-grace" type="number" min="1" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="15.0">
-                        <p class="text-xs panel-muted mt-1">Grace period before worker is force-terminated.</p>
+                        <p class="text-md panel-muted mt-1">Grace period before worker is force-terminated.</p>
 
-                        <label class="block text-sm mt-4">Startup Queue Limit</label>
+                        <label class="block text-xlg mt-4">Startup Queue Limit</label>
                         <input id="worker-max-startup-queue" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="32">
-                        <p class="text-xs panel-muted mt-1">Maximum requests waiting while worker transitions STARTING to READY.</p>
+                        <p class="text-md panel-muted mt-1">Maximum requests waiting while worker transitions STARTING to READY.</p>
 
-                        <label class="block text-sm mt-4">Healthcheck Interval (seconds)</label>
+                        <label class="block text-xlg mt-4">Healthcheck Interval (seconds)</label>
                         <input id="worker-healthcheck-interval" type="number" min="0.1" step="0.1" class="w-full border rounded px-3 py-2 mt-1" placeholder="2.0">
-                        <p class="text-xs panel-muted mt-1">Polling interval for worker startup and liveness health checks.</p>
+                        <p class="text-md panel-muted mt-1">Polling interval for worker startup and liveness health checks.</p>
 
-                        <label class="block text-sm mt-4">Restart Max Attempts</label>
+                        <label class="block text-xlg mt-4">Restart Max Attempts</label>
                         <input id="worker-restart-max-attempts" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="3">
-                        <p class="text-xs panel-muted mt-1">Max restart attempts in the restart window before circuit breaker opens.</p>
+                        <p class="text-md panel-muted mt-1">Max restart attempts in the restart window before circuit breaker opens.</p>
 
-                        <label class="block text-sm mt-4">Restart Window (seconds)</label>
+                        <label class="block text-xlg mt-4">Restart Window (seconds)</label>
                         <input id="worker-restart-window" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="60">
-                        <p class="text-xs panel-muted mt-1">Time window used to evaluate restart thrashing.</p>
+                        <p class="text-md panel-muted mt-1">Time window used to evaluate restart thrashing.</p>
 
-                        <label class="block text-sm mt-4">Restart Backoff (seconds, comma-separated)</label>
+                        <label class="block text-xlg mt-4">Restart Backoff (seconds, comma-separated)</label>
                         <input id="worker-restart-backoff" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="1.0, 3.0, 10.0">
-                        <p class="text-xs panel-muted mt-1">Backoff sequence used between restart attempts.</p>
+                        <p class="text-md panel-muted mt-1">Backoff sequence used between restart attempts.</p>
 
-                        <label class="block text-sm mt-4">Circuit Breaker Cooldown (seconds)</label>
+                        <label class="block text-xlg mt-4">Circuit Breaker Cooldown (seconds)</label>
                         <input id="worker-circuit-breaker-cooldown" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="30">
-                        <p class="text-xs panel-muted mt-1">Cooldown duration after restart-thrash breaker opens.</p>
+                        <p class="text-md panel-muted mt-1">Cooldown duration after restart-thrash breaker opens.</p>
 
-                        <label class="flex items-center gap-2 text-sm mt-4">
+                        <label class="flex items-center gap-2 text-xlg mt-4">
                             <input id="worker-auto-warmup-on-startup" type="checkbox">
                             Auto warmup on startup
                         </label>
-                        <p class="text-xs panel-muted mt-1">If enabled, worker runs warmup immediately after boot.</p>
+                        <p class="text-md panel-muted mt-1">If enabled, worker runs warmup immediately after boot.</p>
 
 
                     </div>

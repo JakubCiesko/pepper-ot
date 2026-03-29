@@ -1,13 +1,13 @@
             <section id="page-chat" class="page-panel mt-8 hidden">
                 <div class="panel border rounded-xl p-5">
-                    <h3 class="text-sm uppercase tracking-widest panel-muted mb-4">Chat</h3>
-                    <label class="block text-sm" for="chat-system">System Prompt</label>
-                    <p class="text-xs panel-muted mt-1">Base assistant behavior and tone for chat responses. Persona definition.</p>
+                    <h3 class="text-md uppercase tracking-widest panel-muted mb-4">Chat</h3>
+                    <label class="block text-md" for="chat-system">System Prompt</label>
+                    <p class="text-md panel-muted mt-1">Base assistant behavior and tone for chat responses. Persona definition.</p>
                     <textarea id="chat-system" rows="16" class="w-full border rounded px-3 py-2 mt-1"></textarea>
-                    <label class="block text-sm mt-4">LLM Device</label>
+                    <label class="block text-xlg mt-4">LLM Device</label>
                     <input id="chat-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cuda">
-                    <p class="text-xs panel-muted mt-1">Inference device for chat backend (used for local LLMs).</p>
-                    <label class="block text-sm mt-4">LLM Provider</label>
+                    <p class="text-md panel-muted mt-1">Inference device for chat backend (used for local LLMs).</p>
+                    <label class="block text-xlg mt-4">LLM Provider</label>
                     <select id="chat-provider" class="w-full border rounded px-3 py-2 mt-1">
                         <option value="openai">openai</option>
                         <option value="gemini">gemini</option>
@@ -15,26 +15,26 @@
                         <option value="local_hf">local_hf</option>
                         <option value="local_4bit">local_4bit</option>
                     </select>
-                    <p class="text-xs panel-muted mt-1">Selects chat backend provider. <code>openai_compatible</code> routes to OpenAI-style API servers.</p>
-                    <label class="block text-sm mt-4">LLM Model ID</label>
+                    <p class="text-md panel-muted mt-1">Selects chat backend provider. <code>openai_compatible</code> routes to OpenAI-style API servers.</p>
+                    <label class="block text-xlg mt-4">LLM Model ID</label>
                     <input id="chat-model-id" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="gpt-4.1-mini">
-                    <p class="text-xs panel-muted mt-1">Model identifier used for chat generations.</p>
-                    <label class="block text-sm mt-4">LLM Base URL</label>
+                    <p class="text-md panel-muted mt-1">Model identifier used for chat generations.</p>
+                    <label class="block text-xlg mt-4">LLM Base URL</label>
                     <input id="chat-base-url" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="http://localhost:11434/v1">
-                    <p class="text-xs panel-muted mt-1">Optional endpoint override. Required for local/remote OpenAI-compatible servers.</p>
-                    <label class="block text-sm mt-4">LLM API Key Env</label>
+                    <p class="text-md panel-muted mt-1">Optional endpoint override. Required for local/remote OpenAI-compatible servers.</p>
+                    <label class="block text-xlg mt-4">LLM API Key Env</label>
                     <input id="chat-api-key-env" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="OPENAI_API_KEY">
-                    <p class="text-xs panel-muted mt-1">Environment variable name used to load API credentials.</p>
-                    <label class="block text-sm mt-4">LLM Client Init Kwargs (JSON)</label>
+                    <p class="text-md panel-muted mt-1">Environment variable name used to load API credentials.</p>
+                    <label class="block text-xlg mt-4">LLM Client Init Kwargs (JSON)</label>
                     <textarea id="chat-client-init-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"timeout": 60}'></textarea>
-                    <p class="text-xs panel-muted mt-1">Client-construction options such as transport timeout, retries, and provider SDK initialization settings.</p>
-                    <p id="chat-client-init-kwargs-status" class="text-xs panel-muted mt-1"></p>
-                    <label class="block text-sm mt-4">LLM Call Kwargs (JSON)</label>
+                    <p class="text-md panel-muted mt-1">Client-construction options such as transport timeout, retries, and provider SDK initialization settings.</p>
+                    <p id="chat-client-init-kwargs-status" class="text-md panel-muted mt-1"></p>
+                    <label class="block text-xlg mt-4">LLM Call Kwargs (JSON)</label>
                     <textarea id="chat-call-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"max_tokens": 256, "temperature": 0.7}'></textarea>
-                    <p class="text-xs panel-muted mt-1">Per-request generation options, for example temperature and token limits.</p>
-                    <p id="chat-call-kwargs-status" class="text-xs panel-muted mt-1"></p>
-                    <label class="block text-sm mt-4" for="chat-context">Context Template</label>
-                    <p class="text-xs panel-muted mt-1">Template used to build chat context. If it contains <code>{context}</code>, backend injects current memory summary before LLM call. It is part of the system prompt.</p>
+                    <p class="text-md panel-muted mt-1">Per-request generation options, for example temperature and token limits.</p>
+                    <p id="chat-call-kwargs-status" class="text-md panel-muted mt-1"></p>
+                    <label class="block text-xlg mt-4" for="chat-context">Context Template</label>
+                    <p class="text-md panel-muted mt-1">Template used to build chat context. If it contains <code>{context}</code>, backend injects current memory summary before LLM call. It is part of the system prompt.</p>
                     <textarea id="chat-context" rows="16" class="w-full border rounded px-3 py-2 mt-1"></textarea>
                 </div>
             </section>

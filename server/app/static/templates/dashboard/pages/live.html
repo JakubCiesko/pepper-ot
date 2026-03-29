@@ -1,25 +1,25 @@
             <section id="page-live" class="page-panel mt-8">
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
                     <!--<div class="panel border rounded-xl p-5">
-                        <p class="text-xs uppercase tracking-widest panel-muted">Frames</p>
+                        <p class="text-md uppercase tracking-widest panel-muted">Frames</p>
                         <div class="text-2xl font-semibold mt-2">Live</div>
-                        <p class="panel-muted text-xs mt-2">Streaming</p>
+                        <p class="panel-muted text-md mt-2">Streaming</p>
                     </div>-->
                     <div class="panel border rounded-xl p-5">
-                        <p class="text-xs uppercase tracking-widest panel-muted">Objects</p>
+                        <p class="text-md uppercase tracking-widest panel-muted">Objects</p>
                         <div class="text-2xl font-semibold mt-2" id="summary-objects">—</div>
-                        <p class="text-xs uppercase tracking-widest panel-muted">Relations</p>
+                        <p class="text-md uppercase tracking-widest panel-muted">Relations</p>
                         <div class="text-2xl font-semibold mt-2" id="summary-relations">—</div>
-                        <p class="panel-muted text-xs mt-2">Current frame</p>
+                        <p class="panel-muted text-md mt-2">Current frame</p>
                     </div>
                     <div class="panel border rounded-xl p-5">
-                        <p class="text-xs uppercase tracking-widest panel-muted">Memory</p>
+                        <p class="text-md uppercase tracking-widest panel-muted">Memory</p>
                         <div class="text-2xl font-semibold mt-2" id="summary-memory">—</div>
-                        <p class="panel-muted text-xs mt-2">Tracked items</p>
+                        <p class="panel-muted text-md mt-2">Tracked items</p>
                     </div>
 <!--                    <div class="panel border rounded-xl p-5">-->
 <!--                        -->
-<!--                        <p class="panel-muted text-xs mt-2">Scene graph</p>-->
+<!--                        <p class="panel-muted text-md mt-2">Scene graph</p>-->
 <!--                    </div>-->
 
                     <div class="panel border rounded-xl p-5">
@@ -31,11 +31,11 @@
 
                     <div class="xl:col-span-2 panel border rounded-xl p-5">
                         <h2 class="text-lg font-semibold mb-3">Live Feed</h2>
-                        <p class="text-xs panel-muted mb-3">Latest processed frame with active SoM overlays from the current pipeline configuration.</p>
+                        <p class="text-md panel-muted mb-3">Latest processed frame with active SoM overlays from the current pipeline configuration.</p>
                         <div class="flex flex-wrap items-center gap-2 mb-3">
                             <label
                                 for="process-image-input"
-                                class="px-3 py-2 text-sm rounded border panel-border panel-alt cursor-pointer"
+                                class="px-3 py-2 text-md rounded border panel-border panel-alt cursor-pointer"
                             >
                                 Upload Image
                             </label>
@@ -47,7 +47,7 @@
                             >
                             <button
                                 id="process-image-btn"
-                                class="px-3 py-2 text-sm rounded btn-primary font-semibold"
+                                class="px-3 py-2 text-md rounded btn-primary font-semibold"
                                 type="button"
                             >
                                 Process Image
@@ -57,7 +57,7 @@
                         <img id="annotated-image" class="w-full h-auto rounded-lg border panel-border" src="/static/pepper_icon.png" alt="Annotated Detection Image">
                         <div id="live-carousel" class="mt-4">
                             <div class="flex items-center justify-between gap-2 mb-2">
-                                <h3 class="text-sm font-semibold">Recent Frames</h3>
+                                <h3 class="text-md font-semibold">Recent Frames</h3>
                                 <div class="flex items-center gap-2">
                                     <button id="live-carousel-prev" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Prev</button>
                                     <span id="live-carousel-index" class="text-xs panel-muted">0 / 0</span>
@@ -92,11 +92,11 @@
                             <div class="mt-3 space-y-2">
                                 <textarea id="conversation-input" rows="3" class="w-full border rounded px-3 py-2" placeholder="Ask Pepper about the scene..."></textarea>
                                 <div class="flex items-center gap-2">
-                                    <button id="conversation-send" class="px-3 py-2 text-sm rounded btn-primary font-semibold">Send</button>
-                                    <button id="conversation-new" class="px-3 py-2 text-sm rounded border panel-border panel-alt">New Conversation</button>
+                                    <button id="conversation-send" class="px-3 py-2 text-md rounded btn-primary font-semibold">Send</button>
+                                    <button id="conversation-new" class="px-3 py-2 text-md rounded border panel-border panel-alt">New Conversation</button>
                                     <span id="conversation-chat-id" class="text-xs panel-muted"></span>
                                 </div>
-                                <p id="conversation-status" class="text-xs panel-muted"></p>
+                                <p id="conversation-status" class="text-md panel-muted"></p>
                             </div>
                         </div>
                         <div class="panel border rounded-xl p-5 flex flex-col min-h-0">
@@ -107,7 +107,7 @@
                         </div>
                         <div class="panel border rounded-xl p-5 flex-1 min-h-0">
                             <h2 class="text-lg font-semibold mb-3">Detected Objects</h2>
-                            <p class="text-xs panel-muted mb-3">Current-frame detections after thresholding and tracking ID assignment.</p>
+                            <p class="text-md panel-muted mb-3">Current-frame detections after thresholding and tracking ID assignment.</p>
                             <div id="detections-content" class="panel-muted max-h-96 overflow-auto pr-1">
                                 <p class="panel-muted">No detections yet...</p>
                             </div>
@@ -116,13 +116,13 @@
 
                     <div class="xl:col-span-4 panel border rounded-xl p-5">
                         <div class="flex items-center gap-2 mb-4">
-                            <button class="tab-btn px-3 py-2 text-sm rounded border panel-border" data-tab-group="live" data-tab-target="memory-panel">Memory</button>
-                            <button class="tab-btn px-3 py-2 text-sm rounded border panel-border" data-tab-group="live" data-tab-target="scene-graph-panel">Scene Graph</button>
+                            <button class="tab-btn px-3 py-2 text-md rounded border panel-border" data-tab-group="live" data-tab-target="memory-panel">Memory</button>
+                            <button class="tab-btn px-3 py-2 text-md rounded border panel-border" data-tab-group="live" data-tab-target="scene-graph-panel">Scene Graph</button>
                         </div>
 
                         <div id="memory-panel" class="tab-panel" data-tab-group="live">
                             <h2 class="text-lg font-semibold mb-3">Scene Memory</h2>
-                            <p class="text-xs panel-muted mb-3">Persistent world state accumulated across frames (objects, attributes, and relationships).</p>
+                            <p class="text-md panel-muted mb-3">Persistent world state accumulated across frames (objects, attributes, and relationships).</p>
                             <div class="flex flex-wrap items-center gap-2 mb-3">
                                 <button
                                     id="mem-refresh"
@@ -143,12 +143,12 @@
                                 <p class="panel-muted">No tracked objects yet...</p>
                             </div>
                             <div class="mt-4 pt-4 border-t panel-border">
-                                <p class="text-xs panel-muted">Manual Memory CRUD: create, update or delete objects and relationships directly.</p>
+                                <p class="text-md panel-muted">Manual Memory CRUD: create, update or delete objects and relationships directly.</p>
                             </div>
                             <div class="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
                                 <div class="border panel-border rounded p-3 panel-alt">
-                                    <h3 class="text-sm font-semibold mb-2">Object Editor</h3>
-                                    <p class="text-xs panel-muted mb-2">Use <span class="font-medium">Prefill</span> on an object card, edit fields, then Update/Delete.</p>
+                                    <h3 class="text-md font-semibold mb-2">Object Editor</h3>
+                                    <p class="text-md panel-muted mb-2">Use <span class="font-medium">Prefill</span> on an object card, edit fields, then Update/Delete.</p>
                                     <div class="grid grid-cols-2 gap-2">
                                         <input id="mem-obj-id" type="number" class="border rounded px-2 py-1" placeholder="id (optional)">
                                         <input id="mem-obj-label" type="text" class="border rounded px-2 py-1" placeholder="label">
@@ -160,11 +160,11 @@
                                         <button id="mem-obj-update" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Update</button>
                                         <button id="mem-obj-delete" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Delete</button>
                                     </div>
-                                    <p class="text-xs panel-muted mt-2">Create inserts a new object, Update modifies by ID, and Delete removes the object with attached relationships.</p>
+                                    <p class="text-md panel-muted mt-2">Create inserts a new object, Update modifies by ID, and Delete removes the object with attached relationships.</p>
                                 </div>
                                 <div class="border panel-border rounded p-3 panel-alt">
-                                    <h3 class="text-sm font-semibold mb-2">Relation Editor</h3>
-                                    <p class="text-xs panel-muted mb-2">Use <span class="font-medium">Prefill</span> on a relation card for quick edits.</p>
+                                    <h3 class="text-md font-semibold mb-2">Relation Editor</h3>
+                                    <p class="text-md panel-muted mb-2">Use <span class="font-medium">Prefill</span> on a relation card for quick edits.</p>
                                     <div class="grid grid-cols-2 gap-2">
                                         <input id="mem-rel-subject" type="number" class="border rounded px-2 py-1" placeholder="subject id">
                                         <input id="mem-rel-object" type="number" class="border rounded px-2 py-1" placeholder="object id">
@@ -176,22 +176,22 @@
                                         <button id="mem-rel-update" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Update</button>
                                         <button id="mem-rel-delete" class="px-3 py-1 text-xs rounded border panel-border panel-alt">Delete</button>
                                     </div>
-                                    <p class="text-xs panel-muted mt-2">Relations are identified by <code>subject_id</code>, <code>predicate</code>, and <code>object_id</code>.</p>
+                                    <p class="text-md panel-muted mt-2">Relations are identified by <code>subject_id</code>, <code>predicate</code>, and <code>object_id</code>.</p>
                                 </div>
                             </div>
-                            <p id="memory-editor-status" class="text-xs panel-muted mt-3"></p>
+                            <p id="memory-editor-status" class="text-md panel-muted mt-3"></p>
                             <details class="mt-4">
-                                <summary class="cursor-pointer panel-muted text-sm">Raw Memory JSON</summary>
-                                <pre id="memory-raw" class="text-xs panel-muted mt-2 overflow-auto"></pre>
+                                <summary class="cursor-pointer panel-muted text-md">Raw Memory JSON</summary>
+                                <pre id="memory-raw" class="text-md panel-muted mt-2 overflow-auto"></pre>
                             </details>
                         </div>
 
                         <div id="scene-graph-panel" class="tab-panel hidden" data-tab-group="live">
                             <h2 class="text-lg font-semibold mb-3">Scene Graph</h2>
-                            <p class="text-xs panel-muted mb-3">Structured relationship graph generated from current detections using the selected SGG mode.</p>
+                            <p class="text-md panel-muted mb-3">Structured relationship graph generated from current detections using the selected SGG mode.</p>
                             <div id="sg-carousel" class="mb-4">
                                 <div class="flex items-center justify-between gap-2 mb-2">
-                                    <h3 class="text-sm font-semibold">Recent Scene Graphs</h3>
+                                    <h3 class="text-md font-semibold">Recent Scene Graphs</h3>
                                     <div class="flex items-center gap-2">
                                         <button id="sg-carousel-prev" class="px-2 py-1 text-xs rounded border panel-border panel-alt" type="button">Prev</button>
                                         <span id="sg-carousel-index" class="text-xs panel-muted">0 / 0</span>
@@ -217,8 +217,8 @@
                                     <p class="panel-muted">No relations yet...</p>
                                 </div>
                                 <details class="mt-4">
-                                    <summary class="cursor-pointer panel-muted text-sm">Raw SceneGraph JSON</summary>
-                                    <pre id="scene-graph-raw" class="text-xs panel-muted mt-2 overflow-auto"></pre>
+                                    <summary class="cursor-pointer panel-muted text-md">Raw SceneGraph JSON</summary>
+                                    <pre id="scene-graph-raw" class="text-md panel-muted mt-2 overflow-auto"></pre>
                                 </details>
                             </div>
                         </div>
