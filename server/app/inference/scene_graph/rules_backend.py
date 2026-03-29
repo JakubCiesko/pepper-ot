@@ -72,13 +72,14 @@ class RuleBasedSceneGraphBackend:
                     if not crop_np.flags["C_CONTIGUOUS"]:
                         crop_np = np.ascontiguousarray(crop_np)
                     color_rel = _extract_color(crop_np)
-                    no_label_edges.append(
-                        SceneGraphEdge(
-                            sub=d.object_id,
-                            rel=color_rel,
-                            obj=d.object_id,
+                    if color_rel:
+                        no_label_edges.append(
+                            SceneGraphEdge(
+                                sub=d.object_id,
+                                rel=color_rel,
+                                obj=d.object_id,
+                            )
                         )
-                    )
                 except Exception:
                     continue
 
@@ -191,7 +192,7 @@ def _iou(a: list[float], b: list[float]) -> float:
     bx1, by1, bx2, by2 = b
     ix1, iy1 = max(ax1, bx1), max(ay1, by1)
     ix2, iy2 = min(ax2, bx2), min(ay2, by2)
-    inter = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+    inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
     area_a = (ax2 - ax1) * (ay2 - ay1)
     area_b = (bx2 - bx1) * (by2 - by1)
     union = area_a + area_b - inter
@@ -227,10 +228,33 @@ def _range_check(
     return not (max_val is not None and value > float(max_val))
 
 
-def _extract_color(image_np: NDArray) -> str:
+def _center_crop(img, ratio=0.5):
+    h, w = img.shape[:2]
+    dh, dw = int(h * ratio), int(w * ratio)
+    y1 = (h - dh) // 2
+    x1 = (w - dw) // 2
+    return img[y1 : y1 + dh, x1 : x1 + dw]
+
+
+def _extract_color(image_np: NDArray, conf_threshold: float = 0.5) -> str | None:
     # TODO: test, vibe coded
-    dominant_color_rgb = fast_colorthief.get_dominant_color(image_np, quality=1)
-    r8, g8, b8 = dominant_color_rgb
+    image_np = _center_crop(image_np)
+    palette = fast_colorthief.get_palette(image_np, quality=5, color_count=5)
+    if not palette:
+        return None
+    votes = {}
+    for rgb in palette:
+        c = _rgb_to_bucket(rgb)
+        votes[c] = votes.get(c, 0) + 1
+    color, count = max(votes.items(), key=lambda kv: kv[1])
+    confidence = count / max(1, len(palette))
+    if confidence >= conf_threshold:
+        return color
+    return None
+
+
+def _rgb_to_bucket(rgb: tuple[int, int, int]) -> str:
+    r8, g8, b8 = rgb
     r, g, b = r8 / 255.0, g8 / 255.0, b8 / 255.0
     h, s, v = colorsys.rgb_to_hsv(r, g, b)
     h_deg = h * 360.0
