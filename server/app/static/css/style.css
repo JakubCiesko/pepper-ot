@@ -8,7 +8,22 @@
     --panel-accent: #17c3b2;
     --panel-accent-2: #4c6fff;
     --panel-accent-3: #f6b042;
+/* optimized for both white + dark blue backgrounds */
+--c1: #b7f5a8;
+--c2: #8eea7e;
+--c3: #5fdd5f;
+--c4: #34c759;
+--c5: #28a745;
+--c6: #23923f;
+--c7: #1f7a35;
+--c8: #1a652c;
+--c9: #155024;
 }
+
+span.sidebar-label {
+  filter: drop-shadow(0 0 4px rgba(52, 199, 89, 0.4));
+}
+
 body.theme-dark {
     --app-bg: #0b1220;
     --panel-bg: #0f172a;
