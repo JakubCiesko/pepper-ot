@@ -67,7 +67,7 @@ class ChatService:
         lines = [f"- {caption.text}" for caption in captions if caption.text]
         return "\n".join(lines) if lines else "No recent captions."
 
-    async def compose_prompt(self) -> str:
+    async def compose_prompt(self, base: str) -> str:
         world_context = await self._build_context_string()
         latest_caption = await self._latest_caption()
         captions_recent = await self._recent_captions()
@@ -76,8 +76,8 @@ class ChatService:
             caption=latest_caption,
             captions_recent=captions_recent,
         )
-        rendered = render_prompt_template(self.system_prompt, render_context)
-        return rendered or self.system_prompt
+        rendered = render_prompt_template(base, render_context)
+        return rendered or base
 
     @staticmethod
     def _format_history(history: list[tuple[str, str]] | None) -> str:
@@ -95,7 +95,9 @@ class ChatService:
         *,
         conversation_history: list[tuple[str, str]] | None = None,
     ) -> str:
-        system_prompt = await self.compose_prompt()
+        # TODO: Right now even user queries get composed...
+        system_prompt = await self.compose_prompt(self.system_prompt)
+        user_query = await self.compose_prompt(user_query)
         logger.debug("Chat request received, system prompt: %s", system_prompt)
         history_text = self._format_history(conversation_history)
         if history_text:
