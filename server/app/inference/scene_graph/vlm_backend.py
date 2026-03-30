@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 # TODO: post filtering of invalid graphs
-class VLMSceneGraphBackend:
+class VLMSceneGraphGenerator:
     def __init__(
         self,
         config: SceneGraphVLMConfig,
@@ -58,7 +58,7 @@ class VLMSceneGraphBackend:
             self.client.update_runtime(config)
 
     @staticmethod
-    def _to_bytes(image: Path | bytes | Image.Image | np.ndarray) -> bytes:
+    def _serialize_image_bytes(image: Path | bytes | Image.Image | np.ndarray) -> bytes:
         if isinstance(image, bytes):
             return image
         if isinstance(image, Path):
@@ -89,7 +89,7 @@ class VLMSceneGraphBackend:
         return None
 
     @staticmethod
-    def _normalize_data(data):
+    def _normalize_relations_payload(data):
         if isinstance(data, dict):
             for key in ["relationships", "scene_graph", "triplets", "relations"]:
                 if key in data:
@@ -102,21 +102,21 @@ class VLMSceneGraphBackend:
             data = [data]
         return data if isinstance(data, list) else []
 
-    def _parse_json(self, raw: str) -> list[dict]:
+    def _parse_relations_json(self, raw: str) -> list[dict]:
         try:
             data = json.loads(raw)
-            return self._normalize_data(data)
+            return self._normalize_relations_payload(data)
         except Exception:
             extracted = self._extract_json_block(raw)
             if extracted:
                 try:
                     data = json.loads(extracted)
-                    return self._normalize_data(data)
+                    return self._normalize_relations_payload(data)
                 except Exception:
                     return []
             return []
 
-    async def _repair(self, image_bytes: bytes, raw: str) -> str:
+    async def _repair_json_output(self, image_bytes: bytes, raw: str) -> str:
         repair_system = (
             "You are a JSON repair engine. Return ONLY valid JSON with key "
             '"relationships" that is a list of {"sub","rel","obj"} objects.'
@@ -126,7 +126,8 @@ class VLMSceneGraphBackend:
             "Fix the following output into valid JSON only. No extra text.\n\n"
             f"OUTPUT:\n{clipped}"
         )
-        repaired, _ = await self.client.infer(repair_system, repair_user, image_bytes)
+        # TODO: check whether this works properly, not sending the image anymore
+        repaired, _ = await self.client.infer(repair_system, repair_user, None)
         return repaired
 
     def _build_user_prompt(self, caption_text: str | None = None) -> str:
@@ -152,7 +153,7 @@ class VLMSceneGraphBackend:
         detections: list[InferenceDetectionObject],
         caption_text: str | None = None,
     ) -> SceneGraph:
-        image_bytes = self._to_bytes(image)
+        image_bytes = self._serialize_image_bytes(image)
         system_prompt = self._build_system_prompt(caption_text)
         user_prompt = self._build_user_prompt(caption_text)
         output_schema: Any = SceneGraphStructuredResponse
@@ -176,25 +177,25 @@ class VLMSceneGraphBackend:
                 output_schema=None,
             )
         # this is just for precommit to shutup
-        data: list[dict] = []
+        relation_dicts: list[dict] = []
         if isinstance(parsed, SceneGraphStructuredResponse):
-            data = [rel.model_dump() for rel in parsed.relationships]
+            relation_dicts = [rel.model_dump() for rel in parsed.relationships]
         elif isinstance(parsed, list):
-            data = [
+            relation_dicts = [
                 item.model_dump() if hasattr(item, "model_dump") else item
                 for item in parsed
             ]
         elif parsed is not None:
-            data = self._normalize_data(parsed)
+            relation_dicts = self._normalize_relations_payload(parsed)
         else:
-            data = self._parse_json(raw)
-        if not data:
+            relation_dicts = self._parse_relations_json(raw)
+        if not relation_dicts:
             logger.warning(
                 "Failed to parse VLM output as JSON, attempting repair without picture"
             )
-            repaired = await self._repair(image_bytes, raw)
-            data = self._parse_json(repaired)
-            if not data:
+            repaired = await self._repair_json_output(image_bytes, raw)
+            relation_dicts = self._parse_relations_json(repaired)
+            if not relation_dicts:
                 logger.warning("VLM repair failed, returning empty scene graph")
         logger.info(
             "VLM input: SYSTEM_PROMPT=[%s], USER_PROMPT=[%s]; VLM RAW OUTPUT=[%s]",
@@ -202,11 +203,11 @@ class VLMSceneGraphBackend:
             user_prompt,
             raw,
         )
-        scene_graph = SceneGraph.from_list(data, raw=raw)
-        scene_graph = self.fix_overgeneration(scene_graph, detections)
+        scene_graph = SceneGraph.from_list(relation_dicts, raw=raw)
+        scene_graph = self.filter_hallucinated_relations(scene_graph, detections)
         return scene_graph
 
-    def fix_overgeneration(
+    def filter_hallucinated_relations(
         self, scene_graph: SceneGraph, detections: list[InferenceDetectionObject] | None
     ) -> SceneGraph:
         if not detections:

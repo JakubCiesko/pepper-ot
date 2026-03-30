@@ -15,7 +15,7 @@ from app.schemas.config import SGGRulesConfig
 
 
 @dataclass
-class RuleBasedSceneGraphBackend:
+class RuleSceneGraphGenerator:
     rules_config: SGGRulesConfig
 
     def generate(
@@ -27,7 +27,7 @@ class RuleBasedSceneGraphBackend:
         if not dets:
             return SceneGraph()
         det_id_to_label = {d.object_id: d.label for d in detections}
-        centers = {d.object_id: _center(d.bbox) for d in dets}
+        centers = {d.object_id: _bbox_center_xy(d.bbox) for d in dets}
         no_label_edges: list[SceneGraphEdge] = []
         # rules
         for rule in self.rules_config.rule_list:
@@ -71,7 +71,7 @@ class RuleBasedSceneGraphBackend:
                 try:
                     if not crop_np.flags["C_CONTIGUOUS"]:
                         crop_np = np.ascontiguousarray(crop_np)
-                    color_rel = _extract_color(crop_np)
+                    color_rel = _infer_color_attribute(crop_np)
                     if color_rel:
                         no_label_edges.append(
                             SceneGraphEdge(
@@ -106,7 +106,7 @@ class RuleBasedSceneGraphBackend:
                     continue
                 if not _passes_constraints(rule, sub.label, obj.label):
                     continue
-                if self._match(rule, sub, obj, centers):
+                if self._rule_matches_pairs(rule, sub, obj, centers):
                     edges.append(
                         SceneGraphEdge(
                             sub=sub.object_id,
@@ -116,7 +116,7 @@ class RuleBasedSceneGraphBackend:
                     )
         return edges
 
-    def _match(
+    def _rule_matches_pairs(
         self,
         rule: SGGRule,
         sub: InferenceDetectionObject,
@@ -148,7 +148,7 @@ class RuleBasedSceneGraphBackend:
                     fallback_key="threshold",
                 )
             case "overlap":
-                iou = _iou(sub.bbox, obj.bbox)
+                iou = _box_iou(sub.bbox, obj.bbox)
                 return _range_check(
                     iou,
                     thresholds,
@@ -157,7 +157,7 @@ class RuleBasedSceneGraphBackend:
                     fallback_key="threshold",
                 )
             case "containment" | "contain":
-                inside = _inside_ratio(sub.bbox, obj.bbox)
+                inside = _bbox_inside_ratio(sub.bbox, obj.bbox)
                 return _range_check(
                     inside,
                     thresholds,
@@ -182,12 +182,12 @@ def _passes_constraints(rule: SGGRule, sub_label: str, obj_label: str) -> bool:
     return not (c.object_labels and obj_label not in c.object_labels)
 
 
-def _center(bbox: list[float]) -> tuple[float, float]:
+def _bbox_center_xy(bbox: list[float]) -> tuple[float, float]:
     x1, y1, x2, y2 = bbox
     return (x1 + x2) / 2.0, (y1 + y2) / 2.0
 
 
-def _iou(a: list[float], b: list[float]) -> float:
+def _box_iou(a: list[float], b: list[float]) -> float:
     ax1, ay1, ax2, ay2 = a
     bx1, by1, bx2, by2 = b
     ix1, iy1 = max(ax1, bx1), max(ay1, by1)
@@ -199,7 +199,7 @@ def _iou(a: list[float], b: list[float]) -> float:
     return inter / union if union > 0 else 0.0
 
 
-def _inside_ratio(inner: list[float], outer: list[float]) -> float:
+def _bbox_inside_ratio(inner: list[float], outer: list[float]) -> float:
     ix1, iy1, ix2, iy2 = inner
     ox1, oy1, ox2, oy2 = outer
     inter_x1, inter_y1 = max(ix1, ox1), max(iy1, oy1)
@@ -236,7 +236,9 @@ def _center_crop(img, ratio=0.5):
     return img[y1 : y1 + dh, x1 : x1 + dw]
 
 
-def _extract_color(image_np: NDArray, conf_threshold: float = 0.5) -> str | None:
+def _infer_color_attribute(
+    image_np: NDArray, conf_threshold: float = 0.5
+) -> str | None:
     # TODO: test, vibe coded
     image_np = _center_crop(image_np)
     palette = fast_colorthief.get_palette(image_np, quality=5, color_count=5)
@@ -244,7 +246,7 @@ def _extract_color(image_np: NDArray, conf_threshold: float = 0.5) -> str | None
         return None
     votes = {}
     for rgb in palette:
-        c = _rgb_to_bucket(rgb)
+        c = _map_rgb_to_color_attribute(rgb)
         votes[c] = votes.get(c, 0) + 1
     color, count = max(votes.items(), key=lambda kv: kv[1])
     confidence = count / max(1, len(palette))
@@ -253,7 +255,7 @@ def _extract_color(image_np: NDArray, conf_threshold: float = 0.5) -> str | None
     return None
 
 
-def _rgb_to_bucket(rgb: tuple[int, int, int]) -> str:
+def _map_rgb_to_color_attribute(rgb: tuple[int, int, int]) -> str:
     r8, g8, b8 = rgb
     r, g, b = r8 / 255.0, g8 / 255.0, b8 / 255.0
     h, s, v = colorsys.rgb_to_hsv(r, g, b)

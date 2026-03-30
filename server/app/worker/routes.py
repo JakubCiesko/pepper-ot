@@ -18,7 +18,7 @@ from app.orchestration.memory_service import MemoryObjectUpdate
 from app.orchestration.memory_service import MemoryRelationCreate
 from app.orchestration.memory_service import MemoryRelationUpdate
 from app.orchestration.memory_service import MemoryService
-from app.orchestration.runtime_adapter import WorkerProcessRuntimeAdapter
+from app.orchestration.runtime_adapter import WorkerInternalRuntimeAdapter
 from app.schemas.config import AppConfig
 from app.schemas.scene import SceneState
 from app.worker.runtime import WorkerRuntime
@@ -30,7 +30,7 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
     router = APIRouter()
 
     def memory_service() -> MemoryService:
-        return MemoryService(WorkerProcessRuntimeAdapter(runtime))
+        return MemoryService(WorkerInternalRuntimeAdapter(runtime))
 
     @router.get("/internal/health")
     async def health():

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def timer(step_name: str, metrics: dict[str, float]):
+async def stage_timer(step_name: str, metrics: dict[str, float]):
     t0 = time.perf_counter()
     yield
     t1 = time.perf_counter()
@@ -81,7 +81,7 @@ class PerceptionPipeline:
             metrics,
             executed_stages,
         )
-        som_image = await self._run_som_paint(
+        som_image = await self._render_som_overlay(
             image, tracked_detections, controls, metrics, executed_stages
         )
         # fallback
@@ -108,7 +108,7 @@ class PerceptionPipeline:
             executed_stages,
         )
 
-        await self._run_scene_memory_update(
+        await self._update_scene_memory_from_graph(
             scene_graph, controls, metrics, executed_stages
         )
 
@@ -147,7 +147,7 @@ class PerceptionPipeline:
             return None, None, None
 
         try:
-            async with timer("caption_time", metrics):
+            async with stage_timer("caption_time", metrics):
                 result = await self.caption_service.caption_image(image)
             executed_stages.append("caption")
             return result.text, result.provider, result.model_id
@@ -184,7 +184,7 @@ class PerceptionPipeline:
             last_seen=now,
             count=1,
         )
-        async with timer("caption_memory_update_time", metrics):
+        async with stage_timer("caption_memory_update_time", metrics):
             self.memory.upsert_caption(caption_state)
         executed_stages.append("update_caption_memory")
 
@@ -198,7 +198,7 @@ class PerceptionPipeline:
         if not controls.detect:
             return []
 
-        async with timer("detection_time", metrics):
+        async with stage_timer("detection_time", metrics):
             detections = self.detector.detect(image)
         executed_stages.append("detect")
         logger.info("Detected %d detections", len(detections))
@@ -221,7 +221,7 @@ class PerceptionPipeline:
         if not detections:
             return detections
 
-        async with timer("memory_update_time", metrics):
+        async with stage_timer("memory_update_time", metrics):
             tracked = self.memory.update(
                 image, detections, robot_metadata, self.fusion_config
             )
@@ -229,7 +229,7 @@ class PerceptionPipeline:
         logger.info("%d tracked detections after memory update", len(tracked))
         return tracked
 
-    async def _run_som_paint(
+    async def _render_som_overlay(
         self,
         image: Image.Image,
         detections: list[InferenceDetectionObject],
@@ -242,7 +242,7 @@ class PerceptionPipeline:
         if not controls.detect:
             return None
 
-        async with timer("som_image_paint_time", metrics):
+        async with stage_timer("som_image_paint_time", metrics):
             image_np = np.array(image)
             som_image = self.painter.paint(
                 image_np,
@@ -268,7 +268,7 @@ class PerceptionPipeline:
         if not controls.scene_graph:
             return None
 
-        async with timer("scene_graph_generation_time", metrics):
+        async with stage_timer("scene_graph_generation_time", metrics):
             scene_graph = await self.scene_graph_service.generate(
                 detections,
                 som_image=som_image,
@@ -278,7 +278,7 @@ class PerceptionPipeline:
         executed_stages.append("scene_graph")
         return scene_graph
 
-    async def _run_scene_memory_update(
+    async def _update_scene_memory_from_graph(
         self,
         scene_graph: SceneGraph | None,
         controls: PipelineControls,
@@ -290,6 +290,6 @@ class PerceptionPipeline:
         if scene_graph is None:
             return
 
-        async with timer("scene_graph_memory_update_time", metrics):
+        async with stage_timer("scene_graph_memory_update_time", metrics):
             self.memory.update_scene_graph(scene_graph)
         executed_stages.append("update_scene_memory")

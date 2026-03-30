@@ -3,8 +3,8 @@ from typing import Literal
 
 from PIL import Image
 
-from app.inference.scene_graph.rules_backend import RuleBasedSceneGraphBackend
-from app.inference.scene_graph.vlm_backend import VLMSceneGraphBackend
+from app.inference.scene_graph.rules_backend import RuleSceneGraphGenerator
+from app.inference.scene_graph.vlm_backend import VLMSceneGraphGenerator
 from app.inference.types import InferenceDetectionObject
 from app.inference.types import SceneGraph
 
@@ -15,8 +15,8 @@ class SceneGraphService:
     def __init__(
         self,
         mode: Literal["vlm", "rules", "hybrid"],
-        vlm_backend: VLMSceneGraphBackend,
-        rule_backend: RuleBasedSceneGraphBackend,
+        vlm_backend: VLMSceneGraphGenerator,
+        rule_backend: RuleSceneGraphGenerator,
     ):
         self.mode = mode
         self.vlm_backend = vlm_backend

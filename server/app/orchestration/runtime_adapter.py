@@ -14,7 +14,7 @@ from app.schemas.scene import SceneState
 from app.schemas.scene import TrackedObjectState
 
 
-class LocalRuntimeAdapter:
+class InProcessRuntimeAdapter:
     def __init__(self, state: AppState):
         self.state = state
 
@@ -231,7 +231,7 @@ class WorkerRuntimeAdapter:
         return max(o.id for o in state.objects) + 1
 
 
-class WorkerProcessRuntimeAdapter:
+class WorkerInternalRuntimeAdapter:
     """Adapter used inside the worker process for internal routes."""
 
     def __init__(self, runtime):
@@ -281,7 +281,7 @@ def resolve_runtime_adapter(state: AppState):
     )
     if use_worker:
         return WorkerRuntimeAdapter(state.worker_manager)
-    return LocalRuntimeAdapter(state)
+    return InProcessRuntimeAdapter(state)
 
 
 def memory_payload(state: SceneState | None = None) -> dict[str, Any]:
