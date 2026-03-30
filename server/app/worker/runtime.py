@@ -9,7 +9,7 @@ from PIL import Image
 
 from app.core.pipeline_factory import build_perception_pipeline
 from app.core.runtime.worker_client.types import WorkerState
-from app.providers.caption_client import CaptionClient
+from app.providers.caption.client import CaptionClient
 from app.schemas.config import AppConfig
 from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState

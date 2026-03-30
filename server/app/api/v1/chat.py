@@ -2,7 +2,7 @@ import logging
 
 from app.core.infra.ws_manager import ws_manager
 from app.core.runtime.state import app_state
-from app.orchestration.conversation_service import ConversationService
+from app.orchestration.services.conversation import ConversationService
 from app.providers.translation import enforce_output_language
 from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse

@@ -8,17 +8,17 @@ from fastapi import HTTPException
 from fastapi import Query
 
 from app.api.v1.memory_route_utils import run_memory_action
-from app.core.config.runtime_mutations import apply_pipeline_runtime_updates
-from app.core.config.runtime_mutations import apply_scene_graph_runtime_updates
-from app.core.config.runtime_mutations import resolve_base_dir
+from app.core.config.mutations.runtime import apply_pipeline_runtime_updates
+from app.core.config.mutations.runtime import apply_scene_graph_runtime_updates
+from app.core.config.mutations.runtime import resolve_base_dir
 from app.core.runtime.worker_client.rpc import DetectRPCRequest
 from app.core.runtime.worker_client.rpc import WorkerConfigRPCRequest
-from app.orchestration.memory_service import MemoryObjectCreate
-from app.orchestration.memory_service import MemoryObjectUpdate
-from app.orchestration.memory_service import MemoryRelationCreate
-from app.orchestration.memory_service import MemoryRelationUpdate
-from app.orchestration.memory_service import MemoryService
-from app.orchestration.runtime_adapter import WorkerInternalRuntimeAdapter
+from app.orchestration.adapters.runtime import WorkerInternalRuntimeAdapter
+from app.orchestration.services.memory import MemoryObjectCreate
+from app.orchestration.services.memory import MemoryObjectUpdate
+from app.orchestration.services.memory import MemoryRelationCreate
+from app.orchestration.services.memory import MemoryRelationUpdate
+from app.orchestration.services.memory import MemoryService
 from app.schemas.config import AppConfig
 from app.schemas.scene import SceneState
 from app.worker.runtime import WorkerRuntime

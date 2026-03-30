@@ -7,9 +7,9 @@ import torch
 from transformers import BlipForConditionalGeneration
 from transformers import BlipProcessor
 
-from app.core.config.llm_contracts import normalize_call_kwargs
-from app.providers.vlm_client import BaseVLMClient
-from app.providers.vlm_client import build_vlm_client
+from app.providers.common.utils import normalize_call_kwargs
+from app.providers.vlm import BaseVLMClient
+from app.providers.vlm import build_vlm_client
 from app.schemas.config import CaptionConfig
 
 logger = logging.getLogger(__name__)

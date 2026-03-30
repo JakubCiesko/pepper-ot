@@ -5,7 +5,7 @@ import time
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from app.providers.caption_client import CaptionClient
+from app.providers.caption.client import CaptionClient
 from app.providers.translation import enforce_output_language
 from app.schemas.config import CaptionConfig
 from app.schemas.robot import RobotMetadata
@@ -145,7 +145,7 @@ class CaptionService:
         publish: bool,
     ):
         try:
-            from app.orchestration.detect_service import DetectService
+            from app.orchestration.services.detection import DetectService
 
             await DetectService(self.state).process(
                 image_bytes, metadata, publish=publish

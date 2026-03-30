@@ -6,9 +6,9 @@ from typing import Any
 from google import genai
 from google.genai import types
 
-from app.providers.model_io_common import parse_structured_text
-from app.providers.model_io_common import resolve_structured_mode
-from app.providers.model_io_common import schema_to_json_schema
+from app.providers.common.io import parse_structured_text
+from app.providers.common.io import resolve_structured_mode
+from app.providers.common.io import schema_to_json_schema
 from app.providers.vlm.base import BaseVLMClient
 from app.schemas.config import LLMConfig
 

@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import TypeAdapter
 
-from app.core.config.llm_contracts import provider_capability_matrix
+from app.providers.common.utils import provider_capability_matrix
 from app.schemas.config import LLMConfig
 
 logger = logging.getLogger(__name__)

@@ -13,8 +13,8 @@ from app.core.infra.storage import save_last_image_async
 from app.core.infra.storage import save_last_state_async
 from app.core.infra.ws_manager import ws_manager
 from app.core.runtime.state import AppState
-from app.orchestration.runtime_adapter import memory_payload
-from app.orchestration.runtime_adapter import resolve_runtime_adapter
+from app.orchestration.adapters.runtime import memory_payload
+from app.orchestration.adapters.runtime import resolve_runtime_adapter
 from app.schemas.detect import DetectionResponse
 from app.schemas.robot import PersonMetadata
 from app.schemas.robot import RobotMetadata

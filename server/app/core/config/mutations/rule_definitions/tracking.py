@@ -1,0 +1,72 @@
+from operator import attrgetter
+
+from app.core.config.mutations.reload_rule import ReloadRule
+from app.core.config.mutations.reload_rule import _apply_pipeline_group
+
+rules = [
+    ReloadRule(
+        "tracking.feature_extraction.reid_model",
+        attrgetter("tracking.feature_extraction.reid_model"),
+        "hard",
+    ),
+    ReloadRule(
+        "tracking.feature_extraction.device",
+        attrgetter("tracking.feature_extraction.device"),
+        "hard",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "tracking.feature_extraction.target_size",
+        attrgetter("tracking.feature_extraction.target_size"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "tracking.feature_extraction.resampling_method",
+        attrgetter("tracking.feature_extraction.resampling_method"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "tracking.max_dormant_frames",
+        attrgetter("tracking.max_dormant_frames"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "tracking.association",
+        attrgetter("tracking.association"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "tracking.memory_max_age_seconds",
+        attrgetter("tracking.memory_max_age_seconds"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "tracking.memory_max_objects",
+        attrgetter("tracking.memory_max_objects"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "tracking.memory_max_relations",
+        attrgetter("tracking.memory_max_relations"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "tracking.memory_max_captions",
+        attrgetter("tracking.memory_max_captions"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "tracking.caption_max_age_seconds",
+        attrgetter("tracking.caption_max_age_seconds"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+]

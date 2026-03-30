@@ -5,8 +5,8 @@ from typing import Any
 
 from PIL import Image
 
-from app.core.config.llm_contracts import normalize_call_kwargs
-from app.providers.caption_client import CaptionClient
+from app.providers.caption.client import CaptionClient
+from app.providers.common.utils import normalize_call_kwargs
 from app.schemas.config import CaptionConfig
 
 logger = logging.getLogger(__name__)

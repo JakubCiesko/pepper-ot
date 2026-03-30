@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from pydantic import Field
 
 from app.core.infra.ws_manager import ws_manager
-from app.orchestration.runtime_adapter import memory_payload
+from app.orchestration.adapters.runtime import memory_payload
 from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
 from app.schemas.scene import TrackedObjectState

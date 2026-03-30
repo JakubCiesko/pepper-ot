@@ -9,7 +9,7 @@ import torch
 from transformers import AutoModelForImageTextToText
 from transformers import AutoProcessor
 
-from app.providers.model_io_common import parse_structured_text
+from app.providers.common.io import parse_structured_text
 from app.providers.vlm.base import BaseVLMClient
 from app.schemas.config import LLMConfig
 

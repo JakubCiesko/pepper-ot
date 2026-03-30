@@ -2,7 +2,7 @@ import logging
 
 import app.api.v1.image_utils as img_utils
 from app.core.runtime.state import app_state
-from app.orchestration.runtime_adapter import resolve_runtime_adapter
+from app.orchestration.adapters.runtime import resolve_runtime_adapter
 from app.providers.translation import enforce_output_language
 from app.schemas.vision_chat import VisionChatFormRequest
 from app.schemas.vision_chat import VisionChatResponse

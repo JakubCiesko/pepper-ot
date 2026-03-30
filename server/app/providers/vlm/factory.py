@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 
-from app.providers.provider_runtime import build_gemini_client_kwargs
-from app.providers.provider_runtime import build_openai_async_client_kwargs
+from app.providers.common.runtime_setup import build_gemini_client_kwargs
+from app.providers.common.runtime_setup import build_openai_async_client_kwargs
 from app.providers.vlm.base import BaseVLMClient
 from app.providers.vlm.gemini_vlm import GeminiVLMClient
 from app.providers.vlm.local_hf_vlm import Local4BitVLMClient

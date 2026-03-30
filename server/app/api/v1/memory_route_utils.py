@@ -4,8 +4,8 @@ from collections.abc import Awaitable
 from collections.abc import Callable
 from typing import Any
 
-from app.orchestration.memory_service import DomainNotFoundError
-from app.orchestration.memory_service import DomainValidationError
+from app.orchestration.services.memory import DomainNotFoundError
+from app.orchestration.services.memory import DomainValidationError
 from fastapi import HTTPException
 
 

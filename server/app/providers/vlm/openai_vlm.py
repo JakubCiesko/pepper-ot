@@ -7,12 +7,12 @@ from typing import Any
 import instructor
 from openai import AsyncOpenAI
 
-from app.core.config.llm_contracts import normalize_openai_parse_kwargs
-from app.providers.model_io_common import extract_text_content
-from app.providers.model_io_common import extract_text_from_openai_response
-from app.providers.model_io_common import parse_structured_text
-from app.providers.model_io_common import resolve_structured_mode
-from app.providers.model_io_common import validate_parsed_output
+from app.providers.common.io import extract_text_content
+from app.providers.common.io import extract_text_from_openai_response
+from app.providers.common.io import parse_structured_text
+from app.providers.common.io import resolve_structured_mode
+from app.providers.common.io import validate_parsed_output
+from app.providers.common.utils import normalize_openai_parse_kwargs
 from app.providers.vlm.base import BaseVLMClient
 from app.schemas.config import LLMConfig
 

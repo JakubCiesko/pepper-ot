@@ -12,8 +12,8 @@ from app.core.prompting.renderer import render_prompt_template
 from app.inference.types import InferenceDetectionObject
 from app.inference.types import SceneGraph
 from app.inference.types import SceneGraphEdge
-from app.providers.vlm_client import BaseVLMClient
-from app.providers.vlm_client import build_vlm_client
+from app.providers.vlm import BaseVLMClient
+from app.providers.vlm import build_vlm_client
 from app.schemas.config import SceneGraphVLMConfig
 from app.schemas.scene import SceneGraphRelation
 from app.schemas.scene import SceneGraphStructuredResponse

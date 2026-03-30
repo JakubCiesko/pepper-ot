@@ -4,7 +4,7 @@ from typing import Annotated
 import app.api.v1.image_utils as img_utils
 from app.core.infra.ws_manager import ws_manager
 from app.core.runtime.state import app_state
-from app.orchestration.detect_service import DetectService
+from app.orchestration.services.detection import DetectService
 from app.schemas.caption import CaptionFormRequest
 from app.schemas.caption import CaptionResponse
 from fastapi import APIRouter

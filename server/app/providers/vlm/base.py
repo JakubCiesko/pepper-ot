@@ -4,7 +4,7 @@ from abc import ABC
 from abc import abstractmethod
 from typing import Any
 
-from app.core.config.llm_contracts import normalize_call_kwargs
+from app.providers.common.utils import normalize_call_kwargs
 from app.schemas.config import LLMConfig
 
 

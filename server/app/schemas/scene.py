@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from pydantic import Field
 
 
-# This serves for structured output for openai and gemini
+# This serves for structured output for openai and gemini TODO: maybe just one class.
 class SceneGraphRelation(BaseModel):
     sub: str
     rel: str

@@ -5,7 +5,12 @@ from typing import Any
 from pydantic import ValidationError
 import yaml
 
-from app.core.config.llm_contracts import provider_capability_matrix
+from app.core.config.mutations.components import ConfigDiff
+from app.core.config.mutations.components import apply_hot_changes
+from app.core.config.mutations.components import diff_config as contract_diff_config
+from app.core.config.mutations.components import hard_reload_fields
+from app.core.runtime.state import AppState
+from app.providers.common.utils import provider_capability_matrix
 from app.schemas.config import AppConfig
 from app.schemas.config import PipelineControls
 
@@ -187,3 +192,16 @@ def _validate_paths(cfg: AppConfig):
     if cfg.caption.user_prompt is not None:
         check(cfg.caption.user_prompt.path, prompt_roots, "caption.user_prompt")
     check(cfg.detection.ontology_path, ontology_roots, "detection.ontology_path")
+
+
+def diff_config(old, new) -> ConfigDiff:
+    return contract_diff_config(old, new)
+
+
+async def apply_hot_config(ml_state: AppState, new: AppConfig):
+    old = ml_state.config or new
+    await apply_hot_changes(ml_state, old, new)
+
+
+def hard_fields() -> list[str]:
+    return hard_reload_fields()

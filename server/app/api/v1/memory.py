@@ -2,12 +2,12 @@ import logging
 
 from app.api.v1.memory_route_utils import run_memory_action
 from app.core.runtime.state import app_state
-from app.orchestration.memory_service import MemoryObjectCreate
-from app.orchestration.memory_service import MemoryObjectUpdate
-from app.orchestration.memory_service import MemoryRelationCreate
-from app.orchestration.memory_service import MemoryRelationUpdate
-from app.orchestration.memory_service import MemoryService
-from app.orchestration.runtime_adapter import resolve_runtime_adapter
+from app.orchestration.adapters.runtime import resolve_runtime_adapter
+from app.orchestration.services.memory import MemoryObjectCreate
+from app.orchestration.services.memory import MemoryObjectUpdate
+from app.orchestration.services.memory import MemoryRelationCreate
+from app.orchestration.services.memory import MemoryRelationUpdate
+from app.orchestration.services.memory import MemoryService
 from app.schemas.scene import SceneState
 from fastapi import APIRouter
 from fastapi import Query

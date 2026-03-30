@@ -4,7 +4,7 @@ import logging
 from app.core.prompting.renderer import PromptRenderContext
 from app.core.prompting.renderer import render_prompt_template
 from app.inference.memory.scene_memory import SceneMemory
-from app.providers.llm_client import LLMClient
+from app.providers.llm.client import LLMClient
 from app.schemas.config import ChatConfig
 from app.schemas.scene import SceneState
 

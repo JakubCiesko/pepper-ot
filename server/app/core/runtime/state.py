@@ -10,9 +10,9 @@ from app.core.runtime.worker_client.types import StopReason
 from app.inference.memory.chat_memory_proxy import EmptyChatMemory
 from app.inference.memory.chat_memory_proxy import WorkerChatMemoryProxy
 from app.inference.pipeline import PerceptionPipeline
-from app.orchestration.caption_service import CaptionService
-from app.orchestration.chat_service import ChatService
-from app.orchestration.conversation_service import ConversationService
+from app.orchestration.services.caption import CaptionService
+from app.orchestration.services.chat import ChatService
+from app.orchestration.services.conversation import ConversationService
 from app.schemas.config import AppConfig
 
 logger = logging.getLogger(__name__)

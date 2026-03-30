@@ -1,6 +1,5 @@
 import logging
 
-from app.core.config import config_apply
 from app.core.config import config_manager
 from app.core.runtime.state import app_state
 from fastapi import APIRouter
@@ -27,7 +26,7 @@ async def get_config():
     """
     saved = config_manager.load_config()
     active = app_state.config or saved
-    hard_reload_fields = config_apply.hard_fields()
+    hard_reload_fields = config_manager.hard_fields()
     return {
         "active": config_manager.dump_config(active),
         "saved": config_manager.dump_config(saved),
@@ -82,7 +81,7 @@ async def patch_config(request: Request):
     try:
         logger.info("Applying patch to config, with data: %s", data)
         updated = config_manager.apply_patch(app_state.config, data)
-        diff = config_apply.diff_config(app_state.config, updated)
+        diff = config_manager.diff_config(app_state.config, updated)
         # needs rebuild
         if diff.hard:
             logger.info(
@@ -96,7 +95,7 @@ async def patch_config(request: Request):
                 "requires_reload": diff.hard,
             }
         # can change settings, no need to rebuild
-        await config_apply.apply_hot_config(app_state, updated)
+        await config_manager.apply_hot_config(app_state, updated)
         return {
             "ok": True,
             "reloaded": False,
