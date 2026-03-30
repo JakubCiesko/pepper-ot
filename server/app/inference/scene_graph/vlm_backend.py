@@ -179,7 +179,9 @@ class VLMSceneGraphBackend:
         else:
             data = self._parse_json(raw)
         if not data:
-            logger.warning("Failed to parse VLM output as JSON, attempting repair")
+            logger.warning(
+                "Failed to parse VLM output as JSON, attempting repair without picture"
+            )
             repaired = await self._repair(image_bytes, raw)
             data = self._parse_json(repaired)
             if not data:

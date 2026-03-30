@@ -48,9 +48,9 @@ class SceneGraphService:
                     vlm_graph = SceneGraph()
                 else:
                     vlm_graph = await self.vlm_backend.generate(vlm_image, detections)
-                logger.info("HYBRID SGG, VLM output: %s", vlm_graph)
+                logger.debug("HYBRID SGG, VLM output: %s", vlm_graph)
                 rules_graph = self.rule_backend.generate(raw_image, detections)
-                logger.info("HYBRID SGG, RULES output: %s", rules_graph)
+                logger.debug("HYBRID SGG, RULES output: %s", rules_graph)
                 out = vlm_graph + rules_graph
-                logger.info("HYBRID SGG, VLM + RULES output: %s", out)
+                logger.debug("HYBRID SGG, VLM + RULES output: %s", out)
                 return out

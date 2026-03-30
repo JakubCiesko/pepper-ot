@@ -7,7 +7,6 @@ from typing import Any
 import instructor
 from openai import AsyncOpenAI
 
-from app.core.config.llm_contracts import normalize_call_kwargs
 from app.core.config.llm_contracts import normalize_openai_parse_kwargs
 from app.providers.model_io_common import extract_text_content
 from app.providers.model_io_common import extract_text_from_openai_response
@@ -39,22 +38,70 @@ class OpenAIVLMClient(BaseVLMClient):
             config.model_id,
         )
 
-    def update_runtime(self, config: LLMConfig):
-        self.config = config
+    def prepare_input(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        image: bytes | None,
+        output_schema: Any | None = None,
+    ) -> dict[str, Any]:
+
+        encoded = None
+
+        if image is None or len(image) == 0:
+            logger.warning("Running OpenAI VLM without image (None or empty)")
+        else:
+            try:
+                encoded = base64.b64encode(image).decode("utf-8")
+            except Exception as e:
+                logger.warning(
+                    "Invalid image bytes, falling back to text-only. error=%s", e
+                )
+
+        user_content_native = [{"type": "input_text", "text": user_prompt}]
+        user_content_standard = [{"type": "text", "text": user_prompt}]
+
+        if encoded is not None:
+            user_content_native.append(
+                {
+                    "type": "input_image",
+                    "image_url": f"data:image/jpeg;base64,{encoded}",
+                }
+            )
+            user_content_standard.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{encoded}"},
+                }
+            )
+
+        return {
+            "native_input": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content_native},
+            ],
+            "standard_messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content_standard},
+            ],
+        }
 
     async def infer(
         self,
         system_prompt: str,
         user_prompt: str,
-        image: bytes,
+        image: bytes | None,
         *,
         output_schema: Any | None = None,
         call_overrides: dict[str, Any] | None = None,
     ) -> tuple[str, Any | None]:
-        kwargs = dict(self.config.call_kwargs or {})
-        if call_overrides:
-            kwargs.update(call_overrides)
-        kwargs = normalize_call_kwargs(self.config.provider, kwargs)
+
+        kwargs = self.prepare_kwargs(call_overrides)
+        req = self.prepare_input(system_prompt, user_prompt, image, output_schema)
+
+        native_input = req["native_input"]
+        standard_messages = req["standard_messages"]
+
         mode = resolve_structured_mode(
             self.config,
             output_schema=output_schema,
@@ -62,90 +109,49 @@ class OpenAIVLMClient(BaseVLMClient):
             provider_name="openai_vlm",
         )
 
-        encoded = base64.b64encode(image).decode("utf-8")
-        native_input = [
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "input_text", "text": user_prompt},
-                    {
-                        "type": "input_image",
-                        "image_url": f"data:image/jpeg;base64,{encoded}",
-                    },
-                ],
-            },
-        ]
+        # ---- Native structured ----
         if mode == "provider_native" and output_schema is not None:
-            parse_kwargs = normalize_openai_parse_kwargs(kwargs)
             try:
                 response = await self.client.responses.parse(
                     model=self.config.model_id,
                     input=native_input,
                     text_format=output_schema,
-                    **parse_kwargs,
+                    **normalize_openai_parse_kwargs(kwargs),
                 )
-                parsed_native = getattr(response, "output_parsed", None)
+
                 text = extract_text_from_openai_response(response)
                 parsed = validate_parsed_output(
-                    parsed_native,
+                    getattr(response, "output_parsed", None),
                     output_schema,
                     strict=self.config.structured_output.strict,
                 )
                 return text, parsed
+
             except Exception as exc:
-                logger.warning(
-                    "OpenAI VLM provider_native structured call failed, falling back to parse_output provider=%s model=%s error=%s",
-                    self.config.provider,
-                    self.config.model_id,
-                    exc,
-                )
-                logger.info(
-                    "Changing VLM structured output mode to instructor as fallback"
-                )
-                # let's try instructor
+                logger.warning("Native structured failed → fallback: %s", exc)
                 mode = "instructor"
 
-        standard_messages = [
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": user_prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{encoded}"},
-                    },
-                ],
-            },
-        ]
+        # ---- Instructor ----
         if mode == "instructor" and output_schema is not None:
             try:
-                parsed_instructor = (
-                    await self.instructor_client.chat.completions.create(
-                        model=self.config.model_id,
-                        messages=standard_messages,
-                        response_model=output_schema,
-                        **kwargs,
-                    )
+                parsed = await self.instructor_client.chat.completions.create(
+                    model=self.config.model_id,
+                    messages=standard_messages,
+                    response_model=output_schema,
+                    **kwargs,
                 )
-                text_fallback = (
-                    parsed_instructor.model_dump_json()
-                    if hasattr(parsed_instructor, "model_dump_json")
-                    else str(parsed_instructor)
+                text = (
+                    parsed.model_dump_json()
+                    if hasattr(parsed, "model_dump_json")
+                    else str(parsed)
                 )
-                return text_fallback, parsed_instructor
+                return text, parsed
+
             except Exception as exc:
-                logger.warning(
-                    "Instructor VLM structured call failed, falling back to parse_output provider=%s model=%s error=%s",
-                    self.config.provider,
-                    self.config.model_id,
-                    exc,
-                )
-                logger.info(
-                    "Changing VLM structured output mode to parse_output as fallback"
-                )
+                logger.warning("Instructor failed → fallback: %s", exc)
                 mode = "parse_output"
+
+        # ---- Plain / JSON ----
         if mode == "parse_output" and output_schema is not None:
             kwargs.setdefault("response_format", {"type": "json_object"})
 
@@ -154,11 +160,15 @@ class OpenAIVLMClient(BaseVLMClient):
             messages=standard_messages,
             **kwargs,
         )
-        content = response.choices[0].message.content if response.choices else ""
-        text = extract_text_content(content)
+
+        text = extract_text_content(
+            response.choices[0].message.content if response.choices else ""
+        )
+
         parsed = parse_structured_text(
             text,
             output_schema,
             strict=self.config.structured_output.strict,
         )
+
         return text, parsed

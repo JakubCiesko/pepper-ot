@@ -8,20 +8,20 @@
     --panel-accent: #17c3b2;
     --panel-accent-2: #4c6fff;
     --panel-accent-3: #f6b042;
---c1: #8fe7dc;
---c2: #63ddd0;
---c3: #3fd4c4;
---c4: #25cbb8;
---c5: #17c3b2; /* base */
---c6: #13a99a;
---c7: #0f8f83;
---c8: #0c756c;
---c9: #095c56;
+--c1: #2a9d8f; /* primary teal (anchor, similar spirit to your original) */
+--c2: #e76f51; /* complementary coral (strong contrast to teal) */
+--c3: #264653; /* deep blue (grounding / backgrounds) */
+--c4: #e9c46a; /* warm yellow (high visibility accents) */
+--c5: #f4a261; /* orange (secondary accent) */
+--c6: #8ab17d; /* muted green (balance / natural tone) */
+--c7: #6d597a; /* desaturated purple (depth / UI contrast) */
+--c8: #b56576; /* soft red-pink (subtle highlight) */
+--c9: #577590; /* cool blue (supporting neutral contrast) */
 }
 
-span.sidebar-label {
+/*span.sidebar-label {
   filter: drop-shadow(0 0 4px rgba(52, 199, 89, 0.4));
-}
+}*/
 
 body.theme-dark {
     --app-bg: #0b1220;

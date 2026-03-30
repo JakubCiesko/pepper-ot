@@ -136,3 +136,6 @@ def extract_text_from_openai_response(response: Any) -> str:
             if chunk_text:
                 parts.append(str(chunk_text))
     return "\n".join(parts)
+
+
+# todo: prompt tools one source of truth, for both system, user, {context}, {caption}, {last:captions}

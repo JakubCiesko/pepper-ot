@@ -9,7 +9,6 @@ import torch
 from transformers import AutoModelForImageTextToText
 from transformers import AutoProcessor
 
-from app.core.config.llm_contracts import normalize_call_kwargs
 from app.providers.model_io_common import parse_structured_text
 from app.providers.vlm.base import BaseVLMClient
 from app.schemas.config import LLMConfig
@@ -62,28 +61,26 @@ class LocalHFVLMClient(BaseVLMClient):
         )
         logger.info("LocalHFVLMClient initialized model=%s", config.model_id)
 
-    def update_runtime(self, config: LLMConfig):
-        self.config = config
-
-    async def infer(
+    def prepare_input(
         self,
         system_prompt: str,
         user_prompt: str,
-        image: bytes,
-        *,
+        image: bytes | None,
         output_schema: Any | None = None,
-        call_overrides: dict[str, Any] | None = None,
-    ) -> tuple[str, Any | None]:
-        kwargs = dict(self.config.call_kwargs or {})
-        if call_overrides:
-            kwargs.update(call_overrides)
-        kwargs = normalize_call_kwargs(self.config.provider, kwargs)
+    ) -> dict[str, Any]:
 
-        max_new_tokens = int(
-            kwargs.pop("max_new_tokens", kwargs.pop("max_tokens", 512))
-        )
+        img = None
 
-        img = Image.open(io.BytesIO(image)).convert("RGB")
+        if image is None or len(image) == 0:
+            logger.warning("Running VLM without image (None or empty)")
+        else:
+            try:
+                img = Image.open(io.BytesIO(image)).convert("RGB")
+            except Exception as e:
+                logger.warning(
+                    "Invalid image bytes, falling back to text-only. error=%s", e
+                )
+
         hints = getattr(self.config, "local_vlm_hints", None)
         prompt_style = (
             getattr(hints, "prompt_template_style", "auto") if hints else "auto"
@@ -91,36 +88,65 @@ class LocalHFVLMClient(BaseVLMClient):
         image_token_strategy = (
             getattr(hints, "image_token_strategy", "auto") if hints else "auto"
         )
+
         hinted_user_prompt = user_prompt
         if image_token_strategy in {"single", "multi"}:
             hinted_user_prompt = (
                 f"[IMAGE_TOKEN_STRATEGY={image_token_strategy}]\n{hinted_user_prompt}"
             )
 
+        user_content = []
+        if img is not None:
+            user_content.append({"type": "image", "image": img})
+        user_content.append({"type": "text", "text": hinted_user_prompt})
+
         messages = [
             {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image", "image": img},
-                    {"type": "text", "text": hinted_user_prompt},
-                ],
-            },
+            {"role": "user", "content": user_content},
         ]
 
+        return {
+            "messages": messages,
+            "image": img,
+            "prompt_style": prompt_style,
+        }
+
+    async def infer(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        image: bytes | None,
+        *,
+        output_schema: Any | None = None,
+        call_overrides: dict[str, Any] | None = None,
+    ) -> tuple[str, Any | None]:
+        kwargs = self.prepare_kwargs(call_overrides)
+        req = self.prepare_input(system_prompt, user_prompt, image, output_schema)
+        messages = req["messages"]
+        img = req["image"]
+        prompt_style = req["prompt_style"]
+        max_new_tokens = int(
+            kwargs.pop("max_new_tokens", kwargs.pop("max_tokens", 512))
+        )
         try:
             if prompt_style == "plain":
                 raise ValueError("plain prompt style requested")
+
             text_input = self.processor.apply_chat_template(
                 messages,
                 tokenize=False,
                 add_generation_prompt=True,
             )
-            model_inputs = self.processor(
-                text=[text_input],
-                images=[img],
-                return_tensors="pt",
-            )
+
+            processor_kwargs = {
+                "text": [text_input],
+                "return_tensors": "pt",
+            }
+            if img is not None:
+                processor_kwargs["images"] = [img]
+
+            model_inputs = self.processor(**processor_kwargs)
+
         except Exception as exc:
             fallback_prompt = f"System:\n{system_prompt}\n\nUser:\n{user_prompt}"
             logger.info(
@@ -128,11 +154,15 @@ class LocalHFVLMClient(BaseVLMClient):
                 prompt_style,
                 exc,
             )
-            model_inputs = self.processor(
-                text=[fallback_prompt],
-                images=[img],
-                return_tensors="pt",
-            )
+
+            processor_kwargs = {
+                "text": [fallback_prompt],
+                "return_tensors": "pt",
+            }
+            if img is not None:  # NEW
+                processor_kwargs["images"] = [img]
+
+            model_inputs = self.processor(**processor_kwargs)  # CHANGED
 
         model_inputs = {
             key: value.to(self.device) if hasattr(value, "to") else value
@@ -153,11 +183,13 @@ class LocalHFVLMClient(BaseVLMClient):
             skip_special_tokens=True,
             clean_up_tokenization_spaces=False,
         )[0]
+
         parsed = parse_structured_text(
             text,
             output_schema,
             strict=self.config.structured_output.strict,
         )
+
         return text, parsed
 
 

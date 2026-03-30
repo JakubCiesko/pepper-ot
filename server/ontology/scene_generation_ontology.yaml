@@ -1,8 +1,8 @@
 predicates:
     # Spatial & Topological (Core for navigation and grounding)
-    - left of
-    - right of
-    - in front of
+    - left_of
+    - right_of
+    - in_front_of
     - behind
     - above
     - below
@@ -10,37 +10,48 @@ predicates:
     - under
     - inside
     - near
-    - next to
+    - next_to
 
     # Connection & Dependency (Crucial for hardware and cables)
-    - attached to
-    - connected to
-    - part of
+    - attached_to
+    - connected_to
+    - part_of
     - contains
     # Human-Object Interaction / HOI (Affordance mapping)
     - holding
     - carrying
     - using
     - wearing
-    - sitting on
-    - standing on
-    - looking at
+    - sitting_on
+    - standing_on
+    - looking_at
     - reading
     - writing
 
     # Human-Human & Agent Motion
-    - talking to
-    - walking
+    - talking_to
+    - looking_at
+    - pointing_to
 
     # Object State (Dynamic properties for manipulation)
-    - open
-    - closed
-    - full
-    - empty
-    - black
-    - white
-    - gray
-    - brown
-    - blue
-    - green
-    - red
+    - is_open
+    - is_closed
+    - is_full
+    - is_empty
+    - is_black
+    - is_white
+    - is_gray
+    - is_brown
+    - is_blue
+    - is_green
+    - is_red
+    - is_small
+    - is_big
+    - is_walking
+    - is_sitting
+    - is_looking_at_the_camera
+    - has_glasses
+    - is_male
+    - is_female
+    - is_child
+    - is_waving
