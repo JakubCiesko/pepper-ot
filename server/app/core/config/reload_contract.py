@@ -59,11 +59,6 @@ def _apply_chat_group(ml_state: "AppState", new: AppConfig):
         base_dir,
         fallback=ml_state.chat_service.system_prompt,
     )
-    ml_state.chat_service.context_template = resolve_prompt_text(
-        new.chat.context_template,
-        base_dir,
-        fallback=None,
-    )
     ml_state.chat_service.llm.update_runtime(new.chat)
 
 
@@ -231,12 +226,6 @@ RELOAD_RULES: list[ReloadRule] = [
     ),
     ReloadRule(
         "chat.system_prompt", attrgetter("chat.system_prompt"), "hot", _apply_chat_group
-    ),
-    ReloadRule(
-        "chat.context_template",
-        attrgetter("chat.context_template"),
-        "hot",
-        _apply_chat_group,
     ),
     # Caption
     ReloadRule("caption.provider", attrgetter("caption.provider"), "hard"),

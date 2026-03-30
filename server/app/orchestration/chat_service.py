@@ -1,7 +1,8 @@
 import inspect
 import logging
-from typing import Any
 
+from app.core.prompting.renderer import PromptRenderContext
+from app.core.prompting.renderer import render_prompt_template
 from app.inference.memory.scene_memory import SceneMemory
 from app.providers.llm_client import LLMClient
 from app.schemas.config import ChatConfig
@@ -10,22 +11,15 @@ from app.schemas.scene import SceneState
 logger = logging.getLogger(__name__)
 
 
-class _SafeTemplateDict(dict[str, Any]):
-    def __missing__(self, key: str):
-        return "{" + key + "}"
-
-
 class ChatService:
     def __init__(
         self,
         config: ChatConfig,
         memory: SceneMemory,
         system_prompt: str,
-        context_template: str | None = None,
     ):
         self.memory = memory
         self.system_prompt = system_prompt
-        self.context_template = context_template
         self.llm = LLMClient(config)
 
     async def _get_scene_state(self) -> SceneState:
@@ -77,20 +71,13 @@ class ChatService:
         world_context = await self._build_context_string()
         latest_caption = await self._latest_caption()
         captions_recent = await self._recent_captions()
-        if self.context_template:
-            template_values = _SafeTemplateDict(
-                context=world_context,
-                caption=latest_caption,
-                captions_recent=captions_recent,
-            )
-            context_text = self.context_template.format_map(template_values)
-        else:
-            context_text = (
-                f"Context:\n{world_context}\n\n"
-                f"Latest Caption:\n{latest_caption}\n\n"
-                f"Recent Captions:\n{captions_recent}"
-            )
-        return f"{self.system_prompt}\n{context_text}"
+        render_context = PromptRenderContext(
+            context=world_context,
+            caption=latest_caption,
+            captions_recent=captions_recent,
+        )
+        rendered = render_prompt_template(self.system_prompt, render_context)
+        return rendered or self.system_prompt
 
     @staticmethod
     def _format_history(history: list[tuple[str, str]] | None) -> str:

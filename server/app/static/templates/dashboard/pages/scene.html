@@ -76,7 +76,7 @@
                     <p class="text-md panel-muted mt-1">Advanced per-request generation arguments (sampling, token limits, provider call knobs).</p>
                     <p id="vlm-call-kwargs-status" class="text-md panel-muted mt-1"></p>
                     <label class="block text-xlg mt-4">User Prompt</label>
-                    <p class="text-md panel-muted mt-1">Per-frame instruction template. If it contains <code>{predicates}</code>, backend replaces it with the ontology predicate list before VLM inference.</p>
+                    <p class="text-md panel-muted mt-1">Per-frame instruction template. Supports placeholders: <code>{predicates}</code>, <code>{context}</code>, <code>{caption}</code>, <code>{captions_recent}</code>, <code>{caption_recent}</code>. SGG always fills <code>{predicates}</code>.</p>
                     <textarea id="vlm-user" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
                     <label class="block text-xlg mt-4">Ontology Predicates (one per line)</label>
                     <p class="text-md panel-muted mt-1">Predicate vocabulary used for scene relationships and prompt conditioning.</p>

@@ -156,7 +156,6 @@ class SceneGraphVLMConfig(LLMConfig):
 
 class ChatConfig(LLMConfig):
     system_prompt: PromptSource
-    context_template: PromptSource | None = None
 
 
 class CaptionConfig(LLMConfig):

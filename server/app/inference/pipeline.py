@@ -96,6 +96,7 @@ class PerceptionPipeline:
             controls,
             metrics,
             executed_stages,
+            caption_text,
         )
 
         await self._run_caption_memory_update(
@@ -262,6 +263,7 @@ class PerceptionPipeline:
         controls: PipelineControls,
         metrics: dict[str, float | str],
         executed_stages: list[str],
+        caption_text: str | None,
     ) -> SceneGraph | None:
         if not controls.scene_graph:
             return None
@@ -271,6 +273,7 @@ class PerceptionPipeline:
                 detections,
                 som_image=som_image,
                 raw_image=image,
+                caption_text=caption_text,
             )
         executed_stages.append("scene_graph")
         return scene_graph

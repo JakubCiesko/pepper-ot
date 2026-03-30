@@ -108,8 +108,6 @@ chat:
     strict: true
   system_prompt:
     path: "prompts/chat_system.txt"
-  context_template:
-    path: "prompts/chat_context.txt"
 
 visualization:
   show_bbox: true

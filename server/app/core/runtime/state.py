@@ -122,23 +122,15 @@ class AppState:
     def _initialize_chat_components(self, base_dir: Path):
         assert self.config is not None
         chat_system_prompt = self.config.chat.system_prompt.resolve(base_dir)
-        chat_context_template = (
-            self.config.chat.context_template.resolve(base_dir)
-            if self.config.chat.context_template is not None
-            else None
-        )
         logger.info(
-            "Initializing ChatService with chat_system_prompt "
-            "%s and chat_context_template %s",
+            "Initializing ChatService with chat_system_prompt %s",
             chat_system_prompt,
-            chat_context_template,
         )
         chat_memory = self._build_chat_memory_adapter()
         self.chat_service = ChatService(
             self.config.chat,
             chat_memory,
             system_prompt=chat_system_prompt,
-            context_template=chat_context_template,
         )
         if self.conversation_service is None:
             self.conversation_service = ConversationService(max_messages=10)

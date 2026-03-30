@@ -76,7 +76,6 @@ const memoryMaxRelations = document.getElementById("memory-max-relations");
 
 const chatSystem = document.getElementById("chat-system");
 const chatDevice = document.getElementById("chat-device");
-const chatContext = document.getElementById("chat-context");
 const chatProvider = document.getElementById("chat-provider");
 const chatModelId = document.getElementById("chat-model-id");
 const chatBaseUrl = document.getElementById("chat-base-url");
@@ -361,7 +360,6 @@ async function loadConfig() {
     const resolvedChat = resolved.chat || {};
     chatSystem.value = resolvedChat.resolved_system_prompt || "";
     chatDevice.value = active.chat?.device || "";
-    chatContext.value = resolvedChat.resolved_context_template || "";
     chatProvider.value = active.chat?.provider || "openai";
     chatModelId.value = active.chat?.model_id || "";
     chatBaseUrl.value = active.chat?.base_url || "";
@@ -534,7 +532,6 @@ function buildPatch() {
             client_init_kwargs: parsedChatClientInitKwargs,
             call_kwargs: parsedChatCallKwargs,
             system_prompt: {text: chatSystem.value},
-            context_template: {text: chatContext.value},
         },
         caption: {
             provider: captionProvider.value,

@@ -7,6 +7,8 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
+from app.core.prompting.renderer import PromptRenderContext
+from app.core.prompting.renderer import render_prompt_template
 from app.inference.types import InferenceDetectionObject
 from app.inference.types import SceneGraph
 from app.inference.types import SceneGraphEdge
@@ -127,30 +129,38 @@ class VLMSceneGraphBackend:
         repaired, _ = await self.client.infer(repair_system, repair_user, image_bytes)
         return repaired
 
-    def _build_user_prompt(self) -> str:
+    def _build_user_prompt(self, caption_text: str | None = None) -> str:
+        render_context = PromptRenderContext(
+            predicates=self.predicates, caption=caption_text
+        )
+        predicates_text = render_context.to_template_values().get("predicates", "")
         if self.user_prompt:
-            if self.predicates and "{predicates}" in self.user_prompt:
-                return self.user_prompt.replace(
-                    "{predicates}", ", ".join(self.predicates)
-                )
-            return self.user_prompt
+            return render_prompt_template(self.user_prompt, render_context)
         if self.predicates:
-            return "Allowed predicates: " + ", ".join(self.predicates)
+            return "Allowed predicates: " + predicates_text
         return "Focus on spatial, semantic, and functional relationships."
+
+    def _build_system_prompt(self, caption_text: str | None = None) -> str:
+        render_context = PromptRenderContext(
+            predicates=self.predicates, caption=caption_text
+        )
+        return render_prompt_template(self.system_prompt, render_context)
 
     async def generate(
         self,
         image: Path | bytes | Image.Image | np.ndarray,
         detections: list[InferenceDetectionObject],
+        caption_text: str | None = None,
     ) -> SceneGraph:
         image_bytes = self._to_bytes(image)
-        user_prompt = self._build_user_prompt()
+        system_prompt = self._build_system_prompt(caption_text)
+        user_prompt = self._build_user_prompt(caption_text)
         output_schema: Any = SceneGraphStructuredResponse
         if self.config.structured_schema == "relationship_list":
             output_schema = list[SceneGraphRelation]
         try:
             raw, parsed = await self.client.infer(
-                self.system_prompt,
+                system_prompt,
                 user_prompt,
                 image_bytes,
                 output_schema=output_schema,
@@ -160,7 +170,7 @@ class VLMSceneGraphBackend:
                 "Structured VLM generation failed, falling back to raw mode: %s", exc
             )
             raw, parsed = await self.client.infer(
-                self.system_prompt,
+                system_prompt,
                 user_prompt,
                 image_bytes,
                 output_schema=None,
@@ -188,7 +198,7 @@ class VLMSceneGraphBackend:
                 logger.warning("VLM repair failed, returning empty scene graph")
         logger.info(
             "VLM input: SYSTEM_PROMPT=[%s], USER_PROMPT=[%s]; VLM RAW OUTPUT=[%s]",
-            self.system_prompt,
+            system_prompt,
             user_prompt,
             raw,
         )
