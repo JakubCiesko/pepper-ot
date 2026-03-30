@@ -111,6 +111,20 @@ class TranslationService:
         return last_output, False
 
 
+def invert_language(output_language: str) -> str:
+    mode = (output_language or "default").strip().lower()
+    if mode == "default":
+        return "default"
+    if mode == "english":
+        return "czech"
+    if mode == "czech":
+        return "english"
+    return output_language
+
+
+# TODO: user might speak czech -> make it english -> pass to llm -> llm output enforce czech again
+
+
 async def enforce_output_language(text: str, output_language: str | None) -> str:
     mode = (output_language or "default").strip().lower()
     if mode == "default":

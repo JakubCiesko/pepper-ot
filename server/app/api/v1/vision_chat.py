@@ -4,6 +4,7 @@ import app.api.v1.image_utils as img_utils
 from app.core.runtime.state import app_state
 from app.orchestration.adapters.runtime import resolve_runtime_adapter
 from app.providers.translation import enforce_output_language
+from app.providers.translation.google_trans import invert_language
 from app.schemas.vision_chat import VisionChatFormRequest
 from app.schemas.vision_chat import VisionChatResponse
 from fastapi import APIRouter
@@ -23,6 +24,16 @@ async def vision_chat_endpoint(
 ):
     if form.query is None:
         raise HTTPException(status_code=400, detail="query is required")
+    output_language = (
+        form.language
+        if form.language is not None
+        else (
+            app_state.config.system.get("output_language")
+            if app_state.config is not None
+            and isinstance(app_state.config.system, dict)
+            else None
+        )
+    )
 
     query = form.query
     system_prompt = (
@@ -31,10 +42,21 @@ async def vision_chat_endpoint(
         else app_state.chat_service.system_prompt
     )
     logger.info(
-        "Vision Chat Endpoint Active with query=%s, system_prompt=%s",
+        "Vision Chat Endpoint Active with original query=%s, system_prompt=%s",
         query,
         system_prompt,
     )
+    # TODO: true will be: model in english only
+    if output_language == "czech" and True:
+        query = await enforce_output_language(
+            query, input_language := invert_language(output_language)
+        )
+        logger.info(
+            "Enforced input language=%s because monolingual model, query=%s",
+            input_language,
+            query,
+        )
+
     image_bytes = await file.read()
 
     if form.resize_image:
@@ -47,16 +69,6 @@ async def vision_chat_endpoint(
         system_prompt=system_prompt.strip() if system_prompt else None,
     )
 
-    output_language = (
-        form.language
-        if form.language is not None
-        else (
-            app_state.config.system.get("output_language")
-            if app_state.config is not None
-            and isinstance(app_state.config.system, dict)
-            else None
-        )
-    )
     response_text = await enforce_output_language(
         payload.get("answer", ""), output_language
     )

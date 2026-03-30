@@ -1,4 +1,74 @@
             <section id="page-live" class="page-panel mt-8">
+                <div class="grid grid-cols-1 xl:grid-cols-1">
+
+                    <div class="panel border rounded-xl p-5">
+                        <details>
+                            <summary class="cursor-pointer text-lg font-semibold">System Description & Architecture</summary>
+                            <div class="mt-4 space-y-4 text-lg panel-muted leading-relaxed">
+                                <p>
+                                    This dashboard is the runtime control and inspection surface for the Pepper perception stack.
+                                    A frame enters the system through <code>/api/v1/detect</code> (robot upload, dashboard upload,
+                                    or external client), then flows through a configurable pipeline that can run captioning, object
+                                    detection, tracking/memory association, SoM painting, scene-graph generation, and memory updates.
+                                    Every stage can be enabled or disabled in runtime pipeline controls.
+                                </p>
+
+                                <p>
+                                    The server has two execution modes. In in-process mode, the full pipeline runs directly in the API
+                                    process. In worker mode, the API process acts as an orchestrator and forwards heavy inference work to
+                                    the internal worker process over internal HTTP endpoints. Worker mode isolates GPU-heavy components and
+                                    supports lifecycle controls such as warmup, stop, hard reload, and health checks.
+                                </p>
+
+                                <p>
+                                    At the core is a unified state model. Detections are represented with persistent IDs where possible.
+                                    The tracker uses appearance embeddings and geometry-based matching to associate current detections with
+                                    existing tracked objects. Scene memory stores objects, relationships, and captions over time, and is
+                                    exposed in this Live page both as human-readable summaries and editable memory CRUD controls.
+                                </p>
+
+                                <p>
+                                    Scene graph generation is pluggable and supports three modes:
+                                    <code>vlm</code> (vision-language model only),
+                                    <code>rules</code> (deterministic geometric/rule engine),
+                                    and <code>hybrid</code> (merge of both).
+                                    The SoM image (boxes, masks, labels, polygons) can be used as model input to improve grounding.
+                                    In rules mode, graph edges are generated from relative geometry and optional deterministic attributes
+                                    such as color extracted per detection crop.
+                                </p>
+
+                                <p>
+                                    Captioning is designed as a fast first-pass scene description for immediate robot response.
+                                    It can run as part of the detect pipeline and persist captions into memory. Chat endpoints then build
+                                    grounded context from memory state, relationships, and recent captions. The conversation service tracks
+                                    chat history per <code>chat_id</code> and streams messages to dashboard clients over websocket events.
+                                </p>
+
+                                <p>
+                                    Runtime observability is exposed through this Live page:
+                                    inference timing metrics per stage, current frame overlays, recent-frame and recent-scene-graph carousels,
+                                    memory summaries, raw JSON debug views, and live websocket-fed updates. The goal is to make every stage
+                                    inspectable, measurable, and tunable without code changes.
+                                </p>
+
+                                <p>
+                                    Configuration is patchable at runtime through <code>/api/v1/config</code>.
+                                    The reload contract decides whether a change is hot-applied or requires hard worker reload.
+                                    This keeps development fast while preserving correctness for sensitive changes such as model/provider
+                                    switches, visualization backend switches (for example GrabCut to SAM), and other lifecycle-critical updates.
+                                </p>
+
+                                <p>
+                                    In short, this system is an orchestration layer for grounded robot perception:
+                                    it converts raw camera frames into structured, persistent, and queryable world state that can power
+                                    conversational behavior, explainable scene reasoning, and controllable debugging in real time.
+                                </p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+                <br>
+                <br>
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
                     <div class="panel border rounded-xl p-5">
@@ -216,75 +286,5 @@
                         </div>
                     </div>
                 </div>
-                <br>
-                <hr>
-                <br>
-                <div class="grid grid-cols-1 xl:grid-cols-1">
 
-                    <div class="panel border rounded-xl p-5">
-                        <details>
-                            <summary class="cursor-pointer text-lg font-semibold">System Description & Architecture</summary>
-                            <div class="mt-4 space-y-4 text-lg panel-muted leading-relaxed">
-                                <p>
-                                    This dashboard is the runtime control and inspection surface for the Pepper perception stack.
-                                    A frame enters the system through <code>/api/v1/detect</code> (robot upload, dashboard upload,
-                                    or external client), then flows through a configurable pipeline that can run captioning, object
-                                    detection, tracking/memory association, SoM painting, scene-graph generation, and memory updates.
-                                    Every stage can be enabled or disabled in runtime pipeline controls.
-                                </p>
-
-                                <p>
-                                    The server has two execution modes. In in-process mode, the full pipeline runs directly in the API
-                                    process. In worker mode, the API process acts as an orchestrator and forwards heavy inference work to
-                                    the internal worker process over internal HTTP endpoints. Worker mode isolates GPU-heavy components and
-                                    supports lifecycle controls such as warmup, stop, hard reload, and health checks.
-                                </p>
-
-                                <p>
-                                    At the core is a unified state model. Detections are represented with persistent IDs where possible.
-                                    The tracker uses appearance embeddings and geometry-based matching to associate current detections with
-                                    existing tracked objects. Scene memory stores objects, relationships, and captions over time, and is
-                                    exposed in this Live page both as human-readable summaries and editable memory CRUD controls.
-                                </p>
-
-                                <p>
-                                    Scene graph generation is pluggable and supports three modes:
-                                    <code>vlm</code> (vision-language model only),
-                                    <code>rules</code> (deterministic geometric/rule engine),
-                                    and <code>hybrid</code> (merge of both).
-                                    The SoM image (boxes, masks, labels, polygons) can be used as model input to improve grounding.
-                                    In rules mode, graph edges are generated from relative geometry and optional deterministic attributes
-                                    such as color extracted per detection crop.
-                                </p>
-
-                                <p>
-                                    Captioning is designed as a fast first-pass scene description for immediate robot response.
-                                    It can run as part of the detect pipeline and persist captions into memory. Chat endpoints then build
-                                    grounded context from memory state, relationships, and recent captions. The conversation service tracks
-                                    chat history per <code>chat_id</code> and streams messages to dashboard clients over websocket events.
-                                </p>
-
-                                <p>
-                                    Runtime observability is exposed through this Live page:
-                                    inference timing metrics per stage, current frame overlays, recent-frame and recent-scene-graph carousels,
-                                    memory summaries, raw JSON debug views, and live websocket-fed updates. The goal is to make every stage
-                                    inspectable, measurable, and tunable without code changes.
-                                </p>
-
-                                <p>
-                                    Configuration is patchable at runtime through <code>/api/v1/config</code>.
-                                    The reload contract decides whether a change is hot-applied or requires hard worker reload.
-                                    This keeps development fast while preserving correctness for sensitive changes such as model/provider
-                                    switches, visualization backend switches (for example GrabCut to SAM), and other lifecycle-critical updates.
-                                </p>
-
-                                <p>
-                                    In short, this system is an orchestration layer for grounded robot perception:
-                                    it converts raw camera frames into structured, persistent, and queryable world state that can power
-                                    conversational behavior, explainable scene reasoning, and controllable debugging in real time.
-                                </p>
-                            </div>
-                        </details>
-                    </div>
-                </div>
             </section>

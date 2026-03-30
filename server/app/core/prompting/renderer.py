@@ -3,11 +3,6 @@ from dataclasses import dataclass
 from typing import Any
 
 
-class _SafePromptDict(dict[str, Any]):
-    def __missing__(self, key: str):
-        return "{" + key + "}"
-
-
 @dataclass(frozen=True)
 class PromptRenderContext:
     context: str | None = None
@@ -34,6 +29,15 @@ class PromptRenderContext:
         return values
 
 
+_ALLOWED_TEMPLATE_KEYS: tuple[str, ...] = (
+    "captions_recent",
+    "caption_recent",
+    "predicates",
+    "context",
+    "caption",  # pass ontology anywher etoo
+)
+
+
 def render_prompt_template(
     template: str | None,
     values: dict[str, Any] | PromptRenderContext | None = None,
@@ -44,5 +48,8 @@ def render_prompt_template(
         payload = values.to_template_values()
     else:
         payload = values or {}
-    context = _SafePromptDict(payload)
-    return template.format_map(context)
+
+    rendered = template
+    for key in _ALLOWED_TEMPLATE_KEYS:
+        rendered = rendered.replace("{" + key + "}", str(payload.get(key, "") or ""))
+    return rendered

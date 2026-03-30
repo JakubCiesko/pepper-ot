@@ -85,7 +85,7 @@ class ChatService:
             return ""
         lines = []
         for role, text in history:
-            role_name = "User" if role == "user" else "Pepper"
+            role_name = "User" if role == "user" else "Assistant"
             lines.append(f"{role_name}: {text}")
         return "\n".join(lines)
 

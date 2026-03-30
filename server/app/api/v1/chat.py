@@ -4,6 +4,7 @@ from app.core.infra.ws_manager import ws_manager
 from app.core.runtime.state import app_state
 from app.orchestration.services.conversation import ConversationService
 from app.providers.translation import enforce_output_language
+from app.providers.translation.google_trans import invert_language
 from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse
 from fastapi import APIRouter
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# TODO: work on this, the serialization of conversation is weird.
+# TODO: work on this, the serialization of conversation is weird., also whether to store original or translation... create conversation lang?
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
@@ -47,21 +48,6 @@ async def chat_endpoint(request: ChatRequest):
     conversation = await conversations.ensure_conversation(request.chat_id)
     chat_id = conversation.chat_id
 
-    user_message = await conversations.add_message(chat_id, "user", request.query)
-    await ws_manager.broadcast(
-        {
-            "type": "chat_message",
-            "chat_id": chat_id,
-            "message": conversations.serialize_message(user_message),
-        }
-    )
-
-    history = await conversations.prompt_history(chat_id, include_last_user=False)
-    response_text = await app_state.chat_service.chat(
-        request.query,
-        conversation_history=history,
-    )
-    logger.info("Received LLM response: %s", response_text)
     output_language = (
         request.language
         if request.language is not None
@@ -72,11 +58,40 @@ async def chat_endpoint(request: ChatRequest):
             else None
         )
     )
+    query = request.query
+
+    user_message = await conversations.add_message(chat_id, "user", query)
+    # TODO: true will be: model in english only
+    if output_language == "czech" and True:
+        query = await enforce_output_language(
+            query, input_language := invert_language(output_language)
+        )
+        logger.info(
+            "Enforced input language=%s because monolingual model, query=%s",
+            input_language,
+            query,
+        )
+
+    await ws_manager.broadcast(
+        {
+            "type": "chat_message",
+            "chat_id": chat_id,
+            "message": conversations.serialize_message(user_message),
+        }
+    )
+
+    history = await conversations.prompt_history(chat_id, include_last_user=False)
+    response_text = await app_state.chat_service.chat(
+        query,
+        conversation_history=history,
+    )
+    logger.info("Received LLM response: %s", response_text)
+    # add original language
+
     response_text = await enforce_output_language(response_text, output_language)
     assistant_message = await conversations.add_message(
         chat_id, "assistant", response_text
     )
-
     await ws_manager.broadcast(
         {
             "type": "chat_message",
