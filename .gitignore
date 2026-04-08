@@ -25,7 +25,6 @@ presentation/
 **/tests/
 old_client/
 naoqi_docs/
-experiments/
 new_client/
 **.csp
 my-llama-server.sh
