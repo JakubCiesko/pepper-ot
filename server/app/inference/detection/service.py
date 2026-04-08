@@ -112,5 +112,14 @@ class DetectionService:
         logger.debug("Running DetectionService with backend: %s", self.backend)
         return self.model.predict(image)
 
-    def __call__(self, image: Image.Image) -> list[InferenceDetectionObject]:
+    def detect_batch(
+        self, images: list[Image.Image]
+    ) -> list[list[InferenceDetectionObject]]:
+        return self.model.predict_batch(images)
+
+    def __call__(
+        self, image: Image.Image
+    ) -> list[InferenceDetectionObject] | list[list[InferenceDetectionObject]]:
+        if isinstance(image, list):
+            return self.detect_batch(image)
         return self.detect(image)
