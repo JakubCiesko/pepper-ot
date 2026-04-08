@@ -2,10 +2,14 @@ from pathlib import Path
 
 import click
 
-from research.src.data_generation.distillation.distill import run_distillation
-from research.src.data_generation.scene_graph.generate import run_generation
-from research.src.training.detector import run_detector_training
-from research.src.training.vlm import run_vlm_training
+from research.experiments.workflows.data_generation.distillation.distill import (
+    run_distillation,
+)
+from research.experiments.workflows.data_generation.scene_graph.generate import (
+    run_generation,
+)
+from research.experiments.workflows.training.detector import run_detector_training
+from research.experiments.workflows.training.vlm import run_vlm_training
 
 
 @click.group()
