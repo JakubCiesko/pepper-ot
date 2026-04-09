@@ -32,10 +32,12 @@ async def run_vocabulary_mining(config: ExperimentConfig, run: RunContext) -> di
             labels = [
                 d.get("label") for d in detections.get(image_path, []) if d.get("label")
             ]
+            # TODO: make this settable too?
             user_prompt = (
                 f"Caption: {caption}\n"
                 f"Detected objects: {labels}\n"
-                "Return JSON with predicates and attributes."
+                "Return JSON with predicates and attributes, focus mainly on the objects "
+                "mentioned in the list of detected objects."
             )
             resp = await llm.generate_structured(
                 system_prompt=config.vocabulary.extract_system_prompt,

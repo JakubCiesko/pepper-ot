@@ -26,7 +26,7 @@ class LLMModelConfig(BaseModel):
 
 class DetectionStageConfig(BaseModel):
     enabled: bool = True
-    backend: Literal["yolo", "rt_detr", "rf_detr", "owl_v2"] = "rt_detr"
+    backend: Literal["yolo", "rt_detr", "rf_detr", "owl_v2"] = "rf_detr"
     batch_size: int = 4
 
 
