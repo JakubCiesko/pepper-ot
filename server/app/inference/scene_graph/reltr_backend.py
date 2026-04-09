@@ -6,6 +6,7 @@ from typing import Any
 
 from PIL import Image
 
+from app.inference.scene_graph.reltr_predictor import VG_REL_CLASSES_ATTRIBUTEABLE
 from app.inference.scene_graph.reltr_predictor import predict_image
 from app.inference.types import InferenceDetectionObject
 from app.inference.types import SceneGraph
@@ -18,6 +19,11 @@ logger = logging.getLogger(__name__)
 class RelTRSceneGraphGenerator:
     def __init__(self, config: SGGRelTRConfig):
         self.config = config
+        self._attributeable_predicates = {
+            str(p).strip().lower().replace(" ", "_")
+            for p in VG_REL_CLASSES_ATTRIBUTEABLE
+            if str(p).strip()
+        }
 
     def update_runtime(self, config: SGGRelTRConfig):
         self.config = config
@@ -63,46 +69,107 @@ class RelTRSceneGraphGenerator:
         }
         filtered_no_label_edges: list[SceneGraphEdge] = []
         filtered_edges: list[SceneGraphEdge] = []
-        dropped = 0
+        seen: set[tuple[str, str, str]] = set()
+        kept_binary = 0
+        kept_unary_from_sub = 0
+        kept_unary_from_obj = 0
+        dropped_unmatched = 0
+        dropped_invalid = 0
 
         for rel in relationships:
-            logger.info("REL: %s", rel)
-            rel_name = str(rel.get("rel") or "").strip().lower().replace(" ", "_")
+            logger.debug("REL: %s", rel)
+            rel_name = self._normalize_token(str(rel.get("rel") or ""))
             if not rel_name:
-                dropped += 1
+                dropped_invalid += 1
                 continue
 
             sub_raw = str(rel.get("sub") or "")
             obj_raw = str(rel.get("obj") or "")
-            sub_reltr_id = self._extract_tail_int(sub_raw)
-            obj_reltr_id = self._extract_tail_int(obj_raw)
+            sub_label, sub_reltr_id = self._split_reltr_token(sub_raw)
+            obj_label, obj_reltr_id = self._split_reltr_token(obj_raw)
             if sub_reltr_id is None or obj_reltr_id is None:
-                dropped += 1
+                dropped_invalid += 1
                 continue
             sub_box = reltr_id_to_box.get(sub_reltr_id)
             obj_box = reltr_id_to_box.get(obj_reltr_id)
             if sub_box is None or obj_box is None:
-                dropped += 1
+                dropped_invalid += 1
                 continue
 
-            sub_track_id = self._match_to_detection_id(sub_box, det_with_ids)
-            obj_track_id = self._match_to_detection_id(obj_box, det_with_ids)
-            if sub_track_id is None or obj_track_id is None:
-                dropped += 1
-                continue
+            sub_track_id, _ = self._best_match_to_detection_id(sub_box, det_with_ids)
+            obj_track_id, _ = self._best_match_to_detection_id(obj_box, det_with_ids)
 
-            sub_str = str(sub_track_id)
-            obj_str = str(obj_track_id)
-            filtered_no_label_edges.append(
-                SceneGraphEdge(sub=sub_str, rel=rel_name, obj=obj_str)
-            )
-            filtered_edges.append(
-                SceneGraphEdge(
-                    sub=f"{id_to_label.get(sub_str, 'object')}_{sub_str}",
-                    rel=rel_name,
-                    obj=f"{id_to_label.get(obj_str, 'object')}_{obj_str}",
+            if sub_track_id is not None and obj_track_id is not None:
+                sub_str = str(sub_track_id)
+                obj_str = str(obj_track_id)
+                key = (sub_str, rel_name, obj_str)
+                if key in seen:
+                    continue
+                seen.add(key)
+                filtered_no_label_edges.append(
+                    SceneGraphEdge(sub=sub_str, rel=rel_name, obj=obj_str)
                 )
-            )
+                filtered_edges.append(
+                    SceneGraphEdge(
+                        sub=f"{id_to_label.get(sub_str, 'object')}_{sub_str}",
+                        rel=rel_name,
+                        obj=f"{id_to_label.get(obj_str, 'object')}_{obj_str}",
+                    )
+                )
+                kept_binary += 1
+                continue
+
+            if rel_name in self._attributeable_predicates:
+                if sub_track_id is not None:
+                    sub_str = str(sub_track_id)
+                    unary_rel = self._normalize_token(f"{rel_name}_{obj_label}")
+                    if unary_rel:
+                        key = (sub_str, unary_rel, sub_str)
+                        if key not in seen:
+                            seen.add(key)
+                            filtered_no_label_edges.append(
+                                SceneGraphEdge(sub=sub_str, rel=unary_rel, obj=sub_str)
+                            )
+                            filtered_edges.append(
+                                SceneGraphEdge(
+                                    sub=f"{id_to_label.get(sub_str, 'object')}_{sub_str}",
+                                    rel=unary_rel,
+                                    obj=f"{id_to_label.get(sub_str, 'object')}_{sub_str}",
+                                )
+                            )
+                            kept_unary_from_sub += 1
+                            continue
+                if obj_track_id is not None:
+                    obj_str = str(obj_track_id)
+                    unary_rel = self._normalize_token(f"{rel_name}_{sub_label}")
+                    if unary_rel:
+                        key = (obj_str, unary_rel, obj_str)
+                        if key not in seen:
+                            seen.add(key)
+                            filtered_no_label_edges.append(
+                                SceneGraphEdge(sub=obj_str, rel=unary_rel, obj=obj_str)
+                            )
+                            filtered_edges.append(
+                                SceneGraphEdge(
+                                    sub=f"{id_to_label.get(obj_str, 'object')}_{obj_str}",
+                                    rel=unary_rel,
+                                    obj=f"{id_to_label.get(obj_str, 'object')}_{obj_str}",
+                                )
+                            )
+                            kept_unary_from_obj += 1
+                            continue
+
+            dropped_unmatched += 1
+
+        dropped = dropped_invalid + dropped_unmatched
+        logger.info(
+            "RelTR merge summary binary=%d unary_sub=%d unary_obj=%d dropped_unmatched=%d dropped_invalid=%d",
+            kept_binary,
+            kept_unary_from_sub,
+            kept_unary_from_obj,
+            dropped_unmatched,
+            dropped_invalid,
+        )
 
         logger.info(
             "RelTR scene graph edges kept=%d dropped=%d (iou_threshold=%.2f)",
@@ -151,9 +218,25 @@ class RelTRSceneGraphGenerator:
             return None
         return int(match.group(1))
 
-    def _match_to_detection_id(
+    @classmethod
+    def _split_reltr_token(cls, token: str) -> tuple[str, int | None]:
+        stripped = token.strip()
+        reltr_id = cls._extract_tail_int(stripped)
+        if reltr_id is None:
+            return cls._normalize_token(stripped), None
+        label = re.sub(r"_\d+$", "", stripped)
+        return cls._normalize_token(label), reltr_id
+
+    @staticmethod
+    def _normalize_token(token: str) -> str:
+        x = token.strip().lower().replace(" ", "_").replace("-", "_")
+        x = re.sub(r"[^a-z0-9_]+", "", x)
+        x = re.sub(r"_+", "_", x).strip("_")
+        return x
+
+    def _best_match_to_detection_id(
         self, reltr_box: list[float], detections: list[InferenceDetectionObject]
-    ) -> int | str | None:
+    ) -> tuple[int | str | None, float]:
         best_iou = 0.0
         best_id: int | str | None = None
         for det in detections:
@@ -162,8 +245,8 @@ class RelTRSceneGraphGenerator:
                 best_iou = iou
                 best_id = det.object_id
         if best_iou < float(self.config.iou_match_threshold):
-            return None
-        return best_id
+            return None, best_iou
+        return best_id, best_iou
 
     @staticmethod
     def _bbox_iou(a: list[float], b: list[float]) -> float:

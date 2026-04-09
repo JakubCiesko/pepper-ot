@@ -217,6 +217,11 @@ VG_REL_CLASSES = [
     "with",
 ]
 
+# Temporary policy knob for reltr_backend unary fallback:
+# currently allow all VG relations to be converted into unary attributes.
+# You can narrow this list later.
+VG_REL_CLASSES_ATTRIBUTEABLE = VG_REL_CLASSES
+
 
 @dataclass
 class RelTRImagePrediction:
