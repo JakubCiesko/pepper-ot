@@ -1,48 +1,50 @@
-const ws = new WebSocket(`wss://${location.host}/dashboard/events`);
-
-const detectionsContainer = document.getElementById("detections-content");
-const annotatedImage = document.getElementById("annotated-image");
-const inferenceMetricsContainer = document.getElementById("inference-metrics");
-const captionContainer = document.getElementById("caption-content");
-
-const liveCarouselTrack = document.getElementById("live-carousel-track");
-const liveCarouselPrev = document.getElementById("live-carousel-prev");
-const liveCarouselNext = document.getElementById("live-carousel-next");
-const liveCarouselIndex = document.getElementById("live-carousel-index");
-
-const sgCarouselTrack = document.getElementById("sg-carousel-track");
-const sgCarouselPrev = document.getElementById("sg-carousel-prev");
-const sgCarouselNext = document.getElementById("sg-carousel-next");
-const sgCarouselIndex = document.getElementById("sg-carousel-index");
-const processImageInput = document.getElementById("process-image-input");
-const processImageBtn = document.getElementById("process-image-btn");
-const processImageName = document.getElementById("process-image-name");
+import { showStatusMessage } from "../../core/notifications.js";
+import { renderMemoryPanel } from "../memory/index.js";
+import { renderSceneGraph } from "../scene_graph/index.js";
 
 const MAX_LIVE_FRAMES = 10;
 const liveFrames = [];
 let activeLiveFrameIndex = -1;
 
+const dom = {
+	detectionsContainer: document.getElementById("detections-content"),
+	annotatedImage: document.getElementById("annotated-image"),
+	inferenceMetricsContainer: document.getElementById("inference-metrics"),
+	captionContainer: document.getElementById("caption-content"),
+	liveCarouselTrack: document.getElementById("live-carousel-track"),
+	liveCarouselPrev: document.getElementById("live-carousel-prev"),
+	liveCarouselNext: document.getElementById("live-carousel-next"),
+	liveCarouselIndex: document.getElementById("live-carousel-index"),
+	sgCarouselTrack: document.getElementById("sg-carousel-track"),
+	sgCarouselPrev: document.getElementById("sg-carousel-prev"),
+	sgCarouselNext: document.getElementById("sg-carousel-next"),
+	sgCarouselIndex: document.getElementById("sg-carousel-index"),
+	processImageInput: document.getElementById("process-image-input"),
+	processImageBtn: document.getElementById("process-image-btn"),
+	processImageName: document.getElementById("process-image-name"),
+};
+
 function renderCaption(text) {
-	if (!text || !captionContainer) return;
+	if (!text || !dom.captionContainer) return;
 	if (
-		captionContainer.children.length === 1 &&
-		captionContainer.children[0].textContent.includes("No caption")
+		dom.captionContainer.children.length === 1 &&
+		dom.captionContainer.children[0].textContent.includes("No caption")
 	) {
-		captionContainer.innerHTML = "";
+		dom.captionContainer.innerHTML = "";
 	}
-	captionContainer.innerHTML = "";
+	dom.captionContainer.innerHTML = "";
 	const div = document.createElement("div");
 	div.className =
 		"bg-slate-950 border border-slate-800 p-3 rounded shadow-sm text-slate-300 whitespace-pre-wrap break-all overflow-x-auto";
 	div.textContent = text;
-	captionContainer.appendChild(div);
+	dom.captionContainer.appendChild(div);
 }
 
 function renderDetections(objects, colors) {
-	if (!detectionsContainer) return;
-	detectionsContainer.innerHTML = "";
+	if (!dom.detectionsContainer) return;
+	dom.detectionsContainer.innerHTML = "";
 	if (!Array.isArray(objects) || objects.length === 0) {
-		detectionsContainer.innerHTML = `<p class="text-slate-500">No objects detected</p>`;
+		dom.detectionsContainer.innerHTML = `<p class="text-slate-500">No objects detected</p>`;
 		return;
 	}
 
@@ -65,17 +67,17 @@ function renderDetections(objects, colors) {
 			? obj.bbox.map((x) => Number(x).toFixed(1)).join(", ")
 			: "n/a";
 		div.innerHTML = `<strong>${obj.label}</strong> <span class="text-xs">(${objectId})</span> (${conf}) - bbox: [${bbox}]`;
-		detectionsContainer.appendChild(div);
+		dom.detectionsContainer.appendChild(div);
 	});
 }
 
 function renderMetrics(metrics) {
-	if (!inferenceMetricsContainer) return;
-	inferenceMetricsContainer.innerHTML = "";
+	if (!dom.inferenceMetricsContainer) return;
+	dom.inferenceMetricsContainer.innerHTML = "";
 	const payload = metrics || {};
 	const keys = Object.keys(payload);
 	if (keys.length === 0) {
-		inferenceMetricsContainer.innerHTML = `<p class="panel-muted">No metrics recorded yet...</p>`;
+		dom.inferenceMetricsContainer.innerHTML = `<p class="panel-muted">No metrics recorded yet...</p>`;
 		return;
 	}
 	keys.sort();
@@ -87,7 +89,7 @@ function renderMetrics(metrics) {
 			? `${value.toFixed(4)} s`
 			: String(value);
 		row.innerHTML = `<span class="panel-muted">${key}</span><span>${formatted}</span>`;
-		inferenceMetricsContainer.appendChild(row);
+		dom.inferenceMetricsContainer.appendChild(row);
 	});
 }
 
@@ -112,15 +114,6 @@ function formatFrameTimestamp(ts) {
 	return new Date(ts * 1000).toLocaleTimeString();
 }
 
-function updateCarouselIndexLabels() {
-	const text =
-		liveFrames.length === 0 || activeLiveFrameIndex < 0
-			? "0 / 0"
-			: `${activeLiveFrameIndex + 1} / ${liveFrames.length}`;
-	if (liveCarouselIndex) liveCarouselIndex.textContent = text;
-	if (sgCarouselIndex) sgCarouselIndex.textContent = text;
-}
-
 function summarizeSceneGraph(sceneGraph) {
 	const rels = Array.isArray(sceneGraph) ? sceneGraph : [];
 	if (rels.length === 0) return "No relations";
@@ -131,9 +124,18 @@ function summarizeSceneGraph(sceneGraph) {
 	return rels.length > 2 ? `${sample} ...` : sample;
 }
 
+function updateCarouselIndexLabels() {
+	const text =
+		liveFrames.length === 0 || activeLiveFrameIndex < 0
+			? "0 / 0"
+			: `${activeLiveFrameIndex + 1} / ${liveFrames.length}`;
+	if (dom.liveCarouselIndex) dom.liveCarouselIndex.textContent = text;
+	if (dom.sgCarouselIndex) dom.sgCarouselIndex.textContent = text;
+}
+
 function renderLiveCarousel() {
-	if (!liveCarouselTrack) return;
-	liveCarouselTrack.innerHTML = "";
+	if (!dom.liveCarouselTrack) return;
+	dom.liveCarouselTrack.innerHTML = "";
 	liveFrames.forEach((frame, idx) => {
 		const btn = document.createElement("button");
 		btn.type = "button";
@@ -154,13 +156,13 @@ function renderLiveCarousel() {
 		meta.textContent = `${formatFrameTimestamp(frame.timestamp)} • caption ${hasCaption ? "yes" : "no"}`;
 		btn.appendChild(meta);
 
-		liveCarouselTrack.appendChild(btn);
+		dom.liveCarouselTrack.appendChild(btn);
 	});
 }
 
 function renderSceneGraphCarousel() {
-	if (!sgCarouselTrack) return;
-	sgCarouselTrack.innerHTML = "";
+	if (!dom.sgCarouselTrack) return;
+	dom.sgCarouselTrack.innerHTML = "";
 	liveFrames.forEach((frame, idx) => {
 		const btn = document.createElement("button");
 		btn.type = "button";
@@ -183,31 +185,23 @@ function renderSceneGraphCarousel() {
 		preview.textContent = summarizeSceneGraph(frame.scene_graph);
 		btn.appendChild(preview);
 
-		sgCarouselTrack.appendChild(btn);
+		dom.sgCarouselTrack.appendChild(btn);
 	});
 }
 
 function renderActiveFrameSnapshot() {
-	if (activeLiveFrameIndex < 0 || activeLiveFrameIndex >= liveFrames.length)
+	if (activeLiveFrameIndex < 0 || activeLiveFrameIndex >= liveFrames.length) {
 		return;
+	}
 	const frame = liveFrames[activeLiveFrameIndex];
-
-	if (annotatedImage && frame.image) {
-		annotatedImage.src = `data:image/jpeg;base64,${frame.image}`;
+	if (dom.annotatedImage && frame.image) {
+		dom.annotatedImage.src = `data:image/jpeg;base64,${frame.image}`;
 	}
 	renderCaption(frame.caption || "No caption for this frame.");
 	renderDetections(frame.objects, frame.colors);
 	renderMetrics(frame.metrics);
-
-	if (window.PepperMemoryPanel) {
-		window.PepperMemoryPanel.renderMemory(frame.memory || {});
-	}
-	if (window.PepperSceneGraphPanel) {
-		window.PepperSceneGraphPanel.renderSceneGraph(
-			frame.scene_graph || [],
-			frame.memory || {},
-		);
-	}
+	renderMemoryPanel(frame.memory || {});
+	renderSceneGraph(frame.scene_graph || [], frame.memory || {});
 	updateSummaries(frame);
 }
 
@@ -252,46 +246,17 @@ function isSameAsLatest(frame) {
 function pushFrameSnapshot(data) {
 	const frame = snapshotFromPayload(data);
 	if (!frame.image) return;
-
 	if (isSameAsLatest(frame)) {
 		liveFrames[0] = frame;
 		setActiveLiveFrame(0);
 		return;
 	}
-
 	liveFrames.unshift(frame);
 	if (liveFrames.length > MAX_LIVE_FRAMES) {
 		liveFrames.length = MAX_LIVE_FRAMES;
 	}
 	setActiveLiveFrame(0);
 }
-
-function renderDetectionPayload(data) {
-	pushFrameSnapshot(data);
-}
-
-ws.onmessage = (event) => {
-	const data = JSON.parse(event.data);
-
-	if (data.type === "chat_message") {
-		if (window.PepperConversationPanel) {
-			window.PepperConversationPanel.handleChatMessageEvent(data);
-		}
-		return;
-	}
-	if (data.type === "caption") {
-		renderCaption(data.text);
-		return;
-	}
-	if (data.type === "memory") {
-		if (window.PepperMemoryPanel) {
-			window.PepperMemoryPanel.renderMemory(data.memory || {});
-		}
-		return;
-	}
-
-	renderDetectionPayload(data);
-};
 
 async function loadLastState() {
 	try {
@@ -302,7 +267,7 @@ async function loadLastState() {
 			data &&
 			(data.image || data.objects?.length || data.scene_graph?.length)
 		) {
-			renderDetectionPayload(data);
+			pushFrameSnapshot(data);
 		}
 	} catch (err) {
 		console.error("Failed to load last state", err);
@@ -327,31 +292,17 @@ function goToNextFrame() {
 	setActiveLiveFrame(next);
 }
 
-function getActiveFrameSnapshot() {
-	if (activeLiveFrameIndex < 0 || activeLiveFrameIndex >= liveFrames.length) {
-		return null;
-	}
-	const frame = liveFrames[activeLiveFrameIndex];
-	return frame ? { ...frame } : null;
-}
-
-window.PepperLiveFeed = {
-	getActiveFrameSnapshot,
-};
-
 async function processUploadedImage() {
-	if (!processImageInput || !processImageBtn) return;
-	const file = processImageInput.files?.[0];
+	if (!dom.processImageInput || !dom.processImageBtn) return;
+	const file = dom.processImageInput.files?.[0];
 	if (!file) {
-		if (typeof showStatusMessage === "function") {
-			showStatusMessage("Select an image first.", false);
-		}
+		showStatusMessage("Select an image first.", false);
 		return;
 	}
 
-	processImageBtn.disabled = true;
-	const originalText = processImageBtn.textContent;
-	processImageBtn.textContent = "Processing...";
+	dom.processImageBtn.disabled = true;
+	const originalText = dom.processImageBtn.textContent;
+	dom.processImageBtn.textContent = "Processing...";
 	try {
 		const form = new FormData();
 		form.append("file", file);
@@ -370,57 +321,56 @@ async function processUploadedImage() {
 			}
 			throw new Error(detail);
 		}
-		if (typeof showStatusMessage === "function") {
-			showStatusMessage("Image submitted to /api/v1/detect");
-		}
-		processImageInput.value = "";
-		if (processImageName) processImageName.textContent = "";
+		showStatusMessage("Image submitted to /api/v1/detect");
+		dom.processImageInput.value = "";
+		if (dom.processImageName) dom.processImageName.textContent = "";
 	} catch (err) {
-		if (typeof showStatusMessage === "function") {
-			showStatusMessage(err.message || "Failed to process image", false);
-		}
+		showStatusMessage(err.message || "Failed to process image", false);
 	} finally {
-		processImageBtn.disabled = false;
-		processImageBtn.textContent = originalText;
+		dom.processImageBtn.disabled = false;
+		dom.processImageBtn.textContent = originalText;
 	}
 }
 
-if (window.PepperMemoryPanel) {
-	window.PepperMemoryPanel.init();
-}
-if (window.PepperSceneGraphPanel) {
-	window.PepperSceneGraphPanel.init();
-}
-if (window.PepperConversationPanel) {
-	window.PepperConversationPanel.init();
+export function getActiveFrameSnapshot() {
+	if (activeLiveFrameIndex < 0 || activeLiveFrameIndex >= liveFrames.length) {
+		return null;
+	}
+	const frame = liveFrames[activeLiveFrameIndex];
+	return frame ? { ...frame } : null;
 }
 
-if (liveCarouselPrev) {
-	liveCarouselPrev.addEventListener("click", goToPrevFrame);
+export function handleLiveWsMessage(data) {
+	if (data?.type === "caption") {
+		renderCaption(data.text);
+		return;
+	}
+	pushFrameSnapshot(data);
 }
-if (liveCarouselNext) {
-	liveCarouselNext.addEventListener("click", goToNextFrame);
-}
-if (sgCarouselPrev) {
-	sgCarouselPrev.addEventListener("click", goToPrevFrame);
-}
-if (sgCarouselNext) {
-	sgCarouselNext.addEventListener("click", goToNextFrame);
-}
-if (processImageInput) {
-	processImageInput.addEventListener("change", () => {
-		const file = processImageInput.files?.[0];
-		if (processImageName) {
-			processImageName.textContent = file ? file.name : "";
-		}
-	});
-}
-if (processImageBtn) {
-	processImageBtn.addEventListener("click", processUploadedImage);
-}
-updateCarouselIndexLabels();
 
-loadLastState();
-if (window.PepperConversationPanel) {
-	window.PepperConversationPanel.loadLatestConversation();
+export function initLivePanel() {
+	if (dom.liveCarouselPrev)
+		dom.liveCarouselPrev.addEventListener("click", goToPrevFrame);
+	if (dom.liveCarouselNext)
+		dom.liveCarouselNext.addEventListener("click", goToNextFrame);
+	if (dom.sgCarouselPrev)
+		dom.sgCarouselPrev.addEventListener("click", goToPrevFrame);
+	if (dom.sgCarouselNext)
+		dom.sgCarouselNext.addEventListener("click", goToNextFrame);
+	if (dom.processImageInput) {
+		dom.processImageInput.addEventListener("change", () => {
+			const file = dom.processImageInput.files?.[0];
+			if (dom.processImageName)
+				dom.processImageName.textContent = file ? file.name : "";
+		});
+	}
+	if (dom.processImageBtn) {
+		dom.processImageBtn.addEventListener("click", processUploadedImage);
+	}
+	updateCarouselIndexLabels();
+	loadLastState();
+}
+
+export function handleMemoryWsMessage(data) {
+	renderMemoryPanel(data?.memory || {});
 }

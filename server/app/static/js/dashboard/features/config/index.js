@@ -1,3 +1,5 @@
+import { showStatusMessage } from "../../core/notifications.js";
+
 const slider = document.getElementById("threshold-slider");
 const input = document.getElementById("threshold-input");
 const backendSelect = document.getElementById("backend-select");
