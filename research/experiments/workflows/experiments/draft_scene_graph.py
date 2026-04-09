@@ -1,15 +1,19 @@
 import asyncio
 from io import BytesIO
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 import numpy as np
 from PIL import Image
+from tqdm.auto import tqdm
 
 from research.experiments.adapters import ServerVLMAdapter
 from research.experiments.adapters.bootstrap import ensure_server_app_importable
+from research.experiments.adapters.utils import resize_pil
 from research.experiments.config.models import ExperimentConfig
 from research.experiments.io import RunContext
+from research.experiments.io import StageMetrics
 from research.experiments.io import load_json
 from research.experiments.io import save_json
 from research.experiments.schemas import SceneGraphDraft
@@ -55,6 +59,7 @@ def _pil_to_jpeg_bytes(image: Image.Image) -> bytes:
 
 async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> dict:
     run.logger.info("Starting draft scene graph phase")
+    stage_metrics = StageMetrics(stage="draft_scene_graph")
     descriptions = load_json(run.run_dir / config.paths.descriptions_file, default={})
     detections = load_json(run.run_dir / config.paths.detections_file, default={})
     vocabulary = load_json(run.run_dir / config.paths.vocabulary_final_file, default={})
@@ -87,81 +92,116 @@ async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> di
 
     semaphore = asyncio.Semaphore(config.draft_scene_graph.max_concurrent_batches)
     drafts: dict[str, dict] = {}
+    progress = tqdm(total=len(descriptions), desc="draft_sgg", unit="img")
 
     async def process_one(image_path: str, payload: dict):
+        t0 = perf_counter()
         async with semaphore:
-            path = Path(image_path)
-            if not path.exists():
-                run.logger.warning("Skipping missing image path=%s", image_path)
-                drafts[image_path] = {"relationships": []}
-                return
+            try:
+                path = Path(image_path)
+                if not path.exists():
+                    stage_metrics.record_skipped("missing_image_path")
+                    drafts[image_path] = {"relationships": []}
+                    return
 
-            caption = str(payload.get("text", "")).strip()
-            detected_rows = detections.get(image_path, [])
-            objects = [
-                {
-                    "id": det.get("object_id"),
-                    "label": det.get("label"),
-                    "bbox": det.get("bbox"),
+                caption = str(payload.get("text", "")).strip()
+                detected_rows = detections.get(image_path, [])
+                objects = [
+                    {
+                        "id": det.get("object_id"),
+                        "label": det.get("label"),
+                        "bbox": det.get("bbox"),
+                    }
+                    for det in detected_rows
+                ]
+
+                render_values = {
+                    "caption": (
+                        caption
+                        if config.prompting.include_caption_in_sgg_prompt
+                        else ""
+                    ),
+                    "vocabulary": vocabulary,
+                    "objects": objects,
                 }
-                for det in detected_rows
-            ]
+                system_prompt = _render_template(
+                    config.draft_scene_graph.system_prompt, render_values
+                )
+                user_prompt = _render_template(
+                    config.draft_scene_graph.user_prompt_template, render_values
+                )
 
-            render_values = {
-                "caption": (
-                    caption if config.prompting.include_caption_in_sgg_prompt else ""
-                ),
-                "vocabulary": vocabulary,
-                "objects": objects,
-            }
-            system_prompt = _render_template(
-                config.draft_scene_graph.system_prompt, render_values
-            )
-            user_prompt = _render_template(
-                config.draft_scene_graph.user_prompt_template, render_values
-            )
+                with Image.open(path) as img:
+                    pil_image = img.convert("RGB")
+                    if config.draft_scene_graph.max_image_size:
+                        pil_image = resize_pil(
+                            pil_image, config.draft_scene_graph.max_image_size
+                        )
 
-            with Image.open(path) as img:
-                pil_image = img.convert("RGB")
-            image_np = np.asarray(pil_image)
-            det_objects = _to_detection_objects(detected_rows)
-            som_image_np = painter.paint(
-                image_np,
-                det_objects,
-                bbox=config.draft_scene_graph.som_show_bbox,
-                mask=config.draft_scene_graph.som_show_mask,
-                polygon=config.draft_scene_graph.som_show_polygon,
-                class_names=config.draft_scene_graph.som_show_labels,
-            )
-            som_image = Image.fromarray(som_image_np.astype(np.uint8))
-            som_path: str | None = None
-            if config.draft_scene_graph.save_som_images:
-                som_file = som_dir / f"som_{path.name}"
-                som_image.save(som_file)
-                som_path = str(som_file)
+                image_np = np.asarray(pil_image)
+                det_objects = _to_detection_objects(detected_rows)
+                som_image_np = painter.paint(
+                    image_np,
+                    det_objects,
+                    bbox=config.draft_scene_graph.som_show_bbox,
+                    mask=config.draft_scene_graph.som_show_mask,
+                    polygon=config.draft_scene_graph.som_show_polygon,
+                    class_names=config.draft_scene_graph.som_show_labels,
+                )
+                som_image = Image.fromarray(som_image_np.astype(np.uint8))
+                som_path: str | None = None
+                if config.draft_scene_graph.save_som_images:
+                    som_file = som_dir / f"som_{path.name}"
+                    som_image.save(som_file)
+                    som_path = str(som_file)
 
-            raw_text, parsed = await vlm.generate_structured(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                image_bytes=_pil_to_jpeg_bytes(som_image),
-                output_schema=SceneGraphDraft,
-            )
-            parsed_payload = parsed.model_dump() if parsed else {"relationships": []}
+                raw_text, parsed = await vlm.generate_structured(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    image_bytes=_pil_to_jpeg_bytes(som_image),
+                    output_schema=SceneGraphDraft,
+                )
+                parsed_payload = (
+                    parsed.model_dump() if parsed else {"relationships": []}
+                )
 
-            drafts[image_path] = {
-                "image_path": image_path,
-                "som_image_path": som_path,
-                "caption": caption,
-                "objects": objects,
-                "vocabulary": vocabulary,
-                **parsed_payload,
-            }
-            if config.draft_scene_graph.include_raw_response:
-                drafts[image_path]["raw_response"] = raw_text
+                drafts[image_path] = {
+                    "image_path": image_path,
+                    "som_image_path": som_path,
+                    "caption": caption,
+                    "objects": objects,
+                    "vocabulary": vocabulary,
+                    **parsed_payload,
+                }
+                if config.draft_scene_graph.include_raw_response:
+                    drafts[image_path]["raw_response"] = raw_text
+                if parsed is None:
+                    stage_metrics.record_failed(
+                        "structured_parse_missing", perf_counter() - t0
+                    )
+                else:
+                    stage_metrics.record_ok(perf_counter() - t0)
+            except Exception:
+                drafts[image_path] = {"relationships": []}
+                stage_metrics.record_failed(
+                    "draft_generation_error", perf_counter() - t0
+                )
+            finally:
+                progress.update(1)
 
     await asyncio.gather(
         *(process_one(path, payload) for path, payload in descriptions.items())
     )
+    progress.close()
+    stage_metrics.finish()
     save_json(run.run_dir / config.paths.draft_scene_graph_file, drafts)
+    save_json(run.run_dir / "metrics_draft_scene_graph.json", stage_metrics.to_dict())
     run.logger.info("Saved draft scene graphs for %d images", len(drafts))
+    run.logger.info(
+        "Draft SGG summary ok=%d failed=%d skipped=%d duration=%.3fs",
+        stage_metrics.ok,
+        stage_metrics.failed,
+        stage_metrics.skipped,
+        stage_metrics.duration_s,
+    )
     return drafts

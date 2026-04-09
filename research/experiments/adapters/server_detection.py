@@ -5,6 +5,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from .bootstrap import ensure_server_app_importable
+from .utils import resize_pil
 
 
 class ServerDetectionAdapter:
@@ -21,7 +22,11 @@ class ServerDetectionAdapter:
     def service(self) -> Any:
         return self._service
 
-    def detect_image(self, image: Image.Image) -> list[dict[str, Any]]:
+    def detect_image(
+        self, image: Image.Image, max_image_size: int | None = None
+    ) -> list[dict[str, Any]]:
+        if max_image_size:
+            image = resize_pil(image, max_image_size)
         detections = self._service.detect(image)
         return [det.model_dump() for det in detections]
 
@@ -36,7 +41,10 @@ class ServerDetectionAdapter:
         return reoptimized
 
     def detect_images(
-        self, image_paths: list[Path], batch_size: int = 4
+        self,
+        image_paths: list[Path],
+        batch_size: int = 4,
+        max_image_size: int | None = None,
     ) -> dict[str, list[dict[str, Any]]]:
         self._service.model.model.optimize_for_inference(batch_size=batch_size)
         output: dict[str, list[dict[str, Any]]] = {}
@@ -44,7 +52,10 @@ class ServerDetectionAdapter:
         batch_paths: list[Path] = []
         for path in tqdm(image_paths, desc="Running inference on images", leave=False):
             with Image.open(path) as img:
-                batch.append(img.convert("RGB").copy())
+                img_pil = img.convert("RGB").copy()
+                if max_image_size:
+                    resize_pil(img_pil, max_image_size)
+                batch.append(img_pil)
                 batch_paths.append(path)
             # what will happen if data size is N*batch_size + 1?
             if len(batch) < batch_size:

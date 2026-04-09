@@ -28,6 +28,7 @@ class DetectionStageConfig(BaseModel):
     enabled: bool = True
     backend: Literal["yolo", "rt_detr", "rf_detr", "owl_v2"] = "rf_detr"
     batch_size: int = 4
+    max_image_size: int | None = None
 
 
 class DescriptionStageConfig(BaseModel):
@@ -40,6 +41,7 @@ class DescriptionStageConfig(BaseModel):
     user_prompt_template: str = (
         "Detected objects: {objects}\nDescribe the scene thoroughly."
     )
+    max_image_size: int | None = None
 
 
 class VocabularyStageConfig(BaseModel):
@@ -75,6 +77,7 @@ class DraftSceneGraphStageConfig(BaseModel):
     som_color_lookup: Literal["index", "class", "track"] = "index"
     som_mask_backend: Literal["grabcut", "sam"] = "grabcut"
     som_device: str = "cuda"
+    max_image_size: int | None = None
     system_prompt: str = (
         "Generate scene graph JSON relations using only object IDs and provided vocabulary."
     )

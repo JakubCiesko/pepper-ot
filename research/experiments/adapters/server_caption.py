@@ -5,6 +5,7 @@ from typing import Any
 from PIL import Image
 
 from .bootstrap import ensure_server_app_importable
+from .utils import resize_pil
 
 
 class ServerCaptionAdapter:
@@ -28,8 +29,13 @@ class ServerCaptionAdapter:
         )
 
     async def caption_image(
-        self, image: Image.Image, prompt_override: str | None = None
+        self,
+        image: Image.Image,
+        prompt_override: str | None = None,
+        max_image_size: int | None = None,
     ) -> dict[str, Any]:
+        if max_image_size:
+            image = resize_pil(image, max_image_size)
         result = await self._service.caption_image(
             image, prompt_override=prompt_override
         )
@@ -42,6 +48,7 @@ class ServerCaptionAdapter:
         image_paths: list[Path],
         prompt_builder,
         max_concurrent: int = 4,
+        max_image_size: int | None = None,
     ) -> dict[str, dict[str, Any]]:
         semaphore = asyncio.Semaphore(max_concurrent)
         output: dict[str, dict[str, Any]] = {}
@@ -52,7 +59,7 @@ class ServerCaptionAdapter:
                     image = img.convert("RGB")
                 prompt = prompt_builder(path)
                 caption_payload = await self.caption_image(
-                    image, prompt_override=prompt
+                    image, prompt_override=prompt, max_image_size=max_image_size
                 )
                 output[str(path)] = caption_payload
 

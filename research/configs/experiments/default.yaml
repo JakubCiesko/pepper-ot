@@ -27,14 +27,16 @@ draft_sgg_model:
   structured_mode: "provider_native"
 
 detection:
-  enabled: true
+  enabled: false
   backend: "rf_detr"
   batch_size: 4
+  max_image_size: 1024
 
 descriptions:
-  enabled: true
-  batch_size: 8
-  max_concurrent_batches: 2
+  enabled: false
+  max_image_size: 1024
+#  batch_size: 32
+  max_concurrent_batches: 64
   system_prompt: >
     You are an expert in computer vision and scene graph generation.
     Produce a precise, exhaustive, and objective description of the provided image.
@@ -61,8 +63,8 @@ descriptions:
 
 vocabulary:
   enabled: true
-  batch_size: 16
-  max_concurrent_batches: 2
+  #batch_size: 32
+  max_concurrent_batches: 64
   predicates_target: 50
   attributes_target: 25
   extract_system_prompt: >
@@ -79,17 +81,18 @@ vocabulary:
   consolidate_predicates_prompt: >
     Consolidate to broad practical, conversation-relevant predicates (relationships and interactions of two objects),
     normalized with underscore (use underscore _ instead of spaces), output their names only
-    ( speaks_to instead of A_speaks_to_B or speaks_to(A,B) ).
+    ( speaks_to instead of A_speaks_to_B or speaks_to(A,B) ). Output 50 best predicates.
   consolidate_attributes_prompt: >
     Consolidate to broad practical attributes
     (qualities, features and characteristics of objects, such as colors, material or others),
     normalized with underscore (use underscore _ instead of spaces) and is_ prefix where natural ( green -> is_green).
-    Output their names only ( is_black instead of black(A) or A_is_black ).
+    Output their names only ( is_black instead of black(A) or A_is_black ). Output 25 best attributes.
 
 draft_scene_graph:
+  max_image_size: 1024
   enabled: true
   batch_size: 8
-  max_concurrent_batches: 2
+  max_concurrent_batches: 64
   save_som_images: true
   som_output_dir: "som_images_draft"
   include_raw_response: true
