@@ -23,7 +23,7 @@ def main() -> None:
 
 def _prepare(config_path: Path):
     config, raw = load_experiment_config(config_path)
-    run = start_run(config.paths.output_root, config.name, raw)
+    run = start_run(config.paths.output_root, config.name, config.experiment_id, raw)
     run.logger.info("Using config=%s", config_path)
     return config, run
 

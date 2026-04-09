@@ -1,4 +1,5 @@
-name: "scene_graph_benchmark"
+name: PepperResearchExperiments
+experiment_id: test
 seed: 42
 
 paths:
@@ -31,6 +32,7 @@ detection:
   backend: "rf_detr"
   batch_size: 4
   max_image_size: 1024
+  confidence: 0.5
 
 descriptions:
   enabled: false
@@ -91,7 +93,7 @@ vocabulary:
 draft_scene_graph:
   max_image_size: 1024
   enabled: true
-  batch_size: 8
+#  batch_size: 8
   max_concurrent_batches: 64
   save_som_images: true
   som_output_dir: "som_images_draft"

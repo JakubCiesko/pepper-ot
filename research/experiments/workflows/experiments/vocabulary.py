@@ -17,10 +17,24 @@ from research.experiments.schemas import ImagePredicatesAttributes
 async def run_vocabulary_mining(config: ExperimentConfig, run: RunContext) -> dict:
     run.logger.info("Starting vocabulary mining phase")
     stage_metrics = StageMetrics(stage="vocabulary")
+
     descriptions = load_json(run.run_dir / config.paths.descriptions_file, default={})
+    run.logger.info(
+        "Loaded descriptions for %d images from file %s",
+        len(descriptions),
+        run.run_dir / config.paths.descriptions_file,
+    )
     detections = load_json(run.run_dir / config.paths.detections_file, default={})
+    run.logger.info(
+        "Loaded detections for %d images from file %s",
+        len(detections),
+        run.run_dir / config.paths.detections_file,
+    )
     if not descriptions:
-        raise RuntimeError("Descriptions file is empty. Run description phase first.")
+        raise RuntimeError(
+            f"Descriptions file {run.run_dir / config.paths.descriptions_file} is empty. "
+            f"Run description phase first."
+        )
 
     llm = ServerLLMAdapter(
         provider=config.vocabulary_model.provider,

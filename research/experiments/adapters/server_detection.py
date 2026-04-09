@@ -9,13 +9,13 @@ from .utils import resize_pil
 
 
 class ServerDetectionAdapter:
-    def __init__(self, backend: str):
+    def __init__(self, backend: str, confidence: float = 0.5):
         ensure_server_app_importable()
         from app.inference.detection.detectors import DetectionModelType
         from app.inference.detection.service import DetectionService
 
         backend_enum = DetectionModelType(backend)
-        self._service = DetectionService(backend_enum)
+        self._service = DetectionService(backend_enum, threshold=confidence)
         self._backend_enum = DetectionModelType
 
     @property

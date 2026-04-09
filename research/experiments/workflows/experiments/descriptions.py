@@ -11,6 +11,7 @@ from research.experiments.config.models import ExperimentConfig
 from research.experiments.io import RunContext
 from research.experiments.io import StageMetrics
 from research.experiments.io import iter_image_paths
+from research.experiments.io import load_json
 from research.experiments.io import save_json
 
 
@@ -18,6 +19,7 @@ def _objects_from_detection_row(row: list[dict]) -> list[str]:
     return [str(item.get("label", "")).strip() for item in row if item.get("label")]
 
 
+#  TODO: cache save?
 async def run_descriptions(config: ExperimentConfig, run: RunContext) -> dict:
     run.logger.info("Starting description phase")
     stage_metrics = StageMetrics(stage="descriptions")
@@ -25,20 +27,43 @@ async def run_descriptions(config: ExperimentConfig, run: RunContext) -> dict:
     run.logger.info("Found images=%d", len(image_paths))
 
     detections: dict[str, list[dict]] = {}
+    detection_path: Path = run.run_dir / config.paths.detections_file
     if config.detection.enabled:
-        detector = ServerDetectionAdapter(config.detection.backend)
+        detector = ServerDetectionAdapter(
+            config.detection.backend, confidence=config.detection.confidence
+        )
+        run.logger.info(
+            "Initialized detector with config: %s", config.detection.model_dump()
+        )
         detections = detector.detect_images(
             image_paths=image_paths,
             batch_size=config.detection.batch_size,
             max_image_size=config.detection.max_image_size,
         )
-        save_json(run.run_dir / config.paths.detections_file, detections)
+        save_json(detection_path, detections)
         run.logger.info("Saved detections for %d images", len(detections))
+    else:
+        run.logger.info(
+            "Detection stage bypassed trying to load detections from file %s",
+            detection_path,
+        )
+        detections = load_json(detection_path, {})
+        run.logger.info(
+            "Loaded detections for %d images from file %s",
+            len(detections),
+            detection_path,
+        )
 
     captioner = ServerCaptionAdapter(
         model_provider=config.description_model.provider,
         model_id=config.description_model.model_id,
         system_prompt=config.descriptions.system_prompt,
+    )
+    run.logger.info(
+        "Initialized captioner with config:  %s, %s, %s",
+        config.description_model.provider,
+        config.description_model.model_id,
+        config.descriptions.model_dump(),
     )
 
     def prompt_builder(path: Path) -> str:
@@ -52,7 +77,9 @@ async def run_descriptions(config: ExperimentConfig, run: RunContext) -> dict:
     semaphore = asyncio.Semaphore(config.descriptions.max_concurrent_batches)
     max_image_size = config.descriptions.max_image_size
     descriptions: dict[str, dict] = {}
-    progress = tqdm(total=len(image_paths), desc="captions", unit="img")
+    progress = tqdm(
+        total=len(image_paths), desc="Generating Captions For Images", unit="img"
+    )
 
     async def process_one(path: Path):
         t0 = perf_counter()
@@ -61,6 +88,7 @@ async def run_descriptions(config: ExperimentConfig, run: RunContext) -> dict:
                 with Image.open(path) as img:
                     image = img.convert("RGB")
                 prompt = prompt_builder(path)
+                run.logger.debug("Prompt built successfully: %s", prompt)
                 payload = await captioner.caption_image(
                     image, prompt_override=prompt, max_image_size=max_image_size
                 )

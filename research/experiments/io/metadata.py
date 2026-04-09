@@ -39,10 +39,14 @@ def _build_logger(run_id: str, log_path: Path) -> logging.Logger:
 
 
 def start_run(
-    output_root: Path, experiment_name: str, config_raw: dict[str, Any]
+    output_root: Path,
+    experiment_name: str,
+    run_id: str | None,
+    config_raw: dict[str, Any],
 ) -> RunContext:
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    run_id = f"{experiment_name}_{ts}_{str(uuid4())[:8]}"
+    if run_id is None:
+        run_id = f"{experiment_name}_{ts}_{str(uuid4())[:8]}"
     run_dir = output_root / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     log_path = run_dir / "run.log"

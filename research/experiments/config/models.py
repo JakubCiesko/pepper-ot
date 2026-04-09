@@ -29,10 +29,12 @@ class DetectionStageConfig(BaseModel):
     backend: Literal["yolo", "rt_detr", "rf_detr", "owl_v2"] = "rf_detr"
     batch_size: int = 4
     max_image_size: int | None = None
+    confidence: float = 0.5
 
 
 class DescriptionStageConfig(BaseModel):
     enabled: bool = True
+    # unused
     batch_size: int = 8
     max_concurrent_batches: int = 2
     system_prompt: str = (
@@ -46,6 +48,7 @@ class DescriptionStageConfig(BaseModel):
 
 class VocabularyStageConfig(BaseModel):
     enabled: bool = True
+    # unused
     batch_size: int = 16
     max_concurrent_batches: int = 2
     predicates_target: int = 50
@@ -63,6 +66,7 @@ class VocabularyStageConfig(BaseModel):
 
 class DraftSceneGraphStageConfig(BaseModel):
     enabled: bool = True
+    # unused
     batch_size: int = 8
     max_concurrent_batches: int = 2
     save_som_images: bool = True
@@ -106,6 +110,7 @@ class ExperimentConfig(BaseModel):
     description_model: LLMModelConfig
     vocabulary_model: LLMModelConfig
     draft_sgg_model: LLMModelConfig
+    experiment_id: str | None = None
     detection: DetectionStageConfig = Field(default_factory=DetectionStageConfig)
     descriptions: DescriptionStageConfig = Field(default_factory=DescriptionStageConfig)
     vocabulary: VocabularyStageConfig = Field(default_factory=VocabularyStageConfig)
