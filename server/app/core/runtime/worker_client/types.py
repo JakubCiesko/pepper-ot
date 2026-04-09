@@ -1,11 +1,11 @@
-from enum import Enum
+from enum import StrEnum
 import time
 
 from pydantic import BaseModel
 from pydantic import Field
 
 
-class WorkerState(str, Enum):
+class WorkerState(StrEnum):
     STOPPED = "STOPPED"
     STARTING = "STARTING"
     READY = "READY"
@@ -15,14 +15,14 @@ class WorkerState(str, Enum):
     FAILED = "FAILED"
 
 
-class RestartReason(str, Enum):
+class RestartReason(StrEnum):
     LAZY_START = "lazy_start"
     CONFIG_RELOAD = "config_reload"
     CRASH_RECOVERY = "crash_recovery"
     MANUAL_WARMUP = "manual_warmup"
 
 
-class StopReason(str, Enum):
+class StopReason(StrEnum):
     IDLE = "idle"
     MANUAL = "manual"
     SHUTDOWN = "shutdown"
