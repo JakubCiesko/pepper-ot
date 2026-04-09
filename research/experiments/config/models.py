@@ -63,6 +63,18 @@ class DraftSceneGraphStageConfig(BaseModel):
     enabled: bool = True
     batch_size: int = 8
     max_concurrent_batches: int = 2
+    save_som_images: bool = True
+    som_output_dir: str = "som_images_draft"
+    include_raw_response: bool = True
+    som_show_bbox: bool = True
+    som_show_mask: bool = False
+    som_show_polygon: bool = False
+    som_show_labels: bool = True
+    som_line_thickness: int = 2
+    som_mask_opacity: float = 0.5
+    som_color_lookup: Literal["index", "class", "track"] = "index"
+    som_mask_backend: Literal["grabcut", "sam"] = "grabcut"
+    som_device: str = "cuda"
     system_prompt: str = (
         "Generate scene graph JSON relations using only object IDs and provided vocabulary."
     )
