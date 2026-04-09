@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from dataclasses import field
+import json
 import re
 import time
 from typing import Any
@@ -210,17 +211,32 @@ class SceneGraph:
     def __add__(self, other: "SceneGraph") -> "SceneGraph":
         if not isinstance(other, SceneGraph):
             return NotImplemented
+        if self.raw is None:
+            merged_raw = other.raw
+        elif other.raw is None:
+            merged_raw = self.raw
+        elif isinstance(self.raw, str) and isinstance(other.raw, str):
+            merged_raw = self.raw + other.raw
+        else:
+            merged_raw = (
+                f"{self._raw_to_text(self.raw)}\n{self._raw_to_text(other.raw)}"
+            )
         # TODO: test whether get back to edges= self.no_label... or edges = self.edges as now.
         merged = SceneGraph(
             edges=self.edges + other.edges,
             no_label_edges=self.no_label_edges + other.no_label_edges,
-            raw=(
-                self.raw + other.raw
-                if self.raw and other.raw
-                else (self.raw or other.raw)
-            ),
+            raw=merged_raw,
         )
         return merged
+
+    @staticmethod
+    def _raw_to_text(raw: Any) -> str:
+        if isinstance(raw, str):
+            return raw
+        try:
+            return json.dumps(raw, ensure_ascii=False)
+        except Exception:
+            return str(raw)
 
 
 @dataclass

@@ -5,6 +5,7 @@ from app.inference.detection.detectors import DetectionModelType
 from app.inference.detection.service import DetectionService
 from app.inference.memory.scene_memory import SceneMemory
 from app.inference.pipeline import PerceptionPipeline
+from app.inference.scene_graph.reltr_backend import RelTRSceneGraphGenerator
 from app.inference.scene_graph.rules_backend import RuleSceneGraphGenerator
 from app.inference.scene_graph.service import SceneGraphService
 from app.inference.scene_graph.som import SoMPainter
@@ -72,10 +73,12 @@ def build_perception_pipeline(config: AppConfig) -> PerceptionPipeline:
         user_prompt=caption_user_prompt,
     )
     rule_backend = RuleSceneGraphGenerator(config.scene_graph.rules)
+    reltr_backend = RelTRSceneGraphGenerator(config.scene_graph.reltr)
     scene_graph_service = SceneGraphService(
         mode=config.scene_graph.mode,
         vlm_backend=vlm_backend,
         rule_backend=rule_backend,
+        reltr_backend=reltr_backend,
     )
     return PerceptionPipeline(
         detector=detector,

@@ -7,8 +7,9 @@
                             <option value="vlm">VLM</option>
                             <option value="rules">Rules</option>
                             <option value="hybrid">Hybrid</option>
+                            <option value="reltr">RelTR</option>
                         </select>
-                        <p class="text-md panel-muted mt-1">VLM uses only model output. Rules uses only rule engine. Hybrid merges both.</p>
+                        <p class="text-md panel-muted mt-1">VLM uses only model output. Rules uses only rule engine. Hybrid merges VLM + rules + RelTR. RelTR uses transformer-based SGG with IoU matching to tracked detections.</p>
                     </div>
                     <label class="block text-md">System Prompt</label>
                     <p class="text-md panel-muted mt-1">Global instructions for VLM scene-graph generation, used on every frame in VLM/Hybrid mode.</p>
@@ -87,6 +88,33 @@
                     <p class="text-md panel-muted mt-1">Rule-based scene graph configuration used in Rules and Hybrid modes (predicate type, thresholds, constraints).</p>
                     <textarea id="sgg-rules-json" rows="10" class="w-full border rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>
 
+                    <h4 class="text-md uppercase tracking-widest panel-muted mt-6">RelTR Backend</h4>
+                    <label class="block text-xlg mt-4">RelTR Enabled</label>
+                    <select id="reltr-enabled" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="false">false</option>
+                        <option value="true">true</option>
+                    </select>
+                    <p class="text-md panel-muted mt-1">Enable transformer-based RelTR scene graph generation in Hybrid or RelTR mode.</p>
+                    <label class="block text-xlg mt-4">RelTR Checkpoint Path</label>
+                    <input id="reltr-checkpoint-path" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="/home/user/checkpoint0149.pth">
+                    <p class="text-md panel-muted mt-1">Absolute path to RelTR checkpoint file.</p>
+                    <label class="block text-xlg mt-4">RelTR Device</label>
+                    <input id="reltr-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cpu">
+                    <p class="text-md panel-muted mt-1">Inference device for RelTR backend. CPU works well for lightweight use.</p>
+                    <label class="block text-xlg mt-4">RelTR Threshold</label>
+                    <input id="reltr-threshold" type="number" min="0" max="1" step="0.01" class="w-full border rounded px-3 py-2 mt-1" placeholder="0.3">
+                    <p class="text-md panel-muted mt-1">Confidence threshold for keeping RelTR relation queries.</p>
+                    <label class="block text-xlg mt-4">RelTR Top-K</label>
+                    <input id="reltr-topk" type="number" min="1" step="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="100">
+                    <p class="text-md panel-muted mt-1">Maximum number of highest-confidence relation queries to decode.</p>
+                    <label class="block text-xlg mt-4">RelTR IoU Match Threshold</label>
+                    <input id="reltr-iou-match-threshold" type="number" min="0" max="1" step="0.01" class="w-full border rounded px-3 py-2 mt-1" placeholder="0.5">
+                    <p class="text-md panel-muted mt-1">Minimum IoU used to map RelTR subject/object boxes onto tracked detections IDs.</p>
+                    <label class="block text-xlg mt-4">RelTR Dataset Label Space</label>
+                    <select id="reltr-dataset" class="w-full border rounded px-3 py-2 mt-1">
+                        <option value="vg">vg</option>
+                    </select>
+                    <p class="text-md panel-muted mt-1">Label space used by RelTR checkpoint. Current adapter supports <code>vg</code>.</p>
 
                 </div>
             </section>

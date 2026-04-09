@@ -80,4 +80,44 @@ rules = [
         "hot",
         _apply_pipeline_group,
     ),
+    ReloadRule(
+        "scene_graph.reltr.enabled",
+        attrgetter("scene_graph.reltr.enabled"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "scene_graph.reltr.threshold",
+        attrgetter("scene_graph.reltr.threshold"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "scene_graph.reltr.topk",
+        attrgetter("scene_graph.reltr.topk"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "scene_graph.reltr.iou_match_threshold",
+        attrgetter("scene_graph.reltr.iou_match_threshold"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "scene_graph.reltr.dataset",
+        attrgetter("scene_graph.reltr.dataset"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "scene_graph.reltr.checkpoint_path",
+        attrgetter("scene_graph.reltr.checkpoint_path"),
+        "hard",
+    ),
+    ReloadRule(
+        "scene_graph.reltr.device",
+        attrgetter("scene_graph.reltr.device"),
+        "hard",
+    ),
 ]

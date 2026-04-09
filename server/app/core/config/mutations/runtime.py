@@ -75,3 +75,4 @@ def apply_scene_graph_runtime_updates(
         rebuild_client=False,
     )
     scene_graph_service.rule_backend.rules_config = cfg.scene_graph.rules
+    scene_graph_service.reltr_backend.update_runtime(cfg.scene_graph.reltr)

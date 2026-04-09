@@ -46,6 +46,15 @@ const vlmCallKwargs = document.getElementById("vlm-call-kwargs");
 const vlmCallKwargsStatus = document.getElementById("vlm-call-kwargs-status");
 const sggMode = document.getElementById("sgg-mode");
 const sggRulesJson = document.getElementById("sgg-rules-json");
+const reltrEnabled = document.getElementById("reltr-enabled");
+const reltrCheckpointPath = document.getElementById("reltr-checkpoint-path");
+const reltrDevice = document.getElementById("reltr-device");
+const reltrThreshold = document.getElementById("reltr-threshold");
+const reltrTopk = document.getElementById("reltr-topk");
+const reltrIouMatchThreshold = document.getElementById(
+	"reltr-iou-match-threshold",
+);
+const reltrDataset = document.getElementById("reltr-dataset");
 const pipelinePreset = document.getElementById("pipeline-preset");
 const pipelineCaption = document.getElementById("pipeline-caption");
 const pipelineDetect = document.getElementById("pipeline-detect");
@@ -519,6 +528,14 @@ async function loadConfig() {
 		null,
 		2,
 	);
+	reltrEnabled.value = String(active.scene_graph?.reltr?.enabled ?? false);
+	reltrCheckpointPath.value = active.scene_graph?.reltr?.checkpoint_path || "";
+	reltrDevice.value = active.scene_graph?.reltr?.device || "cpu";
+	reltrThreshold.value = active.scene_graph?.reltr?.threshold ?? 0.3;
+	reltrTopk.value = active.scene_graph?.reltr?.topk ?? 100;
+	reltrIouMatchThreshold.value =
+		active.scene_graph?.reltr?.iou_match_threshold ?? 0.5;
+	reltrDataset.value = active.scene_graph?.reltr?.dataset || "vg";
 	const controls = active.pipeline_controls || {};
 	pipelinePreset.value = controls.preset || "full";
 	pipelineCaption.checked = controls.caption ?? true;
@@ -714,6 +731,15 @@ function buildPatch() {
 			rules: {
 				enabled: true,
 				rule_list: rules,
+			},
+			reltr: {
+				enabled: reltrEnabled.value === "true",
+				checkpoint_path: reltrCheckpointPath.value.trim() || null,
+				device: reltrDevice.value.trim() || "cpu",
+				threshold: parseFloat(reltrThreshold.value) || 0.3,
+				topk: parseInt(reltrTopk.value, 10) || 100,
+				iou_match_threshold: parseFloat(reltrIouMatchThreshold.value) || 0.5,
+				dataset: reltrDataset.value || "vg",
 			},
 		},
 		chat: {

@@ -218,10 +218,21 @@ class SGGRulesConfig(BaseModel):
     rule_list: list[SGGRule] = Field(default_factory=list)
 
 
+class SGGRelTRConfig(BaseModel):
+    enabled: bool = False
+    checkpoint_path: str | None = None
+    device: str = "cpu"
+    threshold: float = 0.3
+    topk: int = 100
+    iou_match_threshold: float = 0.5
+    dataset: Literal["vg"] = "vg"
+
+
 class SceneGraphConfig(BaseModel):
-    mode: Literal["vlm", "rules", "hybrid"] = "hybrid"
+    mode: Literal["vlm", "rules", "hybrid", "reltr"] = "hybrid"
     vlm: SceneGraphVLMConfig
     rules: SGGRulesConfig = Field(default_factory=SGGRulesConfig)
+    reltr: SGGRelTRConfig = Field(default_factory=SGGRelTRConfig)
 
 
 class FusionConfig(BaseModel):
@@ -392,6 +403,14 @@ class AppConfig(BaseModel):
         ):
             raise ValueError(
                 "scene_graph.mode=rules requires detect=true when scene_graph stage is enabled"
+            )
+        if (
+            self.scene_graph.mode == "reltr"
+            and controls.scene_graph
+            and not controls.detect
+        ):
+            raise ValueError(
+                "scene_graph.mode=reltr requires detect=true when scene_graph stage is enabled"
             )
         return self
 

@@ -92,6 +92,14 @@ scene_graph:
         type: "overlap"
         thresholds:
           min_iou: 0.9
+  reltr:
+    enabled: true
+    checkpoint_path: detection_models/reltr.pth
+    device: "cpu"
+    threshold: 0.3
+    topk: 100
+    iou_match_threshold: 0.5
+    dataset: "vg"
 
 chat:
   provider: "gemini"
