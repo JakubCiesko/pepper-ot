@@ -6,6 +6,7 @@ from tqdm.auto import tqdm
 
 from research.experiments.adapters import ServerLLMAdapter
 from research.experiments.config.models import ExperimentConfig
+from research.experiments.eval import evaluate_graph_pair
 from research.experiments.io import RunContext
 from research.experiments.io import StageMetrics
 from research.experiments.io import load_json
@@ -39,6 +40,9 @@ async def run_context_rot(config: ExperimentConfig, run: RunContext) -> dict:
     descriptions = load_json(run.run_dir / config.paths.descriptions_file, default={})
     detections = load_json(run.run_dir / config.paths.detections_file, default={})
     vocabulary = load_json(run.run_dir / config.paths.vocabulary_final_file, default={})
+    ground_truth = load_json(
+        run.run_dir / config.paths.ground_truth_scene_graph_file, default={}
+    )
     if not descriptions or not vocabulary:
         raise RuntimeError(
             "Descriptions or vocabulary missing. Run previous phases first."
@@ -59,6 +63,11 @@ async def run_context_rot(config: ExperimentConfig, run: RunContext) -> dict:
 
     results: dict[str, dict] = {}
     sample_items = list(descriptions.items())
+    has_ground_truth = (
+        config.context_rot.evaluate_against_ground_truth
+        and isinstance(ground_truth, dict)
+        and bool(ground_truth)
+    )
 
     async def evaluate_one(image_path: str, payload: dict, sliced_vocab: dict):
         t0 = perf_counter()
@@ -82,13 +91,31 @@ async def run_context_rot(config: ExperimentConfig, run: RunContext) -> dict:
             )
             parsed = getattr(resp, "parsed", None)
             rel_count = len(parsed.relationships) if parsed else 0
+            out = {"relationship_count": rel_count}
+            if has_ground_truth:
+                gt_payload = ground_truth.get(image_path)
+                if gt_payload is not None and parsed is not None:
+                    pair_metrics = evaluate_graph_pair(
+                        gt_payload=gt_payload,
+                        pred_payload=parsed.model_dump(),
+                        normalize_ids=config.evaluation.normalize_ids,
+                        normalize_relations=config.evaluation.normalize_relations,
+                        compute_ged=False,
+                    )
+                    out["triplet_f1"] = pair_metrics["strict_triplet"]["f1"]
+                    out["attribute_f1"] = pair_metrics["attribute"]["f1"]
+                    out["pair_f1"] = pair_metrics["pair"]["f1"]
+                else:
+                    out["triplet_f1"] = 0.0
+                    out["attribute_f1"] = 0.0
+                    out["pair_f1"] = 0.0
             if parsed is None:
                 stage_metrics.record_failed(
                     "structured_parse_missing", perf_counter() - t0
                 )
             else:
                 stage_metrics.record_ok(perf_counter() - t0)
-            return {"relationship_count": rel_count}
+            return out
         except Exception:
             stage_metrics.record_failed(
                 "context_rot_request_error", perf_counter() - t0
@@ -99,6 +126,10 @@ async def run_context_rot(config: ExperimentConfig, run: RunContext) -> dict:
     for sliced in slices_progress:
         key = f"vocab_{len(sliced.get('predicates', [])) + len(sliced.get('attributes', []))}"
         stats: dict[str, float | int] = {"images": 0, "relationship_count_sum": 0}
+        if has_ground_truth:
+            stats["triplet_f1_sum"] = 0.0
+            stats["attribute_f1_sum"] = 0.0
+            stats["pair_f1_sum"] = 0.0
         for _ in range(config.context_rot.rounds_per_size):
             tasks = [
                 evaluate_one(path, payload, sliced) for path, payload in sample_items
@@ -113,6 +144,10 @@ async def run_context_rot(config: ExperimentConfig, run: RunContext) -> dict:
                 item = await future
                 stats["images"] += 1
                 stats["relationship_count_sum"] += item["relationship_count"]
+                if has_ground_truth:
+                    stats["triplet_f1_sum"] += float(item.get("triplet_f1", 0.0))
+                    stats["attribute_f1_sum"] += float(item.get("attribute_f1", 0.0))
+                    stats["pair_f1_sum"] += float(item.get("pair_f1", 0.0))
                 round_progress.update(1)
             round_progress.close()
         stats["relationship_count_avg"] = (
@@ -120,6 +155,16 @@ async def run_context_rot(config: ExperimentConfig, run: RunContext) -> dict:
             if stats["images"]
             else 0.0
         )
+        if has_ground_truth:
+            stats["triplet_f1_avg"] = (
+                stats["triplet_f1_sum"] / stats["images"] if stats["images"] else 0.0
+            )
+            stats["attribute_f1_avg"] = (
+                stats["attribute_f1_sum"] / stats["images"] if stats["images"] else 0.0
+            )
+            stats["pair_f1_avg"] = (
+                stats["pair_f1_sum"] / stats["images"] if stats["images"] else 0.0
+            )
         results[key] = stats
         slices_progress.set_postfix(
             avg_rel=round(stats["relationship_count_avg"], 2),

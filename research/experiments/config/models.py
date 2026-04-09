@@ -14,6 +14,11 @@ class PathsConfig(BaseModel):
     vocabulary_final_file: str = "vocabulary_final.json"
     draft_scene_graph_file: str = "draft_scene_graph.json"
     context_rot_file: str = "context_rot.json"
+    ground_truth_scene_graph_file: str = "ground_truth_scene_graph.json"
+    scene_graph_metrics_per_image_file: str = "metrics_scene_graph_per_image.json"
+    scene_graph_metrics_summary_file: str = "metrics_scene_graph_summary.json"
+    image_potency_metrics_file: str = "metrics_image_potency.json"
+    sensitivity_metrics_file: str = "metrics_sensitivity_curves.json"
 
 
 class LLMModelConfig(BaseModel):
@@ -96,6 +101,21 @@ class ContextRotStageConfig(BaseModel):
     step: int = 5
     strategy: Literal["llm_drop", "random_drop"] = "llm_drop"
     rounds_per_size: int = 1
+    evaluate_against_ground_truth: bool = True
+
+
+class EvaluationStageConfig(BaseModel):
+    enabled: bool = False
+    strict_id_match: bool = True
+    normalize_ids: bool = True
+    normalize_relations: bool = True
+    compute_ged: bool = False
+    compute_per_predicate: bool = True
+    compute_pair_f1: bool = True
+    compute_attribute_f1: bool = True
+    compute_potency: bool = True
+    missing_policy: Literal["skip", "empty"] = "skip"
+    complexity_bins: list[int] = Field(default_factory=lambda: [3, 5, 8, 12, 20])
 
 
 class PromptingConfig(BaseModel):
@@ -118,4 +138,5 @@ class ExperimentConfig(BaseModel):
         default_factory=DraftSceneGraphStageConfig
     )
     context_rot: ContextRotStageConfig = Field(default_factory=ContextRotStageConfig)
+    evaluation: EvaluationStageConfig = Field(default_factory=EvaluationStageConfig)
     prompting: PromptingConfig = Field(default_factory=PromptingConfig)

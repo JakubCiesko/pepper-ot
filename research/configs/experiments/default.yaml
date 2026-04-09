@@ -11,6 +11,11 @@ paths:
   vocabulary_final_file: "vocabulary_final.json"
   draft_scene_graph_file: "draft_scene_graph.json"
   context_rot_file: "context_rot.json"
+  ground_truth_scene_graph_file: "ground_truth_scene_graph.json"
+  scene_graph_metrics_per_image_file: "metrics_scene_graph_per_image.json"
+  scene_graph_metrics_summary_file: "metrics_scene_graph_summary.json"
+  image_potency_metrics_file: "metrics_image_potency.json"
+  sensitivity_metrics_file: "metrics_sensitivity_curves.json"
 
 description_model:
   provider: "openai"
@@ -148,6 +153,20 @@ context_rot:
   step: 5
   strategy: "llm_drop"
   rounds_per_size: 1
+  evaluate_against_ground_truth: true
+
+evaluation:
+  enabled: false
+  strict_id_match: true
+  normalize_ids: true
+  normalize_relations: true
+  compute_ged: false
+  compute_per_predicate: true
+  compute_pair_f1: true
+  compute_attribute_f1: true
+  compute_potency: true
+  missing_policy: "skip"
+  complexity_bins: [3, 5, 8, 12, 20]
 
 prompting:
   include_detection_labels_in_descriptions: true

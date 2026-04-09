@@ -9,6 +9,7 @@ from ..workflows.experiments import run_all_phases
 from ..workflows.experiments import run_context_rot
 from ..workflows.experiments import run_descriptions
 from ..workflows.experiments import run_draft_scene_graph
+from ..workflows.experiments import run_scene_graph_evaluation
 from ..workflows.experiments import run_vocabulary_mining
 
 DEFAULT_CONFIG = (
@@ -71,6 +72,15 @@ def draft_sgg_command(config_path: Path) -> None:
 def context_rot_command(config_path: Path) -> None:
     config, run = _prepare(config_path)
     asyncio.run(run_context_rot(config, run))
+
+
+@main.command("evaluate-sgg")
+@click.option(
+    "--config", "config_path", type=click.Path(path_type=Path), default=DEFAULT_CONFIG
+)
+def evaluate_sgg_command(config_path: Path) -> None:
+    config, run = _prepare(config_path)
+    asyncio.run(run_scene_graph_evaluation(config, run))
 
 
 if __name__ == "__main__":
