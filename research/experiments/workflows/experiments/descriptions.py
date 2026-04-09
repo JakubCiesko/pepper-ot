@@ -69,7 +69,7 @@ async def run_descriptions(config: ExperimentConfig, run: RunContext) -> dict:
     def prompt_builder(path: Path) -> str:
         if not config.prompting.include_detection_labels_in_descriptions:
             return config.descriptions.user_prompt_template.replace("{objects}", "[]")
-        labels = _objects_from_detection_row(detections.get(str(path), []))
+        labels = _objects_from_detection_row(detections.get(str(path.resolve()), []))
         return config.descriptions.user_prompt_template.replace(
             "{objects}", str(labels)
         )
@@ -92,7 +92,7 @@ async def run_descriptions(config: ExperimentConfig, run: RunContext) -> dict:
                 payload = await captioner.caption_image(
                     image, prompt_override=prompt, max_image_size=max_image_size
                 )
-                descriptions[str(path)] = payload
+                descriptions[str(path.resolve())] = payload
                 stage_metrics.record_ok(perf_counter() - t0)
             except Exception:
                 stage_metrics.record_failed(

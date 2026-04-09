@@ -61,7 +61,7 @@ class ServerCaptionAdapter:
                 caption_payload = await self.caption_image(
                     image, prompt_override=prompt, max_image_size=max_image_size
                 )
-                output[str(path)] = caption_payload
+                output[str(path.resolve())] = caption_payload
 
         await asyncio.gather(*(run_one(path) for path in image_paths))
         return output

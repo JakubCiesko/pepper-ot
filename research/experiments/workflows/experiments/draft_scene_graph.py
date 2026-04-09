@@ -61,8 +61,25 @@ async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> di
     run.logger.info("Starting draft scene graph phase")
     stage_metrics = StageMetrics(stage="draft_scene_graph")
     descriptions = load_json(run.run_dir / config.paths.descriptions_file, default={})
+    run.logger.info(
+        "Loaded descriptions for %d images from file %s",
+        len(descriptions),
+        run.run_dir / config.paths.descriptions_file,
+    )
     detections = load_json(run.run_dir / config.paths.detections_file, default={})
+    run.logger.info(
+        "Loaded detections for %d images from file %s",
+        len(detections),
+        run.run_dir / config.paths.detections_file,
+    )
     vocabulary = load_json(run.run_dir / config.paths.vocabulary_final_file, default={})
+    run.logger.info(
+        "Loaded vocabulary with %d predicates, %d attributes from file %s",
+        len(vocabulary.get("predicates", [])),
+        len(vocabulary.get("attributes", [])),
+        run.run_dir / config.paths.vocabulary_final_file,
+    )
+
     if not descriptions or not vocabulary:
         raise RuntimeError(
             "Descriptions or vocabulary missing. Run previous phases first."
@@ -133,10 +150,6 @@ async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> di
 
                 with Image.open(path) as img:
                     pil_image = img.convert("RGB")
-                    if config.draft_scene_graph.max_image_size:
-                        pil_image = resize_pil(
-                            pil_image, config.draft_scene_graph.max_image_size
-                        )
 
                 image_np = np.asarray(pil_image)
                 det_objects = _to_detection_objects(detected_rows)
@@ -149,12 +162,16 @@ async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> di
                     class_names=config.draft_scene_graph.som_show_labels,
                 )
                 som_image = Image.fromarray(som_image_np.astype(np.uint8))
+
                 som_path: str | None = None
                 if config.draft_scene_graph.save_som_images:
                     som_file = som_dir / f"som_{path.name}"
                     som_image.save(som_file)
                     som_path = str(som_file)
-
+                if config.draft_scene_graph.max_image_size:
+                    som_image = resize_pil(
+                        som_image, config.draft_scene_graph.max_image_size
+                    )
                 raw_text, parsed = await vlm.generate_structured(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,

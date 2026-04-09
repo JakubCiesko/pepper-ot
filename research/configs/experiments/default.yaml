@@ -1,9 +1,9 @@
 name: PepperResearchExperiments
-experiment_id: test
-seed: 42
+experiment_id: PepperResearchExperiments_test
+seed: 42 # whatfor?
 
 paths:
-  images_dir: "data/images"
+  images_dir: "data/subset"
   output_root: "research/artifacts"
   detections_file: "detections.json"
   descriptions_file: "descriptions.json"
@@ -28,14 +28,14 @@ draft_sgg_model:
   structured_mode: "provider_native"
 
 detection:
-  enabled: false
+  enabled: true
   backend: "rf_detr"
   batch_size: 4
   max_image_size: 1024
-  confidence: 0.5
+  confidence: 0.3
 
 descriptions:
-  enabled: false
+  enabled: true
   max_image_size: 1024
 #  batch_size: 32
   max_concurrent_batches: 64

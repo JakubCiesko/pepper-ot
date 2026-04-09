@@ -56,7 +56,7 @@ class ServerDetectionAdapter:
                 if max_image_size:
                     resize_pil(img_pil, max_image_size)
                 batch.append(img_pil)
-                batch_paths.append(path)
+                batch_paths.append(path.resolve())
             # what will happen if data size is N*batch_size + 1?
             if len(batch) < batch_size:
                 continue

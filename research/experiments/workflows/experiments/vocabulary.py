@@ -44,7 +44,11 @@ async def run_vocabulary_mining(config: ExperimentConfig, run: RunContext) -> di
 
     semaphore = asyncio.Semaphore(config.vocabulary.max_concurrent_batches)
     per_image: dict[str, dict] = {}
-    progress = tqdm(total=len(descriptions), desc="vocab_extract", unit="img")
+    progress = tqdm(
+        total=len(descriptions),
+        desc="Extracting Predicates and Attributes from Image Descriptions",
+        unit="img",
+    )
 
     async def process_one(image_path: str, payload: dict):
         t0 = perf_counter()
@@ -66,6 +70,7 @@ async def run_vocabulary_mining(config: ExperimentConfig, run: RunContext) -> di
                     "Return JSON with predicates and attributes, focus mainly on the objects "
                     "mentioned in the list of detected objects."
                 )
+                run.logger.debug("User prompt %s", user_prompt)
                 resp = await llm.generate_structured(
                     system_prompt=config.vocabulary.extract_system_prompt,
                     user_prompt=user_prompt,
@@ -102,7 +107,9 @@ async def run_vocabulary_mining(config: ExperimentConfig, run: RunContext) -> di
         predicates.extend(row.get("predicates", []))
         attributes.extend(row.get("attributes", []))
 
-    consolidation_progress = tqdm(total=2, desc="vocab_consolidate", unit="call")
+    consolidation_progress = tqdm(
+        total=2, desc="Consolidating Final Vocabulary", unit="call"
+    )
     pred_resp = await llm.generate_structured(
         system_prompt=config.vocabulary.consolidate_predicates_prompt,
         user_prompt=f"Input predicates: {predicates}",
