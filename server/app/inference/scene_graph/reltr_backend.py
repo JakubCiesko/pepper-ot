@@ -28,31 +28,9 @@ class RelTRSceneGraphGenerator:
     def update_runtime(self, config: SGGRelTRConfig):
         self.config = config
 
-    async def generate(
-        self, image: Image.Image | None, detections: list[InferenceDetectionObject]
-    ) -> SceneGraph:
-        if not self.config.enabled:
-            return SceneGraph()
-        if image is None:
-            logger.info("RelTR scene graph skipped: image is None")
-            return SceneGraph()
-        if not self.config.checkpoint_path:
-            logger.warning("RelTR enabled but checkpoint_path is not configured")
-            return SceneGraph()
-
-        det_with_ids = [d for d in detections if d.object_id is not None]
-        if not det_with_ids:
-            logger.info(
-                "RelTR scene graph skipped: no tracked detections with object_id"
-            )
-            return SceneGraph()
-
-        reltr_output = self._run_reltr(image)
-        objects = reltr_output.get("objects") or []
-        relationships = reltr_output.get("relationships") or []
-        if not objects or not relationships:
-            return SceneGraph(raw=reltr_output)
-
+    def _get_bbox_to_id_mapping(
+        self, objects: list[dict[str, Any]]
+    ) -> dict[int, list[float]]:
         reltr_id_to_box: dict[int, list[float]] = {}
         for obj in objects:
             try:
@@ -63,10 +41,15 @@ class RelTRSceneGraphGenerator:
                 reltr_id_to_box[obj_id] = [float(v) for v in bbox]
             except Exception:
                 continue
+        return reltr_id_to_box
 
-        id_to_label = {
-            str(d.object_id): (d.label or "object").strip() for d in det_with_ids
-        }
+    def _filter_results(
+        self,
+        relationships: list[dict[str, Any]],
+        reltr_id_to_box: dict[int, list[float]],
+        id_to_label: dict[str, str],
+        det_with_ids,
+    ):
         filtered_no_label_edges: list[SceneGraphEdge] = []
         filtered_edges: list[SceneGraphEdge] = []
         seen: set[tuple[str, str, str]] = set()
@@ -177,11 +160,51 @@ class RelTRSceneGraphGenerator:
             dropped,
             self.config.iou_match_threshold,
         )
+        return filtered_edges, filtered_no_label_edges
+
+    def _process_reltr_output(
+        self, reltr_output: dict[str, Any], det_with_ids: list[InferenceDetectionObject]
+    ) -> SceneGraph:
+        objects = reltr_output.get("objects") or []
+        relationships = reltr_output.get("relationships") or []
+        if not objects or not relationships:
+            return SceneGraph(raw=reltr_output)
+
+        reltr_id_to_box = self._get_bbox_to_id_mapping(objects)
+        id_to_label = {
+            str(d.object_id): (d.label or "object").strip() for d in det_with_ids
+        }
+
+        filtered_edges, filtered_no_label_edges = self._filter_results(
+            relationships, reltr_id_to_box, id_to_label, det_with_ids
+        )
         return SceneGraph(
             edges=filtered_edges,
             no_label_edges=filtered_no_label_edges,
             raw=reltr_output,
         )
+
+    async def generate(
+        self, image: Image.Image | None, detections: list[InferenceDetectionObject]
+    ) -> SceneGraph:
+        if not self.config.enabled:
+            return SceneGraph()
+        if image is None:
+            logger.info("RelTR scene graph skipped: image is None")
+            return SceneGraph()
+        if not self.config.checkpoint_path:
+            logger.warning("RelTR enabled but checkpoint_path is not configured")
+            return SceneGraph()
+
+        det_with_ids = [d for d in detections if d.object_id is not None]
+        if not det_with_ids:
+            logger.info(
+                "RelTR scene graph skipped: no tracked detections with object_id"
+            )
+            return SceneGraph()
+
+        reltr_output = self._run_reltr(image)
+        return self._process_reltr_output(reltr_output)
 
     def _run_reltr(self, image: Image.Image) -> dict[str, Any]:
         checkpoint_path = Path(self.config.checkpoint_path)
@@ -194,6 +217,7 @@ class RelTRSceneGraphGenerator:
         ) as tmp:
             tmp_path = Path(tmp.name)
         image.convert("RGB").save(tmp_path, format="JPEG")
+        output = {"objects": [], "relationships": []}
         try:
             pred = predict_image(
                 repo_root=repo_root,
@@ -204,12 +228,13 @@ class RelTRSceneGraphGenerator:
                 threshold=self.config.threshold,
                 topk=self.config.topk,
             )
+            output = pred.to_dict()
         finally:
             try:
                 tmp_path.unlink(missing_ok=True)
             except Exception:
                 logger.warning("Failed to delete temporary RelTR image: %s", tmp_path)
-        return pred.to_dict()
+        return output
 
     @staticmethod
     def _extract_tail_int(token: str) -> int | None:
