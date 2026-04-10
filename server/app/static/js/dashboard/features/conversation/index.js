@@ -100,11 +100,13 @@ async function sendVisionChatMessage(query) {
 	if (!frame?.image) {
 		throw new Error("No active frame image available. Run detect first.");
 	}
-	appendConversationMessage({ role: "user", text: query });
 	const imageBlob = base64ToBlob(frame.image, "image/jpeg");
 	const form = new FormData();
 	form.append("file", imageBlob, "live_frame.jpg");
 	form.append("query", query);
+	if (activeChatId) {
+		form.append("chat_id", activeChatId);
+	}
 	const res = await fetch("/api/v1/vision_chat", {
 		method: "POST",
 		body: form,
@@ -120,7 +122,8 @@ async function sendVisionChatMessage(query) {
 		throw new Error(detail);
 	}
 	const payload = await res.json();
-	appendConversationMessage({ role: "assistant", text: payload.answer || "" });
+	activeChatId = payload.chat_id || activeChatId;
+	updateChatIdLabel();
 	setConversationStatus("Message sent via /api/v1/vision_chat");
 }
 
