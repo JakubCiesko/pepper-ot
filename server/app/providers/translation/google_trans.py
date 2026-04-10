@@ -150,7 +150,7 @@ async def enforce_output_language(
 ) -> str | tuple[str, str]:
     mode = (output_language or "default").strip().lower()
     if mode == "default":
-        return text
+        return text if not return_languages else text, [output_language]
     if mode == "english":
         logger.info("Enforcing english for text: %s", text[:25] + "...")
         translated = await czech_to_english.enforce_language(
@@ -171,7 +171,7 @@ async def enforce_output_language(
             if not return_languages
             else translated
         )
-    return text
+    return text if not return_languages else text, [output_language]
 
 
 english_to_czech = TranslationService(source_lang="en", target_lang="cs")

@@ -4,7 +4,6 @@ import app.api.v1.image_utils as img_utils
 from app.core.runtime.state import app_state
 from app.orchestration.adapters.runtime import resolve_runtime_adapter
 from app.providers.translation import enforce_output_language
-from app.providers.translation.google_trans import invert_language
 from app.schemas.vision_chat import VisionChatFormRequest
 from app.schemas.vision_chat import VisionChatResponse
 from fastapi import APIRouter
@@ -17,6 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# TODO: conversation handler here too
 @router.post("/vision_chat", response_model=VisionChatResponse)
 async def vision_chat_endpoint(
     file: UploadFile = File(...),
@@ -35,27 +35,24 @@ async def vision_chat_endpoint(
         )
     )
 
-    query = form.query
+    query_original = form.query
+    query_translated, query_languages = await enforce_output_language(
+        text=query_original,
+        output_language=output_language,
+        return_languages=True,
+    )
+    query_language = query_languages[0]
     system_prompt = (
         form.system_prompt.strip()
         if form.system_prompt
         else app_state.chat_service.system_prompt
     )
     logger.info(
-        "Vision Chat Endpoint Active with original query=%s, system_prompt=%s",
-        query,
+        "Vision Chat Endpoint Active with original query=%s, translated query=%s, system_prompt=%s",
+        query_original,
+        query_translated,
         system_prompt,
     )
-    # TODO: true will be: model in english only
-    if output_language == "czech" and True:
-        query = await enforce_output_language(
-            query, input_language := invert_language(output_language)
-        )
-        logger.info(
-            "Enforced input language=%s because monolingual model, query=%s",
-            input_language,
-            query,
-        )
 
     image_bytes = await file.read()
 
@@ -65,20 +62,26 @@ async def vision_chat_endpoint(
     adapter = resolve_runtime_adapter(app_state)
     payload = await adapter.vision_chat(
         image_bytes,
-        user_prompt=query,
+        user_prompt=query_translated,
         system_prompt=system_prompt.strip() if system_prompt else None,
     )
 
-    response_text = await enforce_output_language(
-        payload.get("answer", ""), output_language
+    model_response = payload.get("answer", "")
+    response_text, response_languages = await enforce_output_language(
+        model_response,
+        output_language,
+        return_languages=True,
     )
+    response_language = response_languages[0]
 
     logger.info(
-        "Vision chat completed answer=%s provider=%s model_id=%s language=%s",
+        "Vision chat completed answer=%s provider=%s model_id=%s language=%s query_language=%s response_language=%s",
         response_text,
         payload.get("provider"),
         payload.get("model_id"),
         output_language,
+        query_language,
+        response_language,
     )
     return VisionChatResponse(
         answer=response_text,
