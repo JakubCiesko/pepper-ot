@@ -58,11 +58,12 @@ async def chat_endpoint(request: ChatRequest):
     )
 
     query_original = request.query
-    query_translated, query_language = enforce_output_language(
+    query_translated, query_languages = await enforce_output_language(
         text=query_original,
         output_language=output_language,
         return_languages=True,
     )
+    query_language = query_languages[0]
     user_message_dict = {
         "chat_id": chat_id,
         "role": "user",
@@ -92,16 +93,17 @@ async def chat_endpoint(request: ChatRequest):
         query_translated, conversation_history=history
     )
     # this preferably does no translation and model answers in the output language...
-    model_response_translated, model_response_language = enforce_output_language(
+    model_response_translated, model_response_languages = await enforce_output_language(
         text=model_response,
         output_language=output_language,
         return_languages=True,
     )
+    model_response_language = model_response_languages[0]
     model_message_dict = {
         "chat_id": chat_id,
         "role": "assistant",
-        "text_original": model_response,
-        "text_model": model_response_translated,
+        "text_original": model_response_translated,
+        "text_model": model_response,
         "language_original": model_response_language,
         "language_model": output_language,
         "translation_applied": model_response_language != output_language,
@@ -126,8 +128,8 @@ async def chat_endpoint(request: ChatRequest):
         "input_language": query_language or "",
         "output_language": output_language or "",
         "conversation_in_language": output_language,
-        "input_translation_applied": query_language != output_language,
-        "output_translation_applied": model_response_language != output_language,
+        "input_translation_applied": str(query_language != output_language),
+        "output_translation_applied": str(model_response_language != output_language),
     }
     logger.info(
         "CHAT: %s RESPONSE: %s METADATA: %s",

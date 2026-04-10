@@ -57,8 +57,14 @@ class TranslationService:
         logger.debug("Enforcing language %s, on text %s", language, text)
         language = language or self.target_lang or self.DEFAULT_LANGS["dest"]
         languages = await self.detect_language(text)
+        normalized_languages = [expand_language_code(lang) for lang in languages]
         if all(lang == language for lang in languages):
-            return text, languages if return_languages else text
+            logger.info(
+                "Text %s.. already in language %s. Bypassing translation. Returning text",
+                text[:10],
+                language,
+            )
+            return text, normalized_languages if return_languages else text
         # otherwise some texts are not translated, find out which
         wrong_language_text_indices = [
             i for i, lang in enumerate(languages) if lang != language
@@ -70,8 +76,8 @@ class TranslationService:
         for fix, i in zip(fixed, wrong_language_text_indices, strict=True):
             texts[i] = fix
         if len(texts) > 1:
-            return texts, languages if return_languages else texts
-        return texts[0], languages if return_languages else texts[0]
+            return texts, normalized_languages if return_languages else texts
+        return texts[0], normalized_languages if return_languages else texts[0]
 
     async def translate(
         self,
@@ -127,6 +133,15 @@ def invert_language(output_language: str) -> str:
     return output_language
 
 
+def expand_language_code(language: str) -> str:
+    lang = language.strip().lower()
+    if lang == "en":
+        return "english"
+    if lang == "cs":
+        return "czech"
+    return language
+
+
 # TODO: user might speak czech -> make it english -> pass to llm -> llm output enforce czech again
 
 
@@ -141,13 +156,21 @@ async def enforce_output_language(
         translated = await czech_to_english.enforce_language(
             text, return_languages=return_languages
         )
-        return translated if isinstance(translated, str) else translated[0]
+        return (
+            (translated if isinstance(translated, str) else translated[0])
+            if not return_languages
+            else translated
+        )
     if mode == "czech":
         logger.info("Enforcing czech for text: %s", text[:25] + "...")
         translated = await english_to_czech.enforce_language(
             text, return_languages=return_languages
         )
-        return translated if isinstance(translated, str) else translated[0]
+        return (
+            (translated if isinstance(translated, str) else translated[0])
+            if not return_languages
+            else translated
+        )
     return text
 
 
