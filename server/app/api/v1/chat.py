@@ -4,7 +4,6 @@ from app.core.infra.ws_manager import ws_manager
 from app.core.runtime.state import app_state
 from app.orchestration.services.conversation import ConversationService
 from app.providers.translation import enforce_output_language
-from app.providers.translation.google_trans import invert_language
 from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse
 from fastapi import APIRouter
@@ -14,7 +13,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# TODO: work on this, the serialization of conversation is weird., also whether to store original or translation... create conversation lang?
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
@@ -58,20 +56,28 @@ async def chat_endpoint(request: ChatRequest):
             else None
         )
     )
-    query = request.query
 
-    user_message = await conversations.add_message(chat_id, "user", query)
-    # TODO: true will be: model in english only
-    if output_language == "czech" and True:
-        query = await enforce_output_language(
-            query, input_language := invert_language(output_language)
-        )
-        logger.info(
-            "Enforced input language=%s because monolingual model, query=%s",
-            input_language,
-            query,
-        )
-
+    query_original = request.query
+    query_translated, query_language = enforce_output_language(
+        text=query_original,
+        output_language=output_language,
+        return_languages=True,
+    )
+    user_message_dict = {
+        "chat_id": chat_id,
+        "role": "user",
+        "text_original": query_original,
+        "text_model": query_translated,
+        "language_original": query_language,
+        "language_model": output_language,
+        "translation_applied": query_language != output_language,
+    }
+    logger.info(
+        "Adding user message to conversation %s, message: %s",
+        chat_id,
+        user_message_dict,
+    )
+    user_message = await conversations.add_message(**user_message_dict)
     await ws_manager.broadcast(
         {
             "type": "chat_message",
@@ -80,18 +86,33 @@ async def chat_endpoint(request: ChatRequest):
         }
     )
 
-    history = await conversations.prompt_history(chat_id, include_last_user=False)
-    response_text = await app_state.chat_service.chat(
-        query,
-        conversation_history=history,
-    )
-    logger.info("Received LLM response: %s", response_text)
-    # add original language
+    history = await conversations.prompt_history_model(chat_id, include_last_user=False)
 
-    response_text = await enforce_output_language(response_text, output_language)
-    assistant_message = await conversations.add_message(
-        chat_id, "assistant", response_text
+    model_response = await app_state.chat_service.chat(
+        query_translated, conversation_history=history
     )
+    # this preferably does no translation and model answers in the output language...
+    model_response_translated, model_response_language = enforce_output_language(
+        text=model_response,
+        output_language=output_language,
+        return_languages=True,
+    )
+    model_message_dict = {
+        "chat_id": chat_id,
+        "role": "assistant",
+        "text_original": model_response,
+        "text_model": model_response_translated,
+        "language_original": model_response_language,
+        "language_model": output_language,
+        "translation_applied": model_response_language != output_language,
+    }
+    logger.info("Received LLM response: %s", model_response)
+    logger.info(
+        "Adding assistant message to conversation %s, message: %s",
+        chat_id,
+        model_message_dict,
+    )
+    assistant_message = await conversations.add_message(**model_message_dict)
     await ws_manager.broadcast(
         {
             "type": "chat_message",
@@ -102,11 +123,21 @@ async def chat_endpoint(request: ChatRequest):
     metadata: dict[str, str] = {
         "model_id": app_state.config.chat.model_id,
         "provider": app_state.config.chat.provider,
+        "input_language": query_language or "",
+        "output_language": output_language or "",
+        "conversation_in_language": output_language,
+        "input_translation_applied": query_language != output_language,
+        "output_translation_applied": model_response_language != output_language,
     }
-    logger.info("CHAT: %s RESPONSE: %s METADATA: %s", chat_id, response_text, metadata)
+    logger.info(
+        "CHAT: %s RESPONSE: %s METADATA: %s",
+        chat_id,
+        model_response_translated,
+        metadata,
+    )
     return ChatResponse(
         chat_id=chat_id,
-        sentence=response_text,
+        sentence=model_response_translated,
         source_object_ids=[],
         confidence=1.0,
         metadata=metadata,

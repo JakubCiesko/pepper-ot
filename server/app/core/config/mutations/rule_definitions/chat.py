@@ -22,6 +22,22 @@ rules = [
         "hot",
         _apply_chat_group,
     ),
+    ReloadRule("chat.model_language", attrgetter("chat.model_language"), "hot"),
+    ReloadRule(
+        "chat.translate_input_to_model_language",
+        attrgetter("chat.translate_input_to_model_language"),
+        "hot",
+    ),
+    ReloadRule(
+        "chat.translate_output_from_model_language",
+        attrgetter("chat.translate_output_from_model_language"),
+        "hot",
+    ),
+    ReloadRule(
+        "chat.default_output_language",
+        attrgetter("chat.default_output_language"),
+        "hot",
+    ),
     ReloadRule(
         "chat.system_prompt", attrgetter("chat.system_prompt"), "hot", _apply_chat_group
     ),

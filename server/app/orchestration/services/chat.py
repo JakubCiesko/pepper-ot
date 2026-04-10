@@ -95,7 +95,6 @@ class ChatService:
         *,
         conversation_history: list[tuple[str, str]] | None = None,
     ) -> str:
-        # TODO: Right now even user queries get composed...
         system_prompt = await self.compose_prompt(self.system_prompt)
         user_query = await self.compose_prompt(user_query)
         logger.debug("Chat request received, system prompt: %s", system_prompt)

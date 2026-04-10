@@ -8,7 +8,11 @@ from uuid import uuid4
 class ConversationMessage:
     id: str
     role: str
-    text: str
+    text_original: str
+    text_model: str
+    language_original: str | None
+    language_model: str | None
+    translation_applied: bool
     timestamp: float
 
 
@@ -44,17 +48,35 @@ class ConversationService:
             return state
 
     async def add_message(
-        self, chat_id: str, role: str, text: str
+        self,
+        chat_id: str,
+        role: str,
+        text_original: str,
+        text_model: str,
+        *,
+        language_original: str | None = None,
+        language_model: str | None = None,
+        translation_applied: bool = False,
     ) -> ConversationMessage:
         role_norm = role.strip().lower()
         if role_norm not in {"user", "assistant"}:
             raise ValueError("role must be one of: user, assistant")
+        original = text_original.strip()
+        model = text_model.strip()
+        if not original:
+            raise ValueError("text_original must not be empty")
+        if not model:
+            raise ValueError("text_model must not be empty")
 
         state = await self.ensure_conversation(chat_id)
         msg = ConversationMessage(
             id=str(uuid4()),
             role=role_norm,
-            text=text.strip(),
+            text_original=original,
+            text_model=model,
+            language_original=language_original,
+            language_model=language_model,
+            translation_applied=translation_applied,
             timestamp=time.time(),
         )
         async with self._lock:
@@ -64,18 +86,42 @@ class ConversationService:
             state.updated_at = time.time()
         return msg
 
-    async def prompt_history(
+    async def _history_for_field(
         self,
         chat_id: str,
         *,
         include_last_user: bool = False,
+        field: str,
     ) -> list[tuple[str, str]]:
         state = await self.ensure_conversation(chat_id)
         async with self._lock:
             messages = list(state.messages)
         if not include_last_user and messages and messages[-1].role == "user":
             messages = messages[:-1]
-        return [(msg.role, msg.text) for msg in messages]
+        return [(msg.role, getattr(msg, field)) for msg in messages]
+
+    async def prompt_history_model(
+        self,
+        chat_id: str,
+        *,
+        include_last_user: bool = False,
+    ) -> list[tuple[str, str]]:
+        return await self._history_for_field(
+            chat_id,
+            include_last_user=include_last_user,
+            field="text_model",
+        )
+
+    async def prompt_history(
+        self,
+        chat_id: str,
+        *,
+        include_last_user: bool = False,
+    ) -> list[tuple[str, str]]:
+        return await self.prompt_history_model(
+            chat_id,
+            include_last_user=include_last_user,
+        )
 
     async def get_conversation(self, chat_id: str) -> ConversationState | None:
         async with self._lock:
@@ -100,7 +146,12 @@ class ConversationService:
                     "last_message": (
                         {
                             "role": last.role,
-                            "text": last.text,
+                            "text": last.text_original,
+                            "text_original": last.text_original,
+                            "text_model": last.text_model,
+                            "language_original": last.language_original,
+                            "language_model": last.language_model,
+                            "translation_applied": last.translation_applied,
                             "timestamp": last.timestamp,
                         }
                         if last is not None
@@ -128,7 +179,12 @@ class ConversationService:
         return {
             "id": msg.id,
             "role": msg.role,
-            "text": msg.text,
+            "text": msg.text_original,
+            "text_original": msg.text_original,
+            "text_model": msg.text_model,
+            "language_original": msg.language_original,
+            "language_model": msg.language_model,
+            "translation_applied": msg.translation_applied,
             "timestamp": msg.timestamp,
         }
 
