@@ -55,6 +55,7 @@ class PerceptionPipeline:
         logger.info("Setting detection threshold to: %.2f", threshold)
         self.detector.threshold = threshold
 
+    # SINGLE SOURCE OF TRUTH
     async def process(
         self, image: Image.Image, robot_metadata: RobotMetadata | None = None
     ) -> PipelineResult:

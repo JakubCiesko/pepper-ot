@@ -1,9 +1,12 @@
+import logging
 import math
 
 from PIL import Image
 
 from app.inference.types import InferenceDetectionObject
 from app.schemas.robot import RobotMetadata
+
+logger = logging.getLogger(__name__)
 
 
 class SceneMemoryStoreGeometryMixin:
@@ -39,7 +42,11 @@ class SceneMemoryStoreGeometryMixin:
         image: Image.Image,
         fusion_config,
     ) -> list[InferenceDetectionObject]:
+        logger.info("Running fusion of detected people and robot-detected people")
         if robot_metadata is None or not robot_metadata.people:
+            logger.info(
+                "No people provided by the robot, ending fusion. Keeping original detections only"
+            )
             return detections
 
         width = robot_metadata.image_width or image.width
@@ -47,12 +54,28 @@ class SceneMemoryStoreGeometryMixin:
         hfov = robot_metadata.camera_hfov
         vfov = robot_metadata.camera_vfov
         if hfov is None or vfov is None or width <= 0 or height <= 0:
+            logger.info(
+                "No information on horizontal or vertical field of view, or invalid widht or height"
+                "hfov=%s,vfov=%s,width=%s,height=%s",
+                hfov,
+                vfov,
+                width,
+                height,
+            )
             return detections
 
         persons = [
             d for d in detections if d.label == "person" and d.object_id is not None
         ]
         others = [d for d in detections if d.label != "person" or d.object_id is None]
+        logger.info(
+            "Server detection comprised of %d people and %d other detected objects",
+            len(persons),
+            len(others),
+        )
+        logger.info(
+            "Robot metadata contain %d detected people", len(robot_metadata.people)
+        )
 
         match_thresh = getattr(fusion_config, "person_bbox_match_threshold_px", 10.0)
         base_px = getattr(fusion_config, "estimated_person_bbox_base_px", 80.0)
@@ -74,12 +97,18 @@ class SceneMemoryStoreGeometryMixin:
             matched = None
             for det in persons:
                 if len(det.bbox) != 4:
+                    logger.warning("Detection bbox malformed, len(bbox)<4, skipping")
                     continue
                 x1, y1, x2, y2 = det.bbox
                 if (x1 - match_thresh) <= px <= (x2 + match_thresh) and (
                     y1 - match_thresh
                 ) <= py <= (y2 + match_thresh):
                     matched = det
+                    logger.info(
+                        "Person matched with detection. Person=%s, Detection=%s",
+                        person.model_dump(),
+                        det.model_dump(),
+                    )
                     break
             if matched:
                 matched.confidence = max(matched.confidence, 1.0)
@@ -103,6 +132,12 @@ class SceneMemoryStoreGeometryMixin:
                 bbox=[float(x1), float(y1), float(x2), float(y2)],
                 object_id=None,
             )
+            logger.info(
+                "No server detection matching robot-detected person, "
+                "creating new artificial person detection, det=%s",
+                det.model_dump(),
+            )
+
             fused.append(det)
 
         remaining = [p for p in persons if p.object_id not in used_ids]
