@@ -204,7 +204,7 @@ class RelTRSceneGraphGenerator:
             return SceneGraph()
 
         reltr_output = self._run_reltr(image)
-        return self._process_reltr_output(reltr_output)
+        return self._process_reltr_output(reltr_output, det_with_ids)
 
     def _run_reltr(self, image: Image.Image) -> dict[str, Any]:
         checkpoint_path = Path(self.config.checkpoint_path)

@@ -196,7 +196,7 @@ class WorkerRuntime:
         system = (
             system_prompt
             if system_prompt is not None
-            else self.config.chat.system_prompt
+            else str(self.config.chat.system_prompt)
         )
         text, _parsed = await backend.client.infer(
             system,

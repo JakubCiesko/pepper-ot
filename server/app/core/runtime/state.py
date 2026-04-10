@@ -121,7 +121,7 @@ class AppState:
 
     def _initialize_chat_components(self, base_dir: Path):
         assert self.config is not None
-        chat_system_prompt = self.config.chat.system_prompt.resolve(base_dir)
+        chat_system_prompt: str = self.config.chat.system_prompt.resolve(base_dir)
         logger.info(
             "Initializing ChatService with chat_system_prompt %s",
             chat_system_prompt,

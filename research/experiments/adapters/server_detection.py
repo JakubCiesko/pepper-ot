@@ -54,7 +54,7 @@ class ServerDetectionAdapter:
             with Image.open(path) as img:
                 img_pil = img.convert("RGB").copy()
                 if max_image_size:
-                    resize_pil(img_pil, max_image_size)
+                    img_pil = resize_pil(img_pil, max_image_size)
                 batch.append(img_pil)
                 batch_paths.append(path.resolve())
             # what will happen if data size is N*batch_size + 1?

@@ -52,12 +52,15 @@ class SceneGraphService:
                     vlm_image, detections, caption_text
                 )
             case _:
-                if vlm_image is None:
-                    vlm_graph = SceneGraph()
-                else:
-                    vlm_graph = await self.vlm_backend.generate(
+
+                vlm_graph = (
+                    SceneGraph()
+                    if vlm_image is None
+                    else await self.vlm_backend.generate(
                         vlm_image, detections, caption_text
                     )
+                )
+
                 logger.debug("HYBRID SGG, VLM output: %s", vlm_graph)
                 rules_graph = self.rule_backend.generate(raw_image, detections)
                 logger.debug("HYBRID SGG, RULES output: %s", rules_graph)
