@@ -63,7 +63,7 @@ async def detect_endpoint(
     )
     image_bytes = await file.read()
     if form.resize_image:
-        image_bytes = img_utils.resize_image_bytes(image_bytes)
+        image_bytes = img_utils.resize_image_bytes(image_bytes, debug_show=False)
     service = DetectService(app_state)
     robot_metadata = service.parse_metadata(form.metadata)
     logger.info("Running detection with received robot metadata: %s", robot_metadata)
