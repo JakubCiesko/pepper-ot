@@ -17,8 +17,6 @@ from fastapi import UploadFile
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-default_form = DetectFormRequest()
-
 
 @router.post("/detect", response_model=DetectionResponse)
 async def detect_endpoint(
@@ -111,14 +109,14 @@ async def panorama_detect_endpoint(
 
     for file, meta in zip(files, metadata, strict=True):
         image_bytes = await file.read()
+        if resize_image:
+            image_bytes = img_utils.resize_image_bytes(image_bytes)
         image_bytes_list.append(image_bytes)
         robot_metadata_list.append(service.parse_metadata(meta))
 
     if stick_together:
         logger.info("Creating panorama from %d images", len(image_bytes_list))
         panorama_bytes = img_utils.create_panorama(image_bytes_list)
-        if resize_image:
-            panorama_bytes = img_utils.resize_image_bytes(panorama_bytes)
         robot_metadata = RobotMetadata.merge_robot_metadata_for_panorama(
             robot_metadata_list
         )
