@@ -91,7 +91,7 @@ class PerceptionPipeline:
             logger.info("SoM image is None, fallback to som_image=image")
             som_image = image
 
-        scene_state = self.memory.scene_state()
+        scene_state = self.memory.scene_state() if self.memory else None
         scene_graph = await self._run_scene_graph(
             image,
             som_image,
