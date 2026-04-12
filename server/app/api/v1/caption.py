@@ -1,5 +1,4 @@
 import logging
-from typing import Annotated
 
 import app.api.v1.image_utils as img_utils
 from app.core.infra.ws_manager import ws_manager
@@ -17,13 +16,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-default_form = CaptionFormRequest()
-
-
 @router.post("/caption", response_model=CaptionResponse)
 async def caption_endpoint(
     file: UploadFile = File(...),
-    form: Annotated[CaptionFormRequest, Form()] = default_form,
+    metadata: str | None = Form(None),
+    prompt: str | None = Form(None),
+    run_detect: bool = Form(True),
+    publish: bool = Form(True),
+    language: str | None = Form(None),
+    resize_image: bool = Form(True),
 ):
     """
     Generate a caption for an uploaded image and optionally trigger background detection.
@@ -50,6 +51,14 @@ async def caption_endpoint(
         raise HTTPException(
             status_code=503, detail="Caption service is not initialized."
         )
+    form = CaptionFormRequest(
+        metadata=metadata,
+        prompt=prompt,
+        run_detect=run_detect,
+        publish=publish,
+        language=language,
+        resize_image=resize_image,
+    )
     logger.info(
         "Caption endpoint triggered with args filename=%s, "
         "metadata=%s, prompt=%s, run_detect=%s, publish=%s",
