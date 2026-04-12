@@ -49,6 +49,12 @@ class SceneMemoryStoreTracksMixin:
         self.objects_state.clear()
         self.relations_state.clear()
         self.captions_state.clear()
+        if hasattr(self, "pepper_person_bindings"):
+            self.pepper_person_bindings.clear()
+        if hasattr(self, "_frame_server_to_pepper"):
+            self._frame_server_to_pepper.clear()
+        if hasattr(self, "_pending_synthetic_pepper_by_detection"):
+            self._pending_synthetic_pepper_by_detection.clear()
         self.next_id = 1
 
     def create_track(self, det: InferenceDetectionObject, embedding) -> int:
@@ -124,6 +130,15 @@ class SceneMemoryStoreTracksMixin:
             stale_track_ids.update(track.id for track in sorted_tracks[:overflow])
         for track_id in stale_track_ids:
             self.tracks.pop(track_id, None)
+
+        if hasattr(self, "pepper_person_bindings"):
+            stale_pepper_ids = [
+                pepper_person_id
+                for pepper_person_id, binding in self.pepper_person_bindings.items()
+                if binding.server_object_id not in self.objects_state
+            ]
+            for pepper_person_id in stale_pepper_ids:
+                self.pepper_person_bindings.pop(pepper_person_id, None)
 
         stale_caption_ids = {
             caption_id

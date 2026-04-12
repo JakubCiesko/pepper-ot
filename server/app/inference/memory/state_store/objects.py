@@ -23,6 +23,10 @@ class SceneMemoryStoreObjectsMixin:
             "status",
             "source",
             "attributes",
+            "pepper_person_id",
+            "robot_distance",
+            "robot_engagement_zone",
+            "robot_last_seen_ts",
             "bearing_yaw",
             "bearing_pitch",
             "frame_id",
@@ -71,18 +75,24 @@ class SceneMemoryStoreObjectsMixin:
         image: Image.Image,
     ):
         now = time.time()
+        people_by_id = self.people_by_id(robot_metadata)
+        social_people_by_id = self.social_people_by_id(robot_metadata)
         for det in detections:
             if det.object_id is None:
                 continue
             bearing = self.compute_bearing(det, robot_metadata, image)
             current = self.objects_state.get(det.object_id)
             if current is None:
-                self.objects_state[det.object_id] = TrackedObjectState(
+                current = TrackedObjectState(
                     id=det.object_id,
                     label=det.label,
                     status="active",
                     source="tracked",
                     attributes=[],
+                    pepper_person_id=None,
+                    robot_distance=None,
+                    robot_engagement_zone=None,
+                    robot_last_seen_ts=None,
                     bearing_yaw=bearing[0] if bearing else None,
                     bearing_pitch=bearing[1] if bearing else None,
                     frame_id=robot_metadata.frame_id if robot_metadata else None,
@@ -92,6 +102,7 @@ class SceneMemoryStoreObjectsMixin:
                     hits=1,
                     bbox=det.bbox,
                 )
+                self.objects_state[det.object_id] = current
             else:
                 current.label = det.label
                 current.bbox = det.bbox
@@ -102,3 +113,17 @@ class SceneMemoryStoreObjectsMixin:
                     current.scan_id = robot_metadata.scan_id or current.scan_id
                 current.last_seen = now
                 current.hits += 1
+
+            if det.label != "person" or not isinstance(det.object_id, int):
+                continue
+
+            pepper_person_id = self._frame_server_to_pepper.get(det.object_id)
+            if pepper_person_id is None:
+                continue
+            self.update_person_robot_fields(
+                current,
+                pepper_person_id=pepper_person_id,
+                robot_person=people_by_id.get(pepper_person_id),
+                social_person=social_people_by_id.get(pepper_person_id),
+                fallback_timestamp=robot_metadata.timestamp if robot_metadata else None,
+            )
