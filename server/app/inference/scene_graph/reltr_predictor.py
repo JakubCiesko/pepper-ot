@@ -220,7 +220,45 @@ VG_REL_CLASSES = [
 # Temporary policy knob for reltr_backend unary fallback:
 # currently allow all VG relations to be converted into unary attributes.
 # You can narrow this list later.
-VG_REL_CLASSES_ATTRIBUTEABLE = VG_REL_CLASSES
+# VG_REL_CLASSES_ATTRIBUTEABLE = VG_REL_CLASSES
+VG_REL_CLASSES_ATTRIBUTEABLE = [
+    "above",
+    "at",
+    "attached to",
+    "behind",
+    "belonging to",
+    "between",
+    "carrying",
+    "covered in",
+    "eating",
+    "growing on",
+    "hanging from",
+    "has",
+    "holding",
+    "in",
+    "in front of",
+    "laying on",
+    "looking at",
+    "lying on",
+    "made of",
+    "mounted on",
+    "near",
+    "on back of",
+    "over",
+    "painted on",
+    "part of",
+    "playing",
+    "riding",
+    "sitting on",
+    "standing on",
+    "under",
+    "using",
+    "walking in",
+    "walking on",
+    "watching",
+    "wearing",
+    "wears",
+]
 
 
 @dataclass

@@ -109,7 +109,7 @@ class SceneMemoryStoreSocialMixin:
             and social_person.age_confidence >= cls.DEMOGRAPHIC_CONFIDENCE_THRESHOLD
         )
         if age_bucket in {"child", "adult", "senior"} and age_is_believable:
-            attrs.add(f"age_{age_bucket}")
+            attrs.add(f"is_{age_bucket}")
         age = social_person.age
         if age is not None and age_is_believable:
             attrs.add(f"is_{int(age)}_years_old")
@@ -191,7 +191,7 @@ class SceneMemoryStoreSocialMixin:
         if robot_person is not None:
             obj.robot_distance = robot_person.distance
             if obj.attributes:
-                obj.attributes.append(f"is_{obj.robot_distance}_meters_away")
+                obj.attributes.append(f"is_{round(obj.robot_distance, 2)}_meters_away")
         if social_person is not None and social_person.engagement_zone is not None:
             obj.robot_engagement_zone = int(social_person.engagement_zone)
 

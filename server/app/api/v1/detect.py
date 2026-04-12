@@ -69,13 +69,4 @@ async def detect_endpoint(
     logger.info("Running detection with received robot metadata: %s", robot_metadata)
     response = await service.process(image_bytes, robot_metadata, form.publish)
     logger.info("Detection endpoint completed: %s", response.id)
-    # if perform_caption:
-    #     app_state.caption_service.caption_with_optional_detect(
-    #     image_bytes,
-    #     metadata=robot_metadata,
-    #     run_detect=False,
-    #     publish=form.publish,
-    #     prompt_override=None,
-    #     language="english",
-    #     )
     return response
