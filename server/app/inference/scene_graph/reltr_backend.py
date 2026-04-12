@@ -17,6 +17,7 @@ from app.schemas.config import SGGRelTRConfig
 logger = logging.getLogger(__name__)
 
 
+# TODO: needs to be killed and started each time..
 class RelTRSceneGraphGenerator:
     def __init__(self, config: SGGRelTRConfig):
         self.config = config
@@ -90,8 +91,12 @@ class RelTRSceneGraphGenerator:
 
             sub_track_id, _ = self._best_match_to_detection_id(sub_box, det_with_ids)
             obj_track_id, _ = self._best_match_to_detection_id(obj_box, det_with_ids)
-
-            if sub_track_id is not None and obj_track_id is not None:
+            # TODO: test this properly, not having the last condition proved to make weird shit
+            if (
+                sub_track_id is not None
+                and obj_track_id is not None
+                and sub_track_id != obj_track_id
+            ):
                 sub_str = str(sub_track_id)
                 obj_str = str(obj_track_id)
                 key = (sub_str, rel_name, obj_str)
@@ -187,6 +192,11 @@ class RelTRSceneGraphGenerator:
         filtered_edges, filtered_no_label_edges = self._filter_results(
             relationships, reltr_id_to_box, id_to_label, det_with_ids
         )
+        logger.info(
+            "FIltereddedges=%s, nonlabeledges=%s",
+            filtered_edges,
+            filtered_no_label_edges,
+        )
         return SceneGraph(
             edges=filtered_edges,
             no_label_edges=filtered_no_label_edges,
@@ -204,6 +214,13 @@ class RelTRSceneGraphGenerator:
         if not self.config.checkpoint_path:
             logger.warning("RelTR enabled but checkpoint_path is not configured")
             return SceneGraph()
+        if self.model.model is None:
+            logger.warning(
+                "RelTR enabled but model is not yet configured, building model from scratch, device=%s, checkpoint path=%s",
+                self.model._device,
+                self.model.checkpoint_path,
+            )
+            self.model.build_model()
 
         det_with_ids = [d for d in detections if d.object_id is not None]
         if not det_with_ids:

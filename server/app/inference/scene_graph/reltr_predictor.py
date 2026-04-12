@@ -319,18 +319,15 @@ def _rescale_boxes(boxes_cxcywh: torch.Tensor, size: tuple[int, int]) -> torch.T
 
 class RelTRModel:
     def __init__(self, repo_root: Path, checkpoint_path: Path, device: str) -> None:
-        sys.path.insert(0, str(repo_root))
-        from models import build_model  # pylint: disable=import-error
+        # pylint: disable=import-error
 
         dataset = "vg"
-        args = _build_args(dataset=dataset, device=device)
-        self.model, _, _ = build_model(args)
+        self.args = _build_args(dataset=dataset, device=device)
+        self.model = None
+        self.repo_root = repo_root
+        self.checkpoint_path = checkpoint_path
+        self._device = device
 
-        with torch.serialization.safe_globals([argparse.Namespace]):
-            ckpt = torch.load(str(checkpoint_path), map_location="cpu")
-
-        self.model.load_state_dict(ckpt["model"])
-        self.model.eval()
         self.transform = T.Compose(
             [
                 T.Resize(800),
@@ -339,8 +336,19 @@ class RelTRModel:
             ]
         )
 
+    def build_model(self):
+        sys.path.insert(0, str(self.repo_root))
+        from models import build_model
+
+        self.model, _, _ = build_model(self.args)
+        with torch.serialization.safe_globals([argparse.Namespace]):
+            ckpt = torch.load(str(self.checkpoint_path), map_location=self._device)
+        self.model.load_state_dict(ckpt["model"])
+        self.model.eval()
+
     def device(self, device: str):
         self.model = self.model.to(device)
+        self._device = device
 
 
 def predict_image(
@@ -350,7 +358,8 @@ def predict_image(
     threshold: float = 0.3,
     topk: int = 100,
 ) -> RelTRImagePrediction:
-
+    if model.model is None:
+        model.build_model()
     model.device(device)
 
     image = Image.open(str(image_path)).convert("RGB")
