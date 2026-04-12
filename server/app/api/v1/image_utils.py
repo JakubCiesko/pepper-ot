@@ -82,3 +82,50 @@ def resize_image_bytes(
     if debug_show:
         save_debug(result_bytes, "AFTER")
     return result_bytes
+
+
+def create_panorama(imgs: list[bytes]) -> bytes:
+    """
+    Create a horizontal panorama from a list of images.
+
+    Args:
+        imgs: List of images as byte streams.
+
+    Returns:
+        A byte stream of the stitched panorama in JPEG format.
+
+    Raises:
+        ValueError: If the input list is empty or an image cannot be decoded.
+    """
+    if not imgs:
+        raise ValueError("No images provided for panorama creation.")
+
+    # Decode images into PIL format
+    pil_images = []
+    for img_bytes in imgs:
+        try:
+            with Image.open(io.BytesIO(img_bytes)) as pil_img:
+                pil_img = ImageOps.exif_transpose(pil_img)
+                pil_img = pil_img.convert("RGB")
+                pil_images.append(pil_img)
+        except Exception as exc:
+            raise ValueError(f"Failed to decode image bytes: {exc}") from exc
+
+    # Compute panorama dimensions
+    widths, heights = zip(*(img.size for img in pil_images), strict=True)
+    total_width = sum(widths)
+    max_height = max(heights)
+
+    # Create blank canvas
+    panorama = Image.new("RGB", (total_width, max_height))
+
+    # Paste images side by side
+    x_offset = 0
+    for img in pil_images:
+        panorama.paste(img, (x_offset, 0))
+        x_offset += img.width
+
+    # Encode panorama to bytes
+    buffer = io.BytesIO()
+    panorama.save(buffer, format="JPEG", quality=90)
+    return buffer.getvalue()
