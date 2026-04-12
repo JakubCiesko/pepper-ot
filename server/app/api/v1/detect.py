@@ -64,10 +64,13 @@ async def detect_endpoint(
         form.publish,
     )
     image_bytes = await file.read()
+    w, h = None, None
     if form.resize_image:
-        image_bytes = img_utils.resize_image_bytes(image_bytes, debug_show=True)
+        image_bytes, (w, h) = img_utils.resize_image_bytes(image_bytes, debug_show=True)
     service = DetectService(app_state)
     robot_metadata = service.parse_metadata(form.metadata)
+    if w is not None and h is not None:
+        robot_metadata.image_width, robot_metadata.image_height = w, h
     logger.info("Running detection with received robot metadata: %s", robot_metadata)
     response = await service.process(image_bytes, robot_metadata, form.publish)
     logger.info("Detection endpoint completed: %s", response.id)
@@ -109,10 +112,14 @@ async def panorama_detect_endpoint(
 
     for file, meta in zip(files, metadata, strict=True):
         image_bytes = await file.read()
+        w, h = None, None
         if resize_image:
-            image_bytes = img_utils.resize_image_bytes(image_bytes)
+            image_bytes, (w, h) = img_utils.resize_image_bytes(image_bytes)
         image_bytes_list.append(image_bytes)
-        robot_metadata_list.append(service.parse_metadata(meta))
+        data = service.parse_metadata(meta)
+        if w is not None and h is not None:
+            data.image_width, data.image_height = w, h
+        robot_metadata_list.append(data)
 
     if stick_together:
         logger.info("Creating panorama from %d images", len(image_bytes_list))
@@ -133,8 +140,11 @@ async def panorama_detect_endpoint(
         robot_metadata: RobotMetadata,
         index: int,
     ):
+        w, h = None, None
         if resize_image:
-            image_bytes = img_utils.resize_image_bytes(image_bytes)
+            image_bytes, (w, h) = img_utils.resize_image_bytes(image_bytes)
+        if w is not None and h is not None:
+            robot_metadata.image_width, robot_metadata.image_height = w, h
 
         def run_detection():
             local_service = DetectService(app_state)

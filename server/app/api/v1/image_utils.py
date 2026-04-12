@@ -17,7 +17,7 @@ def save_debug(image_bytes: bytes, name: str):
 
 def resize_image_bytes(
     image_bytes: bytes, max_dim: int = 1024, debug_show: bool = False
-) -> bytes:
+) -> tuple[bytes, tuple[int, int]]:
     """
     Resizes an image byte stream using OpenCV for maximum throughput.
     Corrects EXIF orientation using Pillow before resizing.
@@ -56,7 +56,7 @@ def resize_image_bytes(
     # Step 3: Skip resizing if already within bounds
     if max(h, w) <= max_dim:
         logger.info("Image already optimal, dim: (%d, %d)", h, w)
-        return image_bytes
+        return image_bytes, (int(w), int(h))
 
     # Step 4: Resize while preserving aspect ratio
     scale = max_dim / max(h, w)
@@ -81,7 +81,7 @@ def resize_image_bytes(
     result_bytes = encoded.tobytes()
     if debug_show:
         save_debug(result_bytes, "AFTER")
-    return result_bytes
+    return result_bytes, (new_w, new_h)
 
 
 def create_panorama(imgs: list[bytes]) -> bytes:
