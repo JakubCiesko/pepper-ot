@@ -33,10 +33,13 @@ class ChatService:
         if not state.objects:
             return "You see nothing."
 
-        obj_id_to_label = {obj.id: obj.label for obj in state.objects}
+        ordered_objects = sorted(
+            state.objects, key=self._object_salience_key, reverse=True
+        )
+        obj_id_to_label = {obj.id: obj.label for obj in ordered_objects}
 
         object_lines = []
-        for obj in state.objects:
+        for obj in ordered_objects:
             attrs = ", ".join(obj.attributes) if obj.attributes else "no attributes"
             object_lines.append(f"- ID {obj.id}: {obj.label} ({attrs})")
         # TODO: what if memory fkcsup ? need to filter only presnet in obj_id_to_label?
@@ -66,6 +69,34 @@ class ChatService:
             return "No recent captions."
         lines = [f"- {caption.text}" for caption in captions if caption.text]
         return "\n".join(lines) if lines else "No recent captions."
+
+    @staticmethod
+    def _person_social_salience(attributes: set[str], obj) -> float:
+        score = 0.0
+        if obj.label == "person":
+            score += 10.0
+        if "is_waving" in attributes:
+            score += 40.0
+        if "is_looking_at_robot" in attributes:
+            score += 30.0
+        if "is_sitting" in attributes:
+            score += 10.0
+        if any(attribute.startswith("engagement_zone_1") for attribute in attributes):
+            score += 20.0
+        elif any(attribute.startswith("engagement_zone_2") for attribute in attributes):
+            score += 10.0
+        if obj.robot_distance is not None:
+            score += max(0.0, 10.0 - (obj.robot_distance * 5.0))
+        return score
+
+    @classmethod
+    def _object_salience_key(cls, obj) -> tuple[float, float, int]:
+        attributes = set(obj.attributes or [])
+        return (
+            cls._person_social_salience(attributes, obj),
+            obj.last_seen,
+            obj.hits,
+        )
 
     async def compose_prompt(self, base: str) -> str:
         world_context = await self._build_context_string()

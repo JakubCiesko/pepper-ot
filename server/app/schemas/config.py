@@ -240,6 +240,11 @@ class FusionConfig(BaseModel):
     estimated_person_bbox_base_px: float = 80.0
     estimated_person_bbox_min_px: float = 40.0
     estimated_person_bbox_max_px: float = 200.0
+    angular_yaw_threshold_rad: float = 0.20
+    angular_pitch_threshold_rad: float = 0.15
+    matched_person_min_confidence: float = 0.85
+    synthetic_person_confidence: float = 0.65
+    pepper_binding_max_misses: int = 4
 
 
 class WorkerRuntimeConfig(BaseModel):

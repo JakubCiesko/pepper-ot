@@ -175,9 +175,40 @@ class SceneMemory:
                 fused_detections = detections
 
             try:
+                synthetic_detections = [
+                    det for det in fused_detections if det.object_id is None
+                ]
+                if synthetic_detections:
+                    logger.info(
+                        "Creating tracks for %d Pepper-induced synthetic person detections",
+                        len(synthetic_detections),
+                    )
+                    synthetic_embeddings = self.extractor.extract(
+                        image, synthetic_detections
+                    )
+                    for det, emb in zip(
+                        synthetic_detections, synthetic_embeddings, strict=False
+                    ):
+                        det.object_id = self.store.create_track(det, emb)
+                        self.store.bind_pending_detection_track(
+                            det,
+                            timestamp=(
+                                robot_metadata.timestamp
+                                if robot_metadata is not None
+                                else None
+                            ),
+                            confidence=det.confidence,
+                        )
                 self.store.update_objects_from_detections(
                     fused_detections, robot_metadata, image
                 )
+                if robot_metadata is not None:
+                    self.store.age_pepper_bindings(
+                        {person.id for person in robot_metadata.people},
+                        max_misses=getattr(
+                            fusion_config, "pepper_binding_max_misses", 4
+                        ),
+                    )
                 self.store.prune_memory()
             except Exception as exc:
                 logger.exception(f"State update/pruning failed: {exc}")

@@ -2,6 +2,7 @@ import base64
 import io
 import json
 import logging
+import math
 from pathlib import Path
 import time
 from typing import Any
@@ -18,6 +19,7 @@ from app.orchestration.adapters.runtime import resolve_runtime_adapter
 from app.schemas.detect import DetectionResponse
 from app.schemas.robot import PersonMetadata
 from app.schemas.robot import RobotMetadata
+from app.schemas.robot import SocialPersonMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,46 @@ class DetectService:
         self.state = state
 
     @staticmethod
+    def _normalize_fov(value: Any) -> float | None:
+        if value is None:
+            return None
+        try:
+            angle = float(value)
+        except (TypeError, ValueError):
+            return None
+        # Pepper metadata is expected in radians. If degrees slip through, normalize once
+        # at the API boundary so the rest of the pipeline can stay radians-only.
+        if abs(angle) > (2 * math.pi + 0.1):
+            return math.radians(angle)
+        return angle
+
+    @staticmethod
+    def _parse_people(raw: Any) -> list[PersonMetadata]:
+        people: list[PersonMetadata] = []
+        if not isinstance(raw, list):
+            return people
+        for item in raw:
+            try:
+                people.append(PersonMetadata(**item))
+            except Exception:
+                logger.warning("Skipping malformed people metadata row: %s", item)
+        return people
+
+    @staticmethod
+    def _parse_social_people(raw: Any) -> list[SocialPersonMetadata]:
+        social_people: list[SocialPersonMetadata] = []
+        if not isinstance(raw, list):
+            return social_people
+        for item in raw:
+            try:
+                social_people.append(SocialPersonMetadata(**item))
+            except Exception:
+                logger.warning(
+                    "Skipping malformed social_people metadata row: %s", item
+                )
+        return social_people
+
+    @classmethod
     def parse_metadata(metadata_json: str | None) -> RobotMetadata:
         if not metadata_json:
             return RobotMetadata(head_yaw=0.0, head_pitch=0.0)
@@ -37,23 +79,24 @@ class DetectService:
                 status_code=400, detail="Invalid metadata JSON"
             ) from exc
 
-        people_raw = raw.get("people")
-        people = []
-        if isinstance(people_raw, list):
-            people.extend([PersonMetadata(**item) for item in people_raw])
+        people = DetectService._parse_people(raw.get("people"))
+        social_people = DetectService._parse_social_people(raw.get("social_people"))
 
         return RobotMetadata(
             head_yaw=float(raw.get("head_yaw", 0.0)),
             head_pitch=float(raw.get("head_pitch", 0.0)),
             body_yaw=raw.get("body_yaw"),
-            camera_hfov=raw.get("camera_hfov"),
-            camera_vfov=raw.get("camera_vfov"),
+            camera_hfov=DetectService._normalize_fov(raw.get("camera_hfov")),
+            camera_vfov=DetectService._normalize_fov(raw.get("camera_vfov")),
             image_width=raw.get("image_width"),
             image_height=raw.get("image_height"),
             timestamp=raw.get("timestamp"),
             frame_id=raw.get("frame_id"),
             scan_id=raw.get("scan_id"),
+            capture_mode=raw.get("capture_mode"),
             people=people,
+            social_people=social_people,
+            battery=raw.get("battery"),
         )
 
     async def process(

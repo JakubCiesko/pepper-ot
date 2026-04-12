@@ -28,6 +28,10 @@ class TrackedObjectState(BaseModel):
     status: str
     source: str = "tracked"
     attributes: list[str] = Field(default_factory=list)
+    pepper_person_id: int | None = None
+    robot_distance: float | None = None
+    robot_engagement_zone: int | None = None
+    robot_last_seen_ts: float | None = None
     bearing_yaw: float | None = None
     bearing_pitch: float | None = None
     frame_id: str | None = None
