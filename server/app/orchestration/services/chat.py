@@ -10,6 +10,16 @@ from app.schemas.scene import SceneState
 
 logger = logging.getLogger(__name__)
 
+SOCIAL_SALIENT_LABELS = [
+    "person",
+    "man",
+    "woman",
+    "human",
+    "animal",
+    "dog",
+    "cat",  # :)
+]
+
 
 class ChatService:
     def __init__(
@@ -73,7 +83,10 @@ class ChatService:
     @staticmethod
     def _person_social_salience(attributes: set[str], obj) -> float:
         score = 0.0
-        if obj.label == "person":
+        if any(
+            salient_label in obj.label.lower().strip()
+            for salient_label in SOCIAL_SALIENT_LABELS
+        ):
             score += 10.0
         if "is_waving" in attributes:
             score += 40.0

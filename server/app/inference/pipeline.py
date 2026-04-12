@@ -16,6 +16,7 @@ from app.schemas.config import PipelineControls
 from app.schemas.config import VisConfig
 from app.schemas.robot import RobotMetadata
 from app.schemas.scene import SceneCaptionState
+from app.schemas.scene import SceneState
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,7 @@ class PerceptionPipeline:
             logger.info("SoM image is None, fallback to som_image=image")
             som_image = image
 
+        scene_state = self.memory.scene_state()
         scene_graph = await self._run_scene_graph(
             image,
             som_image,
@@ -98,6 +100,7 @@ class PerceptionPipeline:
             metrics,
             executed_stages,
             caption_text,
+            scene_state=scene_state,
         )
 
         await self._run_caption_memory_update(
@@ -265,6 +268,7 @@ class PerceptionPipeline:
         metrics: dict[str, float | str],
         executed_stages: list[str],
         caption_text: str | None,
+        scene_state: SceneState | None = None,
     ) -> SceneGraph | None:
         if not controls.scene_graph:
             return None
@@ -275,6 +279,7 @@ class PerceptionPipeline:
                 som_image=som_image,
                 raw_image=image,
                 caption_text=caption_text,
+                scene_state=scene_state,
             )
         executed_stages.append("scene_graph")
         return scene_graph
