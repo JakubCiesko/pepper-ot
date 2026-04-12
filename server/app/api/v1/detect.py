@@ -1,5 +1,4 @@
 import logging
-from typing import Annotated
 
 import app.api.v1.image_utils as img_utils
 from app.core.runtime.state import app_state
@@ -20,7 +19,9 @@ default_form = DetectFormRequest()
 @router.post("/detect", response_model=DetectionResponse)
 async def detect_endpoint(
     file: UploadFile = File(...),
-    form: Annotated[DetectFormRequest, Form()] = default_form,
+    metadata: str | None = Form(None),
+    publish: bool = Form(True),
+    resize_image: bool = Form(True),
 ):
     """
     Run the perception pipeline on an uploaded image and return detected objects.
@@ -47,6 +48,12 @@ async def detect_endpoint(
         HTTPException: Propagated from DetectService for invalid image/metadata
         or runtime processing errors.
     """
+    form = DetectFormRequest(
+        metadata=metadata,
+        publish=publish,
+        resize_image=resize_image,
+    )
+
     # TODO: instantiating service each time?
     logger.info(
         "Detection endpoint called with file=%s, metadata=%s, publish=%s",

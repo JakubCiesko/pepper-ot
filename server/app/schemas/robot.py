@@ -21,7 +21,7 @@ class SocialPersonMetadata(BaseModel):
     is_looking_at_robot: bool | None = None
     looking_at_robot_score: float | None = None
     head_angles: list[float] = Field(default_factory=list)
-    gaze_direction: str | None = None
+    gaze_direction: list[str] = Field(default_factory=list)
     gender_code: float | None = None
     gender: str | None = None
     gender_confidence: float | None = None
@@ -33,6 +33,7 @@ class SocialPersonMetadata(BaseModel):
     expression_confidence: float | None = None
     smile_score: float | None = None
     smile_confidence: float | None = None
+    eyes_opened: list[float] = Field(default_factory=list)
 
 
 class RobotMetadata(BaseModel):

@@ -68,7 +68,7 @@ class DetectService:
                 )
         return social_people
 
-    @classmethod
+    @staticmethod
     def parse_metadata(metadata_json: str | None) -> RobotMetadata:
         if not metadata_json:
             return RobotMetadata(head_yaw=0.0, head_pitch=0.0)

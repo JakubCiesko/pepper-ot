@@ -97,7 +97,7 @@ class SocialAdapter(object):
         )
         if isinstance(head_angles, (list, tuple)) and len(head_angles) >= 2:
             payload["head_angles"] = [self._float_or_none(head_angles[0]), self._float_or_none(head_angles[1])]
-            payload["gaze_direction"] = self._gaze_direction(head_angles)
+            payload["gaze_direction"] = [self._gaze_direction_left_right(head_angles), self._gaze_direction_up_down(head_angles)]
 
         engagement_zone = self._get_memory_value(
             "PeoplePerception/Person/%s/EngagementZone" % person_id,
@@ -114,7 +114,7 @@ class SocialAdapter(object):
             None,
         )
         if is_sitting is not None:
-            payload["is_sitting"] = bool(is_sitting)
+            payload["is_sitting"] = int(is_sitting) == 1
 
         waving_center = self._get_memory_value(
             "PeoplePerception/Person/%s/IsWavingCenter" % person_id,
@@ -137,6 +137,13 @@ class SocialAdapter(object):
             payload["is_waving_center"] = bool(waving_center) if waving_center is not None else False
             payload["is_waving_left"] = bool(waving_left) if waving_left is not None else False
             payload["is_waving_right"] = bool(waving_right) if waving_right is not None else False
+
+        eyes_opened = self._get_memory_value(
+            "PeoplePerception/Person/%s/EyeOpeningDegree" % person_id
+        )
+        if isinstance(eyes_opened, (list, tuple)) and len(eyes_opened) >= 2:
+            payload["eyes_opened"] = eyes_opened
+
 
         return payload
 
@@ -164,7 +171,7 @@ class SocialAdapter(object):
             return None, None
         return labels[best_index], best_score
 
-    def _gaze_direction(self, head_angles):
+    def _gaze_direction_left_right(self, head_angles):
         try:
             yaw = float(head_angles[0])
         except Exception:
@@ -173,6 +180,17 @@ class SocialAdapter(object):
             return "right"
         if yaw > 0.2:
             return "left"
+        return "center"
+
+    def _gaze_direction_up_down(self, head_angles):
+        try:
+            pitch = float(head_angles[1])
+        except Exception:
+            return None
+        if pitch < -0.2:
+            return "up"
+        if pitch > 0.2:
+            return "down"
         return "center"
 
     def _age_bucket(self, age_value):

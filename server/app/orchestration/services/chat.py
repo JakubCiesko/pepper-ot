@@ -35,7 +35,7 @@ class ChatService:
 
         ordered_objects = sorted(
             state.objects, key=self._object_salience_key, reverse=True
-        )
+        )  # ordered by social-saliency, biggest first (maybe the opposite is better?)
         obj_id_to_label = {obj.id: obj.label for obj in ordered_objects}
 
         object_lines = []
