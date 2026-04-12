@@ -317,44 +317,47 @@ def _rescale_boxes(boxes_cxcywh: torch.Tensor, size: tuple[int, int]) -> torch.T
     return xyxy
 
 
+class RelTRModel:
+    def __init__(self, repo_root: Path, checkpoint_path: Path, device: str) -> None:
+        sys.path.insert(0, str(repo_root))
+        from models import build_model  # pylint: disable=import-error
+
+        dataset = "vg"
+        args = _build_args(dataset=dataset, device=device)
+        self.model, _, _ = build_model(args)
+
+        with torch.serialization.safe_globals([argparse.Namespace]):
+            ckpt = torch.load(str(checkpoint_path), map_location="cpu")
+
+        self.model.load_state_dict(ckpt["model"])
+        self.model.eval()
+        self.transform = T.Compose(
+            [
+                T.Resize(800),
+                T.ToTensor(),
+                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            ]
+        )
+
+    def device(self, device: str):
+        self.model = self.model.to(device)
+
+
 def predict_image(
-    repo_root: Path,
-    checkpoint_path: Path,
+    model: RelTRModel,
     image_path: Path,
-    dataset: str = "vg",
     device: str = "cuda",
     threshold: float = 0.3,
     topk: int = 100,
 ) -> RelTRImagePrediction:
-    sys.path.insert(0, str(repo_root))
-    from models import build_model  # pylint: disable=import-error
 
-    if dataset != "vg":
-        raise ValueError("Current adapter supports dataset='vg' label space only.")
-
-    transform = T.Compose(
-        [
-            T.Resize(800),
-            T.ToTensor(),
-            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
-    )
-
-    args = _build_args(dataset=dataset, device=device)
-    model, _, _ = build_model(args)
-
-    with torch.serialization.safe_globals([argparse.Namespace]):
-        ckpt = torch.load(str(checkpoint_path), map_location="cpu")
-
-    model.load_state_dict(ckpt["model"])
-    model.eval()
-    model.to(device)
+    model.device(device)
 
     image = Image.open(str(image_path)).convert("RGB")
-    img_tensor = transform(image).unsqueeze(0).to(device)
+    img_tensor = model.transform(image).unsqueeze(0).to(device)
 
     with torch.no_grad():
-        outputs = model(img_tensor)
+        outputs = model.model(img_tensor)
 
     rel_probs = outputs["rel_logits"].softmax(-1)[0, :, :-1]
     sub_probs = outputs["sub_logits"].softmax(-1)[0, :, :-1]

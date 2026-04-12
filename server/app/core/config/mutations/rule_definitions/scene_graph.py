@@ -71,8 +71,11 @@ rules = [
         "hot",
         _apply_pipeline_group,
     ),
-    ReloadRule(
-        "scene_graph.mode", attrgetter("scene_graph.mode"), "hot", _apply_pipeline_group
+    ReloadRule(  # hard now, because reltr is gpu heavy, as is vlm.
+        "scene_graph.mode",
+        attrgetter("scene_graph.mode"),
+        "hard",
+        _apply_pipeline_group,
     ),
     ReloadRule(
         "scene_graph.rules",
@@ -101,12 +104,6 @@ rules = [
     ReloadRule(
         "scene_graph.reltr.iou_match_threshold",
         attrgetter("scene_graph.reltr.iou_match_threshold"),
-        "hot",
-        _apply_pipeline_group,
-    ),
-    ReloadRule(
-        "scene_graph.reltr.dataset",
-        attrgetter("scene_graph.reltr.dataset"),
         "hot",
         _apply_pipeline_group,
     ),

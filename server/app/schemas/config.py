@@ -221,11 +221,10 @@ class SGGRulesConfig(BaseModel):
 class SGGRelTRConfig(BaseModel):
     enabled: bool = False
     checkpoint_path: str | None = None
-    device: str = "cpu"
+    device: str = "cuda"
     threshold: float = 0.3
     topk: int = 100
     iou_match_threshold: float = 0.5
-    dataset: Literal["vg"] = "vg"
 
 
 class SceneGraphConfig(BaseModel):

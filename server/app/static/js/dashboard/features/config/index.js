@@ -54,7 +54,7 @@ const reltrTopk = document.getElementById("reltr-topk");
 const reltrIouMatchThreshold = document.getElementById(
 	"reltr-iou-match-threshold",
 );
-const reltrDataset = document.getElementById("reltr-dataset");
+
 const pipelinePreset = document.getElementById("pipeline-preset");
 const pipelineCaption = document.getElementById("pipeline-caption");
 const pipelineDetect = document.getElementById("pipeline-detect");
@@ -535,7 +535,7 @@ async function loadConfig() {
 	reltrTopk.value = active.scene_graph?.reltr?.topk ?? 100;
 	reltrIouMatchThreshold.value =
 		active.scene_graph?.reltr?.iou_match_threshold ?? 0.5;
-	reltrDataset.value = active.scene_graph?.reltr?.dataset || "vg";
+
 	const controls = active.pipeline_controls || {};
 	pipelinePreset.value = controls.preset || "full";
 	pipelineCaption.checked = controls.caption ?? true;
@@ -739,7 +739,6 @@ function buildPatch() {
 				threshold: parseFloat(reltrThreshold.value) || 0.3,
 				topk: parseInt(reltrTopk.value, 10) || 100,
 				iou_match_threshold: parseFloat(reltrIouMatchThreshold.value) || 0.5,
-				dataset: reltrDataset.value || "vg",
 			},
 		},
 		chat: {

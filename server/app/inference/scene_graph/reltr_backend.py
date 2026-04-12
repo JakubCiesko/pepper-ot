@@ -7,6 +7,7 @@ from typing import Any
 from PIL import Image
 
 from app.inference.scene_graph.reltr_predictor import VG_REL_CLASSES_ATTRIBUTEABLE
+from app.inference.scene_graph.reltr_predictor import RelTRModel
 from app.inference.scene_graph.reltr_predictor import predict_image
 from app.inference.types import InferenceDetectionObject
 from app.inference.types import SceneGraph
@@ -24,6 +25,14 @@ class RelTRSceneGraphGenerator:
             for p in VG_REL_CLASSES_ATTRIBUTEABLE
             if str(p).strip()
         }
+        self.checkpoint_path = Path(self.config.checkpoint_path)
+        self.project_root = Path(__file__).resolve().parents[4]
+        self.repo_root = self.project_root / "reltr"
+        self.state_dir = self.project_root / "server" / "state"
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        self.model = RelTRModel(
+            self.repo_root, self.checkpoint_path, self.config.device
+        )
 
     def update_runtime(self, config: SGGRelTRConfig):
         self.config = config
@@ -207,23 +216,17 @@ class RelTRSceneGraphGenerator:
         return self._process_reltr_output(reltr_output, det_with_ids)
 
     def _run_reltr(self, image: Image.Image) -> dict[str, Any]:
-        checkpoint_path = Path(self.config.checkpoint_path)
-        project_root = Path(__file__).resolve().parents[4]
-        repo_root = project_root / "reltr"
-        state_dir = project_root / "server" / "state"
-        state_dir.mkdir(parents=True, exist_ok=True)
+
         with tempfile.NamedTemporaryFile(
-            dir=state_dir, prefix="reltr_input_", suffix=".jpg", delete=False
+            dir=self.state_dir, prefix="reltr_input_", suffix=".jpg", delete=False
         ) as tmp:
             tmp_path = Path(tmp.name)
         image.convert("RGB").save(tmp_path, format="JPEG")
         output = {"objects": [], "relationships": []}
         try:
             pred = predict_image(
-                repo_root=repo_root,
-                checkpoint_path=checkpoint_path,
+                model=self.model,
                 image_path=tmp_path,
-                dataset=self.config.dataset,
                 device=self.config.device,
                 threshold=self.config.threshold,
                 topk=self.config.topk,
