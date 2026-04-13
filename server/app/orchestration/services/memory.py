@@ -102,6 +102,10 @@ class MemoryService:
             render_limit=safe_limit,
         )
 
+    async def build_text_description(self): 
+        state = await self.runtime.scene_state()
+        return self.renderer.build_text_description(state)
+
     async def get_object_crop(self, object_id: int) -> dict[str, Any]:
         getter = getattr(self.runtime, "get_track_crop", None)
         if getter is None:

@@ -1,14 +1,23 @@
 import logging
 
+from app.api.v1.memory_route_utils import run_memory_action
 from app.core.infra.ws_manager import ws_manager
 from app.core.runtime.state import app_state
+from app.orchestration.adapters.runtime import resolve_runtime_adapter
 from app.orchestration.services.conversation import ConversationService
+from app.orchestration.services.memory import MemoryService
 from app.providers.translation import enforce_output_language
 from app.schemas.chat import ChatMode
 from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse
+from app.schemas.chat import PregeneratedQAPair
+from app.schemas.chat import PregeneratedQAPairs
+from app.schemas.chat import PregeneratedQARequest
+from app.schemas.chat import PregeneratedQAResponse
 from fastapi import APIRouter
+from fastapi import Depends
 from fastapi import HTTPException
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -316,3 +325,82 @@ async def delete_conversation(chat_id: str):
     if not ok:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {"ok": True}
+
+
+@router.get("/chat/pregenerate_qa", response_model=PregeneratedQAResponse)
+async def get_memory_pregenerated_qa(
+    request: PregeneratedQARequest,
+):
+    logger.info("PregenerateQA for Current Memory state requested with: %s", request)
+
+    if app_state.chat_service is None:
+        raise HTTPException(status_code=503, detail="Chat Service is not initialized.")
+
+    def _service() -> MemoryService:
+        return MemoryService(resolve_runtime_adapter(app_state))
+
+    memory_service = _service()
+    total_memory_description = await run_memory_action(
+        lambda: memory_service.build_text_description()
+    )
+    logger.info(
+        "PregenerateQA: Total Memory Description requested: %s",
+        total_memory_description,
+    )
+
+    output_language = (
+        request.output_language
+        if request.output_language is not None
+        else (
+            request.language
+            if request.language is not None
+            else (
+                app_state.config.system.get("output_language")
+                if app_state.config is not None
+                and isinstance(app_state.config.system, dict)
+                else None
+            )
+        )
+    )
+    
+    number_of_pairs = request.requested_number_of_pairs or 3
+    user_prompt = (
+        f"Generate exactly {number_of_pairs} concise question-answer pairs about the current scene.\n"
+        "Return only structured data matching the schema.\n"
+        f"Write every question and every answer in {output_language}.\n"
+        "Use only facts supported by the provided scene description.\n"
+        "Keep each answer short and concrete.\n\n"
+        "Scene description:\n"
+        f"{total_memory_description}"
+    )
+    structured = await app_state.chat_service.chat_structured(
+        user_prompt,
+        output_schema=PregeneratedQAPairs,
+        conversation_history=None,
+        user_prompt_override=user_prompt,
+    )
+    pregenerated_pairs = [
+        PregeneratedQAPair(
+            question=await enforce_output_language(item.question.strip(), output_language or "english"),
+            answer=await enforce_output_language(item.answer.strip(), output_language or "english"),
+        )
+        for item in structured.items
+        if item.question.strip() and item.answer.strip()
+    ]
+
+    metadata: dict[str, object] = {
+        "model_id": app_state.config.chat.model_id,
+        "provider": app_state.config.chat.provider,
+        "output_language": output_language or "",
+        "requested_pair_count": number_of_pairs,
+        "generated_pair_count": len(pregenerated_pairs),
+    }
+    logger.info(
+        "PregenerateQA: GENERATED_PAIRS=%s METADATA=%s",
+        pregenerated_pairs,
+        metadata,
+    )
+    return PregeneratedQAResponse(
+        pregenerated_qa=pregenerated_pairs,
+        metadata=metadata,
+    )

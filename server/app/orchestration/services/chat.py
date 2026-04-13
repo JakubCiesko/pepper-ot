@@ -2,6 +2,7 @@ from collections.abc import Awaitable
 from collections.abc import Callable
 import inspect
 import logging
+from typing import Any
 
 from app.core.prompting.renderer import PromptRenderContext
 from app.core.prompting.renderer import render_prompt_template
@@ -205,6 +206,44 @@ class ChatService:
         else:
             user_prompt = user_query
         return await self.llm.generate_text(system_prompt, user_prompt)
+
+    async def chat_structured(
+        self,
+        user_query: str,
+        *,
+        output_schema: Any,
+        conversation_history: list[tuple[str, str]] | None = None,
+        user_prompt_override: str | None = None,
+    ) -> Any:
+        system_prompt = await self.compose_prompt(self.system_prompt)
+        logger.debug(
+            "Structured chat request received, system prompt: %s", system_prompt
+        )
+        history_text = self._format_history(conversation_history)
+        if user_prompt_override is not None:
+            user_prompt = user_prompt_override
+        elif self.user_prompt:
+            user_prompt = await self.compose_prompt(
+                self.user_prompt,
+                extra={
+                    "query": user_query,
+                    "history": history_text,
+                },
+            )
+        elif history_text:
+            user_prompt = (
+                "Conversation so far:\n"
+                f"{history_text}\n\n"
+                "Current user message:\n"
+                f"{user_query}"
+            )
+        else:
+            user_prompt = user_query
+        return await self.llm.generate_structured(
+            system_prompt,
+            user_prompt,
+            output_schema=output_schema,
+        )
 
     # TODO: think about better wording
     @staticmethod

@@ -96,3 +96,27 @@ class LLMClient:
         except Exception as exc:
             logger.error(f"LLM generation error: {exc}")
             return "I am having trouble connecting to my language center right now."
+
+    async def generate_structured(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        output_schema: Any,
+        call_overrides: dict[str, Any] | None = None,
+    ) -> Any:
+        response = await self.generate(
+            system_prompt,
+            user_prompt,
+            output_schema=output_schema,
+            call_overrides=call_overrides,
+        )
+        if response.parsed is None:
+            raise ValueError("Structured generation returned no parsed output")
+        logger.info(
+            "LLMClient Structured Generation, SYSTEM_PROMPT=[%s], USER_PROMPT=[%s], PARSED_OUTPUT=[%s]",
+            system_prompt,
+            user_prompt,
+            response.parsed,
+        )
+        return response.parsed

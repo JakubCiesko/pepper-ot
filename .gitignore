@@ -42,3 +42,4 @@ node_modules/
 .vscode/
 .idea/
 package.json
+.codex

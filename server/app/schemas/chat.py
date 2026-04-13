@@ -60,3 +60,24 @@ class ChatResponse(BaseModel):
     source_object_ids: list[int] = Field(default_factory=list)
     confidence: float
     metadata: dict[str, Any]
+
+
+class PregeneratedQARequest(BaseModel):
+    language: str | None = None
+    input_language: str | None = None
+    output_language: str | None = None
+    requested_number_of_pairs: int | None = None
+
+
+class PregeneratedQAPair(BaseModel):
+    question: str
+    answer: str
+
+
+class PregeneratedQAPairs(BaseModel):
+    items: list[PregeneratedQAPair] = Field(default_factory=list)
+
+
+class PregeneratedQAResponse(BaseModel):
+    pregenerated_qa: list[PregeneratedQAPair] = Field(default_factory=list)
+    metadata: dict[str, Any]

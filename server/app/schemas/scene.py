@@ -91,11 +91,12 @@ class SceneState(BaseModel):
     captions: list[SceneCaptionState] = Field(default_factory=list)
     timestamp: float
 
-
+# TODO: look in creation in memoy_graph_render.py ask yourself whther
+# to send over relations, attributes, and their counts.
 class MemorySummary(BaseModel):
     timestamp: float
     labels: list[str] = Field(default_factory=list)
     label_counts: dict[str, int] = Field(default_factory=dict)
     scene_graph: list[SceneGraphRelation] = Field(default_factory=list)
     graph_svg: str | None = None
-    html: str | None = None
+    pregenerated_qa: dict[str, str] | None = None   #TODO: add this for fast robot answer or move it to another endpoint!

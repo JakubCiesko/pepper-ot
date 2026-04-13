@@ -37,7 +37,7 @@ class MemoryGraphRenderService:
         render_limit: int | None = None,
     ) -> MemorySummary:
         labels, label_counts = self._labels_and_counts(state)
-        relations = self._build_relations(state)
+        relations, attribute_counts, relationship_counts = self._build_relations(state)
         limit = (
             self.MAX_RENDER_OBJECTS
             if render_limit is None
@@ -49,6 +49,8 @@ class MemoryGraphRenderService:
             crop_map=crop_map or {},
             render_object_ids=render_ids,
         )
+        # TODO: think whether to send this -> will slow down communication, 
+        # maybe save space and make pepper parse the counts and all.
         return MemorySummary(
             labels=labels,
             label_counts=label_counts,
@@ -56,6 +58,19 @@ class MemoryGraphRenderService:
             graph_svg=graph_svg,
             timestamp=state.timestamp,
         )
+    
+    def build_text_description(self, 
+                               state: SceneState) -> str:
+        labels, label_counts = self._labels_and_counts(state)
+        relations, attribute_counts, relationship_counts = self._build_relations(state)
+        description = "Scene Description\n" + "\n".join([
+            f"There is {label}. It is present {count} times."
+        for label, count in label_counts.items()])
+        description += "The objects are in these relations:\n" + "\n".join([
+            f"{rel[0]} {rel[1]} {rel[2]}. This relation is present {count} times." for rel, count in relationship_counts.items() 
+        ])
+        return description
+
 
     def select_render_object_ids(
         self, state: SceneState, *, limit: int | None = None
@@ -82,12 +97,15 @@ class MemoryGraphRenderService:
     def _build_relations(self, state: SceneState) -> list[SceneGraphRelation]:
         object_map = {obj.id: obj for obj in state.objects}
         relations: list[SceneGraphRelation] = []
+        attribute_counts: dict[tuple[str, str, str]: int] = {}
+        relationship_counts: dict[tuple[str, str, str]: int] = {}
         seen: set[tuple[str, str, str]] = set()
 
         for obj in sorted(state.objects, key=lambda item: item.id):
             node_name = f"{obj.label}_{obj.id}"
             for attribute in sorted(set(obj.attributes or [])):
                 key = (node_name, attribute, node_name)
+                attribute_counts[key] = attribute_counts.get(key, 0) + 1
                 if key in seen:
                     continue
                 seen.add(key)
@@ -106,13 +124,14 @@ class MemoryGraphRenderService:
             sub_name = f"{subject.label}_{subject.id}"
             obj_name = f"{obj.label}_{obj.id}"
             key = (sub_name, rel.predicate, obj_name)
+            relationship_counts[key] = relationship_counts.get(key, 0) + 1
             if key in seen:
                 continue
             seen.add(key)
             relations.append(
                 SceneGraphRelation(sub=sub_name, rel=rel.predicate, obj=obj_name)
             )
-        return relations
+        return relations, attribute_counts, relationship_counts
 
     def render_svg(
         self,
