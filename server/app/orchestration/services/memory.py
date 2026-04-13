@@ -102,6 +102,20 @@ class MemoryService:
             render_limit=safe_limit,
         )
 
+    async def get_object_crop(self, object_id: int) -> dict[str, Any]:
+        getter = getattr(self.runtime, "get_track_crop", None)
+        if getter is None:
+            return {"object_id": object_id, "image_b64": None}
+        crop_bytes = await getter(object_id)
+        if not crop_bytes:
+            return {"object_id": object_id, "image_b64": None}
+        import base64
+
+        return {
+            "object_id": object_id,
+            "image_b64": base64.b64encode(crop_bytes).decode("utf-8"),
+        }
+
     async def list_objects(
         self,
         *,

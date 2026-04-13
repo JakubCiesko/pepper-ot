@@ -1,5 +1,173 @@
 import { secondsAgo } from './parsers.js';
 
+let memoryCy = null;
+
+function nodeColor(label) {
+  if (!label) return '#22c55e';
+  let hash = 0;
+  for (let i = 0; i < label.length; i += 1) {
+    hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
+  }
+  const hue = hash % 360;
+  return `hsl(${hue}, 65%, 52%)`;
+}
+
+function buildNodeLabel(obj) {
+  const lines = [`${obj.label} #${obj.id}`];
+  const attrs = Array.isArray(obj.attributes) ? obj.attributes : [];
+  if (attrs.length > 0) {
+    const preview = attrs.slice(0, 2).join(', ');
+    lines.push(attrs.length > 2 ? `${preview} +${attrs.length - 2}` : preview);
+  }
+  return lines.join('\n');
+}
+
+function buildGraphElements(mem, graphObjectIds, cropMap) {
+  const ids = Array.isArray(graphObjectIds)
+    ? graphObjectIds.map((id) => String(id))
+    : [];
+  const selected = new Set(ids);
+  const objects = Array.isArray(mem?.objects) ? mem.objects : [];
+  const relationships = Array.isArray(mem?.relationships)
+    ? mem.relationships
+    : [];
+  const nodes = objects
+    .filter((obj) => selected.has(String(obj.id)))
+    .map((obj) => {
+      const imageB64 = cropMap?.[obj.id];
+      const image = imageB64 ? `data:image/jpeg;base64,${imageB64}` : '';
+      return {
+        data: {
+          id: String(obj.id),
+          label: buildNodeLabel(obj),
+          color: nodeColor(obj.label),
+          image,
+          hasImage: image ? 'yes' : 'no',
+        },
+      };
+    });
+  const edges = relationships
+    .filter(
+      (rel) =>
+        selected.has(String(rel.subject_id)) &&
+        selected.has(String(rel.object_id)),
+    )
+    .map((rel, idx) => ({
+      data: {
+        id: `mem-e-${idx}-${rel.subject_id}-${rel.predicate}-${rel.object_id}`,
+        source: String(rel.subject_id),
+        target: String(rel.object_id),
+        label: rel.predicate,
+      },
+    }));
+  return [...nodes, ...edges];
+}
+
+function destroyMemoryGraph() {
+  if (memoryCy) {
+    memoryCy.destroy();
+    memoryCy = null;
+  }
+}
+
+function renderMemoryGraph(dom, mem) {
+  if (!dom.memoryGraph) return;
+  const hasGraphData =
+    Object.prototype.hasOwnProperty.call(mem || {}, 'graphObjectIds') ||
+    Object.prototype.hasOwnProperty.call(mem || {}, 'cropMap');
+  if (!hasGraphData) return;
+
+  const graphObjectIds = Array.isArray(mem?.graphObjectIds)
+    ? mem.graphObjectIds
+    : [];
+  const cropMap =
+    mem?.cropMap && typeof mem.cropMap === 'object' ? mem.cropMap : {};
+
+  destroyMemoryGraph();
+
+  if (!graphObjectIds.length) {
+    dom.memoryGraph.innerHTML =
+      '<p class="text-slate-500">No memory graph yet...</p>';
+    return;
+  }
+
+  if (!window.cytoscape) {
+    dom.memoryGraph.innerHTML =
+      '<p class="text-slate-500">Cytoscape is not available.</p>';
+    return;
+  }
+
+  dom.memoryGraph.innerHTML = '';
+  const cs = getComputedStyle(document.body);
+  const panelText = cs.getPropertyValue('--panel-text').trim() || '#e5e7eb';
+  const panelMuted = cs.getPropertyValue('--panel-muted').trim() || '#94a3b8';
+  const panelBg = cs.getPropertyValue('--panel-bg').trim() || '#0f172a';
+
+  memoryCy = window.cytoscape({
+    container: dom.memoryGraph,
+    elements: buildGraphElements(mem || {}, graphObjectIds, cropMap),
+    style: [
+      {
+        selector: 'node',
+        style: {
+          width: 150,
+          height: 110,
+          shape: 'round-rectangle',
+          'background-color': 'data(color)',
+          'background-image': 'data(image)',
+          'background-fit': 'cover',
+          'background-width': '100%',
+          'background-height': '78%',
+          'background-position-y': '18%',
+          'border-width': 2,
+          'border-color': panelMuted,
+          label: 'data(label)',
+          color: panelText,
+          'text-wrap': 'wrap',
+          'text-max-width': 136,
+          'font-size': '10px',
+          'font-weight': 600,
+          'text-valign': 'bottom',
+          'text-halign': 'center',
+          'text-margin-y': 2,
+          'text-background-color': panelBg,
+          'text-background-opacity': 0.9,
+          'text-background-padding': '3px',
+        },
+      },
+      {
+        selector: 'node[hasImage = "no"]',
+        style: {
+          'background-image': 'none',
+        },
+      },
+      {
+        selector: 'edge',
+        style: {
+          'curve-style': 'bezier',
+          'target-arrow-shape': 'triangle',
+          width: 2,
+          'line-color': panelMuted,
+          'target-arrow-color': panelMuted,
+          label: 'data(label)',
+          'font-size': '9px',
+          'text-background-color': panelBg,
+          'text-background-opacity': 0.95,
+          'text-background-padding': '2px',
+          color: panelText,
+        },
+      },
+    ],
+    layout: {
+      name: 'cose',
+      fit: true,
+      padding: 18,
+      animate: false,
+    },
+    wheelSensitivity: 0.2,
+  });
+}
+
 export function showMemoryEditorStatus(dom, message, ok = true) {
   if (!dom.memoryEditorStatus) return;
   dom.memoryEditorStatus.textContent = message;
@@ -27,16 +195,7 @@ export function prefillRelationEditor(dom, rel) {
 }
 
 export function renderMemory(dom, mem) {
-  const hasSummary = Object.prototype.hasOwnProperty.call(mem || {}, 'summary');
-  const summary = mem?.summary || null;
-  if (dom.memoryGraph && hasSummary) {
-    const svg = typeof summary?.graph_svg === 'string' ? summary.graph_svg : '';
-    if (svg.trim()) {
-      dom.memoryGraph.innerHTML = svg;
-    } else {
-      dom.memoryGraph.innerHTML = `<p class="text-slate-500">No memory graph yet...</p>`;
-    }
-  }
+  renderMemoryGraph(dom, mem);
   if (!dom.memoryContainer) return;
   dom.memoryContainer.innerHTML = '';
   const memObjects = mem.objects || [];
@@ -109,7 +268,11 @@ export function renderMemory(dom, mem) {
   }
 
   if (dom.memoryRaw) {
-    dom.memoryRaw.textContent = JSON.stringify(mem, null, 2);
+    const rawPayload = { ...(mem || {}) };
+    delete rawPayload.cropMap;
+    delete rawPayload.graphObjectIds;
+    delete rawPayload.summary;
+    dom.memoryRaw.textContent = JSON.stringify(rawPayload, null, 2);
   }
   const summaryMemory = document.getElementById('summary-memory');
   if (summaryMemory)

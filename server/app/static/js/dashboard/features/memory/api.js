@@ -15,3 +15,11 @@ export async function fetchMemorySummary(renderLimit = 5) {
     'Failed to refresh memory summary',
   );
 }
+
+export async function fetchMemoryObjectCrop(objectId) {
+  return requestJson(
+    `/api/v1/memory/object/${encodeURIComponent(objectId)}/crop`,
+    {},
+    'Failed to fetch object crop',
+  );
+}

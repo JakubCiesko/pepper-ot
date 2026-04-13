@@ -1,4 +1,4 @@
-import { doMemoryRequest, fetchMemory, fetchMemorySummary } from './api.js';
+import { doMemoryRequest, fetchMemory, fetchMemoryObjectCrop } from './api.js';
 import { parseBboxCsv, parseCommaList } from './parsers.js';
 import { renderMemory, showMemoryEditorStatus } from './render.js';
 
@@ -8,18 +8,55 @@ function getRenderLimit(dom) {
   return Math.max(1, Math.min(raw, 6));
 }
 
+function selectGraphObjects(memory, limit) {
+  const objects = Array.isArray(memory?.objects) ? [...memory.objects] : [];
+  objects.sort((a, b) => {
+    const lastSeenDelta = (b?.last_seen ?? 0) - (a?.last_seen ?? 0);
+    if (lastSeenDelta !== 0) return lastSeenDelta;
+    const hitsDelta = (b?.hits ?? 0) - (a?.hits ?? 0);
+    if (hitsDelta !== 0) return hitsDelta;
+    return (b?.id ?? 0) - (a?.id ?? 0);
+  });
+  return objects.slice(0, limit);
+}
+
+async function buildCropMap(graphObjects) {
+  const results = await Promise.allSettled(
+    graphObjects.map(async (obj) => {
+      const payload = await fetchMemoryObjectCrop(obj.id);
+      return [
+        obj.id,
+        typeof payload?.image_b64 === 'string' ? payload.image_b64 : null,
+      ];
+    }),
+  );
+  const cropMap = {};
+  results.forEach((result, idx) => {
+    const objectId = graphObjects[idx]?.id;
+    if (result.status === 'fulfilled') {
+      const [id, imageB64] = result.value;
+      cropMap[id] = imageB64;
+      return;
+    }
+    if (objectId !== undefined) {
+      cropMap[objectId] = null;
+    }
+  });
+  return cropMap;
+}
+
 export async function refreshMemory(dom) {
   const renderLimit = getRenderLimit(dom);
   if (dom?.memRenderLimit) {
     dom.memRenderLimit.value = String(renderLimit);
   }
-  const [mem, summary] = await Promise.all([
-    fetchMemory(),
-    fetchMemorySummary(renderLimit),
-  ]);
+  const mem = await fetchMemory();
+  const graphObjects = selectGraphObjects(mem, renderLimit);
+  const cropMap = await buildCropMap(graphObjects);
   const payload = {
     ...(mem || {}),
-    summary: summary || null,
+    cropMap,
+    graphObjectIds: graphObjects.map((obj) => obj.id),
   };
   renderMemory(dom, payload);
   return payload;

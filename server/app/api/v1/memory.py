@@ -29,12 +29,19 @@ async def get_memory():
 
 
 @router.get("/memory/summary", response_model=MemorySummary)
-async def get_memory_summary(render_limit: int = Query(5, ge=1, le=6)):
+async def get_memory_summary(render_limit: int = Query(5, ge=1, le=10)):
     service = _service()
     logger.info("Memory summary requested render_limit=%s", render_limit)
     return await run_memory_action(
         lambda: service.get_memory_summary(render_limit=render_limit)
     )
+
+
+@router.get("/memory/object/{object_id}/crop")
+async def get_memory_object_crop(object_id: int):
+    service = _service()
+    logger.info("Memory object crop requested id=%s", object_id)
+    return await run_memory_action(lambda: service.get_object_crop(object_id))
 
 
 @router.get("/memory/objects")
