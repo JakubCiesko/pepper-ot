@@ -259,7 +259,7 @@ function parseJsonObject(text, fieldName) {
   try {
     parsed = JSON.parse(value);
   } catch (_err) {
-    throw new Error(`Invalid JSON in ${fieldName}`);
+    throw new Error(`Invalid JSON in ${fieldName}`, { cause: _err });
   }
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error(`${fieldName} must be a JSON object`);
@@ -288,7 +288,7 @@ function setJsonValidationStatus(el, statusEl, fieldLabel) {
     statusEl.classList.remove('text-red-600');
     statusEl.classList.add('panel-muted');
     return true;
-  } catch (_err) {
+  } catch {
     statusEl.textContent = `${fieldLabel} must be a valid JSON object.`;
     statusEl.classList.remove('panel-muted');
     statusEl.classList.add('text-red-600');
@@ -635,12 +635,13 @@ async function loadConfig() {
 }
 
 function buildPatch() {
-  let rules = [];
-  try {
-    rules = sggRulesJson.value.trim() ? JSON.parse(sggRulesJson.value) : [];
-  } catch (_err) {
-    throw new Error('Invalid JSON in SGG rules');
-  }
+  const rules = (() => {
+    try {
+      return sggRulesJson.value.trim() ? JSON.parse(sggRulesJson.value) : [];
+    } catch (err) {
+      throw new Error('Invalid JSON in SGG rules', { cause: err });
+    }
+  })();
   if (
     !sggEnableVlm.checked &&
     !sggEnableRules.checked &&
@@ -871,7 +872,7 @@ async function applyConfig() {
         const payload = await res.json();
         if (payload?.detail) detail = payload.detail;
       } catch (_err) {
-        // no-op
+        throw new Error('Error Applying config', { cause: _err });
       }
       showStatusMessage(detail, false);
     }
