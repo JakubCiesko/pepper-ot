@@ -5,8 +5,8 @@ from pydantic import model_validator
 
 class ChatRequest(BaseModel):
     query: str
-    chat_id: str | None = None
-    conversation_id: str | None = None
+    chat_id: str | None | int = None
+    conversation_id: str | None | int = None
     language: str | None = None
     input_language: str | None = None
     output_language: str | None = None

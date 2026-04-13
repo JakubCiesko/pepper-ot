@@ -28,6 +28,9 @@ def _format_history(history: list[tuple[str, str]] | None) -> str:
     return "\n".join(lines)
 
 
+DEFAULT_CONVERSATION_ID = "-1"
+
+
 @router.post("/vision_chat", response_model=VisionChatResponse)
 async def vision_chat_endpoint(
     file: UploadFile = File(...),
@@ -40,6 +43,15 @@ async def vision_chat_endpoint(
             status_code=503,
             detail="Conversation or Chat Service is not initialized.",
         )
+    if form.chat_id is None:
+        logger.info(
+            "No chat id provided in request: %s. Defaulting chat id to default %s",
+            form,
+            DEFAULT_CONVERSATION_ID,
+        )
+        form.chat_id = DEFAULT_CONVERSATION_ID
+        form.conversation_id = DEFAULT_CONVERSATION_ID
+
     conversations: ConversationService = app_state.conversation_service
     conversation = await conversations.ensure_conversation(
         form.chat_id or form.conversation_id

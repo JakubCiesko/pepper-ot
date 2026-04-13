@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# used for long conversations for the robot when no chat id given
+DEFAULT_CONVERSATION_ID = "-1"
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
@@ -42,6 +46,14 @@ async def chat_endpoint(request: ChatRequest):
     if app_state.chat_service is None or app_state.conversation_service is None:
         raise HTTPException(status_code=503, detail="Chat Service is not initialized.")
     logger.info("Chat endpoint triggered with request: %s", request)
+    if request.chat_id is None:
+        logger.info(
+            "No chat id provided in request: %s. Defaulting chat id to default %s",
+            request,
+            DEFAULT_CONVERSATION_ID,
+        )
+        request.chat_id = DEFAULT_CONVERSATION_ID
+        request.conversation_id = DEFAULT_CONVERSATION_ID
     conversations: ConversationService = app_state.conversation_service
     conversation = await conversations.ensure_conversation(request.chat_id)
     chat_id = conversation.chat_id

@@ -20,8 +20,8 @@ class VisionChatFormRequest(BaseModel):
     query: str = Field(
         description="prompt for caption generation",
     )
-    chat_id: str | None = None
-    conversation_id: str | None = None
+    chat_id: str | None | int = None
+    conversation_id: str | None | int = None
     system_prompt: str | None = None
 
     language: Literal["default", "english", "czech"] | None = Field(
