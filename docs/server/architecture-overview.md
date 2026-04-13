@@ -6,6 +6,26 @@ The server is the perception, memory, scene-graph, dialogue, and operator-contro
 
 ## High-Level Components
 
+```mermaid
+flowchart LR
+    Pepper[\"Pepper client\\nimage + robot metadata\"] --> API[\"FastAPI public API\\n/api/v1/*\"]
+    API --> ORCH[\"Orchestration layer\\nservices + runtime adapter\"]
+    ORCH -->|in-process| PIPE[\"Perception pipeline\"]
+    ORCH -->|worker mode| WM[\"WorkerManager\"]
+    WM --> WORKER[\"Worker process\\ninternal routes + runtime\"]
+    PIPE --> MEM[\"SceneMemory\"]
+    PIPE --> SGG[\"SceneGraphService\"]
+    PIPE --> CAP[\"Caption service\"]
+    WORKER --> MEM
+    WORKER --> SGG
+    WORKER --> CAP
+    MEM --> CHAT[\"ChatService\"]
+    API --> DASH[\"Dashboard routes\"]
+    DASH <--> WS[\"WebSocket broadcast\"]
+    PIPE --> WS
+    WORKER --> WS
+```
+
 ### 1. Public HTTP/API layer
 
 Files:
@@ -100,6 +120,27 @@ Responsibilities:
 
 ## A. Detection flow
 
+```mermaid
+sequenceDiagram
+    participant C as Client / Pepper
+    participant R as /api/v1/detect
+    participant D as DetectService
+    participant A as RuntimeAdapter
+    participant P as PerceptionPipeline or Worker
+    participant M as SceneMemory
+    participant W as WebSocket clients
+
+    C->>R: POST image + metadata
+    R->>D: parse request
+    D->>A: resolve runtime mode
+    A->>P: detect(image, metadata)
+    P->>M: update tracks / memory
+    P-->>A: detections + graph + caption + metrics
+    A-->>D: normalized result
+    D->>W: broadcast detection payload (optional)
+    D-->>C: DetectionResponse
+```
+
 1. Client POSTs image and metadata to `/api/v1/detect`.
 2. `DetectService` parses image + robot metadata.
 3. Runtime adapter chooses in-process or worker execution.
@@ -131,6 +172,43 @@ Responsibilities:
 2. Conversation history is optionally prepended.
 3. Runtime adapter routes the image directly to the VLM path.
 4. VLM answers directly from image input, bypassing scene-memory-driven grounding.
+
+## System Boundary Diagram
+
+```mermaid
+flowchart TB
+    subgraph Main[\"Main FastAPI process\"]
+        API2[API routes]
+        CFG[Config manager]
+        AST[AppState]
+        DAS[Dashboard + websocket]
+        OR2[Runtime adapters]
+    end
+
+    subgraph Worker[\"Optional worker process\"]
+        WR[Worker routes]
+        WRT[WorkerRuntime]
+        WP[Perception pipeline]
+    end
+
+    subgraph Models[\"Providers / models\"]
+        LLM[LLM providers]
+        VLM[VLM providers]
+        CAP2[Caption providers]
+    end
+
+    API2 --> OR2
+    CFG --> AST
+    AST --> OR2
+    OR2 -->|direct| WP
+    OR2 -->|proxy| WR
+    WR --> WRT --> WP
+    WP --> LLM
+    WP --> VLM
+    WP --> CAP2
+    API2 --> DAS
+    WP --> DAS
+```
 
 ## E. Config flow
 

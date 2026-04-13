@@ -26,6 +26,22 @@ The code supports four modes:
 
 This is the dispatcher.
 
+```mermaid
+flowchart LR
+    DET[\"Tracked detections\"] --> MODE{\"scene_graph.mode\"}
+    IMG[\"raw image / SoM image\"] --> MODE
+    CAP[\"optional caption\"] --> MODE
+    MODE -->|rules| RULES[\"RuleSceneGraphGenerator\"]
+    MODE -->|vlm| VLM[\"VLMSceneGraphGenerator\"]
+    MODE -->|reltr| RELTR[\"RelTRSceneGraphGenerator\"]
+    MODE -->|hybrid| MERGE[\"VLM + RULES + RELTR merge\"]
+    RULES --> ENH[\"robot-data enhancement\"]
+    VLM --> ENH
+    RELTR --> ENH
+    MERGE --> ENH
+    ENH --> OUT[\"SceneGraph\"]
+```
+
 ### Inputs
 
 - detections with stable `object_id`
@@ -151,6 +167,18 @@ Hybrid mode literally merges graph outputs from multiple backends.
 This gives coverage but also means duplicate or conflicting relations are possible unless later logic collapses them.
 
 If you observe noisy graph output, inspect merge behavior and downstream memory deduplication, not just individual backend quality.
+
+## Rule/VLM/RelTR Relationship
+
+```mermaid
+flowchart TD
+    R1[Rules backend] --> H[Hybrid graph]
+    V1[VLM backend] --> H
+    T1[RelTR backend] --> H
+    H --> M[Memory relation merge]
+    H --> D[Dashboard graph render]
+    H --> C[Dialogue grounding context]
+```
 
 ## Safe Tweak Points
 

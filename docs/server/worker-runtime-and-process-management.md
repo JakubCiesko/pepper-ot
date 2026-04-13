@@ -36,6 +36,16 @@ Trade-offs:
 - `WorkerProcessMixin`
 - `WorkerRPCMixin`
 
+```mermaid
+flowchart LR
+    API[\"Main API process\"] --> MAN[\"WorkerManager\"]
+    MAN --> PROC[\"spawn / stop / restart subprocess\"]
+    MAN --> RPC[\"HTTP RPC to worker\"]
+    RPC --> WR[\"Worker routes\"]
+    WR --> RT[\"WorkerRuntime\"]
+    RT --> PIPE[\"Perception pipeline\"]
+```
+
 ### State tracked by manager
 
 - worker state enum
@@ -86,6 +96,22 @@ Monitor logic can shut down the worker after configured inactivity.
 
 Repeated failures can open a cooldown window before restart attempts continue.
 
+## Worker State Transitions
+
+```mermaid
+stateDiagram-v2
+    [*] --> STOPPED
+    STOPPED --> STARTING: ensure_started / warmup
+    STARTING --> READY: pipeline ready
+    READY --> BUSY: detect / vision_chat / memory op
+    BUSY --> READY: request finished
+    STARTING --> FAILED: startup error
+    READY --> STOPPED: idle kill / stop / hard reload
+    BUSY --> STOPPED: forced stop
+    FAILED --> STARTING: restart attempt
+    FAILED --> STOPPED: breaker open / max attempts reached
+```
+
 ## RPC and payload contracts
 
 `rpc.py` defines structured request/response payloads such as:
@@ -111,6 +137,26 @@ These are used both operationally and for dashboard display.
 ## Worker runtime
 
 `WorkerRuntime` is the worker-local service container.
+
+## Main <-> Worker Detect Exchange
+
+```mermaid
+sequenceDiagram
+    participant API as Main process
+    participant WM as WorkerManager
+    participant WR as Worker route
+    participant RT as WorkerRuntime
+    participant PP as Pipeline
+
+    API->>WM: detect(image_bytes, metadata)
+    WM->>WR: POST /internal/detect
+    WR->>RT: detect(image_b64, metadata)
+    RT->>PP: process(image, metadata)
+    PP-->>RT: PipelineResult
+    RT-->>WR: normalized worker payload
+    WR-->>WM: DetectRPCResponse
+    WM-->>API: result dict
+```
 
 ### Owned state
 

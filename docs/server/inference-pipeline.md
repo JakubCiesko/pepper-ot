@@ -41,6 +41,18 @@ The current order is:
 
 This order matters.
 
+```mermaid
+flowchart LR
+    IN[\"Input image + RobotMetadata\"] --> CAP[\"Caption stage\"]
+    CAP --> DET[\"Detection stage\"]
+    DET --> TRK[\"Tracking / memory update\"]
+    TRK --> SOM[\"SoM overlay\"]
+    SOM --> SGG[\"Scene graph generation\"]
+    SGG --> CM[\"Caption memory update\"]
+    CM --> GM[\"Scene graph memory update\"]
+    GM --> OUT[\"PipelineResult + metrics\"]
+```
+
 ### Why caption runs first
 
 Caption can be used as auxiliary context for scene graph generation.
@@ -121,6 +133,23 @@ Detection is central. If disabled, later detection-dependent stages either no-op
 If SoM is disabled or unavailable, raw image fallback is used for downstream VLM path.
 
 ## Internal Helper Stages
+
+```mermaid
+flowchart TD
+    START[process()] --> Q1{\"caption enabled?\"}
+    Q1 -->|yes| RC[_run_caption]
+    Q1 -->|no| DET2
+    RC --> DET2[_run_detection]
+    DET2 --> Q2{\"track_memory enabled?\"}
+    Q2 -->|yes| RT[_run_tracking]
+    Q2 -->|no| SEQ[assign sequential ids]
+    RT --> SOM2[_render_som_overlay]
+    SEQ --> SOM2
+    SOM2 --> SG2[_run_scene_graph]
+    SG2 --> CM2[_run_caption_memory_update]
+    CM2 --> GM2[_update_scene_memory_from_graph]
+    GM2 --> DONE[return PipelineResult]
+```
 
 ### `_run_caption()`
 - runs only if caption control is enabled and caption service exists

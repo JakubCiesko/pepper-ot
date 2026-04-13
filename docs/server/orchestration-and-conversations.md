@@ -116,6 +116,50 @@ The scoring system boosts, among other things:
 
 This is one of the key tweak points for making dialogue feel more socially aware.
 
+## General Chat Request Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User / client
+    participant API as /api/v1/chat
+    participant CS as ConversationService
+    participant TS as TranslationService
+    participant CH as ChatService
+    participant MEM as SceneMemory
+    participant LLM as LLMClient
+    participant WS as WebSocket clients
+
+    U->>API: POST /chat
+    API->>CS: ensure conversation
+    API->>TS: normalize input language
+    API->>CS: store user message
+    API->>WS: broadcast user message
+    API->>CS: build prompt history
+    API->>CH: chat() or object_chat()
+    CH->>MEM: read scene state + captions + crops
+    CH->>LLM: generate grounded answer
+    LLM-->>CH: model response
+    API->>TS: enforce output language
+    API->>CS: store assistant message
+    API->>WS: broadcast assistant message
+    API-->>U: ChatResponse
+```
+
+## Object Chat Focus Path
+
+```mermaid
+flowchart TD
+    Q[\"Requested object label\"] --> MATCH[\"Resolve matching objects from SceneMemory\"]
+    MATCH --> SAL[\"Sort by social/object salience\"]
+    SAL --> FACTS{\"Enough structured facts?\"}
+    FACTS -->|yes| PROMPT[\"Build object-focused prompt\"]
+    FACTS -->|no| CROP[\"Fetch stored crop\"]
+    CROP --> CAP[\"Caption crop fallback\"]
+    CAP --> PROMPT
+    PROMPT --> LLM2[\"LLMClient.generate_text()\"]
+    LLM2 --> RESP[\"Answer + matched object ids + fallback ids\"]
+```
+
 ## `CaptionService`
 
 Purpose:
