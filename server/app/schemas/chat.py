@@ -9,6 +9,9 @@ from pydantic import model_validator
 class ChatMode(StrEnum):
     GENERAL = "general"
     OBJECT = "object"
+    #TODO: implement these in chat service really
+    RELATION = "relation"
+    ATTRIBUTE = "attribute"
 
 
 class ChatRequest(BaseModel):
