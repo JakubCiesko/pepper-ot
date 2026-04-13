@@ -43,14 +43,14 @@ This order matters.
 
 ```mermaid
 flowchart LR
-    IN[\"Input image + RobotMetadata\"] --> CAP[\"Caption stage\"]
-    CAP --> DET[\"Detection stage\"]
-    DET --> TRK[\"Tracking / memory update\"]
-    TRK --> SOM[\"SoM overlay\"]
-    SOM --> SGG[\"Scene graph generation\"]
-    SGG --> CM[\"Caption memory update\"]
-    CM --> GM[\"Scene graph memory update\"]
-    GM --> OUT[\"PipelineResult + metrics\"]
+    IN[Input image and RobotMetadata] --> CAP[Caption stage]
+    CAP --> DET[Detection stage]
+    DET --> TRK[Tracking and memory update]
+    TRK --> SOM[SoM overlay]
+    SOM --> SGG[Scene graph generation]
+    SGG --> CM[Caption memory update]
+    CM --> GM[Scene graph memory update]
+    GM --> OUT[PipelineResult and metrics]
 ```
 
 ### Why caption runs first
@@ -136,11 +136,11 @@ If SoM is disabled or unavailable, raw image fallback is used for downstream VLM
 
 ```mermaid
 flowchart TD
-    START[process()] --> Q1{\"caption enabled?\"}
+    START[process] --> Q1{caption enabled}
     Q1 -->|yes| RC[_run_caption]
     Q1 -->|no| DET2
     RC --> DET2[_run_detection]
-    DET2 --> Q2{\"track_memory enabled?\"}
+    DET2 --> Q2{track memory enabled}
     Q2 -->|yes| RT[_run_tracking]
     Q2 -->|no| SEQ[assign sequential ids]
     RT --> SOM2[_render_som_overlay]

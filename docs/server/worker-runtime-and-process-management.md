@@ -38,12 +38,12 @@ Trade-offs:
 
 ```mermaid
 flowchart LR
-    API[\"Main API process\"] --> MAN[\"WorkerManager\"]
-    MAN --> PROC[\"spawn / stop / restart subprocess\"]
-    MAN --> RPC[\"HTTP RPC to worker\"]
-    RPC --> WR[\"Worker routes\"]
-    WR --> RT[\"WorkerRuntime\"]
-    RT --> PIPE[\"Perception pipeline\"]
+    API[Main API process] --> MAN[WorkerManager]
+    MAN --> PROC[spawn stop restart subprocess]
+    MAN --> RPC[HTTP RPC to worker]
+    RPC --> WR[Worker routes]
+    WR --> RT[WorkerRuntime]
+    RT --> PIPE[Perception pipeline]
 ```
 
 ### State tracked by manager
@@ -101,12 +101,12 @@ Repeated failures can open a cooldown window before restart attempts continue.
 ```mermaid
 stateDiagram-v2
     [*] --> STOPPED
-    STOPPED --> STARTING: ensure_started / warmup
+    STOPPED --> STARTING: ensure_started or warmup
     STARTING --> READY: pipeline ready
-    READY --> BUSY: detect / vision_chat / memory op
+    READY --> BUSY: detect vision_chat or memory op
     BUSY --> READY: request finished
     STARTING --> FAILED: startup error
-    READY --> STOPPED: idle kill / stop / hard reload
+    READY --> STOPPED: idle kill stop or hard reload
     BUSY --> STOPPED: forced stop
     FAILED --> STARTING: restart attempt
     FAILED --> STOPPED: breaker open / max attempts reached
@@ -149,7 +149,7 @@ sequenceDiagram
     participant PP as Pipeline
 
     API->>WM: detect(image_bytes, metadata)
-    WM->>WR: POST /internal/detect
+    WM->>WR: POST internal detect
     WR->>RT: detect(image_b64, metadata)
     RT->>PP: process(image, metadata)
     PP-->>RT: PipelineResult

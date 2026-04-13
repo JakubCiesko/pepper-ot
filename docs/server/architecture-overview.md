@@ -8,20 +8,21 @@ The server is the perception, memory, scene-graph, dialogue, and operator-contro
 
 ```mermaid
 flowchart LR
-    Pepper[\"Pepper client\\nimage + robot metadata\"] --> API[\"FastAPI public API\\n/api/v1/*\"]
-    API --> ORCH[\"Orchestration layer\\nservices + runtime adapter\"]
-    ORCH -->|in-process| PIPE[\"Perception pipeline\"]
-    ORCH -->|worker mode| WM[\"WorkerManager\"]
-    WM --> WORKER[\"Worker process\\ninternal routes + runtime\"]
-    PIPE --> MEM[\"SceneMemory\"]
-    PIPE --> SGG[\"SceneGraphService\"]
-    PIPE --> CAP[\"Caption service\"]
+    Pepper[Pepper client image and robot metadata] --> API[FastAPI public API]
+    API --> ORCH[Orchestration layer and runtime adapter]
+    ORCH -->|in-process| PIPE[Perception pipeline]
+    ORCH -->|worker mode| WM[WorkerManager]
+    WM --> WORKER[Worker process internal routes and runtime]
+    PIPE --> MEM[SceneMemory]
+    PIPE --> SGG[SceneGraphService]
+    PIPE --> CAP[Caption service]
     WORKER --> MEM
     WORKER --> SGG
     WORKER --> CAP
-    MEM --> CHAT[\"ChatService\"]
-    API --> DASH[\"Dashboard routes\"]
-    DASH <--> WS[\"WebSocket broadcast\"]
+    MEM --> CHAT[ChatService]
+    API --> DASH[Dashboard routes]
+    DASH --> WS[WebSocket broadcast]
+    WS --> DASH
     PIPE --> WS
     WORKER --> WS
 ```
@@ -122,13 +123,13 @@ Responsibilities:
 
 ```mermaid
 sequenceDiagram
-    participant C as Client / Pepper
-    participant R as /api/v1/detect
+    participant C as Client Pepper
+    participant R as api v1 detect
     participant D as DetectService
     participant A as RuntimeAdapter
-    participant P as PerceptionPipeline or Worker
+    participant P as PerceptionPipeline or Worker runtime
     participant M as SceneMemory
-    participant W as WebSocket clients
+    participant W as WebSocket clients dashboard
 
     C->>R: POST image + metadata
     R->>D: parse request
@@ -177,21 +178,21 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-    subgraph Main[\"Main FastAPI process\"]
+    subgraph Main[Main FastAPI process]
         API2[API routes]
         CFG[Config manager]
         AST[AppState]
-        DAS[Dashboard + websocket]
+        DAS[Dashboard and websocket]
         OR2[Runtime adapters]
     end
 
-    subgraph Worker[\"Optional worker process\"]
+    subgraph Worker[Optional worker process]
         WR[Worker routes]
         WRT[WorkerRuntime]
         WP[Perception pipeline]
     end
 
-    subgraph Models[\"Providers / models\"]
+    subgraph Models[Providers and models]
         LLM[LLM providers]
         VLM[VLM providers]
         CAP2[Caption providers]

@@ -28,18 +28,18 @@ This is the dispatcher.
 
 ```mermaid
 flowchart LR
-    DET[\"Tracked detections\"] --> MODE{\"scene_graph.mode\"}
-    IMG[\"raw image / SoM image\"] --> MODE
-    CAP[\"optional caption\"] --> MODE
-    MODE -->|rules| RULES[\"RuleSceneGraphGenerator\"]
-    MODE -->|vlm| VLM[\"VLMSceneGraphGenerator\"]
-    MODE -->|reltr| RELTR[\"RelTRSceneGraphGenerator\"]
-    MODE -->|hybrid| MERGE[\"VLM + RULES + RELTR merge\"]
-    RULES --> ENH[\"robot-data enhancement\"]
+    DET[Tracked detections] --> MODE{scene_graph mode}
+    IMG[Raw image or SoM image] --> MODE
+    CAP[Optional caption] --> MODE
+    MODE -->|rules| RULES[RuleSceneGraphGenerator]
+    MODE -->|vlm| VLM[VLMSceneGraphGenerator]
+    MODE -->|reltr| RELTR[RelTRSceneGraphGenerator]
+    MODE -->|hybrid| MERGE[VLM plus RULES plus RELTR]
+    RULES --> ENH[Robot data enhancement]
     VLM --> ENH
     RELTR --> ENH
     MERGE --> ENH
-    ENH --> OUT[\"SceneGraph\"]
+    ENH --> OUT[SceneGraph]
 ```
 
 ### Inputs

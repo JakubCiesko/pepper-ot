@@ -120,8 +120,8 @@ This is one of the key tweak points for making dialogue feel more socially aware
 
 ```mermaid
 sequenceDiagram
-    participant U as User / client
-    participant API as /api/v1/chat
+    participant U as User client
+    participant API as api v1 chat
     participant CS as ConversationService
     participant TS as TranslationService
     participant CH as ChatService
@@ -149,15 +149,15 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Q[\"Requested object label\"] --> MATCH[\"Resolve matching objects from SceneMemory\"]
-    MATCH --> SAL[\"Sort by social/object salience\"]
-    SAL --> FACTS{\"Enough structured facts?\"}
-    FACTS -->|yes| PROMPT[\"Build object-focused prompt\"]
-    FACTS -->|no| CROP[\"Fetch stored crop\"]
-    CROP --> CAP[\"Caption crop fallback\"]
+    Q[Requested object label] --> MATCH[Resolve matching objects from SceneMemory]
+    MATCH --> SAL[Sort by social and object salience]
+    SAL --> FACTS{Enough structured facts}
+    FACTS -->|yes| PROMPT[Build object focused prompt]
+    FACTS -->|no| CROP[Fetch stored crop]
+    CROP --> CAP[Caption crop fallback]
     CAP --> PROMPT
-    PROMPT --> LLM2[\"LLMClient.generate_text()\"]
-    LLM2 --> RESP[\"Answer + matched object ids + fallback ids\"]
+    PROMPT --> LLM2[LLMClient generate_text]
+    LLM2 --> RESP[Answer plus matched ids and fallback ids]
 ```
 
 ## `CaptionService`
