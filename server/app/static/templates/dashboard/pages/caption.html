@@ -1,47 +1,107 @@
-            <section id="page-caption" class="page-panel mt-8 hidden">
-                <div class="panel border rounded-xl p-5">
-                    <h3 class="text-md uppercase tracking-widest panel-muted mb-4">Caption</h3>
-                    <p class="text-md panel-muted mb-4">
-                        Quick scene description endpoint for Pepper's immediate "What do you see?" response.
-                        The caption route can also trigger full detect in the background so memory and chat context keep updating.
-                    </p>
-                    <label class="block text-md" for="caption-system">System Prompt</label>
-                    <p class="text-md panel-muted mt-1">Global behavior for caption generation.</p>
-                    <textarea id="caption-system" rows="8" class="w-full border rounded px-3 py-2 mt-1"></textarea>
-                    <label class="block text-xlg mt-4" for="caption-user">User Prompt</label>
-                    <p class="text-md panel-muted mt-1">Default question template used when route-level prompt override is not provided.</p>
-                    <textarea id="caption-user" rows="6" class="w-full border rounded px-3 py-2 mt-1"></textarea>
-                    <label class="block text-xlg mt-4">Caption Mode</label>
-                    <select id="caption-mode" class="w-full border rounded px-3 py-2 mt-1">
-                        <option value="prompted">prompted</option>
-                        <option value="unconditional">unconditional</option>
-                    </select>
-                    <p class="text-md panel-muted mt-1">Prompted uses the user prompt. Unconditional lets the model caption directly from image only.</p>
-                    <label class="block text-xlg mt-4">Max Words</label>
-                    <input id="caption-max-words" type="number" min="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="24">
-                    <p class="text-md panel-muted mt-1">Optional soft cap appended to prompt instructions.</p>
-                    <label class="block text-xlg mt-4">Caption Device</label>
-                    <input id="caption-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cuda">
-                    <label class="block text-xlg mt-4">Caption Provider</label>
-                    <select id="caption-provider" class="w-full border rounded px-3 py-2 mt-1">
-                        <option value="openai">openai</option>
-                        <option value="gemini">gemini</option>
-                        <option value="openai_compatible">openai_compatible</option>
-                        <option value="local_hf">local_hf</option>
-                        <option value="local_4bit">local_4bit</option>
-                    </select>
-                    <p class="text-md panel-muted mt-1">Use local_hf with BLIP model IDs for lightweight local captioning.</p>
-                    <label class="block text-xlg mt-4">Caption Model ID</label>
-                    <input id="caption-model-id" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="Salesforce/blip-image-captioning-large">
-                    <label class="block text-xlg mt-4">Caption Base URL</label>
-                    <input id="caption-base-url" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="http://localhost:8000/v1">
-                    <label class="block text-xlg mt-4">Caption API Key Env</label>
-                    <input id="caption-api-key-env" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="OPENAI_API_KEY">
-                    <label class="block text-xlg mt-4">Caption Client Init Kwargs (JSON)</label>
-                    <textarea id="caption-client-init-kwargs" rows="5" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"timeout": 60}'></textarea>
-                    <p id="caption-client-init-kwargs-status" class="text-md panel-muted mt-1"></p>
-                    <label class="block text-xlg mt-4">Caption Call Kwargs (JSON)</label>
-                    <textarea id="caption-call-kwargs" rows="5" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"max_new_tokens": 48}'></textarea>
-                    <p id="caption-call-kwargs-status" class="text-md panel-muted mt-1"></p>
-                </div>
-            </section>
+<section id="page-caption" class="page-panel mt-8 hidden">
+  <div class="panel border rounded-xl p-5">
+    <h3 class="text-md uppercase tracking-widest panel-muted mb-4">Caption</h3>
+    <p class="text-md panel-muted mb-4">
+      Quick scene description endpoint for Pepper's immediate "What do you see?"
+      response. The caption route can also trigger full detect in the background
+      so memory and chat context keep updating.
+    </p>
+    <label class="block text-md" for="caption-system">System Prompt</label>
+    <p class="text-md panel-muted mt-1">
+      Global behavior for caption generation.
+    </p>
+    <textarea
+      id="caption-system"
+      rows="8"
+      class="w-full border rounded px-3 py-2 mt-1"
+    ></textarea>
+    <label class="block text-xlg mt-4" for="caption-user">User Prompt</label>
+    <p class="text-md panel-muted mt-1">
+      Default question template used when route-level prompt override is not
+      provided.
+    </p>
+    <textarea
+      id="caption-user"
+      rows="6"
+      class="w-full border rounded px-3 py-2 mt-1"
+    ></textarea>
+    <label class="block text-xlg mt-4">Caption Mode</label>
+    <select id="caption-mode" class="w-full border rounded px-3 py-2 mt-1">
+      <option value="prompted">prompted</option>
+      <option value="unconditional">unconditional</option>
+    </select>
+    <p class="text-md panel-muted mt-1">
+      Prompted uses the user prompt. Unconditional lets the model caption
+      directly from image only.
+    </p>
+    <label class="block text-xlg mt-4">Max Words</label>
+    <input
+      id="caption-max-words"
+      type="number"
+      min="1"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="24"
+    />
+    <p class="text-md panel-muted mt-1">
+      Optional soft cap appended to prompt instructions.
+    </p>
+    <label class="block text-xlg mt-4">Caption Device</label>
+    <input
+      id="caption-device"
+      type="text"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="cuda"
+    />
+    <label class="block text-xlg mt-4">Caption Provider</label>
+    <select id="caption-provider" class="w-full border rounded px-3 py-2 mt-1">
+      <option value="openai">openai</option>
+      <option value="gemini">gemini</option>
+      <option value="openai_compatible">openai_compatible</option>
+      <option value="local_hf">local_hf</option>
+      <option value="local_4bit">local_4bit</option>
+    </select>
+    <p class="text-md panel-muted mt-1">
+      Use local_hf with BLIP model IDs for lightweight local captioning.
+    </p>
+    <label class="block text-xlg mt-4">Caption Model ID</label>
+    <input
+      id="caption-model-id"
+      type="text"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="Salesforce/blip-image-captioning-large"
+    />
+    <label class="block text-xlg mt-4">Caption Base URL</label>
+    <input
+      id="caption-base-url"
+      type="text"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="http://localhost:8000/v1"
+    />
+    <label class="block text-xlg mt-4">Caption API Key Env</label>
+    <input
+      id="caption-api-key-env"
+      type="text"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="OPENAI_API_KEY"
+    />
+    <label class="block text-xlg mt-4">Caption Client Init Kwargs (JSON)</label>
+    <textarea
+      id="caption-client-init-kwargs"
+      rows="5"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder='{"timeout": 60}'
+    ></textarea>
+    <p
+      id="caption-client-init-kwargs-status"
+      class="text-md panel-muted mt-1"
+    ></p>
+    <label class="block text-xlg mt-4">Caption Call Kwargs (JSON)</label>
+    <textarea
+      id="caption-call-kwargs"
+      rows="5"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder='{"max_new_tokens": 48}'
+    ></textarea>
+    <p id="caption-call-kwargs-status" class="text-md panel-muted mt-1"></p>
+  </div>
+</section>

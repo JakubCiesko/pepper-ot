@@ -1,117 +1,279 @@
-            <section id="page-scene" class="page-panel mt-8 hidden">
-                <div class="panel border rounded-xl p-5">
-                    <h3 class="text-md uppercase tracking-widest panel-muted mb-4">Scene Representation - Scene Graph</h3>
-                    <div>
-                        <label class="block text-md">SGG Backends</label>
-                        <div class="mt-2 space-y-2">
-                            <label class="flex items-center gap-2">
-                                <input id="sgg-enable-vlm" type="checkbox">
-                                <span>VLM</span>
-                            </label>
-                            <label class="flex items-center gap-2">
-                                <input id="sgg-enable-rules" type="checkbox">
-                                <span>Rules</span>
-                            </label>
-                            <label class="flex items-center gap-2">
-                                <input id="sgg-enable-reltr" type="checkbox">
-                                <span>RelTR</span>
-                            </label>
-                        </div>
-                        <p class="text-md panel-muted mt-1">All checked backends run on the same frame and their outputs are merged together. VLM uses model output. Rules use deterministic geometry and color rules. RelTR uses transformer-based SGG with IoU matching to tracked detections.</p>
-                    </div>
-                    <label class="block text-md">System Prompt</label>
-                    <p class="text-md panel-muted mt-1">Global instructions for VLM scene-graph generation, used whenever the VLM backend is enabled.</p>
-                    <textarea id="vlm-system" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
-                    <label class="block text-xlg mt-4">VLM Device</label>
-                    <input id="vlm-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cuda">
-                    <p class="text-md panel-muted mt-1">Inference device for scene-graph VLM backend.</p>
-                    <label class="block text-xlg mt-4">VLM Provider</label>
-                    <select id="vlm-provider" class="w-full border rounded px-3 py-2 mt-1">
-                        <option value="openai">openai</option>
-                        <option value="gemini">gemini</option>
-                        <option value="openai_compatible">openai_compatible</option>
-                        <option value="local_hf">local_hf</option>
-                        <option value="local_4bit">local_4bit</option>
-                    </select>
-                    <p class="text-md panel-muted mt-1">Selects inference backend. <code>openai_compatible</code> targets OpenAI-style servers such as local vLLM or Ollama gateways.</p>
-                    <label class="block text-xlg mt-4">VLM Model ID</label>
-                    <input id="vlm-model-id" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="gpt-4.1-mini">
-                    <p class="text-md panel-muted mt-1">Model name sent to the selected provider (exact provider-specific identifier).</p>
-                    <label class="block text-xlg mt-4">VLM Base URL</label>
-                    <input id="vlm-base-url" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="http://localhost:8000/v1">
-                    <p class="text-md panel-muted mt-1">Optional API endpoint override. Required for <code>openai_compatible</code> providers.</p>
-                    <label class="block text-xlg mt-4">VLM API Key Env</label>
-                    <input id="vlm-api-key-env" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="OPENAI_API_KEY">
-                    <p class="text-md panel-muted mt-1">Environment variable name used to resolve credentials at runtime (the key itself is never stored here).</p>
-                    <label class="block text-xlg mt-4">VLM Structured Mode</label>
-                    <select id="vlm-structured-strategy" class="w-full border rounded px-3 py-2 mt-1">
-                        <option value="provider_native">provider_native</option>
-                        <option value="parse_output">parse_output</option>
-                        <option value="instructor">instructor</option>
-                    </select>
-                    <p id="vlm-structured-capability" class="text-md panel-muted mt-1"></p>
-                    <label class="block text-xlg mt-4">VLM Structured Strict</label>
-                    <select id="vlm-structured-strict" class="w-full border rounded px-3 py-2 mt-1">
-                        <option value="true">true</option>
-                        <option value="false">false</option>
-                    </select>
-                    <p class="text-md panel-muted mt-1">When true, malformed or missing structured output raises an error; when false, parsing failures degrade to empty parsed payloads.</p>
-                    <label class="block text-xlg mt-4">VLM Structured Schema</label>
-                    <select id="vlm-structured-schema" class="w-full border rounded px-3 py-2 mt-1">
-                        <option value="scene_graph">scene_graph</option>
-                        <option value="relationship_list">relationship_list</option>
-                    </select>
-                    <p class="text-md panel-muted mt-1">Chooses expected response schema: wrapped scene-graph object or direct list of relationships.</p>
-                    <label class="block text-xlg mt-4">Local VLM Prompt Template Style</label>
-                    <select id="vlm-local-prompt-style" class="w-full border rounded px-3 py-2 mt-1">
-                        <option value="auto">auto</option>
-                        <option value="chatml">chatml</option>
-                        <option value="plain">plain</option>
-                    </select>
-                    <p class="text-md panel-muted mt-1">Controls local template rendering strategy. Use <code>plain</code> to force simple fallback prompts for fragile models.</p>
-                    <label class="block text-xlg mt-4">Local VLM Image Token Strategy</label>
-                    <select id="vlm-local-image-token-strategy" class="w-full border rounded px-3 py-2 mt-1">
-                        <option value="auto">auto</option>
-                        <option value="single">single</option>
-                        <option value="multi">multi</option>
-                    </select>
-                    <p class="text-md panel-muted mt-1">Hint for local multimodal prompt formatting. Useful when model families expect specific image-token conventions.</p>
-                    <label class="block text-xlg mt-4">VLM Client Init Kwargs (JSON)</label>
-                    <textarea id="vlm-client-init-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"timeout": 120}'></textarea>
-                    <p class="text-md panel-muted mt-1">Advanced provider client options applied during client construction (connection/auth/transport-level settings).</p>
-                    <p id="vlm-client-init-kwargs-status" class="text-md panel-muted mt-1"></p>
-                    <label class="block text-xlg mt-4">VLM Call Kwargs (JSON)</label>
-                    <textarea id="vlm-call-kwargs" rows="6" class="w-full border rounded px-3 py-2 mt-1" placeholder='{"max_tokens": 1024, "temperature": 0.2}'></textarea>
-                    <p class="text-md panel-muted mt-1">Advanced per-request generation arguments (sampling, token limits, provider call knobs).</p>
-                    <p id="vlm-call-kwargs-status" class="text-md panel-muted mt-1"></p>
-                    <label class="block text-xlg mt-4">User Prompt</label>
-                    <p class="text-md panel-muted mt-1">Per-frame instruction template. Supports placeholders: <code>{predicates}</code>, <code>{context}</code>, <code>{caption}</code>, <code>{captions_recent}</code>, <code>{caption_recent}</code>. SGG always fills <code>{predicates}</code>.</p>
-                    <textarea id="vlm-user" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
-                    <label class="block text-xlg mt-4">Ontology Predicates (one per line)</label>
-                    <p class="text-md panel-muted mt-1">Predicate vocabulary used for scene relationships and prompt conditioning.</p>
-                    <textarea id="vlm-predicates" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+<section id="page-scene" class="page-panel mt-8 hidden">
+  <div class="panel border rounded-xl p-5">
+    <h3 class="text-md uppercase tracking-widest panel-muted mb-4">
+      Scene Representation - Scene Graph
+    </h3>
+    <div>
+      <label class="block text-md">SGG Backends</label>
+      <div class="mt-2 space-y-2">
+        <label class="flex items-center gap-2">
+          <input id="sgg-enable-vlm" type="checkbox" />
+          <span>VLM</span>
+        </label>
+        <label class="flex items-center gap-2">
+          <input id="sgg-enable-rules" type="checkbox" />
+          <span>Rules</span>
+        </label>
+        <label class="flex items-center gap-2">
+          <input id="sgg-enable-reltr" type="checkbox" />
+          <span>RelTR</span>
+        </label>
+      </div>
+      <p class="text-md panel-muted mt-1">
+        All checked backends run on the same frame and their outputs are merged
+        together. VLM uses model output. Rules use deterministic geometry and
+        color rules. RelTR uses transformer-based SGG with IoU matching to
+        tracked detections.
+      </p>
+    </div>
+    <label class="block text-md">System Prompt</label>
+    <p class="text-md panel-muted mt-1">
+      Global instructions for VLM scene-graph generation, used whenever the VLM
+      backend is enabled.
+    </p>
+    <textarea
+      id="vlm-system"
+      rows="10"
+      class="w-full border rounded px-3 py-2 mt-1"
+    ></textarea>
+    <label class="block text-xlg mt-4">VLM Device</label>
+    <input
+      id="vlm-device"
+      type="text"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="cuda"
+    />
+    <p class="text-md panel-muted mt-1">
+      Inference device for scene-graph VLM backend.
+    </p>
+    <label class="block text-xlg mt-4">VLM Provider</label>
+    <select id="vlm-provider" class="w-full border rounded px-3 py-2 mt-1">
+      <option value="openai">openai</option>
+      <option value="gemini">gemini</option>
+      <option value="openai_compatible">openai_compatible</option>
+      <option value="local_hf">local_hf</option>
+      <option value="local_4bit">local_4bit</option>
+    </select>
+    <p class="text-md panel-muted mt-1">
+      Selects inference backend. <code>openai_compatible</code> targets
+      OpenAI-style servers such as local vLLM or Ollama gateways.
+    </p>
+    <label class="block text-xlg mt-4">VLM Model ID</label>
+    <input
+      id="vlm-model-id"
+      type="text"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="gpt-4.1-mini"
+    />
+    <p class="text-md panel-muted mt-1">
+      Model name sent to the selected provider (exact provider-specific
+      identifier).
+    </p>
+    <label class="block text-xlg mt-4">VLM Base URL</label>
+    <input
+      id="vlm-base-url"
+      type="text"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="http://localhost:8000/v1"
+    />
+    <p class="text-md panel-muted mt-1">
+      Optional API endpoint override. Required for
+      <code>openai_compatible</code> providers.
+    </p>
+    <label class="block text-xlg mt-4">VLM API Key Env</label>
+    <input
+      id="vlm-api-key-env"
+      type="text"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="OPENAI_API_KEY"
+    />
+    <p class="text-md panel-muted mt-1">
+      Environment variable name used to resolve credentials at runtime (the key
+      itself is never stored here).
+    </p>
+    <label class="block text-xlg mt-4">VLM Structured Mode</label>
+    <select
+      id="vlm-structured-strategy"
+      class="w-full border rounded px-3 py-2 mt-1"
+    >
+      <option value="provider_native">provider_native</option>
+      <option value="parse_output">parse_output</option>
+      <option value="instructor">instructor</option>
+    </select>
+    <p id="vlm-structured-capability" class="text-md panel-muted mt-1"></p>
+    <label class="block text-xlg mt-4">VLM Structured Strict</label>
+    <select
+      id="vlm-structured-strict"
+      class="w-full border rounded px-3 py-2 mt-1"
+    >
+      <option value="true">true</option>
+      <option value="false">false</option>
+    </select>
+    <p class="text-md panel-muted mt-1">
+      When true, malformed or missing structured output raises an error; when
+      false, parsing failures degrade to empty parsed payloads.
+    </p>
+    <label class="block text-xlg mt-4">VLM Structured Schema</label>
+    <select
+      id="vlm-structured-schema"
+      class="w-full border rounded px-3 py-2 mt-1"
+    >
+      <option value="scene_graph">scene_graph</option>
+      <option value="relationship_list">relationship_list</option>
+    </select>
+    <p class="text-md panel-muted mt-1">
+      Chooses expected response schema: wrapped scene-graph object or direct
+      list of relationships.
+    </p>
+    <label class="block text-xlg mt-4">Local VLM Prompt Template Style</label>
+    <select
+      id="vlm-local-prompt-style"
+      class="w-full border rounded px-3 py-2 mt-1"
+    >
+      <option value="auto">auto</option>
+      <option value="chatml">chatml</option>
+      <option value="plain">plain</option>
+    </select>
+    <p class="text-md panel-muted mt-1">
+      Controls local template rendering strategy. Use <code>plain</code> to
+      force simple fallback prompts for fragile models.
+    </p>
+    <label class="block text-xlg mt-4">Local VLM Image Token Strategy</label>
+    <select
+      id="vlm-local-image-token-strategy"
+      class="w-full border rounded px-3 py-2 mt-1"
+    >
+      <option value="auto">auto</option>
+      <option value="single">single</option>
+      <option value="multi">multi</option>
+    </select>
+    <p class="text-md panel-muted mt-1">
+      Hint for local multimodal prompt formatting. Useful when model families
+      expect specific image-token conventions.
+    </p>
+    <label class="block text-xlg mt-4">VLM Client Init Kwargs (JSON)</label>
+    <textarea
+      id="vlm-client-init-kwargs"
+      rows="6"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder='{"timeout": 120}'
+    ></textarea>
+    <p class="text-md panel-muted mt-1">
+      Advanced provider client options applied during client construction
+      (connection/auth/transport-level settings).
+    </p>
+    <p id="vlm-client-init-kwargs-status" class="text-md panel-muted mt-1"></p>
+    <label class="block text-xlg mt-4">VLM Call Kwargs (JSON)</label>
+    <textarea
+      id="vlm-call-kwargs"
+      rows="6"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder='{"max_tokens": 1024, "temperature": 0.2}'
+    ></textarea>
+    <p class="text-md panel-muted mt-1">
+      Advanced per-request generation arguments (sampling, token limits,
+      provider call knobs).
+    </p>
+    <p id="vlm-call-kwargs-status" class="text-md panel-muted mt-1"></p>
+    <label class="block text-xlg mt-4">User Prompt</label>
+    <p class="text-md panel-muted mt-1">
+      Per-frame instruction template. Supports placeholders:
+      <code>{predicates}</code>, <code>{context}</code>, <code>{caption}</code>,
+      <code>{captions_recent}</code>, <code>{caption_recent}</code>. SGG always
+      fills <code>{predicates}</code>.
+    </p>
+    <textarea
+      id="vlm-user"
+      rows="10"
+      class="w-full border rounded px-3 py-2 mt-1"
+    ></textarea>
+    <label class="block text-xlg mt-4"
+      >Ontology Predicates (one per line)</label
+    >
+    <p class="text-md panel-muted mt-1">
+      Predicate vocabulary used for scene relationships and prompt conditioning.
+    </p>
+    <textarea
+      id="vlm-predicates"
+      rows="10"
+      class="w-full border rounded px-3 py-2 mt-1"
+    ></textarea>
 
+    <label class="block text-xlg mt-4" for="sgg-rules-json"
+      >Rules (JSON array)</label
+    >
+    <p class="text-md panel-muted mt-1">
+      Rule-based scene graph configuration used whenever the Rules backend is
+      enabled (predicate type, thresholds, constraints).
+    </p>
+    <textarea
+      id="sgg-rules-json"
+      rows="10"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'
+    ></textarea>
 
-                    <label class="block text-xlg mt-4" for="sgg-rules-json">Rules (JSON array)</label>
-                    <p class="text-md panel-muted mt-1">Rule-based scene graph configuration used whenever the Rules backend is enabled (predicate type, thresholds, constraints).</p>
-                    <textarea id="sgg-rules-json" rows="10" class="w-full border rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>
-
-                    <h4 class="text-md uppercase tracking-widest panel-muted mt-6">RelTR Backend</h4>
-                    <label class="block text-xlg mt-4">RelTR Checkpoint Path</label>
-                    <input id="reltr-checkpoint-path" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="/home/user/checkpoint0149.pth">
-                    <p class="text-md panel-muted mt-1">Absolute path to RelTR checkpoint file.</p>
-                    <label class="block text-xlg mt-4">RelTR Device</label>
-                    <input id="reltr-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cpu">
-                    <p class="text-md panel-muted mt-1">Inference device for RelTR backend. CPU works well for lightweight use.</p>
-                    <label class="block text-xlg mt-4">RelTR Threshold</label>
-                    <input id="reltr-threshold" type="number" min="0" max="1" step="0.01" class="w-full border rounded px-3 py-2 mt-1" placeholder="0.3">
-                    <p class="text-md panel-muted mt-1">Confidence threshold for keeping RelTR relation queries.</p>
-                    <label class="block text-xlg mt-4">RelTR Top-K</label>
-                    <input id="reltr-topk" type="number" min="1" step="1" class="w-full border rounded px-3 py-2 mt-1" placeholder="100">
-                    <p class="text-md panel-muted mt-1">Maximum number of highest-confidence relation queries to decode.</p>
-                    <label class="block text-xlg mt-4">RelTR IoU Match Threshold</label>
-                    <input id="reltr-iou-match-threshold" type="number" min="0" max="1" step="0.01" class="w-full border rounded px-3 py-2 mt-1" placeholder="0.5">
-                    <p class="text-md panel-muted mt-1">Minimum IoU used to map RelTR subject/object boxes onto tracked detections IDs.</p>
-
-                </div>
-            </section>
+    <h4 class="text-md uppercase tracking-widest panel-muted mt-6">
+      RelTR Backend
+    </h4>
+    <label class="block text-xlg mt-4">RelTR Checkpoint Path</label>
+    <input
+      id="reltr-checkpoint-path"
+      type="text"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="/home/user/checkpoint0149.pth"
+    />
+    <p class="text-md panel-muted mt-1">
+      Absolute path to RelTR checkpoint file.
+    </p>
+    <label class="block text-xlg mt-4">RelTR Device</label>
+    <input
+      id="reltr-device"
+      type="text"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="cpu"
+    />
+    <p class="text-md panel-muted mt-1">
+      Inference device for RelTR backend. CPU works well for lightweight use.
+    </p>
+    <label class="block text-xlg mt-4">RelTR Threshold</label>
+    <input
+      id="reltr-threshold"
+      type="number"
+      min="0"
+      max="1"
+      step="0.01"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="0.3"
+    />
+    <p class="text-md panel-muted mt-1">
+      Confidence threshold for keeping RelTR relation queries.
+    </p>
+    <label class="block text-xlg mt-4">RelTR Top-K</label>
+    <input
+      id="reltr-topk"
+      type="number"
+      min="1"
+      step="1"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="100"
+    />
+    <p class="text-md panel-muted mt-1">
+      Maximum number of highest-confidence relation queries to decode.
+    </p>
+    <label class="block text-xlg mt-4">RelTR IoU Match Threshold</label>
+    <input
+      id="reltr-iou-match-threshold"
+      type="number"
+      min="0"
+      max="1"
+      step="0.01"
+      class="w-full border rounded px-3 py-2 mt-1"
+      placeholder="0.5"
+    />
+    <p class="text-md panel-muted mt-1">
+      Minimum IoU used to map RelTR subject/object boxes onto tracked detections
+      IDs.
+    </p>
+  </div>
+</section>
