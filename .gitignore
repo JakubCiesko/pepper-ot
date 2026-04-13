@@ -32,3 +32,13 @@ research/artifacts
 neural_motifs/
 reltr/
 thesis-source/
+# Node
+node_modules/
+
+# Env files
+.env
+
+# IDE
+.vscode/
+.idea/
+package.json
