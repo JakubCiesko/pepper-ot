@@ -101,6 +101,7 @@ class PromptSource(BaseModel):
             raise ValueError("PromptSource requires exactly one of 'text' or 'path'.")
         return self
 
+    # TODO: think about this, whether it is ok to ALwAYS resolve to the path, and not just upon init
     def resolve(self, base_dir: Path) -> str:
         if self.path is not None:
             data = (base_dir / self.path).read_text(encoding="utf-8")
@@ -156,6 +157,7 @@ class SceneGraphVLMConfig(LLMConfig):
 
 class ChatConfig(LLMConfig):
     system_prompt: PromptSource
+    object_user_prompt: PromptSource | None = None
 
 
 class CaptionConfig(LLMConfig):

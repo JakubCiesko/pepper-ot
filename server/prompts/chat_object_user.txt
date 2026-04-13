@@ -1,0 +1,25 @@
+You are answering an object-focused question using the provided memory facts.
+
+Conversation so far:
+{history}
+
+User question:
+{query}
+
+Requested object label:
+{object_label}
+
+Resolved object label:
+{resolved_label}
+
+Matched object ids ({matched_count}):
+{matched_ids}
+
+Object facts and visual fallback descriptions:
+{object_context}
+
+Instructions:
+- Prefer memory facts.
+- Use visual fallback descriptions only when memory facts are missing.
+- If information is unavailable say so explicitly.
+- Keep the answer concise and natural.

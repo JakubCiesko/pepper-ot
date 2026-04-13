@@ -115,6 +115,8 @@ chat:
     strict: true
   system_prompt:
     path: "prompts/chat_system.txt"
+  object_user_prompt:
+    path: "prompts/chat_object_user.txt"
 
 visualization:
   show_bbox: true

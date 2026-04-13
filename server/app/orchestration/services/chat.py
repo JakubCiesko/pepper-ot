@@ -33,9 +33,11 @@ class ChatService:
         config: ChatConfig,
         memory: SceneMemory,
         system_prompt: str,
+        object_user_prompt: str | None = None,
     ):
         self.memory = memory
         self.system_prompt = system_prompt
+        self.object_user_prompt = object_user_prompt
         self.llm = LLMClient(config)
 
     async def _get_scene_state(self) -> SceneState:
@@ -135,6 +137,16 @@ class ChatService:
     @staticmethod
     def _normalize_label(value: str | None) -> str:
         return (value or "").strip().lower()
+
+    @staticmethod
+    def _render_object_user_prompt(
+        template: str,
+        values: dict[str, str],
+    ) -> str:
+        rendered = template
+        for key, value in values.items():
+            rendered = rendered.replace("{" + key + "}", value)
+        return rendered
 
     async def compose_prompt(self, base: str) -> str:
         world_context = await self._build_context_string()
@@ -330,10 +342,32 @@ class ChatService:
                     )
 
         object_context = "\n".join(object_context_lines)
+        resolved_label = matched_objects[0].label if matched_objects else object_label
 
         system_prompt = await self.compose_prompt(self.system_prompt)
         history_text = self._format_history(conversation_history)
-        if history_text:
+
+        if self.object_user_prompt:
+            matched_ids_text = (
+                ", ".join(str(object_id) for object_id in source_object_ids)
+                if source_object_ids
+                else "none"
+            )
+            prompt_values = {
+                "query": user_query,
+                "object_label": object_label,
+                "resolved_label": resolved_label,
+                "matched_ids": matched_ids_text,
+                "matched_count": str(len(source_object_ids)),
+                "history": history_text,
+                "object_context": object_context,
+                "context": object_context,
+            }
+            user_prompt = self._render_object_user_prompt(
+                self.object_user_prompt,
+                prompt_values,
+            )
+        elif history_text:
             user_prompt = (
                 "Conversation so far:\n"
                 f"{history_text}\n\n"
@@ -345,5 +379,4 @@ class ChatService:
             user_prompt = f"{object_context}\n\nCurrent user message:\n{user_query}"
 
         response = await self.llm.generate_text(system_prompt, user_prompt)
-        resolved_label = matched_objects[0].label if matched_objects else object_label
         return response, source_object_ids, crop_fallback_used_ids, resolved_label
