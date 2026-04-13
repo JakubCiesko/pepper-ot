@@ -342,3 +342,10 @@ class SceneMemory:
         """Return a lightweight view of the current tracked objects."""
         with self._lock:
             return self.store.snapshot()
+
+    def get_track_crop(self, object_id: int) -> bytes | None:
+        with self._lock:
+            track = self.store.tracks.get(object_id)
+            if track is None:
+                return None
+            return track.last_crop

@@ -1,3 +1,4 @@
+import base64
 import logging
 import os
 import signal
@@ -135,6 +136,19 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
     async def get_memory():
         state = await memory_service().get_memory()
         return state.model_dump(mode="json")
+
+    @router.get("/internal/memory/object/{object_id}/crop")
+    async def get_memory_object_crop(object_id: int):
+        crop_bytes = await runtime.get_track_crop(object_id)
+        return {
+            "ok": True,
+            "object_id": object_id,
+            "image_b64": (
+                base64.b64encode(crop_bytes).decode("utf-8")
+                if crop_bytes is not None
+                else None
+            ),
+        }
 
     @router.get("/internal/memory/objects")
     async def get_memory_objects(

@@ -256,6 +256,10 @@ class WorkerRuntime:
         await self.ensure_pipeline()
         return self.pipeline.memory.delete_relation(subject_id, predicate, object_id)
 
+    async def get_track_crop(self, object_id: int) -> bytes | None:
+        await self.ensure_pipeline()
+        return self.pipeline.memory.get_track_crop(object_id)
+
     def status(self) -> dict[str, Any]:
         return {
             "ok": True,
