@@ -12,10 +12,11 @@ from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse
 from app.schemas.chat import PregeneratedQAPair
 from app.schemas.chat import PregeneratedQAPairs
+from app.schemas.chat import PregeneratedQARequest
 from app.schemas.chat import PregeneratedQAResponse
 from fastapi import APIRouter
+from fastapi import Body
 from fastapi import HTTPException
-from fastapi import Query
 import asyncio 
 
 
@@ -327,22 +328,14 @@ async def delete_conversation(chat_id: str):
     return {"ok": True}
 
 
-@router.get("/chat/pregenerate_qa", response_model=PregeneratedQAResponse)
+@router.post("/chat/pregenerate_qa", response_model=PregeneratedQAResponse)
 async def get_memory_pregenerated_qa(
-    language: str | None = Query(None),
-    input_language: str | None = Query(None),
-    output_language: str | None = Query(None),
-    requested_number_of_pairs: int = Query(3, ge=1, le=10),
+    request: PregeneratedQARequest | None = Body(default=None),
 ):
-    request_payload = {
-        "language": language,
-        "input_language": input_language,
-        "output_language": output_language,
-        "requested_number_of_pairs": requested_number_of_pairs,
-    }
+    request = request or PregeneratedQARequest()
     logger.info(
         "PregenerateQA for Current Memory state requested with: %s",
-        request_payload,
+        request,
     )
 
     if app_state.chat_service is None:
@@ -361,11 +354,11 @@ async def get_memory_pregenerated_qa(
     )
 
     output_language = (
-        output_language
-        if output_language is not None
+        request.output_language
+        if request.output_language is not None
         else (
-            language
-            if language is not None
+            request.language
+            if request.language is not None
             else (
                 app_state.config.system.get("output_language")
                 if app_state.config is not None
@@ -375,7 +368,7 @@ async def get_memory_pregenerated_qa(
         )
     )
 
-    number_of_pairs = requested_number_of_pairs or 3
+    number_of_pairs = request.requested_number_of_pairs or 3
     user_prompt = (
         f"Generate exactly {number_of_pairs} concise question-answer pairs about the current scene.\n"
         "Return only structured data matching the schema.\n"

@@ -27,7 +27,11 @@ export async function fetchMemoryObjectCrop(objectId) {
 export async function fetchPregeneratedQa() {
   return requestJson(
     '/api/v1/chat/pregenerate_qa',
-    {},
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    },
     'Failed to pregenerate scene Q/A',
   );
 }

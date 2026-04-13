@@ -187,8 +187,8 @@ export function renderPregeneratedQa(dom, payload) {
 
   const metadata =
     payload?.metadata && typeof payload.metadata === 'object'
-    ? payload.metadata
-    : {};
+      ? payload.metadata
+      : {};
   const provider = metadata.provider ? String(metadata.provider) : '';
   const modelId = metadata.model_id ? String(metadata.model_id) : '';
   dom.memPregeneratedQaResults.innerHTML = '';
@@ -213,11 +213,13 @@ export function renderPregeneratedQa(dom, payload) {
     label.textContent = `Pair ${idx + 1}`;
 
     const questionEl = document.createElement('div');
-    questionEl.className = 'text-sm font-semibold text-slate-100';
+    questionEl.className = 'text-sm font-semibold';
+    questionEl.style.color = 'var(--panel-text)';
     questionEl.textContent = question;
 
     const answerEl = document.createElement('div');
-    answerEl.className = 'text-sm text-slate-300 mt-2';
+    answerEl.className = 'text-sm mt-2';
+    answerEl.style.color = 'var(--panel-text)';
     answerEl.textContent = answer;
 
     card.appendChild(label);

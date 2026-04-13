@@ -146,7 +146,8 @@ export function bindMemoryCrud(dom) {
         );
       } finally {
         dom.memPregenerateQa.disabled = false;
-        dom.memPregenerateQa.textContent = previousLabel || 'Pregenerate Scene Q/A';
+        dom.memPregenerateQa.textContent =
+          previousLabel || 'Pregenerate Scene Q/A';
       }
     });
   }
