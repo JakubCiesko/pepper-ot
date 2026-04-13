@@ -1,3 +1,4 @@
+from io import BytesIO
 import logging
 
 import numpy as np
@@ -62,7 +63,7 @@ class FeatureExtractor:
         self,
         image: Image.Image,
         detections: list[InferenceDetectionObject],
-        debug_show: bool = True,
+        debug_show: bool = False,
     ) -> list[Image.Image]:
         crops = []
         logger.info(
@@ -100,6 +101,36 @@ class FeatureExtractor:
         )
         return crops
 
+    @staticmethod
+    def _encode_crop_bytes(crops: list[Image.Image]) -> list[bytes]:
+        encoded: list[bytes] = []
+        for crop in crops:
+            buffer = BytesIO()
+            rgb_crop = crop.convert("RGB")
+            rgb_crop.save(buffer, format="JPEG", quality=90, optimize=True)
+            encoded.append(buffer.getvalue())
+        return encoded
+
+    def extract_with_crops(
+        self, image: Image.Image, detections: list[InferenceDetectionObject]
+    ) -> tuple[NDArray, list[bytes]]:
+        if not detections:
+            logger.info("No detections, returning empty embedding/crop arrays.")
+            return np.array([]), []
+
+        crops = self.prepare_crops(image, detections, debug_show=False)
+
+        with torch.no_grad():
+            inputs = self.processor(
+                images=crops, return_tensors="pt", do_resize=False, do_center_crop=False
+            )
+            pixel_values = inputs.pixel_values.to(self.model.dtype).to(self.device)
+            summary, _ = self.model(pixel_values)
+            summary = summary / summary.norm(p=2, dim=-1, keepdim=True)
+
+        logger.info("Extracted %d normalized embeddings.", len(summary))
+        return summary.cpu().float().numpy(), self._encode_crop_bytes(crops)
+
     def extract(
         self, image: Image.Image, detections: list[InferenceDetectionObject]
     ) -> NDArray:
@@ -110,24 +141,5 @@ class FeatureExtractor:
         if not detections:
             logger.info("No detections, returning empty embedding array.")
             return np.array([])
-
-        # 1. Prepare Crops with FIXED Resolution
-        # We must use a fixed size (e.g. 384x384) so we can batch them into one tensor.
-        # 384 is a standard resolution that works well with C-RADIO.
-        crops = self.prepare_crops(image, detections)
-
-        # 2. Batch Inference
-        with torch.no_grad():
-            # We explicitly disable resizing in the processor since we did it manually
-            inputs = self.processor(
-                images=crops, return_tensors="pt", do_resize=False, do_center_crop=False
-            )
-
-            pixel_values = inputs.pixel_values.to(self.model.dtype).to(self.device)
-
-            summary, _ = self.model(pixel_values)
-
-            # 3. Normalize for Cosine Similarity
-            summary = summary / summary.norm(p=2, dim=-1, keepdim=True)
-        logger.info("Extracted %d normalized embeddings.", len(summary))
-        return summary.cpu().float().numpy()
+        embeddings, _ = self.extract_with_crops(image, detections)
+        return embeddings

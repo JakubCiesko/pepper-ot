@@ -57,7 +57,12 @@ class SceneMemoryStoreTracksMixin:
             self._pending_synthetic_pepper_by_detection.clear()
         self.next_id = 1
 
-    def create_track(self, det: InferenceDetectionObject, embedding) -> int:
+    def create_track(
+        self,
+        det: InferenceDetectionObject,
+        embedding,
+        last_crop: bytes | None = None,
+    ) -> int:
         object_id = self.next_id
         self.tracks[object_id] = TrackedObject(
             id=object_id,
@@ -65,6 +70,7 @@ class SceneMemoryStoreTracksMixin:
             embedding=embedding,
             bbox=det.bbox,
             confidence=det.confidence,
+            last_crop=last_crop,
         )
         self.next_id += 1
         return object_id

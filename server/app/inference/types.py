@@ -45,10 +45,17 @@ class TrackedObject:
         """Returns (x_center, y_center)"""
         return ((self.bbox[0] + self.bbox[2]) / 2, (self.bbox[1] + self.bbox[3]) / 2)
 
-    def update(self, det: InferenceDetectionObject, embedding: np.ndarray):
+    def update(
+        self,
+        det: InferenceDetectionObject,
+        embedding: np.ndarray,
+        last_crop: bytes | None = None,
+    ):
         """Update state with new observation."""
         self.bbox = det.bbox
         self.confidence = det.confidence
+        if last_crop is not None:
+            self.last_crop = last_crop
 
         # Smooth embedding (Exponential Moving Average) to stabilize identity
         # We give 10% weight to the new look, 90% to history

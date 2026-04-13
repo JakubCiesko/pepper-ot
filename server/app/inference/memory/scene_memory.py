@@ -111,7 +111,9 @@ class SceneMemory:
         with self._lock:
             try:
                 logger.debug("Extracting detection embeddings")
-                embeddings = self.extractor.extract(image, detections)
+                embeddings, crop_bytes = self.extractor.extract_with_crops(
+                    image, detections
+                )
             except Exception as exc:
                 logger.exception(f"Embedding extraction failed: {exc}")
                 return detections
@@ -145,7 +147,8 @@ class SceneMemory:
                 track = active_tracks_list[t_idx]
                 det = detections[d_idx]
                 emb = embeddings[d_idx]
-                track.update(det, emb)
+                last_crop = crop_bytes[d_idx] if d_idx < len(crop_bytes) else None
+                track.update(det, emb, last_crop=last_crop)
                 det.object_id = track.id
 
             self.store.age_unmatched_tracks(un_tracks, active_tracks_list)
@@ -164,7 +167,8 @@ class SceneMemory:
                     continue
                 det = detections[d_idx]
                 emb = embeddings[d_idx]
-                det.object_id = self.store.create_track(det, emb)
+                last_crop = crop_bytes[d_idx] if d_idx < len(crop_bytes) else None
+                det.object_id = self.store.create_track(det, emb, last_crop=last_crop)
 
             try:
                 fused_detections = self.store.fuse_people_perception(
@@ -183,13 +187,20 @@ class SceneMemory:
                         "Creating tracks for %d Pepper-induced synthetic person detections",
                         len(synthetic_detections),
                     )
-                    synthetic_embeddings = self.extractor.extract(
-                        image, synthetic_detections
+                    synthetic_embeddings, synthetic_crop_bytes = (
+                        self.extractor.extract_with_crops(image, synthetic_detections)
                     )
-                    for det, emb in zip(
-                        synthetic_detections, synthetic_embeddings, strict=False
+                    for idx, (det, emb) in enumerate(
+                        zip(synthetic_detections, synthetic_embeddings, strict=False)
                     ):
-                        det.object_id = self.store.create_track(det, emb)
+                        last_crop = (
+                            synthetic_crop_bytes[idx]
+                            if idx < len(synthetic_crop_bytes)
+                            else None
+                        )
+                        det.object_id = self.store.create_track(
+                            det, emb, last_crop=last_crop
+                        )
                         self.store.bind_pending_detection_track(
                             det,
                             timestamp=(
