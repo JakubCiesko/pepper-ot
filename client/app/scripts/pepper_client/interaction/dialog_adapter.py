@@ -41,6 +41,7 @@ class DialogAdapter(object):
             return self.clear_dynamic_concept(name, language)
 
         # ALDialog API can differ across NAOqi bindings, so we try common shapes.
+        # TODO: look at this properly
         attempts = [
             (name, language, cleaned),
             (name, language, [[value] for value in cleaned]),
