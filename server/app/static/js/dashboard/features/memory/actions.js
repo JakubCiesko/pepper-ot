@@ -1,6 +1,15 @@
-import { doMemoryRequest, fetchMemory, fetchMemoryObjectCrop } from './api.js';
+import {
+  doMemoryRequest,
+  fetchMemory,
+  fetchMemoryObjectCrop,
+  fetchPregeneratedQa,
+} from './api.js';
 import { parseBboxCsv, parseCommaList } from './parsers.js';
-import { renderMemory, showMemoryEditorStatus } from './render.js';
+import {
+  renderMemory,
+  renderPregeneratedQa,
+  showMemoryEditorStatus,
+} from './render.js';
 
 function getRenderLimit(dom) {
   const raw = Number(dom?.memRenderLimit?.value);
@@ -112,6 +121,32 @@ export function bindMemoryCrud(dom) {
           err.message || 'Failed to reset memory',
           false,
         );
+      }
+    });
+  }
+
+  if (dom.memPregenerateQa) {
+    dom.memPregenerateQa.addEventListener('click', async () => {
+      const previousLabel = dom.memPregenerateQa.textContent;
+      try {
+        dom.memPregenerateQa.disabled = true;
+        dom.memPregenerateQa.textContent = 'Generating...';
+        showMemoryEditorStatus(dom, 'Pregenerating scene Q/A...');
+        const payload = await fetchPregeneratedQa();
+        renderPregeneratedQa(dom, payload);
+        showMemoryEditorStatus(
+          dom,
+          `Pregenerated ${payload?.pregenerated_qa?.length || 0} scene Q/A pairs`,
+        );
+      } catch (err) {
+        showMemoryEditorStatus(
+          dom,
+          err.message || 'Failed to pregenerate scene Q/A',
+          false,
+        );
+      } finally {
+        dom.memPregenerateQa.disabled = false;
+        dom.memPregenerateQa.textContent = previousLabel || 'Pregenerate Scene Q/A';
       }
     });
   }

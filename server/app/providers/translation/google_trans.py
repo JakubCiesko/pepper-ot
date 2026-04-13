@@ -146,7 +146,7 @@ async def enforce_output_language(
             text, return_languages=return_languages
         )
         return (
-            (translated if isinstance(translated, str) else translated[0])
+            translated if isinstance(translated, str) else translated[0]
             if not return_languages
             else translated
         )
@@ -156,7 +156,7 @@ async def enforce_output_language(
             text, return_languages=return_languages
         )
         return (
-            (translated if isinstance(translated, str) else translated[0])
+            translated if isinstance(translated, str) else translated[0]
             if not return_languages
             else translated
         )

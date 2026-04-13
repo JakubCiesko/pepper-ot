@@ -58,7 +58,7 @@ class MemoryGraphRenderService:
             graph_svg=graph_svg,
             timestamp=state.timestamp,
         )
-    
+    # TODO: probably get rid of _ids because it fucks it up 
     def build_text_description(self, 
                                state: SceneState) -> str:
         labels, label_counts = self._labels_and_counts(state)

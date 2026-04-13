@@ -23,3 +23,11 @@ export async function fetchMemoryObjectCrop(objectId) {
     'Failed to fetch object crop',
   );
 }
+
+export async function fetchPregeneratedQa() {
+  return requestJson(
+    '/api/v1/chat/pregenerate_qa',
+    {},
+    'Failed to pregenerate scene Q/A',
+  );
+}

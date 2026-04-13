@@ -5,6 +5,10 @@ export function getMemoryDomRefs() {
     memoryContainer: document.getElementById('memory-content'),
     memoryRaw: document.getElementById('memory-raw'),
     memoryEditorStatus: document.getElementById('memory-editor-status'),
+    memPregenerateQa: document.getElementById('mem-pregenerate-qa'),
+    memPregeneratedQaResults: document.getElementById(
+      'mem-pregenerated-qa-results',
+    ),
     memObjId: document.getElementById('mem-obj-id'),
     memObjLabel: document.getElementById('mem-obj-label'),
     memObjBbox: document.getElementById('mem-obj-bbox'),

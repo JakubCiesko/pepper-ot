@@ -292,6 +292,31 @@
           >
             Reset Memory
           </button>
+          <button
+            id="mem-pregenerate-qa"
+            class="px-3 py-1 text-md rounded border panel-border panel-alt"
+            type="button"
+          >
+            Pregenerate Scene Q/A
+          </button>
+        </div>
+        <div class="mb-4 border panel-border rounded p-3 panel-alt">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <h3 class="text-md font-semibold">Pregenerated Scene Q/A</h3>
+            <span class="text-xs uppercase tracking-widest panel-muted"
+              >Showcase</span
+            >
+          </div>
+          <p class="text-md panel-muted mb-2">
+            Generate a few grounded question-answer pairs from the current scene
+            memory using the structured chat endpoint.
+          </p>
+          <div
+            id="mem-pregenerated-qa-results"
+            class="panel-muted space-y-2"
+          >
+            <p class="panel-muted">No pregenerated Q/A yet.</p>
+          </div>
         </div>
         <div class="mb-4">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-2">

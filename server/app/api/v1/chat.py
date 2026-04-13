@@ -12,11 +12,11 @@ from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse
 from app.schemas.chat import PregeneratedQAPair
 from app.schemas.chat import PregeneratedQAPairs
-from app.schemas.chat import PregeneratedQARequest
 from app.schemas.chat import PregeneratedQAResponse
 from fastapi import APIRouter
-from fastapi import Depends
 from fastapi import HTTPException
+from fastapi import Query
+import asyncio 
 
 
 logger = logging.getLogger(__name__)
@@ -329,9 +329,21 @@ async def delete_conversation(chat_id: str):
 
 @router.get("/chat/pregenerate_qa", response_model=PregeneratedQAResponse)
 async def get_memory_pregenerated_qa(
-    request: PregeneratedQARequest,
+    language: str | None = Query(None),
+    input_language: str | None = Query(None),
+    output_language: str | None = Query(None),
+    requested_number_of_pairs: int = Query(3, ge=1, le=10),
 ):
-    logger.info("PregenerateQA for Current Memory state requested with: %s", request)
+    request_payload = {
+        "language": language,
+        "input_language": input_language,
+        "output_language": output_language,
+        "requested_number_of_pairs": requested_number_of_pairs,
+    }
+    logger.info(
+        "PregenerateQA for Current Memory state requested with: %s",
+        request_payload,
+    )
 
     if app_state.chat_service is None:
         raise HTTPException(status_code=503, detail="Chat Service is not initialized.")
@@ -349,11 +361,11 @@ async def get_memory_pregenerated_qa(
     )
 
     output_language = (
-        request.output_language
-        if request.output_language is not None
+        output_language
+        if output_language is not None
         else (
-            request.language
-            if request.language is not None
+            language
+            if language is not None
             else (
                 app_state.config.system.get("output_language")
                 if app_state.config is not None
@@ -362,8 +374,8 @@ async def get_memory_pregenerated_qa(
             )
         )
     )
-    
-    number_of_pairs = request.requested_number_of_pairs or 3
+
+    number_of_pairs = requested_number_of_pairs or 3
     user_prompt = (
         f"Generate exactly {number_of_pairs} concise question-answer pairs about the current scene.\n"
         "Return only structured data matching the schema.\n"
@@ -379,14 +391,28 @@ async def get_memory_pregenerated_qa(
         conversation_history=None,
         user_prompt_override=user_prompt,
     )
+    async def translate_pair(pair: PregeneratedQAPair) -> PregeneratedQAPair:
+        question, answer = pair.question, pair.answer
+        task1 = enforce_output_language(question, output_language or "english")
+        task2 = enforce_output_language(answer, output_language or "english")
+        translations = await asyncio.gather(task1, task2)
+        question = translations[0] if isinstance(translations[0], str) else translations[0][0]
+        answer = translations[1] if isinstance(translations[1], str) else translations[1][0]
+        return PregeneratedQAPair(question=question, answer=answer)
+
     pregenerated_pairs = [
         PregeneratedQAPair(
-            question=await enforce_output_language(item.question.strip(), output_language or "english"),
-            answer=await enforce_output_language(item.answer.strip(), output_language or "english"),
+            question=item.question.strip(),
+            answer=item.answer.strip(),
         )
         for item in structured.items
         if item.question.strip() and item.answer.strip()
     ]
+    logger.info("PregeneratedQA Pre-Translation: %s", pregenerated_pairs)
+    pregenerated_pairs = await asyncio.gather(*[
+        translate_pair(pair) for pair in pregenerated_pairs
+    ])
+    logger.info("PregeneratedQA Final Output After Translation %s", pregenerated_pairs)
 
     metadata: dict[str, object] = {
         "model_id": app_state.config.chat.model_id,
