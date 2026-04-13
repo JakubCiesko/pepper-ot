@@ -65,12 +65,9 @@ async def detect_endpoint(
     )
     image_bytes = await file.read()
     image_bytes, (w, h) = (
-        (
-            img_utils.resize_image_bytes(image_bytes, debug_show=True)
-            if form.resize_image
-            else image_bytes
-        ),
-        (None, None),
+        img_utils.resize_image_bytes(image_bytes, debug_show=True)
+        if form.resize_image
+        else (image_bytes, (None, None))
     )
     service = DetectService(app_state)
     robot_metadata = service.parse_metadata(form.metadata)
@@ -118,8 +115,9 @@ async def panorama_detect_endpoint(
     for file, meta in zip(files, metadata, strict=True):
         image_bytes = await file.read()
         image_bytes, (w, h) = (
-            img_utils.resize_image_bytes(image_bytes) if resize_image else image_bytes,
-            (None, None),
+            img_utils.resize_image_bytes(image_bytes, debug_show=True)
+            if resize_image
+            else (image_bytes, (None, None))
         )
         image_bytes_list.append(image_bytes)
         data = service.parse_metadata(meta)
@@ -147,8 +145,9 @@ async def panorama_detect_endpoint(
         index: int,
     ):
         image_bytes, (w, h) = (
-            img_utils.resize_image_bytes(image_bytes) if resize_image else image_bytes,
-            (None, None),
+            img_utils.resize_image_bytes(image_bytes, debug_show=True)
+            if resize_image
+            else (image_bytes, (None, None))
         )
         if w is not None and h is not None:
             robot_metadata.image_width, robot_metadata.image_height = w, h

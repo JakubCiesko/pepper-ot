@@ -38,6 +38,8 @@ class TrackedObject:
     hits: int = 1
     frames_since_seen: int = 0
 
+    last_crop: bytes | None = None
+
     @property
     def center(self):
         """Returns (x_center, y_center)"""

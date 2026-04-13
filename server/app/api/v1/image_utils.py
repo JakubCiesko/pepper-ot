@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def save_debug(image_bytes: bytes, name: str):
-    with open(pth := f"/tmp/{name}.jpg", "wb") as f:
+    with open(pth := f"/tmp/pepper_server/{name}.jpg", "wb") as f:
         f.write(image_bytes)
         logger.info("Saved debug image: %s to %s", name, pth)
 

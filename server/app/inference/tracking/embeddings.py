@@ -59,13 +59,16 @@ class FeatureExtractor:
         self.model = self.model.to(self.device)
 
     def prepare_crops(
-        self, image: Image.Image, detections: list[InferenceDetectionObject]
+        self,
+        image: Image.Image,
+        detections: list[InferenceDetectionObject],
+        debug_show: bool = True,
     ) -> list[Image.Image]:
         crops = []
         logger.info(
             "Preparing crops of detected images with size: %s", self.target_size
         )
-        for det in detections:
+        for i, det in enumerate(detections):
             # bbox is [x1, y1, x2, y2]
             # Convert float bbox to int
             x1, y1, x2, y2 = map(int, det.bbox)
@@ -83,6 +86,9 @@ class FeatureExtractor:
             else:
                 crop = image.crop((x1, y1, x2, y2))
                 crop = crop.resize(self.target_size, self.resampling_method)
+
+            if debug_show:
+                crop.save(f"/tmp/pepper_server/crop_{i}.png")
 
             crops.append(crop)
         logger.info(
