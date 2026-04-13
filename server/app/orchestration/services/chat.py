@@ -326,7 +326,7 @@ class ChatService:
                             crop_fallback_used_ids.append(obj.id)
 
                 object_context_lines.append(
-                    f"- ID {obj.id}: {obj.label} (hits={obj.hits}, last_seen={obj.last_seen:.3f})"
+                    f"- ID {obj.id}: {obj.label} (hits={obj.hits}, last_seen={obj.last_seen_human_format()})"
                 )
                 if attrs:
                     object_context_lines.append(

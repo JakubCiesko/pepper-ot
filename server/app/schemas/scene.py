@@ -1,5 +1,32 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from pydantic import BaseModel
 from pydantic import Field
+
+
+def time_ago(timestamp: float) -> str:
+    tz = ZoneInfo("Europe/Bratislava")
+
+    now = datetime.now(tz)
+    last_seen = datetime.fromtimestamp(timestamp, tz=tz)
+    diff = now - last_seen
+
+    seconds = int(diff.total_seconds())
+
+    if seconds < 10:
+        return "just now"
+    if seconds < 60:
+        return f"{seconds} seconds ago"
+    elif seconds < 3600:
+        minutes = seconds // 60
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+    elif seconds < 86400:
+        hours = seconds // 3600
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    else:
+        days = seconds // 86400
+        return f"{days} day{'s' if days != 1 else ''} ago"
 
 
 # This serves for structured output for openai and gemini TODO: maybe just one class.
@@ -40,6 +67,9 @@ class TrackedObjectState(BaseModel):
     last_seen: float
     hits: int = 1
     bbox: list[float]
+
+    def last_seen_human_format(self):
+        return time_ago(self.last_seen)
 
 
 class SceneCaptionState(BaseModel):
