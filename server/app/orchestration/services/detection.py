@@ -162,7 +162,3 @@ class DetectService:
             persist_payload.pop("image_path", None)
 
         await save_last_state_async(state_path, persist_payload)
-
-
-# def decode_base64_image(image_b64: str) -> bytes:
-#     return base64.b64decode(image_b64.encode("utf-8"))

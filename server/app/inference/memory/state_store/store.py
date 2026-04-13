@@ -25,7 +25,6 @@ class PepperPersonBinding:
     first_seen: float = field(default_factory=time.time)
     last_seen: float = field(default_factory=time.time)
     confidence: float = 1.0
-    # consecutive_hits: int = 1
     misses: int = 0
 
 
@@ -228,10 +227,9 @@ class SceneMemoryStore(
             )
             self.pepper_person_bindings[pepper_person_id] = binding
         else:
+            # TODO: maybe fishy, check
             if binding.server_object_id != server_object_id:
-                # binding.consecutive_hits += 1
                 binding.server_object_id = server_object_id
-                # binding.consecutive_hits = 1
                 binding.first_seen = min(binding.first_seen, now)
             binding.last_seen = now
             binding.confidence = max(binding.confidence, confidence)

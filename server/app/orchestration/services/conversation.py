@@ -112,17 +112,6 @@ class ConversationService:
             field="text_model",
         )
 
-    # async def prompt_history(
-    #     self,
-    #     chat_id: str,
-    #     *,
-    #     include_last_user: bool = False,
-    # ) -> list[tuple[str, str]]:
-    #     return await self.prompt_history_model(
-    #         chat_id,
-    #         include_last_user=include_last_user,
-    #     )
-
     async def get_conversation(self, chat_id: str) -> ConversationState | None:
         async with self._lock:
             return self._conversations.get(chat_id)

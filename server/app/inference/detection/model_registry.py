@@ -40,19 +40,6 @@ class DetectionModelRegistry:
         DetectionModelType.OWL_V2: None,
     }
 
-    # @classmethod
-    # def get_model_path(cls, model_name: DetectionModelType) -> Path:
-    #     """
-    #     Returns the local path for a given model.
-
-    #     Args:
-    #         model_name (DetectionModelType): The type of detection model.
-
-    #     Returns:
-    #         Path: Path to the local model file.
-    #     """
-    #     return cls.MODELS_DIR / cls.REGISTRY[model_name].split("/")[-1]
-
     @classmethod
     def ensure_model(cls, model_name: DetectionModelType) -> Path | None:
         """

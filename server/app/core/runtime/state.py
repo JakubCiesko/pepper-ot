@@ -58,15 +58,6 @@ class AppState:
         self.initialized = True
         logger.info("AppState initialized")
 
-    # async def reload_pipeline(self):
-    #     logger.info("Reloading App State. Starting Initialization.")
-    #     self.initialized = False
-    #     self.pipeline = None
-    #     if self.worker_manager is not None:
-    #         await self.worker_manager.close()
-    #         self.worker_manager = None
-    #     await self.initialize()
-
     async def apply_config(self, config: AppConfig):
         self.config = config
         self.config_version += 1

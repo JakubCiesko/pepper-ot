@@ -10,7 +10,6 @@ class WorkerState(StrEnum):
     STARTING = "STARTING"
     READY = "READY"
     BUSY = "BUSY"
-    # DRAINING = "DRAINING"
     STOPPING = "STOPPING"
     FAILED = "FAILED"
 
@@ -18,7 +17,6 @@ class WorkerState(StrEnum):
 class RestartReason(StrEnum):
     LAZY_START = "lazy_start"
     CONFIG_RELOAD = "config_reload"
-    # CRASH_RECOVERY = "crash_recovery"
     MANUAL_WARMUP = "manual_warmup"
 
 
