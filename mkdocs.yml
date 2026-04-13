@@ -1,0 +1,56 @@
+site_name: Pepper Thesis Codebase Docs
+site_description: Technical documentation for the Pepper scene-aware dialogue thesis codebase
+site_dir: site
+repo_name: pepper_ot
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Server:
+      - Overview: server/index.md
+      - Architecture:
+          - System Overview: server/architecture-overview.md
+          - Startup, Runtime, and State: server/startup-runtime-and-state.md
+          - Data Models and Contracts: server/data-models-and-contracts.md
+      - Configuration:
+          - Config and Reload: server/configuration-and-reload.md
+      - API and Orchestration:
+          - API Reference: server/api-reference.md
+          - Orchestration and Conversations: server/orchestration-and-conversations.md
+      - Inference:
+          - Pipeline: server/inference-pipeline.md
+          - Detection, Tracking, and Fusion: server/detection-tracking-and-fusion.md
+          - Scene Memory and State: server/scene-memory-and-state.md
+          - Scene Graph and Grounding: server/scene-graph-and-grounding.md
+      - Providers:
+          - Model Clients: server/providers-model-clients.md
+      - Worker:
+          - Runtime and Process Management: server/worker-runtime-and-process-management.md
+      - Dashboard:
+          - Operator UI: server/dashboard-and-operator-ui.md
+      - Support:
+          - Assets, Tests, and Support Files: server/assets-tests-and-support-files.md
+          - File Inventory: server/file-inventory.md

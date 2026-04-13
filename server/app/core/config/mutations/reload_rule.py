@@ -54,6 +54,11 @@ def _apply_chat_group(ml_state: "AppState", new: AppConfig):
         base_dir,
         fallback=ml_state.chat_service.system_prompt,
     )
+    ml_state.chat_service.object_user_prompt = resolve_prompt_text(
+        new.chat.object_user_prompt,
+        base_dir,
+        fallback=ml_state.chat_service.object_user_prompt,
+    )
     ml_state.chat_service.llm.update_runtime(new.chat)
 
 

@@ -25,4 +25,10 @@ rules = [
     ReloadRule(
         "chat.system_prompt", attrgetter("chat.system_prompt"), "hot", _apply_chat_group
     ),
+    ReloadRule(
+        "chat.object_user_prompt",
+        attrgetter("chat.object_user_prompt"),
+        "hot",
+        _apply_chat_group,
+    ),
 ]

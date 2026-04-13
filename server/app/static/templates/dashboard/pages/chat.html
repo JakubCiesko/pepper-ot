@@ -4,6 +4,9 @@
                     <label class="block text-md" for="chat-system">System Prompt</label>
                     <p class="text-md panel-muted mt-1">Base assistant behavior and tone for chat responses. Supports placeholders: <code>{context}</code>, <code>{caption}</code>, <code>{captions_recent}</code>, <code>{caption_recent}</code>, and <code>{predicates}</code>.</p>
                     <textarea id="chat-system" rows="16" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <label class="block text-md mt-4" for="chat-object-user">Object User Prompt Template</label>
+                    <p class="text-md panel-muted mt-1">Template used only for <code>mode=object</code>. Supports placeholders: <code>{query}</code>, <code>{object_label}</code>, <code>{resolved_label}</code>, <code>{matched_ids}</code>, <code>{matched_count}</code>, <code>{history}</code>, and <code>{object_context}</code>.</p>
+                    <textarea id="chat-object-user" rows="12" class="w-full border rounded px-3 py-2 mt-1" placeholder="Leave empty to use built-in fallback object prompt."></textarea>
                     <label class="block text-xlg mt-4">LLM Device</label>
                     <input id="chat-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cuda">
                     <p class="text-md panel-muted mt-1">Inference device for chat backend (used for local LLMs).</p>
