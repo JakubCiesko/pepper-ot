@@ -233,34 +233,9 @@ class SGGRelTRConfig(BaseModel):
 
 
 class SceneGraphConfig(BaseModel):
-    mode: Literal["vlm", "rules", "hybrid", "reltr"] | None = Field(
-        default=None,
-        exclude=True,
-    )
-    merge_strategy: Literal["union"] = "union"
     vlm: SceneGraphVLMConfig
     rules: SGGRulesConfig = Field(default_factory=SGGRulesConfig)
     reltr: SGGRelTRConfig = Field(default_factory=SGGRelTRConfig)
-
-    @model_validator(mode="after")
-    def apply_legacy_mode_compat(self):
-        if self.mode == "vlm":
-            self.vlm.enabled = True
-            self.rules.enabled = False
-            self.reltr.enabled = False
-        elif self.mode == "rules":
-            self.vlm.enabled = False
-            self.rules.enabled = True
-            self.reltr.enabled = False
-        elif self.mode == "reltr":
-            self.vlm.enabled = False
-            self.rules.enabled = False
-            self.reltr.enabled = True
-        elif self.mode == "hybrid":
-            self.vlm.enabled = True
-            self.rules.enabled = True
-            self.reltr.enabled = True
-        return self
 
 
 class FusionConfig(BaseModel):

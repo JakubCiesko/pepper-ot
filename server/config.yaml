@@ -25,7 +25,6 @@ tracking:
     resampling_method: "BICUBIC"
 
 scene_graph:
-  merge_strategy: "union"
   vlm:
     enabled: true
     provider: "gemini"

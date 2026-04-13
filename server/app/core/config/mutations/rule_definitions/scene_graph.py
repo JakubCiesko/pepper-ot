@@ -78,12 +78,6 @@ rules = [
         _apply_pipeline_group,
     ),
     ReloadRule(
-        "scene_graph.merge_strategy",
-        attrgetter("scene_graph.merge_strategy"),
-        "hot",
-        _apply_pipeline_group,
-    ),
-    ReloadRule(
         "scene_graph.rules",
         attrgetter("scene_graph.rules"),
         "hot",
