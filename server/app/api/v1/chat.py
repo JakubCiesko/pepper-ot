@@ -4,6 +4,7 @@ from app.core.infra.ws_manager import ws_manager
 from app.core.runtime.state import app_state
 from app.orchestration.services.conversation import ConversationService
 from app.providers.translation import enforce_output_language
+from app.schemas.chat import ChatMode
 from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse
 from fastapi import APIRouter
@@ -101,9 +102,50 @@ async def chat_endpoint(request: ChatRequest):
 
     history = await conversations.prompt_history_model(chat_id, include_last_user=False)
 
-    model_response = await app_state.chat_service.chat(
-        query_translated, conversation_history=history
-    )
+    mode = request.mode or ChatMode.GENERAL
+    source_object_ids: list[int] = []
+    crop_fallback_used_ids: list[int] = []
+    resolved_object_label: str | None = None
+
+    async def _caption_crop(crop_bytes: bytes) -> str:
+        if app_state.caption_service is None:
+            return ""
+        return await app_state.caption_service.caption(
+            crop_bytes,
+            prompt_override="Describe only this object in one short sentence.",
+            language=output_language,
+        )
+
+    model_response = ""
+    match mode:
+        case ChatMode.OBJECT:
+            (
+                model_response,
+                source_object_ids,
+                crop_fallback_used_ids,
+                resolved_object_label,
+            ) = await app_state.chat_service.object_chat(
+                query_translated,
+                object_label=request.object_label or "",
+                conversation_history=history,
+                max_instances=request.max_instances,
+                max_crop_fallbacks=request.max_crop_fallbacks,
+                caption_crop_callback=(
+                    _caption_crop if app_state.caption_service is not None else None
+                ),
+            )
+        case ChatMode.GENERAL:
+            model_response = await app_state.chat_service.chat(
+                query_translated,
+                conversation_history=history,
+            )
+        case _:
+            mode = ChatMode.GENERAL
+            model_response = await app_state.chat_service.chat(
+                query_translated,
+                conversation_history=history,
+            )
+
     # this preferably does no translation and model answers in the output language...
     model_response_translated, model_response_languages = await enforce_output_language(
         text=model_response,
@@ -134,14 +176,20 @@ async def chat_endpoint(request: ChatRequest):
             "message": conversations.serialize_message(assistant_message),
         }
     )
-    metadata: dict[str, str] = {
+    metadata: dict[str, object] = {
         "model_id": app_state.config.chat.model_id,
         "provider": app_state.config.chat.provider,
+        "mode": str(mode),
         "input_language": query_language or "",
         "output_language": output_language or "",
         "conversation_in_language": output_language,
         "input_translation_applied": str(query_language != output_language),
         "output_translation_applied": str(model_response_language != output_language),
+        "object_label_requested": request.object_label,
+        "object_label_resolved": resolved_object_label,
+        "matched_object_ids": source_object_ids,
+        "matched_object_count": len(source_object_ids),
+        "crop_fallback_used_ids": crop_fallback_used_ids,
     }
     logger.info(
         "CHAT: %s RESPONSE: %s METADATA: %s",
@@ -152,7 +200,7 @@ async def chat_endpoint(request: ChatRequest):
     return ChatResponse(
         chat_id=chat_id,
         sentence=model_response_translated,
-        source_object_ids=[],
+        source_object_ids=source_object_ids,
         confidence=1.0,
         metadata=metadata,
     )
