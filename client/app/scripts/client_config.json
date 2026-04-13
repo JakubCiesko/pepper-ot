@@ -36,9 +36,26 @@
     "fake_camera": false,
     "fake_camera_path": "/home/jakub-ciesko/Desktop/test-imgs/test/one"
   },
+  "dialog": {
+    "enable_dynamic_memory_concepts": true,
+    "language_code": "enu",
+    "memory_attributes_max": 100,
+    "memory_objects_max": 100,
+    "memory_relations_max": 100,
+    "refresh_after_detect": true,
+    "refresh_after_reset": true,
+    "refresh_after_scan": true
+  },
   "language": {
     "default_dialog_language": "en",
     "output_language_mode": "czech"
+  },
+  "panorama": {
+    "enabled": true,
+    "mode": "panorama_detect",
+    "render_limit": 5,
+    "stick_together": true,
+    "summary_after_scan": true
   },
   "server": {
     "base_url": "https://raye-uncontractile-attently.ngrok-free.dev",
@@ -50,7 +67,11 @@
     "config_timeout_seconds": 60,
     "dashboard_url": "https://raye-uncontractile-attently.ngrok-free.dev/dashboard",
     "detect_path": "/api/v1/detect",
+    "detect_panorama_path": "/api/v1/detect/panorama",
     "detect_timeout_seconds": 60,
+    "memory_reset_path": "/api/v1/memory/reset",
+    "memory_summary_path": "/api/v1/memory/summary",
+    "memory_timeout_seconds": 60,
     "publish": true,
     "verify_tls": true
   },
@@ -71,5 +92,9 @@
       "sad"
     ],
     "face_match_max_angle_rad": 0.35
+  },
+  "tablet": {
+    "memory_page_url": "",
+    "memory_render_limit": 5
   }
 }

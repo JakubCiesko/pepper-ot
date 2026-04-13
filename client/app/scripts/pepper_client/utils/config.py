@@ -12,13 +12,17 @@ DEFAULT_CONFIG = {
         "base_url": "http://127.0.0.1:8000",
         "caption_path": "/api/v1/caption",
         "detect_path": "/api/v1/detect",
+        "detect_panorama_path": "/api/v1/detect/panorama",
         "chat_path": "/api/v1/chat",
         "config_patch_path": "/api/v1/config",
         "dashboard_url": "http://127.0.0.1:8000/dashboard",
+        "memory_summary_path": "/api/v1/memory/summary",
+        "memory_reset_path": "/api/v1/memory/reset",
         "publish": True,
         "verify_tls": True,
         "caption_timeout_seconds": 20,
         "detect_timeout_seconds": 60,
+        "memory_timeout_seconds": 20,
         "chat_timeout_seconds": 20,
         "config_timeout_seconds": 20,
     },
@@ -65,6 +69,27 @@ DEFAULT_CONFIG = {
         "default_dialog_language": "en",
         "output_language_mode": "default",
     },
+    "dialog": {
+        "enable_dynamic_memory_concepts": True,
+        "language_code": "enu",
+        "memory_objects_max": 100,
+        "memory_attributes_max": 100,
+        "memory_relations_max": 100,
+        "refresh_after_detect": True,
+        "refresh_after_scan": True,
+        "refresh_after_reset": True,
+    },
+    "panorama": {
+        "enabled": True,
+        "mode": "panorama_detect",
+        "stick_together": True,
+        "summary_after_scan": True,
+        "render_limit": 5,
+    },
+    "tablet": {
+        "memory_page_url": "",
+        "memory_render_limit": 5,
+    },
 }
 
 VALID_OUTPUT_LANGUAGES = ("default", "english", "czech")
@@ -109,6 +134,39 @@ def normalize_config(config):
     if not isinstance(scan_yaws, list) or not scan_yaws:
         scan_yaws = [-35, 0, 35]
     config["capture"]["scan_yaws_deg"] = scan_yaws
+
+    dialog = config.setdefault("dialog", {})
+    dialog["enable_dynamic_memory_concepts"] = bool(
+        dialog.get("enable_dynamic_memory_concepts", True)
+    )
+    dialog["language_code"] = str(dialog.get("language_code") or "enu").strip().lower()
+    for key in ("memory_objects_max", "memory_attributes_max", "memory_relations_max"):
+        try:
+            dialog[key] = max(1, int(dialog.get(key, 100)))
+        except Exception:
+            dialog[key] = 100
+    for key in ("refresh_after_detect", "refresh_after_scan", "refresh_after_reset"):
+        dialog[key] = bool(dialog.get(key, True))
+
+    panorama = config.setdefault("panorama", {})
+    panorama["enabled"] = bool(panorama.get("enabled", True))
+    mode = str(panorama.get("mode") or "panorama_detect").strip().lower()
+    if mode not in ("panorama_detect", "sequential_detect"):
+        mode = "panorama_detect"
+    panorama["mode"] = mode
+    panorama["stick_together"] = bool(panorama.get("stick_together", True))
+    panorama["summary_after_scan"] = bool(panorama.get("summary_after_scan", True))
+    try:
+        panorama["render_limit"] = max(1, int(panorama.get("render_limit", 5)))
+    except Exception:
+        panorama["render_limit"] = 5
+
+    tablet = config.setdefault("tablet", {})
+    tablet["memory_page_url"] = str(tablet.get("memory_page_url") or "").strip()
+    try:
+        tablet["memory_render_limit"] = max(1, int(tablet.get("memory_render_limit", 5)))
+    except Exception:
+        tablet["memory_render_limit"] = 5
 
     mode = normalize_output_language(config["language"].get("output_language_mode"))
     config["language"]["output_language_mode"] = mode

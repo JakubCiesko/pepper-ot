@@ -22,6 +22,7 @@ from pepper_client.perception.social_adapter import SocialAdapter
 from pepper_client.perception.sonar_adapter import SonarAdapter
 from pepper_client.interaction.speech_adapter import SpeechAdapter
 from pepper_client.interaction.tablet_adapter import TabletAdapter
+from pepper_client.interaction.dialog_adapter import DialogAdapter
 from pepper_client.core.transport import PepperServerTransport
 from pepper_client.core.turn_manager import TurnManager
 import stk.logging
@@ -63,6 +64,7 @@ class PepperGroundedClient(object):
         self.sonar_adapter = SonarAdapter(self.services, self.config, self.logger)
         self.speech_adapter = SpeechAdapter(self.services, self.logger)
         self.tablet_adapter = TabletAdapter(self.services, self.config, self.logger)
+        self.dialog_adapter = DialogAdapter(self.services, self.config, self.logger)
         self.robot_context = RobotContextCollector(
             self.pose_adapter,
             self.people_adapter,
@@ -81,6 +83,7 @@ class PepperGroundedClient(object):
             self.transport,
             self.speech_adapter,
             self.tablet_adapter,
+            self.dialog_adapter,
             self.logger,
         )
 
@@ -102,6 +105,7 @@ class PepperGroundedClient(object):
         )
         self.face_adapter.start()
         self.robot_context.start()
+        self.turn_manager.refresh_memory_concepts()
         if self.config["behavior"].get("show_dashboard_on_start", False):
             self.tablet_adapter.show_dashboard()
 
@@ -149,6 +153,30 @@ class PepperGroundedClient(object):
             speech_policy.acknowledgement("reset", reset_lang),
             reset_lang,
         )
+
+    @qi.bind(returnType=qi.Void, paramsType=[qi.String, qi.String])
+    def askAboutObject(self, lang_code, object_label):
+        self.logger.info(
+            "askAboutObject called lang_code=%s object_label=%s",
+            lang_code,
+            object_label,
+        )
+        self.turn_manager.start_object_ask(lang_code, object_label)
+
+    @qi.bind(returnType=qi.Void, paramsType=[qi.String])
+    def showMemory(self, lang_code):
+        self.logger.info("showMemory called lang_code=%s", lang_code)
+        self.turn_manager.start_show_memory(lang_code)
+
+    @qi.bind(returnType=qi.Void, paramsType=[qi.String])
+    def resetMemory(self, lang_code):
+        self.logger.info("resetMemory called lang_code=%s", lang_code)
+        self.turn_manager.start_reset_memory(lang_code)
+
+    @qi.bind(returnType=qi.Void, paramsType=[])
+    def refreshMemoryConcepts(self):
+        self.logger.info("refreshMemoryConcepts called")
+        self.turn_manager.refresh_memory_concepts()
 
     @qi.bind(returnType=qi.String, paramsType=[qi.String])
     def setOutputLanguage(self, mode):
@@ -215,6 +243,7 @@ class PepperGroundedClient(object):
         )
         self.session_store.set_server_base_url(self.config["server"].get("base_url"))
         self.transport.update_config(self.config)
+        self.dialog_adapter.update_config(self.config)
         self.face_adapter.start()
         self.robot_context.start()
         self._initialize_camera_adapter()

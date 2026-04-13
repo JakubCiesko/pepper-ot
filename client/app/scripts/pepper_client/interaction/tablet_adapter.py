@@ -8,6 +8,9 @@ class TabletAdapter(object):
         url = self.config["server"].get("dashboard_url")
         return self.show_url(url)
 
+    def show_memory_page(self, url):
+        return self.show_url(url)
+
     def show_url(self, url):
         if not url:
             self.logger.info("No tablet URL configured")

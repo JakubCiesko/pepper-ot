@@ -1,8 +1,8 @@
 import threading
 
-from pepper_client.utils import ids
-from pepper_client.perception import scan_planner
 from pepper_client.interaction import speech_policy
+from pepper_client.perception import scan_planner
+from pepper_client.utils import ids
 from pepper_client.utils import time_utils
 from pepper_client.utils.error_policy import CameraCaptureError
 from pepper_client.utils.error_policy import MalformedResponseError
@@ -23,6 +23,7 @@ class TurnManager(object):
         transport,
         speech_adapter,
         tablet_adapter,
+        dialog_adapter,
         logger,
     ):
         self.config = config
@@ -34,6 +35,7 @@ class TurnManager(object):
         self.transport = transport
         self.speech_adapter = speech_adapter
         self.tablet_adapter = tablet_adapter
+        self.dialog_adapter = dialog_adapter
         self.logger = logger
         self._lock = threading.RLock()
         self._busy = False
@@ -55,6 +57,40 @@ class TurnManager(object):
             bool(force_refresh),
         )
 
+    def start_object_ask(self, lang_code, object_label, query=None):
+        return self._start_async(
+            "object_ask",
+            lang_code,
+            self._run_object_ask,
+            lang_code,
+            object_label,
+            query,
+        )
+
+    def start_show_memory(self, lang_code):
+        return self._start_async(
+            "show_memory",
+            lang_code,
+            self._run_show_memory,
+            lang_code,
+        )
+
+    def start_reset_memory(self, lang_code):
+        return self._start_async(
+            "reset_memory",
+            lang_code,
+            self._run_reset_memory,
+            lang_code,
+        )
+
+    def refresh_memory_concepts(self):
+        try:
+            self._refresh_dynamic_concepts_from_server()
+            return True
+        except Exception as exc:
+            self.logger.warning("Failed to refresh memory concepts: %s", exc)
+            return False
+
     def is_busy(self):
         with self._lock:
             return self._busy
@@ -74,7 +110,11 @@ class TurnManager(object):
         turn_id = ids.new_turn_id(kind)
         with self._lock:
             if self._busy:
-                self.logger.info("Rejecting %s because another turn is active: %s", kind, self._active_turn)
+                self.logger.info(
+                    "Rejecting %s because another turn is active: %s",
+                    kind,
+                    self._active_turn,
+                )
                 self._safe_say(fallback_message("busy", lang_code), lang_code)
                 return False
             self._busy = True
@@ -110,7 +150,12 @@ class TurnManager(object):
             self.logger.warning("Malformed server response in turn %s: %s", turn_id, exc)
             self._safe_say(fallback_message("malformed", lang_code), lang_code)
         except Exception as exc:
-            self.logger.error("Unexpected turn failure id=%s kind=%s, message=%s", turn_id, kind, exc)
+            self.logger.error(
+                "Unexpected turn failure id=%s kind=%s, message=%s",
+                turn_id,
+                kind,
+                exc,
+            )
             self._safe_say(fallback_message("unexpected", lang_code), lang_code)
         finally:
             with self._lock:
@@ -123,16 +168,21 @@ class TurnManager(object):
         capture, metadata = self._capture_with_metadata(frame_id, None, "caption")
         run_detect = bool(self.config["behavior"].get("caption_run_detect", True))
         publish = bool(self.config["server"].get("publish", True))
-        language = ("english" if lang_code == "en" else "czech") or self.session_store.get_output_language_mode()
+        language = (
+            "english" if lang_code == "en" else "czech"
+        ) or self.session_store.get_output_language_mode()
         caption_response = self._caption_with_optional_retry(
             capture["image_bytes"],
             metadata,
             run_detect=run_detect,
             publish=publish,
-            language=language
+            language=language,
         )
         self.session_store.update_after_caption(caption_response)
         self._safe_say(caption_response["caption"], self._speech_lang(lang_code))
+
+        if self.config.get("dialog", {}).get("refresh_after_detect", True):
+            self._refresh_dynamic_concepts_from_server()
 
     def _run_scan(self, lang_code):
         if self.config["behavior"].get("show_dashboard_during_scan", False):
@@ -141,49 +191,30 @@ class TurnManager(object):
         scan_id = ids.new_scan_id(self.config["capture"].get("scan_prefix", "scan"))
         original_pose = self.pose_adapter.snapshot()
         self.logger.info("Starting scan sweep scan_id=%s", scan_id)
-        successes = 0
-        last_error = None
         try:
-            for index, yaw in enumerate(scan_planner.planned_yaws_radians(self.config)):
-                self.pose_adapter.move_head(
-                    yaw,
-                    scan_planner.scan_pitch(self.config),
-                    self.config["capture"].get("head_move_speed", 0.15),
-                )
-                time_utils.sleep_seconds(self.config["capture"].get("settle_seconds", 0.6))
-                frame_id = ids.new_frame_id(self.config["capture"].get("frame_prefix", "frame"))
-                try:
-                    capture, metadata = self._capture_with_metadata(frame_id, scan_id, "scan")
-                    detect_response = self.transport.detect(
-                        capture["image_bytes"],
-                        metadata,
-                        publish=bool(self.config["server"].get("publish", True)),
-                    )
-                    self.session_store.update_after_detect(detect_response, scan_id=scan_id)
-                    successes += 1
-                    self.logger.info(
-                        "Scan frame %s completed objects=%s",
-                        index,
-                        len(detect_response.get("objects", [])),
-                    )
-                    self.logger.info("Full detect response %s", detect_response)
-                except Exception as exc:
-                    last_error = exc
-                    self.logger.warning("Scan frame %s failed: %s", index, exc)
-            if successes <= 0:
-                if last_error is not None:
-                    raise last_error
-                raise ServerUnavailableError("No scan frame completed")
+            scan_mode = scan_planner.scan_mode(self.config)
+            if scan_mode == "panorama_detect":
+                self._run_scan_panorama(scan_id)
+            else:
+                self._run_scan_sequential(scan_id)
         finally:
             if self.config["behavior"].get("auto_restore_head_pose", True):
                 self.pose_adapter.restore_head(
                     original_pose,
                     self.config["capture"].get("head_move_speed", 0.15),
                 )
+
+        if self.config.get("dialog", {}).get("refresh_after_scan", True):
+            self._refresh_dynamic_concepts_from_server()
+
         language = self._speech_lang(lang_code)
-        if self.config["behavior"].get("allow_scan_summary_chat", True):
+        if scan_planner.summary_after_scan(self.config):
             query = self._scan_summary_query(lang_code)
-            chat_response = self.transport.chat(query, self.session_store.get_chat_id(), language)
+            chat_response = self.transport.chat_general(
+                query,
+                self.session_store.get_chat_id(),
+                language,
+            )
             self.session_store.update_after_chat(query, chat_response)
             self._safe_say(chat_response["sentence"], language)
         else:
@@ -191,6 +222,73 @@ class TurnManager(object):
                 speech_policy.generic_message("scan_complete", lang_code),
                 language,
             )
+
+    def _run_scan_panorama(self, scan_id):
+        captures = self._prepare_scan_captures(scan_id)
+        stick_together = scan_planner.stick_together(self.config)
+        response = self.transport.panorama_detect(
+            captures,
+            publish=bool(self.config["server"].get("publish", True)),
+            resize_image=True,
+            stick_together=stick_together,
+        )
+        self.session_store.update_after_detect(response, scan_id=scan_id)
+        self.logger.info(
+            "Panorama scan completed objects=%s stick_together=%s",
+            len(response.get("objects", [])),
+            stick_together,
+        )
+
+    def _run_scan_sequential(self, scan_id):
+        successes = 0
+        last_error = None
+        captures = self._prepare_scan_captures(scan_id)
+        for capture_item in captures:
+            index = capture_item["index"]
+            try:
+                detect_response = self.transport.detect(
+                    capture_item["image_bytes"],
+                    capture_item["metadata"],
+                    publish=bool(self.config["server"].get("publish", True)),
+                )
+                self.session_store.update_after_detect(detect_response, scan_id=scan_id)
+                successes += 1
+                self.logger.info(
+                    "Scan frame %s completed objects=%s",
+                    index,
+                    len(detect_response.get("objects", [])),
+                )
+            except Exception as exc:
+                last_error = exc
+                self.logger.warning("Scan frame %s failed: %s", index, exc)
+        if successes <= 0:
+            if last_error is not None:
+                raise last_error
+            raise ServerUnavailableError("No scan frame completed")
+
+    def _prepare_scan_captures(self, scan_id):
+        captures = []
+        scan_steps = scan_planner.planned_yaws_radians(self.config)
+        pitch = scan_planner.scan_pitch(self.config)
+        settle_seconds = self.config["capture"].get("settle_seconds", 0.6)
+
+        for index, yaw in enumerate(scan_steps):
+            self.pose_adapter.move_head(
+                yaw,
+                pitch,
+                self.config["capture"].get("head_move_speed", 0.15),
+            )
+            time_utils.sleep_seconds(settle_seconds)
+            frame_id = ids.new_frame_id(self.config["capture"].get("frame_prefix", "frame"))
+            capture, metadata = self._capture_with_metadata(frame_id, scan_id, "scan")
+            captures.append(
+                {
+                    "index": index,
+                    "image_bytes": capture["image_bytes"],
+                    "metadata": metadata,
+                }
+            )
+        return captures
 
     def _run_ask(self, lang_code, query, force_refresh):
         max_chars = int(self.config["behavior"].get("max_query_chars", 320))
@@ -208,9 +306,79 @@ class TurnManager(object):
             self.logger.info("Refreshing visual context before chat")
             self._refresh_visual_context()
         language = self._speech_lang(lang_code)
-        chat_response = self.transport.chat(query, self.session_store.get_chat_id(), language)
+        chat_response = self.transport.chat_general(
+            query,
+            self.session_store.get_chat_id(),
+            language,
+        )
         self.session_store.update_after_chat(query, chat_response)
         self._safe_say(chat_response["sentence"], language)
+
+    def _run_object_ask(self, lang_code, object_label, query):
+        language = self._speech_lang(lang_code)
+        object_label = str(object_label or "").strip()
+        if not object_label:
+            self.logger.info("Ignoring object ask with empty label")
+            return
+
+        max_chars = int(self.config["behavior"].get("max_query_chars", 320))
+        query = speech_policy.sanitize_query(query, max_chars)
+        if not query:
+            query = self._object_default_query(lang_code, object_label)
+
+        chat_response = self.transport.chat_object(
+            object_label=object_label,
+            query=query,
+            chat_id=self.session_store.get_chat_id(),
+            language=language,
+        )
+        self.session_store.update_after_chat(query, chat_response)
+        self._safe_say(chat_response.get("sentence"), language)
+
+    def _run_show_memory(self, lang_code):
+        render_limit = scan_planner.memory_render_limit(self.config)
+        summary = self.transport.memory_summary(render_limit=render_limit)
+        self.session_store.update_after_memory_summary(summary)
+        self._refresh_dynamic_concepts_from_summary(summary)
+
+        if self.dialog_adapter is not None:
+            memory_page_url = self.dialog_adapter.build_memory_summary_url(
+                base_url=self.config["server"].get("base_url"),
+                summary_path=self.config["server"].get(
+                    "memory_summary_path", "/api/v1/memory/summary"
+                ),
+                render_limit=render_limit,
+                explicit_url=self.config.get("tablet", {}).get("memory_page_url"),
+            )
+        else:
+            memory_page_url = self.config.get("tablet", {}).get("memory_page_url")
+        shown = self.tablet_adapter.show_memory_page(memory_page_url)
+        if not shown:
+            self._safe_say(
+                fallback_message("unexpected", lang_code),
+                self._speech_lang(lang_code),
+            )
+
+    def _run_reset_memory(self, lang_code):
+        chat_id = self.session_store.get_chat_id()
+        self.transport.reset_memory()
+        self.session_store.reset_memory_state()
+        self.session_store.reset_conversation()
+        if chat_id:
+            try:
+                self.transport.reset_conversation(chat_id)
+            except Exception as exc:
+                self.logger.info(
+                    "Server conversation reset failed for %s: %s",
+                    chat_id,
+                    exc,
+                )
+        if self.config.get("dialog", {}).get("refresh_after_reset", True):
+            self._refresh_dynamic_concepts_from_server()
+        self._safe_say(
+            speech_policy.acknowledgement("reset", lang_code),
+            self._speech_lang(lang_code),
+        )
 
     def _refresh_visual_context(self):
         frame_id = ids.new_frame_id(self.config["capture"].get("frame_prefix", "frame"))
@@ -221,6 +389,8 @@ class TurnManager(object):
             publish=bool(self.config["server"].get("publish", True)),
         )
         self.session_store.update_after_detect(detect_response)
+        if self.config.get("dialog", {}).get("refresh_after_detect", True):
+            self._refresh_dynamic_concepts_from_server()
         return detect_response
 
     def _capture_with_metadata(self, frame_id, scan_id, capture_mode):
@@ -231,12 +401,24 @@ class TurnManager(object):
 
     def _caption_with_optional_retry(self, image_bytes, metadata, run_detect, publish, language):
         try:
-            return self.transport.caption(image_bytes, metadata, run_detect=run_detect, publish=publish, language=language)
+            return self.transport.caption(
+                image_bytes,
+                metadata,
+                run_detect=run_detect,
+                publish=publish,
+                language=language,
+            )
         except ServerTimeoutError:
             if not self.config["behavior"].get("caption_retry_on_timeout", True):
                 raise
             self.logger.info("Retrying caption once after timeout")
-            return self.transport.caption(image_bytes, metadata, run_detect=run_detect, publish=publish, language=language)
+            return self.transport.caption(
+                image_bytes,
+                metadata,
+                run_detect=run_detect,
+                publish=publish,
+                language=language,
+            )
 
     def _safe_say(self, text, lang_code):
         if not text:
@@ -247,23 +429,11 @@ class TurnManager(object):
             self.logger.error("Speech failed for text: %s", text)
 
     def _speech_lang(self, requested_lang):
-        #mode = self.session_store.get_output_language_mode()
-        #if mode == "english":
-        #    return "en"
-        #if mode == "czech":
-        #    return "cs"
-        return speech_policy.language_code(requested_lang, self.config["language"].get("default_dialog_language", "en"))
+        return speech_policy.language_code(
+            requested_lang,
+            self.config["language"].get("default_dialog_language", "en"),
+        )
 
-    #
-    # def _speech_lang(self, requested_lang):
-    #     mode = self.session_store.get_output_language_mode()
-    #     if mode == "english":
-    #         return "en"
-    #     if mode == "czech":
-    #         return "cs"
-    #     return speech_policy.language_code(requested_lang, self.config["language"].get("default_dialog_language", "en"))
-    #
-    #TODO: BULLSHITS!
     def _scan_summary_query(self, lang_code):
         lang_code = speech_policy.language_code(lang_code)
         if lang_code == "cs":
@@ -275,3 +445,35 @@ class TurnManager(object):
             "scan_summary_query_en",
             "Briefly describe what you can see now using the current visual memory.",
         )
+
+    def _object_default_query(self, lang_code, object_label):
+        if speech_policy.language_code(lang_code) == "cs":
+            return "Co vis o objektu %s" % object_label
+        return "Tell me what you know about %s" % object_label
+
+    def _refresh_dynamic_concepts_from_server(self):
+        if self.dialog_adapter is None:
+            return False
+        summary = self.transport.memory_summary(render_limit=scan_planner.memory_render_limit(self.config))
+        self.session_store.update_after_memory_summary(summary)
+        return self._refresh_dynamic_concepts_from_summary(summary)
+
+    def _refresh_dynamic_concepts_from_summary(self, summary):
+        if self.dialog_adapter is None:
+            return False
+        labels = list(summary.get("labels") or [])
+        attributes = []
+        relations = []
+        for edge in summary.get("scene_graph", []) or []:
+            if not isinstance(edge, dict):
+                continue
+            relation = str(edge.get("rel") or "").strip()
+            if not relation:
+                continue
+            sub = str(edge.get("sub") or "").strip()
+            obj = str(edge.get("obj") or "").strip()
+            if sub and obj and sub == obj:
+                attributes.append(relation)
+            else:
+                relations.append(relation)
+        return self.dialog_adapter.refresh_memory_concepts(labels, attributes, relations)

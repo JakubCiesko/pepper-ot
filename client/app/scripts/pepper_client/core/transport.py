@@ -58,14 +58,45 @@ class PepperServerTransport(object):
             raise MalformedResponseError("Detect response missing objects list")
         return data
 
-    def chat(self, query, chat_id=None, language=None):
+    def panorama_detect(self, captures, publish=True, resize_image=True, stick_together=True):
+        files = []
+        form_data = [
+            ("publish", self._bool_str(publish)),
+            ("resize_image", self._bool_str(resize_image)),
+            ("stick_together", self._bool_str(stick_together)),
+        ]
+        for index, item in enumerate(captures or []):
+            image_bytes = item.get("image_bytes")
+            metadata = item.get("metadata") or {}
+            files.append(
+                (
+                    "files",
+                    ("capture_%s.jpg" % index, image_bytes, "image/jpeg"),
+                )
+            )
+            form_data.append(("metadata", json.dumps(metadata)))
+        data = self._request(
+            method="post",
+            path=self.config["server"].get("detect_panorama_path", "/api/v1/detect/panorama"),
+            timeout_seconds=self.config["server"].get("detect_timeout_seconds", 120),
+            files=files,
+            data=form_data,
+        )
+        if not isinstance(data, dict) or not isinstance(data.get("objects", []), list):
+            raise MalformedResponseError("Panorama detect response missing objects list")
+        return data
+
+    def chat(self, query, chat_id=None, language=None, mode=None, object_label=None):
         payload = {"query": query}
         if chat_id:
             payload["chat_id"] = chat_id
         if language:
-            print(language)
-            language = ("english" if (language == "en" or language=="english") else "czech")
+            language = self._normalize_output_language(language)
             payload["language"] = language
+        if mode:
+            payload["mode"] = str(mode)
+        if object_label:
+            payload["object_label"] = str(object_label)
         data = self._post_json(
             self.config["server"]["chat_path"],
             payload,
@@ -73,6 +104,50 @@ class PepperServerTransport(object):
         )
         if not isinstance(data, dict) or not data.get("sentence") or not data.get("chat_id"):
             raise MalformedResponseError("Chat response missing sentence or chat_id")
+        return data
+
+    def chat_general(self, query, chat_id=None, language=None):
+        return self.chat(
+            query=query,
+            chat_id=chat_id,
+            language=language,
+            mode="general",
+        )
+
+    def chat_object(self, object_label, query, chat_id=None, language=None):
+        return self.chat(
+            query=query,
+            chat_id=chat_id,
+            language=language,
+            mode="object",
+            object_label=object_label,
+        )
+
+    def memory_summary(self, render_limit=5):
+        path = self.config["server"].get("memory_summary_path", "/api/v1/memory/summary")
+        path = "%s?render_limit=%s" % (path, int(render_limit))
+        data = self._request(
+            method="get",
+            path=path,
+            timeout_seconds=self.config["server"].get("memory_timeout_seconds", 20),
+        )
+        if not isinstance(data, dict):
+            raise MalformedResponseError("Memory summary response is not an object")
+        return data
+
+    def reset_memory(self):
+        path = self.config["server"].get("memory_reset_path", "/api/v1/memory/reset")
+        if "?" in path:
+            request_path = path
+        else:
+            request_path = "%s?confirm=true" % path
+        data = self._post_json(
+            request_path,
+            {},
+            self.config["server"].get("memory_timeout_seconds", 20),
+        )
+        if not isinstance(data, dict) or not data.get("ok"):
+            raise MalformedResponseError("Memory reset failed")
         return data
 
     def reset_conversation(self, chat_id):
@@ -154,3 +229,11 @@ class PepperServerTransport(object):
 
     def _bool_str(self, value):
         return "true" if value else "false"
+
+    def _normalize_output_language(self, language):
+        language = str(language or "").strip().lower()
+        if language in ("en", "english"):
+            return "english"
+        if language in ("cs", "cz", "czech", "czc"):
+            return "czech"
+        return "english"

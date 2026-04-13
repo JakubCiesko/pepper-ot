@@ -24,6 +24,13 @@ class SessionStore(object):
                 "last_detect_request_id": None,
                 "output_language_mode": "default",
                 "last_server_base_url": None,
+                "remembered_labels": [],
+                "remembered_attributes": [],
+                "remembered_relations": [],
+                "last_memory_summary": None,
+                "last_memory_summary_ts": None,
+                "cached_questions": [],
+                "cached_answers": {},
             }
 
     def reset_conversation(self):
@@ -36,6 +43,18 @@ class SessionStore(object):
             self._state["last_detect_request_id"] = None
         if self.logger is not None:
             self.logger.info("Conversation session reset")
+
+    def reset_memory_state(self):
+        with self._lock:
+            self._state["remembered_labels"] = []
+            self._state["remembered_attributes"] = []
+            self._state["remembered_relations"] = []
+            self._state["last_memory_summary"] = None
+            self._state["last_memory_summary_ts"] = None
+            self._state["cached_questions"] = []
+            self._state["cached_answers"] = {}
+        if self.logger is not None:
+            self.logger.info("Memory state reset")
 
     def update_after_caption(self, caption_response):
         with self._lock:
@@ -71,6 +90,48 @@ class SessionStore(object):
             self.logger.info("Setting server base url to %s", value)
             self._state["last_server_base_url"] = value
 
+    def update_after_memory_summary(self, summary):
+        summary = summary or {}
+        labels = self._sorted_unique(summary.get("labels", []))
+        attributes = []
+        relations = []
+        for edge in summary.get("scene_graph", []) or []:
+            if not isinstance(edge, dict):
+                continue
+            rel = str(edge.get("rel") or "").strip()
+            if not rel:
+                continue
+            sub = str(edge.get("sub") or "").strip()
+            obj = str(edge.get("obj") or "").strip()
+            if sub and obj and sub == obj:
+                attributes.append(rel)
+            else:
+                relations.append(rel)
+        with self._lock:
+            self.logger.info("Updating SessionStore after memory summary")
+            self._state["remembered_labels"] = labels
+            self._state["remembered_attributes"] = self._sorted_unique(attributes)
+            self._state["remembered_relations"] = self._sorted_unique(relations)
+            self._state["last_memory_summary"] = summary
+            self._state["last_memory_summary_ts"] = time_utils.now_ts()
+            self._state["last_response"] = summary
+
+    def get_memory_labels(self):
+        with self._lock:
+            return list(self._state.get("remembered_labels", []))
+
+    def get_memory_attributes(self):
+        with self._lock:
+            return list(self._state.get("remembered_attributes", []))
+
+    def get_memory_relations(self):
+        with self._lock:
+            return list(self._state.get("remembered_relations", []))
+
+    def get_last_memory_summary(self):
+        with self._lock:
+            return copy.deepcopy(self._state.get("last_memory_summary"))
+
     def get_chat_id(self):
         with self._lock:
             return self._state.get("chat_id")
@@ -89,3 +150,17 @@ class SessionStore(object):
     def snapshot(self):
         with self._lock:
             return copy.deepcopy(self._state)
+
+    def _sorted_unique(self, values):
+        seen = set()
+        output = []
+        for value in values or []:
+            text = str(value or "").strip()
+            if not text:
+                continue
+            if text in seen:
+                continue
+            seen.add(text)
+            output.append(text)
+        output.sort()
+        return output
