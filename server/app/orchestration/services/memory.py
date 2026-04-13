@@ -6,6 +6,8 @@ from pydantic import Field
 
 from app.core.infra.ws_manager import ws_manager
 from app.orchestration.adapters.runtime import memory_payload
+from app.orchestration.services.memory_graph_render import MemoryGraphRenderService
+from app.schemas.scene import MemorySummary
 from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
 from app.schemas.scene import TrackedObjectState
@@ -74,6 +76,7 @@ class MemoryRelationUpdate(BaseModel):
 class MemoryService:
     def __init__(self, runtime_adapter):
         self.runtime = runtime_adapter
+        self.renderer = MemoryGraphRenderService()
 
     async def broadcast_current_state(self):
         state = await self.runtime.scene_state()
@@ -81,6 +84,10 @@ class MemoryService:
 
     async def get_memory(self) -> SceneState:
         return await self.runtime.scene_state()
+
+    async def get_memory_summary(self) -> MemorySummary:
+        state = await self.runtime.scene_state()
+        return self.renderer.build_summary(state)
 
     async def list_objects(
         self,

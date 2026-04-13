@@ -21,6 +21,7 @@ from app.orchestration.services.memory import MemoryRelationCreate
 from app.orchestration.services.memory import MemoryRelationUpdate
 from app.orchestration.services.memory import MemoryService
 from app.schemas.config import AppConfig
+from app.schemas.scene import MemorySummary
 from app.schemas.scene import SceneState
 from app.worker.runtime import WorkerRuntime
 
@@ -136,6 +137,11 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
     async def get_memory():
         state = await memory_service().get_memory()
         return state.model_dump(mode="json")
+
+    @router.get("/internal/memory/summary", response_model=MemorySummary)
+    async def get_memory_summary():
+        summary = await memory_service().get_memory_summary()
+        return summary.model_dump(mode="json")
 
     @router.get("/internal/memory/object/{object_id}/crop")
     async def get_memory_object_crop(object_id: int):

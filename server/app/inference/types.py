@@ -197,18 +197,6 @@ class SceneGraph:
         self.edges = list(set(self.edges))
         self.no_label_edges = list(set(self.no_label_edges))
 
-    # def subjects(self) -> list[str]:
-    #     return [edge.sub for edge in self.edges]
-
-    # def objects(self) -> list[str]:
-    #     return [edge.obj for edge in self.edges]
-
-    # def predicates(self) -> list[str]:
-    #     return [edge.rel for edge in self.edges]
-
-    # def attributes(self) -> list[str]:
-    #     return [edge.rel for edge in self.edges if edge.obj == edge.sub]
-
     def as_dict(self) -> list[dict]:
         return [{"sub": e.sub, "rel": e.rel, "obj": e.obj} for e in self.edges]
 

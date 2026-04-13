@@ -8,6 +8,7 @@ from app.orchestration.services.memory import MemoryObjectUpdate
 from app.orchestration.services.memory import MemoryRelationCreate
 from app.orchestration.services.memory import MemoryRelationUpdate
 from app.orchestration.services.memory import MemoryService
+from app.schemas.scene import MemorySummary
 from app.schemas.scene import SceneState
 from fastapi import APIRouter
 from fastapi import Query
@@ -25,6 +26,13 @@ async def get_memory():
     service = _service()
     logger.info("Memory read requested")
     return await run_memory_action(lambda: service.get_memory())
+
+
+@router.get("/memory/summary", response_model=MemorySummary)
+async def get_memory_summary():
+    service = _service()
+    logger.info("Memory summary requested")
+    return await run_memory_action(lambda: service.get_memory_summary())
 
 
 @router.get("/memory/objects")

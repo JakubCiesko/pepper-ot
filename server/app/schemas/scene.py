@@ -90,3 +90,12 @@ class SceneState(BaseModel):
     relationships: list[Relationship]
     captions: list[SceneCaptionState] = Field(default_factory=list)
     timestamp: float
+
+
+class MemorySummary(BaseModel):
+    timestamp: float
+    labels: list[str] = Field(default_factory=list)
+    label_counts: dict[str, int] = Field(default_factory=dict)
+    scene_graph: list[SceneGraphRelation] = Field(default_factory=list)
+    graph_svg: str | None = None
+    html: str | None = None
