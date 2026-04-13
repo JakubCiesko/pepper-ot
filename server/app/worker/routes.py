@@ -139,8 +139,8 @@ def build_worker_router(runtime: WorkerRuntime) -> APIRouter:
         return state.model_dump(mode="json")
 
     @router.get("/internal/memory/summary", response_model=MemorySummary)
-    async def get_memory_summary():
-        summary = await memory_service().get_memory_summary()
+    async def get_memory_summary(render_limit: int = Query(5, ge=1, le=6)):
+        summary = await memory_service().get_memory_summary(render_limit=render_limit)
         return summary.model_dump(mode="json")
 
     @router.get("/internal/memory/object/{object_id}/crop")

@@ -1,14 +1,48 @@
-import { doMemoryRequest, fetchMemory } from './api.js';
+import { doMemoryRequest, fetchMemory, fetchMemorySummary } from './api.js';
 import { parseBboxCsv, parseCommaList } from './parsers.js';
 import { renderMemory, showMemoryEditorStatus } from './render.js';
 
+function getRenderLimit(dom) {
+  const raw = Number(dom?.memRenderLimit?.value);
+  if (!Number.isInteger(raw)) return 5;
+  return Math.max(1, Math.min(raw, 6));
+}
+
 export async function refreshMemory(dom) {
-  const mem = await fetchMemory();
-  renderMemory(dom, mem);
-  return mem;
+  const renderLimit = getRenderLimit(dom);
+  if (dom?.memRenderLimit) {
+    dom.memRenderLimit.value = String(renderLimit);
+  }
+  const [mem, summary] = await Promise.all([
+    fetchMemory(),
+    fetchMemorySummary(renderLimit),
+  ]);
+  const payload = {
+    ...(mem || {}),
+    summary: summary || null,
+  };
+  renderMemory(dom, payload);
+  return payload;
 }
 
 export function bindMemoryCrud(dom) {
+  if (dom.memRenderLimit) {
+    dom.memRenderLimit.addEventListener('change', async () => {
+      try {
+        await refreshMemory(dom);
+        showMemoryEditorStatus(
+          dom,
+          `Memory graph render limit set to ${getRenderLimit(dom)}`,
+        );
+      } catch (err) {
+        showMemoryEditorStatus(
+          dom,
+          err.message || 'Failed to refresh memory graph',
+          false,
+        );
+      }
+    });
+  }
   if (dom.memRefresh) {
     dom.memRefresh.addEventListener('click', async () => {
       try {

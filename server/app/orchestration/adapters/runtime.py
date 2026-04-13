@@ -122,6 +122,9 @@ class InProcessRuntimeAdapter:
     async def next_object_id(self) -> int:
         return self._memory().next_id
 
+    async def get_track_crop(self, object_id: int) -> bytes | None:
+        return self._memory().get_track_crop(object_id)
+
 
 class WorkerRuntimeAdapter:
     def __init__(self, worker_manager: WorkerManager):
@@ -230,6 +233,16 @@ class WorkerRuntimeAdapter:
             return 1
         return max(o.id for o in state.objects) + 1
 
+    async def get_track_crop(self, object_id: int) -> bytes | None:
+        payload = await self.worker_manager.request(
+            "GET",
+            f"/internal/memory/object/{object_id}/crop",
+        )
+        image_b64 = payload.get("image_b64")
+        if not isinstance(image_b64, str) or not image_b64:
+            return None
+        return base64.b64decode(image_b64)
+
 
 class WorkerInternalRuntimeAdapter:
     """Adapter used inside the worker process for internal routes."""
@@ -271,6 +284,9 @@ class WorkerInternalRuntimeAdapter:
     async def next_object_id(self) -> int:
         await self.runtime.ensure_pipeline()
         return self.runtime.pipeline.memory.next_id
+
+    async def get_track_crop(self, object_id: int) -> bytes | None:
+        return await self.runtime.get_track_crop(object_id)
 
 
 def resolve_runtime_adapter(state: AppState):

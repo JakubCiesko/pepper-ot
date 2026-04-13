@@ -85,9 +85,22 @@ class MemoryService:
     async def get_memory(self) -> SceneState:
         return await self.runtime.scene_state()
 
-    async def get_memory_summary(self) -> MemorySummary:
+    async def get_memory_summary(self, render_limit: int = 5) -> MemorySummary:
         state = await self.runtime.scene_state()
-        return self.renderer.build_summary(state)
+        safe_limit = max(1, min(int(render_limit), self.renderer.MAX_RENDER_OBJECTS))
+        render_object_ids = self.renderer.select_render_object_ids(
+            state, limit=safe_limit
+        )
+        crop_map: dict[int, bytes | None] = {}
+        getter = getattr(self.runtime, "get_track_crop", None)
+        if getter is not None:
+            for object_id in render_object_ids:
+                crop_map[object_id] = await getter(object_id)
+        return self.renderer.build_summary(
+            state,
+            crop_map=crop_map,
+            render_limit=safe_limit,
+        )
 
     async def list_objects(
         self,

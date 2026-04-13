@@ -1,27 +1,54 @@
+import base64
 import html
+import io
 import math
+
+from PIL import Image
 
 from app.schemas.scene import MemorySummary
 from app.schemas.scene import SceneGraphRelation
 from app.schemas.scene import SceneState
+from app.schemas.scene import TrackedObjectState
 
 
 class MemoryGraphRenderService:
     """Builds a merged memory graph view and a lightweight SVG rendering."""
 
-    CARD_WIDTH = 220
-    CARD_BASE_HEIGHT = 56
-    CARD_LINE_HEIGHT = 18
+    MAX_RENDER_OBJECTS = 6
     COLUMNS = 3
+    THUMB_WIDTH = 190
+    THUMB_HEIGHT = 130
+    NODE_WIDTH = 210
+    NODE_PADDING = 10
+    PILL_HEIGHT = 20
+    PILL_GAP = 6
+    MAX_ATTRIBUTE_PILLS = 5
+    CELL_HEIGHT = 265
     PADDING_X = 40
     PADDING_Y = 40
     GAP_X = 70
-    GAP_Y = 80
+    GAP_Y = 90
 
-    def build_summary(self, state: SceneState) -> MemorySummary:
+    def build_summary(
+        self,
+        state: SceneState,
+        *,
+        crop_map: dict[int, bytes | None] | None = None,
+        render_limit: int | None = None,
+    ) -> MemorySummary:
         labels, label_counts = self._labels_and_counts(state)
         relations = self._build_relations(state)
-        graph_svg = self.render_svg(state)
+        limit = (
+            self.MAX_RENDER_OBJECTS
+            if render_limit is None
+            else max(1, min(int(render_limit), self.MAX_RENDER_OBJECTS))
+        )
+        render_ids = self.select_render_object_ids(state, limit=limit)
+        graph_svg = self.render_svg(
+            state,
+            crop_map=crop_map or {},
+            render_object_ids=render_ids,
+        )
         return MemorySummary(
             labels=labels,
             label_counts=label_counts,
@@ -29,6 +56,18 @@ class MemoryGraphRenderService:
             graph_svg=graph_svg,
             timestamp=state.timestamp,
         )
+
+    def select_render_object_ids(
+        self, state: SceneState, *, limit: int | None = None
+    ) -> list[int]:
+        objects = sorted(
+            state.objects,
+            key=lambda item: (item.last_seen, item.hits, item.id),
+            reverse=True,
+        )
+        if limit is not None:
+            objects = objects[:limit]
+        return [obj.id for obj in objects]
 
     def _labels_and_counts(self, state: SceneState) -> tuple[list[str], dict[str, int]]:
         counts: dict[str, int] = {}
@@ -75,111 +114,173 @@ class MemoryGraphRenderService:
             )
         return relations
 
-    def render_svg(self, state: SceneState) -> str:
-        objects = sorted(state.objects, key=lambda item: item.id)
+    def render_svg(
+        self,
+        state: SceneState,
+        *,
+        crop_map: dict[int, bytes | None],
+        render_object_ids: list[int],
+    ) -> str:
+        if not render_object_ids:
+            return self._empty_svg()
+
+        object_map = {obj.id: obj for obj in state.objects}
+        objects = [
+            object_map[obj_id] for obj_id in render_object_ids if obj_id in object_map
+        ]
         if not objects:
             return self._empty_svg()
 
         rows = max(1, math.ceil(len(objects) / self.COLUMNS))
-        widths = (
+        width = (
             self.PADDING_X * 2
-            + self.COLUMNS * self.CARD_WIDTH
+            + self.COLUMNS * self.NODE_WIDTH
             + (self.COLUMNS - 1) * self.GAP_X
         )
-        heights = self.PADDING_Y * 2 + rows * 180 + (rows - 1) * self.GAP_Y
+        height = self.PADDING_Y * 2 + rows * self.CELL_HEIGHT + (rows - 1) * self.GAP_Y
 
-        object_positions: dict[int, tuple[int, int, int]] = {}
+        positions: dict[int, tuple[int, int]] = {}
+        edge_fragments: list[str] = []
         node_fragments: list[str] = []
+
         for index, obj in enumerate(objects):
             col = index % self.COLUMNS
             row = index // self.COLUMNS
-            x = self.PADDING_X + col * (self.CARD_WIDTH + self.GAP_X)
-            y = self.PADDING_Y + row * (180 + self.GAP_Y)
-            attributes = sorted(set(obj.attributes or []))
-            card_height = (
-                self.CARD_BASE_HEIGHT + min(len(attributes), 8) * self.CARD_LINE_HEIGHT
-            )
-            object_positions[obj.id] = (x, y, card_height)
-            node_fragments.append(
-                self._render_node(obj.label, obj.id, attributes, x, y, card_height)
-            )
+            x = self.PADDING_X + col * (self.NODE_WIDTH + self.GAP_X)
+            y = self.PADDING_Y + row * (self.CELL_HEIGHT + self.GAP_Y)
+            positions[obj.id] = (x, y)
 
-        object_map = {obj.id: obj for obj in objects}
-        edge_fragments: list[str] = []
         for rel in sorted(
             state.relationships,
             key=lambda item: (item.subject_id, item.predicate, item.object_id),
         ):
             if rel.subject_id == rel.object_id:
                 continue
-            src = object_positions.get(rel.subject_id)
-            dst = object_positions.get(rel.object_id)
-            src_obj = object_map.get(rel.subject_id)
-            dst_obj = object_map.get(rel.object_id)
-            if src is None or dst is None or src_obj is None or dst_obj is None:
+            src = positions.get(rel.subject_id)
+            dst = positions.get(rel.object_id)
+            if src is None or dst is None:
                 continue
             edge_fragments.append(
                 self._render_edge(
-                    src_x=src[0] + self.CARD_WIDTH // 2,
-                    src_y=src[1] + src[2] // 2,
-                    dst_x=dst[0] + self.CARD_WIDTH // 2,
-                    dst_y=dst[1] + dst[2] // 2,
+                    src_x=src[0] + self.NODE_WIDTH / 2,
+                    src_y=src[1] + self.THUMB_HEIGHT / 2,
+                    dst_x=dst[0] + self.NODE_WIDTH / 2,
+                    dst_y=dst[1] + self.THUMB_HEIGHT / 2,
                     label=rel.predicate,
+                )
+            )
+
+        for obj in objects:
+            x, y = positions[obj.id]
+            node_fragments.append(
+                self._render_node(
+                    obj,
+                    crop_bytes=crop_map.get(obj.id),
+                    x=x,
+                    y=y,
                 )
             )
 
         body = "\n".join(
             [
-                '<defs><marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0 10 3.5 0 7" fill="#4b5563"/></marker></defs>',
+                '<defs><marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0 10 3.5 0 7" fill="#475569"/></marker></defs>',
                 *edge_fragments,
                 *node_fragments,
             ]
         )
         return (
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{widths}" height="{heights}" '
-            f'viewBox="0 0 {widths} {heights}" role="img" aria-label="Pepper memory graph">'
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+            f'viewBox="0 0 {width} {height}" role="img" aria-label="Pepper memory graph">'
             '<rect width="100%" height="100%" fill="#f8fafc"/>'
             f"{body}</svg>"
         )
 
     def _render_node(
         self,
-        label: str,
-        object_id: int,
-        attributes: list[str],
+        obj: TrackedObjectState,
+        *,
+        crop_bytes: bytes | None,
         x: int,
         y: int,
-        height: int,
     ) -> str:
-        title = html.escape(f"{label}_{object_id}")
-        lines = [
-            f'<text x="{x + 14}" y="{y + 24}" font-size="16" font-weight="700" fill="#111827">{title}</text>'
-        ]
-        if attributes:
-            for idx, attribute in enumerate(attributes[:8], start=1):
-                attr_text = html.escape(f"• {attribute}")
-                line_y = y + 24 + idx * self.CARD_LINE_HEIGHT
-                lines.append(
-                    f'<text x="{x + 14}" y="{line_y}" font-size="13" fill="#374151">{attr_text}</text>'
+        image_x = x + (self.NODE_WIDTH - self.THUMB_WIDTH) / 2
+        image_y = y
+        pills_y = image_y + self.THUMB_HEIGHT + 10
+        pills = [self._title_pill(obj)]
+        pills.extend(self._attribute_pills(obj))
+
+        image_fragment = self._render_thumbnail(crop_bytes, image_x, image_y)
+        pill_fragments: list[str] = []
+        current_y = pills_y
+        for pill in pills:
+            pill_fragments.append(
+                self._render_pill(
+                    pill,
+                    x + self.NODE_PADDING,
+                    current_y,
+                    self.NODE_WIDTH - 2 * self.NODE_PADDING,
                 )
-        else:
-            lines.append(
-                f'<text x="{x + 14}" y="{y + 44}" font-size="13" fill="#9ca3af">no attributes</text>'
             )
-        lines_joined = "".join(lines)
+            current_y += self.PILL_HEIGHT + self.PILL_GAP
+
+        return f'<g>{image_fragment}{"".join(pill_fragments)}</g>'
+
+    def _title_pill(self, obj: TrackedObjectState) -> str:
+        return f"{obj.label}_{obj.id}"
+
+    def _attribute_pills(self, obj: TrackedObjectState) -> list[str]:
+        attributes = sorted(set(obj.attributes or []))
+        if not attributes:
+            return ["no attributes"]
+        visible = attributes[: self.MAX_ATTRIBUTE_PILLS]
+        if len(attributes) > self.MAX_ATTRIBUTE_PILLS:
+            visible.append(f"+{len(attributes) - self.MAX_ATTRIBUTE_PILLS} more")
+        return visible
+
+    def _render_thumbnail(
+        self,
+        crop_bytes: bytes | None,
+        x: float,
+        y: float,
+    ) -> str:
+        clip_id = f"clip-{int(x)}-{int(y)}"
+        frame = (
+            f'<rect x="{x}" y="{y}" width="{self.THUMB_WIDTH}" height="{self.THUMB_HEIGHT}" '
+            'rx="16" ry="16" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>'
+        )
+        if crop_bytes:
+            data_uri = self._thumbnail_data_uri(crop_bytes)
+            if data_uri is not None:
+                return (
+                    f'<g><defs><clipPath id="{clip_id}">'
+                    f'<rect x="{x}" y="{y}" width="{self.THUMB_WIDTH}" height="{self.THUMB_HEIGHT}" rx="16" ry="16"/></clipPath></defs>'
+                    f"{frame}"
+                    f'<image x="{x}" y="{y}" width="{self.THUMB_WIDTH}" height="{self.THUMB_HEIGHT}" '
+                    f'preserveAspectRatio="xMidYMid slice" clip-path="url(#{clip_id})" href="{data_uri}"/>'
+                    "</g>"
+                )
+        placeholder = (
+            f"{frame}"
+            f'<text x="{x + self.THUMB_WIDTH / 2}" y="{y + self.THUMB_HEIGHT / 2}" '
+            'text-anchor="middle" font-size="14" fill="#94a3b8">no crop</text>'
+        )
+        return f"<g>{placeholder}</g>"
+
+    def _render_pill(self, text: str, x: float, y: float, width: float) -> str:
+        escaped = html.escape(text)
         return (
-            f'<g><rect x="{x}" y="{y}" rx="14" ry="14" width="{self.CARD_WIDTH}" height="{height}" '
-            'fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>'
-            f"{lines_joined}</g>"
+            f'<g><rect x="{x}" y="{y}" width="{width}" height="{self.PILL_HEIGHT}" '
+            'rx="10" ry="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>'
+            f'<text x="{x + 10}" y="{y + 14}" font-size="12" fill="#111827">{escaped}</text></g>'
         )
 
     def _render_edge(
         self,
         *,
-        src_x: int,
-        src_y: int,
-        dst_x: int,
-        dst_y: int,
+        src_x: float,
+        src_y: float,
+        dst_x: float,
+        dst_y: float,
         label: str,
     ) -> str:
         label_x = (src_x + dst_x) / 2
@@ -187,10 +288,21 @@ class MemoryGraphRenderService:
         escaped = html.escape(label)
         return (
             f'<g><line x1="{src_x}" y1="{src_y}" x2="{dst_x}" y2="{dst_y}" '
-            'stroke="#4b5563" stroke-width="2" marker-end="url(#arrow)"/>'
-            f'<rect x="{label_x - 42}" y="{label_y - 14}" width="84" height="18" fill="#f8fafc"/>'
+            'stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>'
+            f'<rect x="{label_x - 46}" y="{label_y - 14}" width="92" height="18" rx="8" ry="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>'
             f'<text x="{label_x}" y="{label_y}" text-anchor="middle" font-size="12" fill="#111827">{escaped}</text></g>'
         )
+
+    def _thumbnail_data_uri(self, crop_bytes: bytes) -> str | None:
+        try:
+            image = Image.open(io.BytesIO(crop_bytes)).convert("RGB")
+            image.thumbnail((self.THUMB_WIDTH * 2, self.THUMB_HEIGHT * 2))
+            buffer = io.BytesIO()
+            image.save(buffer, format="JPEG", quality=80, optimize=True)
+            encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+            return f"data:image/jpeg;base64,{encoded}"
+        except Exception:
+            return None
 
     def _empty_svg(self) -> str:
         return (

@@ -7,3 +7,11 @@ export async function doMemoryRequest(url, options = {}) {
 export async function fetchMemory() {
   return requestJson('/api/v1/memory', {}, 'Failed to refresh memory');
 }
+
+export async function fetchMemorySummary(renderLimit = 5) {
+  return requestJson(
+    `/api/v1/memory/summary?render_limit=${encodeURIComponent(renderLimit)}`,
+    {},
+    'Failed to refresh memory summary',
+  );
+}

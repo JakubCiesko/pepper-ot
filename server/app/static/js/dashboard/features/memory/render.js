@@ -27,6 +27,16 @@ export function prefillRelationEditor(dom, rel) {
 }
 
 export function renderMemory(dom, mem) {
+  const hasSummary = Object.prototype.hasOwnProperty.call(mem || {}, 'summary');
+  const summary = mem?.summary || null;
+  if (dom.memoryGraph && hasSummary) {
+    const svg = typeof summary?.graph_svg === 'string' ? summary.graph_svg : '';
+    if (svg.trim()) {
+      dom.memoryGraph.innerHTML = svg;
+    } else {
+      dom.memoryGraph.innerHTML = `<p class="text-slate-500">No memory graph yet...</p>`;
+    }
+  }
   if (!dom.memoryContainer) return;
   dom.memoryContainer.innerHTML = '';
   const memObjects = mem.objects || [];

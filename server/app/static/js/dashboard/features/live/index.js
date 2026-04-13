@@ -1,5 +1,5 @@
 import { showStatusMessage } from '../../core/notifications.js';
-import { renderMemoryPanel } from '../memory/index.js';
+import { refreshMemoryPanel, renderMemoryPanel } from '../memory/index.js';
 import { renderSceneGraph } from '../scene_graph/index.js';
 
 const MAX_LIVE_FRAMES = 10;
@@ -201,6 +201,9 @@ function renderActiveFrameSnapshot() {
   renderDetections(frame.objects, frame.colors);
   renderMetrics(frame.metrics);
   renderMemoryPanel(frame.memory || {});
+  void refreshMemoryPanel().catch((err) => {
+    console.error('Failed to refresh memory summary', err);
+  });
   renderSceneGraph(frame.scene_graph || [], frame.memory || {});
   updateSummaries(frame);
 }
@@ -373,4 +376,7 @@ export function initLivePanel() {
 
 export function handleMemoryWsMessage(data) {
   renderMemoryPanel(data?.memory || {});
+  void refreshMemoryPanel().catch((err) => {
+    console.error('Failed to refresh memory summary', err);
+  });
 }

@@ -1,5 +1,7 @@
 export function getMemoryDomRefs() {
   return {
+    memoryGraph: document.getElementById('memory-graph'),
+    memRenderLimit: document.getElementById('mem-render-limit'),
     memoryContainer: document.getElementById('memory-content'),
     memoryRaw: document.getElementById('memory-raw'),
     memoryEditorStatus: document.getElementById('memory-editor-status'),

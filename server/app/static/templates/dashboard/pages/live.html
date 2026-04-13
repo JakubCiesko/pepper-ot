@@ -293,6 +293,32 @@
             Reset Memory
           </button>
         </div>
+        <div class="mb-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <h3 class="text-md font-semibold">Memory Graph</h3>
+            <label class="flex items-center gap-2 text-md panel-muted">
+              <span>Render Limit</span>
+              <input
+                id="mem-render-limit"
+                type="number"
+                min="1"
+                max="6"
+                step="1"
+                value="5"
+                class="w-20 border rounded px-2 py-1"
+              />
+            </label>
+          </div>
+          <p class="text-md panel-muted mb-2">
+            Thumbnail graph of the most recent remembered objects.
+          </p>
+          <div
+            id="memory-graph"
+            class="rounded border panel-border panel-alt overflow-auto p-2 min-h-[220px]"
+          >
+            <p class="panel-muted">No memory graph yet...</p>
+          </div>
+        </div>
         <div
           id="memory-content"
           class="panel-muted max-h-72 overflow-auto pr-1"
