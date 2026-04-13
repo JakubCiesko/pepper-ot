@@ -1,5 +1,4 @@
 import logging
-from typing import Literal
 
 from PIL import Image
 
@@ -16,12 +15,10 @@ logger = logging.getLogger(__name__)
 class SceneGraphService:
     def __init__(
         self,
-        mode: Literal["vlm", "rules", "hybrid", "reltr"],
         vlm_backend: VLMSceneGraphGenerator,
         rule_backend: RuleSceneGraphGenerator,
         reltr_backend: RelTRSceneGraphGenerator,
     ):
-        self.mode = mode
         self.vlm_backend = vlm_backend
         self.rule_backend = rule_backend
         self.reltr_backend = reltr_backend
@@ -36,48 +33,51 @@ class SceneGraphService:
         scene_state: SceneState | None = None,
     ) -> SceneGraph:
         vlm_image = som_image if som_image is not None else raw_image
+        enabled_backends = self._enabled_backends()
         logger.info(
-            "Generating scene graph with mode=%s for %d detections",
-            self.mode,
+            "Generating scene graph with backends=%s merge_strategy='union+dedup' for %d detections",
+            ",".join(enabled_backends) if enabled_backends else "none",
             len(detections),
         )
-        # pass raw to rules because colors get distorted by bboxes colors
         graph = SceneGraph()
-        match self.mode:
-            case "rules":
-                graph = self.rule_backend.generate(raw_image, detections)
-            case "reltr":
-                graph = await self.reltr_backend.generate(raw_image, detections)
-            case "vlm":
-                graph = (
-                    SceneGraph()
-                    if vlm_image is None
-                    else await self.vlm_backend.generate(
-                        vlm_image, detections, caption_text
-                    )
-                )
-            case _:
 
-                vlm_graph = (
-                    SceneGraph()
-                    if vlm_image is None
-                    else await self.vlm_backend.generate(
-                        vlm_image, detections, caption_text
-                    )
-                )
+        if self.rule_backend.rules_config.enabled:
+            rules_graph = self.rule_backend.generate(raw_image, detections)
+            logger.debug("SGG RULES output: %s", rules_graph)
+            graph = graph + rules_graph
 
-                logger.debug("HYBRID SGG, VLM output: %s", vlm_graph)
-                rules_graph = self.rule_backend.generate(raw_image, detections)
-                logger.debug("HYBRID SGG, RULES output: %s", rules_graph)
-                reltr_graph = await self.reltr_backend.generate(raw_image, detections)
-                logger.debug("HYBRID SGG, RELTR output: %s", reltr_graph)
-                graph = vlm_graph + rules_graph + reltr_graph
-                logger.debug("HYBRID SGG, VLM + RULES + RELTR output: %s", graph)
+        if self.reltr_backend.config.enabled:
+            reltr_graph = await self.reltr_backend.generate(raw_image, detections)
+            logger.debug("SGG RELTR output: %s", reltr_graph)
+            graph = graph + reltr_graph
+
+        if self.vlm_backend.config.enabled:
+            vlm_graph = (
+                SceneGraph()
+                if vlm_image is None
+                else await self.vlm_backend.generate(
+                    vlm_image, detections, caption_text
+                )
+            )
+            logger.debug("SGG VLM output: %s", vlm_graph)
+            graph = graph + vlm_graph
+
+        logger.debug("Merged SGG output: %s", graph)
         enhanced_graph = self.enhance_scene_graph_with_robot_data(
             graph, detections, scene_state
         )
         logger.debug("Final Robot-Enhanced Graph: %s", enhanced_graph)
         return enhanced_graph
+
+    def _enabled_backends(self) -> list[str]:
+        names: list[str] = []
+        if self.rule_backend.rules_config.enabled:
+            names.append("rules")
+        if self.reltr_backend.config.enabled:
+            names.append("reltr")
+        if self.vlm_backend.config.enabled:
+            names.append("vlm")
+        return names
 
     def enhance_scene_graph_with_robot_data(
         self,

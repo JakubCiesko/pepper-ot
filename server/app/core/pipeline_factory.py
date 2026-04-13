@@ -75,7 +75,6 @@ def build_perception_pipeline(config: AppConfig) -> PerceptionPipeline:
     rule_backend = RuleSceneGraphGenerator(config.scene_graph.rules)
     reltr_backend = RelTRSceneGraphGenerator(config.scene_graph.reltr)
     scene_graph_service = SceneGraphService(
-        mode=config.scene_graph.mode,
         vlm_backend=vlm_backend,
         rule_backend=rule_backend,
         reltr_backend=reltr_backend,

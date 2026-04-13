@@ -71,10 +71,16 @@ rules = [
         "hot",
         _apply_pipeline_group,
     ),
-    ReloadRule(  # hard now, because reltr is gpu heavy, as is vlm.
-        "scene_graph.mode",
-        attrgetter("scene_graph.mode"),
-        "hard",
+    ReloadRule(
+        "scene_graph.vlm.enabled",
+        attrgetter("scene_graph.vlm.enabled"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "scene_graph.merge_strategy",
+        attrgetter("scene_graph.merge_strategy"),
+        "hot",
         _apply_pipeline_group,
     ),
     ReloadRule(

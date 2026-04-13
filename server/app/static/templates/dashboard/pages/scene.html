@@ -2,17 +2,25 @@
                 <div class="panel border rounded-xl p-5">
                     <h3 class="text-md uppercase tracking-widest panel-muted mb-4">Scene Representation - Scene Graph</h3>
                     <div>
-                        <label class="block text-md">SGG Mode</label>
-                        <select id="sgg-mode" class="w-full border rounded px-3 py-2 mt-1">
-                            <option value="vlm">VLM</option>
-                            <option value="rules">Rules</option>
-                            <option value="hybrid">Hybrid</option>
-                            <option value="reltr">RelTR</option>
-                        </select>
-                        <p class="text-md panel-muted mt-1">VLM uses only model output. Rules uses only rule engine. Hybrid merges VLM + rules + RelTR. RelTR uses transformer-based SGG with IoU matching to tracked detections.</p>
+                        <label class="block text-md">SGG Backends</label>
+                        <div class="mt-2 space-y-2">
+                            <label class="flex items-center gap-2">
+                                <input id="sgg-enable-vlm" type="checkbox">
+                                <span>VLM</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input id="sgg-enable-rules" type="checkbox">
+                                <span>Rules</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input id="sgg-enable-reltr" type="checkbox">
+                                <span>RelTR</span>
+                            </label>
+                        </div>
+                        <p class="text-md panel-muted mt-1">All checked backends run on the same frame and their outputs are merged together. VLM uses model output. Rules use deterministic geometry and color rules. RelTR uses transformer-based SGG with IoU matching to tracked detections.</p>
                     </div>
                     <label class="block text-md">System Prompt</label>
-                    <p class="text-md panel-muted mt-1">Global instructions for VLM scene-graph generation, used on every frame in VLM/Hybrid mode.</p>
+                    <p class="text-md panel-muted mt-1">Global instructions for VLM scene-graph generation, used whenever the VLM backend is enabled.</p>
                     <textarea id="vlm-system" rows="10" class="w-full border rounded px-3 py-2 mt-1"></textarea>
                     <label class="block text-xlg mt-4">VLM Device</label>
                     <input id="vlm-device" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="cuda">
@@ -85,16 +93,10 @@
 
 
                     <label class="block text-xlg mt-4" for="sgg-rules-json">Rules (JSON array)</label>
-                    <p class="text-md panel-muted mt-1">Rule-based scene graph configuration used in Rules and Hybrid modes (predicate type, thresholds, constraints).</p>
+                    <p class="text-md panel-muted mt-1">Rule-based scene graph configuration used whenever the Rules backend is enabled (predicate type, thresholds, constraints).</p>
                     <textarea id="sgg-rules-json" rows="10" class="w-full border rounded px-3 py-2 mt-1" placeholder='[{"predicate":"next to","type":"spatial","thresholds":{"max_distance":80}},{"predicate":"left of","type":"directional","thresholds":{"axis":"x","max_delta":-20}}]'></textarea>
 
                     <h4 class="text-md uppercase tracking-widest panel-muted mt-6">RelTR Backend</h4>
-                    <label class="block text-xlg mt-4">RelTR Enabled</label>
-                    <select id="reltr-enabled" class="w-full border rounded px-3 py-2 mt-1">
-                        <option value="false">false</option>
-                        <option value="true">true</option>
-                    </select>
-                    <p class="text-md panel-muted mt-1">Enable transformer-based RelTR scene graph generation in Hybrid or RelTR mode.</p>
                     <label class="block text-xlg mt-4">RelTR Checkpoint Path</label>
                     <input id="reltr-checkpoint-path" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="/home/user/checkpoint0149.pth">
                     <p class="text-md panel-muted mt-1">Absolute path to RelTR checkpoint file.</p>

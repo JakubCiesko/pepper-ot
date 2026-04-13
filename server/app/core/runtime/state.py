@@ -119,6 +119,7 @@ class AppState:
             return WorkerChatMemoryProxy(self.worker_manager)
         return EmptyChatMemory()
 
+    # TODO: resolve()? or str() and resolve just on init of the first state, well, yes this is it!
     def _initialize_chat_components(self, base_dir: Path):
         assert self.config is not None
         chat_system_prompt: str = self.config.chat.system_prompt.resolve(base_dir)

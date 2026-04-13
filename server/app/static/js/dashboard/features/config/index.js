@@ -44,9 +44,10 @@ const vlmClientInitKwargsStatus = document.getElementById(
 );
 const vlmCallKwargs = document.getElementById("vlm-call-kwargs");
 const vlmCallKwargsStatus = document.getElementById("vlm-call-kwargs-status");
-const sggMode = document.getElementById("sgg-mode");
+const sggEnableVlm = document.getElementById("sgg-enable-vlm");
+const sggEnableRules = document.getElementById("sgg-enable-rules");
+const sggEnableReltr = document.getElementById("sgg-enable-reltr");
 const sggRulesJson = document.getElementById("sgg-rules-json");
-const reltrEnabled = document.getElementById("reltr-enabled");
 const reltrCheckpointPath = document.getElementById("reltr-checkpoint-path");
 const reltrDevice = document.getElementById("reltr-device");
 const reltrThreshold = document.getElementById("reltr-threshold");
@@ -369,7 +370,6 @@ function updatePipelineControlsUi() {
 		!pipelineSceneGraph.checked || !pipelineTrackMemory.checked;
 
 	const summary = [];
-	const mode = sggMode.value;
 	if (
 		!pipelineDetect.checked &&
 		pipelineSceneGraph.checked &&
@@ -378,11 +378,19 @@ function updatePipelineControlsUi() {
 		summary.push("Direct-image scene graph route is active.");
 	}
 	if (
-		mode === "rules" &&
 		pipelineSceneGraph.checked &&
+		!sggEnableVlm.checked &&
+		!sggEnableRules.checked &&
+		!sggEnableReltr.checked
+	) {
+		summary.push("Invalid: at least one scene-graph backend must be enabled.");
+	}
+	if (
+		pipelineSceneGraph.checked &&
+		(sggEnableRules.checked || sggEnableReltr.checked) &&
 		!pipelineDetect.checked
 	) {
-		summary.push("Invalid: rules mode requires detect=true.");
+		summary.push("Invalid: Rules and RelTR require detect=true.");
 	}
 	if (!pipelineTrackMemory.checked) {
 		summary.push("Tracking disabled: IDs are frame-local only.");
@@ -528,13 +536,14 @@ async function loadConfig() {
 		2,
 	);
 
-	sggMode.value = active.scene_graph?.mode || "hybrid";
+	sggEnableVlm.checked = active.scene_graph?.vlm?.enabled ?? true;
+	sggEnableRules.checked = active.scene_graph?.rules?.enabled ?? true;
+	sggEnableReltr.checked = active.scene_graph?.reltr?.enabled ?? false;
 	sggRulesJson.value = JSON.stringify(
 		active.scene_graph?.rules?.rule_list || [],
 		null,
 		2,
 	);
-	reltrEnabled.value = String(active.scene_graph?.reltr?.enabled ?? false);
 	reltrCheckpointPath.value = active.scene_graph?.reltr?.checkpoint_path || "";
 	reltrDevice.value = active.scene_graph?.reltr?.device || "cpu";
 	reltrThreshold.value = active.scene_graph?.reltr?.threshold ?? 0.3;
@@ -632,6 +641,13 @@ function buildPatch() {
 	} catch (_err) {
 		throw new Error("Invalid JSON in SGG rules");
 	}
+	if (
+		!sggEnableVlm.checked &&
+		!sggEnableRules.checked &&
+		!sggEnableReltr.checked
+	) {
+		throw new Error("At least one scene graph backend must be enabled");
+	}
 
 	const parsedVlmClientInitKwargs = parseJsonObject(
 		vlmClientInitKwargs.value,
@@ -710,8 +726,8 @@ function buildPatch() {
 			},
 		},
 		scene_graph: {
-			mode: sggMode.value,
 			vlm: {
+				enabled: sggEnableVlm.checked,
 				provider: vlmProvider.value,
 				model_id: vlmModelId.value.trim(),
 				device: vlmDevice.value.trim() || null,
@@ -735,11 +751,11 @@ function buildPatch() {
 				},
 			},
 			rules: {
-				enabled: true,
+				enabled: sggEnableRules.checked,
 				rule_list: rules,
 			},
 			reltr: {
-				enabled: reltrEnabled.value === "true",
+				enabled: sggEnableReltr.checked,
 				checkpoint_path: reltrCheckpointPath.value.trim() || null,
 				device: reltrDevice.value.trim() || "cpu",
 				threshold: parseFloat(reltrThreshold.value) || 0.3,
@@ -1014,7 +1030,9 @@ pipelineTrackMemory.addEventListener("change", updatePipelineControlsUi);
 pipelinePaintSom.addEventListener("change", updatePipelineControlsUi);
 pipelineSceneGraph.addEventListener("change", updatePipelineControlsUi);
 pipelineUpdateSceneMemory.addEventListener("change", updatePipelineControlsUi);
-sggMode.addEventListener("change", updatePipelineControlsUi);
+sggEnableVlm.addEventListener("change", updatePipelineControlsUi);
+sggEnableRules.addEventListener("change", updatePipelineControlsUi);
+sggEnableReltr.addEventListener("change", updatePipelineControlsUi);
 
 applyBtn.addEventListener("click", applyConfig);
 saveBtn.addEventListener("click", saveConfig);

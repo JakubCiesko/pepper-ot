@@ -148,6 +148,7 @@ class SceneGraphVLMConfig(LLMConfig):
         prompt_template_style: Literal["auto", "chatml", "plain"] = "auto"
         image_token_strategy: Literal["auto", "single", "multi"] = "auto"
 
+    enabled: bool = True
     system_prompt: PromptSource
     user_prompt: PromptSource | None = None
     ontology: OntologySource
@@ -232,10 +233,34 @@ class SGGRelTRConfig(BaseModel):
 
 
 class SceneGraphConfig(BaseModel):
-    mode: Literal["vlm", "rules", "hybrid", "reltr"] = "hybrid"
+    mode: Literal["vlm", "rules", "hybrid", "reltr"] | None = Field(
+        default=None,
+        exclude=True,
+    )
+    merge_strategy: Literal["union"] = "union"
     vlm: SceneGraphVLMConfig
     rules: SGGRulesConfig = Field(default_factory=SGGRulesConfig)
     reltr: SGGRelTRConfig = Field(default_factory=SGGRelTRConfig)
+
+    @model_validator(mode="after")
+    def apply_legacy_mode_compat(self):
+        if self.mode == "vlm":
+            self.vlm.enabled = True
+            self.rules.enabled = False
+            self.reltr.enabled = False
+        elif self.mode == "rules":
+            self.vlm.enabled = False
+            self.rules.enabled = True
+            self.reltr.enabled = False
+        elif self.mode == "reltr":
+            self.vlm.enabled = False
+            self.rules.enabled = False
+            self.reltr.enabled = True
+        elif self.mode == "hybrid":
+            self.vlm.enabled = True
+            self.rules.enabled = True
+            self.reltr.enabled = True
+        return self
 
 
 class FusionConfig(BaseModel):
@@ -405,20 +430,21 @@ class AppConfig(BaseModel):
                 "pipeline_controls.update_scene_memory requires track_memory=true"
             )
         if (
-            self.scene_graph.mode == "rules"
-            and controls.scene_graph
-            and not controls.detect
+            controls.scene_graph
+            and not self.scene_graph.vlm.enabled
+            and not self.scene_graph.rules.enabled
+            and not self.scene_graph.reltr.enabled
         ):
             raise ValueError(
-                "scene_graph.mode=rules requires detect=true when scene_graph stage is enabled"
+                "pipeline_controls.scene_graph=true requires at least one enabled scene-graph backend"
             )
         if (
-            self.scene_graph.mode == "reltr"
-            and controls.scene_graph
+            controls.scene_graph
+            and (self.scene_graph.rules.enabled or self.scene_graph.reltr.enabled)
             and not controls.detect
         ):
             raise ValueError(
-                "scene_graph.mode=reltr requires detect=true when scene_graph stage is enabled"
+                "rules and reltr scene-graph backends require detect=true when scene_graph stage is enabled"
             )
         return self
 
