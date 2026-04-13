@@ -104,8 +104,14 @@ async def vision_chat_endpoint(
 
     image_bytes = await file.read()
 
-    if form.resize_image:
-        image_bytes, (w, h) = img_utils.resize_image_bytes(image_bytes)
+    image_bytes, (_, _) = (
+        (
+            img_utils.resize_image_bytes(image_bytes, debug_show=True)
+            if form.resize_image
+            else image_bytes
+        ),
+        (None, None),
+    )
 
     adapter = resolve_runtime_adapter(app_state)
     payload = await adapter.vision_chat(

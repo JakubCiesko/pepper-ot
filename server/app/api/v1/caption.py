@@ -69,9 +69,18 @@ async def caption_endpoint(
         form.publish,
     )
     image_bytes = await file.read()
-    if form.resize_image:
-        image_bytes, (w, h) = img_utils.resize_image_bytes(image_bytes)
+    image_bytes, (w, h) = (
+        (
+            img_utils.resize_image_bytes(image_bytes, debug_show=True)
+            if form.resize_image
+            else image_bytes
+        ),
+        (None, None),
+    )
     robot_metadata = DetectService.parse_metadata(form.metadata)
+
+    if w is not None and h is not None:
+        robot_metadata.image_width, robot_metadata.image_height = w, h
 
     result = await app_state.caption_service.caption_with_optional_detect(
         image_bytes,
