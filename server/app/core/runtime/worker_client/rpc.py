@@ -10,16 +10,16 @@ from app.schemas.robot import RobotMetadata
 class WorkerRPCRequest(BaseModel):
     request_id: str
     config_version: int
-    deadline_ms: int
+    # deadline_ms: int
 
 
 class WorkerRPCResponse(BaseModel):
     ok: bool = True
-    error_code: str | None = None
+    # error_code: str | None = None
     error_message: str | None = None
     worker_state: WorkerState = WorkerState.READY
     config_version: int = 0
-    elapsed_ms: float = 0.0
+    # elapsed_ms: float = 0.0
 
 
 class DetectRPCRequest(WorkerRPCRequest):

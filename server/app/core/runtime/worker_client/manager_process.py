@@ -116,9 +116,9 @@ class WorkerProcessMixin:
                 {
                     "config": self.config.model_dump(mode="json"),
                     "config_version": self._config_version,
-                    "deadline_ms": int(
-                        self.config.worker.startup_timeout_seconds * 1000
-                    ),
+                    # "deadline_ms": int(
+                    #     self.config.worker.startup_timeout_seconds * 1000
+                    # ),
                     "request_id": str(uuid4()),
                 },
                 timeout=self.config.worker.startup_timeout_seconds,

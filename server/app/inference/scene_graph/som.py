@@ -49,7 +49,7 @@ class SoMPainter:
         self._base_line_thickness = line_thickness
         self._base_text_scale = float(self.label_annotator.text_scale)
         self._base_text_thickness = int(self.label_annotator.text_thickness)
-        self._base_text_padding = int(self.label_annotator.text_padding)
+        # self._base_text_padding = int(self.label_annotator.text_padding)
         self.mask_backend = (
             mask_backend if mask_backend in {"grabcut", "sam"} else "grabcut"
         )

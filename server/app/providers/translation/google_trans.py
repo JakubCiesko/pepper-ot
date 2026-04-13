@@ -122,15 +122,15 @@ class TranslationService:
         return last_output, False
 
 
-def invert_language(output_language: str) -> str:
-    mode = (output_language or "default").strip().lower()
-    if mode == "default":
-        return "default"
-    if mode == "english":
-        return "czech"
-    if mode == "czech":
-        return "english"
-    return output_language
+# def invert_language(output_language: str) -> str:
+#     mode = (output_language or "default").strip().lower()
+#     if mode == "default":
+#         return "default"
+#     if mode == "english":
+#         return "czech"
+#     if mode == "czech":
+#         return "english"
+#     return output_language
 
 
 def expand_language_code(language: str) -> str:

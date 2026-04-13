@@ -11,8 +11,6 @@ from PIL import Image
 from pydantic import BaseModel
 from pydantic import Field
 
-from app.schemas.robot import RobotMetadata
-
 
 class InferenceDetectionObject(BaseModel):
     class_id: int = Field(..., description="Class ID")
@@ -71,13 +69,13 @@ class BoundingBox:
     def __init__(self, x1: float, y1: float, x2: float, y2: float):
         self.x1, self.y1, self.x2, self.y2 = x1, y1, x2, y2
 
-    @property
-    def centroid(self) -> tuple[float, float]:
-        return (self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2
+    # @property
+    # def centroid(self) -> tuple[float, float]:
+    #     return (self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2
 
-    @property
-    def area(self) -> float:
-        return (self.x2 - self.x1) * (self.y2 - self.y1)
+    # @property
+    # def area(self) -> float:
+    #     return (self.x2 - self.x1) * (self.y2 - self.y1)
 
     def iou(self, other: "BoundingBox") -> float:
         ix1 = max(self.x1, other.x1)
@@ -102,36 +100,36 @@ class InternalDetection:
         self.confidence = confidence
 
 
-class CameraModel:
-    """Math for mapping pixels to angles (Yaw/Pitch)."""
+# class CameraModel:
+#     """Math for mapping pixels to angles (Yaw/Pitch)."""
 
-    def __init__(
-        self,
-        h_fov: float = 57.2,
-        v_fov: float = 44.3,
-        width: int = 640,
-        height: int = 480,
-    ):
-        self.h_fov = np.radians(h_fov)
-        self.v_fov = np.radians(v_fov)
-        self.width = width
-        self.height = height
+#     def __init__(
+#         self,
+#         h_fov: float = 57.2,
+#         v_fov: float = 44.3,
+#         width: int = 640,
+#         height: int = 480,
+#     ):
+#         self.h_fov = np.radians(h_fov)
+#         self.v_fov = np.radians(v_fov)
+#         self.width = width
+#         self.height = height
 
-    def pixel_to_angles(self, x: float, y: float) -> tuple[float, float]:
-        """Returns (yaw_rel, pitch_rel) in radians."""
-        yaw = (0.5 - x / self.width) * self.h_fov
-        pitch = (0.5 - y / self.height) * self.v_fov
-        return yaw, pitch
+#     def pixel_to_angles(self, x: float, y: float) -> tuple[float, float]:
+#         """Returns (yaw_rel, pitch_rel) in radians."""
+#         yaw = (0.5 - x / self.width) * self.h_fov
+#         pitch = (0.5 - y / self.height) * self.v_fov
+#         return yaw, pitch
 
 
-class FrameContext:
-    """Container for a single perception heartbeat."""
+# class FrameContext:
+#     """Container for a single perception heartbeat."""
 
-    def __init__(self, image: Image.Image, metadata: RobotMetadata):
-        self.image = image
-        self.metadata = metadata
-        self.detections: list[InternalDetection] = []
-        self.timestamp = time.time()  # Example usage
+#     def __init__(self, image: Image.Image, metadata: RobotMetadata):
+#         self.image = image
+#         self.metadata = metadata
+#         self.detections: list[InternalDetection] = []
+#         self.timestamp = time.time()  # Example usage
 
 
 @dataclass
@@ -199,17 +197,17 @@ class SceneGraph:
         self.edges = list(set(self.edges))
         self.no_label_edges = list(set(self.no_label_edges))
 
-    def subjects(self) -> list[str]:
-        return [edge.sub for edge in self.edges]
+    # def subjects(self) -> list[str]:
+    #     return [edge.sub for edge in self.edges]
 
-    def objects(self) -> list[str]:
-        return [edge.obj for edge in self.edges]
+    # def objects(self) -> list[str]:
+    #     return [edge.obj for edge in self.edges]
 
-    def predicates(self) -> list[str]:
-        return [edge.rel for edge in self.edges]
+    # def predicates(self) -> list[str]:
+    #     return [edge.rel for edge in self.edges]
 
-    def attributes(self) -> list[str]:
-        return [edge.rel for edge in self.edges if edge.obj == edge.sub]
+    # def attributes(self) -> list[str]:
+    #     return [edge.rel for edge in self.edges if edge.obj == edge.sub]
 
     def as_dict(self) -> list[dict]:
         return [{"sub": e.sub, "rel": e.rel, "obj": e.obj} for e in self.edges]

@@ -99,68 +99,68 @@ def _expect_type(
         raise ValueError(f"{where}.{key} must be of type: {allowed}")
 
 
-def validate_client_init_kwargs(
-    provider: ProviderName, kwargs: dict[str, Any], where: str
-) -> None:
-    if not isinstance(kwargs, dict):
-        raise ValueError(f"{where} must be a JSON object")
+# def validate_client_init_kwargs(
+#     provider: ProviderName, kwargs: dict[str, Any], where: str
+# ) -> None:
+#     if not isinstance(kwargs, dict):
+#         raise ValueError(f"{where} must be a JSON object")
 
-    known: dict[str, tuple[type, ...]] = {
-        "api_key": (str,),
-        "base_url": (str,),
-        "timeout": (int, float),
-        "max_retries": (int,),
-        "organization": (str,),
-        "project": (str,),
-        "http_options": (dict,),
-        "device_map": (str, dict),
-        "torch_dtype": (str,),
-        "trust_remote_code": (bool,),
-        "tokenizer_kwargs": (dict,),
-        "processor_kwargs": (dict,),
-    }
+#     known: dict[str, tuple[type, ...]] = {
+#         "api_key": (str,),
+#         "base_url": (str,),
+#         "timeout": (int, float),
+#         "max_retries": (int,),
+#         "organization": (str,),
+#         "project": (str,),
+#         "http_options": (dict,),
+#         "device_map": (str, dict),
+#         "torch_dtype": (str,),
+#         "trust_remote_code": (bool,),
+#         "tokenizer_kwargs": (dict,),
+#         "processor_kwargs": (dict,),
+#     }
 
-    for key, value in kwargs.items():
-        if key in known:
-            _expect_type(where, key, value, known[key])
+#     for key, value in kwargs.items():
+#         if key in known:
+#             _expect_type(where, key, value, known[key])
 
 
-def validate_call_kwargs(
-    provider: ProviderName, kwargs: dict[str, Any], where: str
-) -> None:
-    if not isinstance(kwargs, dict):
-        raise ValueError(f"{where} must be a JSON object")
+# def validate_call_kwargs(
+#     provider: ProviderName, kwargs: dict[str, Any], where: str
+# ) -> None:
+#     if not isinstance(kwargs, dict):
+#         raise ValueError(f"{where} must be a JSON object")
 
-    common_known: dict[str, tuple[type, ...]] = {
-        "temperature": (int, float),
-        "top_p": (int, float),
-        "top_k": (int,),
-        "max_tokens": (int,),
-        "max_output_tokens": (int,),
-        "max_completion_tokens": (int,),
-        "max_new_tokens": (int,),
-        "do_sample": (bool,),
-        "response_format": (dict,),
-        "generate_content_config": (dict,),
-        "presence_penalty": (int, float),
-        "frequency_penalty": (int, float),
-        "reasoning": (dict,),
-        "seed": (int,),
-        "stop": (str, list),
-    }
+#     common_known: dict[str, tuple[type, ...]] = {
+#         "temperature": (int, float),
+#         "top_p": (int, float),
+#         "top_k": (int,),
+#         "max_tokens": (int,),
+#         "max_output_tokens": (int,),
+#         "max_completion_tokens": (int,),
+#         "max_new_tokens": (int,),
+#         "do_sample": (bool,),
+#         "response_format": (dict,),
+#         "generate_content_config": (dict,),
+#         "presence_penalty": (int, float),
+#         "frequency_penalty": (int, float),
+#         "reasoning": (dict,),
+#         "seed": (int,),
+#         "stop": (str, list),
+#     }
 
-    for key, value in kwargs.items():
-        if key in common_known:
-            _expect_type(where, key, value, common_known[key])
+#     for key, value in kwargs.items():
+#         if key in common_known:
+#             _expect_type(where, key, value, common_known[key])
 
-        if (
-            key == "stop"
-            and isinstance(value, list)
-            and not all(isinstance(item, str) for item in value)
-        ):
-            raise ValueError(f"{where}.stop list must contain only strings")
+#         if (
+#             key == "stop"
+#             and isinstance(value, list)
+#             and not all(isinstance(item, str) for item in value)
+#         ):
+#             raise ValueError(f"{where}.stop list must contain only strings")
 
-    if provider == "gemini" and "response_format" in kwargs:
-        raise ValueError(
-            f"{where}.response_format is OpenAI-style and unsupported for provider=gemini; use generate_content_config"
-        )
+#     if provider == "gemini" and "response_format" in kwargs:
+#         raise ValueError(
+#             f"{where}.response_format is OpenAI-style and unsupported for provider=gemini; use generate_content_config"
+#         )

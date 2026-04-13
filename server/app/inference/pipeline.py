@@ -52,9 +52,9 @@ class PerceptionPipeline:
         self.vis_config = vis_config
         self.pipeline_controls = pipeline_controls
 
-    def set_detection_threshold(self, threshold: float):
-        logger.info("Setting detection threshold to: %.2f", threshold)
-        self.detector.threshold = threshold
+    # def set_detection_threshold(self, threshold: float):
+    #     logger.info("Setting detection threshold to: %.2f", threshold)
+    #     self.detector.threshold = threshold
 
     # SINGLE SOURCE OF TRUTH
     async def process(

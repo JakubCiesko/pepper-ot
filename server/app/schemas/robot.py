@@ -20,9 +20,11 @@ class SocialPersonMetadata(BaseModel):
     is_sitting: bool | None = None
     is_looking_at_robot: bool | None = None
     looking_at_robot_score: float | None = None
-    head_angles: list[float] = Field(default_factory=list)
+    head_angles: list[float] = Field(
+        default_factory=list
+    )  # TODO: think of use for this
     gaze_direction: list[str] = Field(default_factory=list)
-    gender_code: float | None = None
+    gender_code: float | None = None  # TODO: maybe redundant but kept.
     gender: str | None = None
     gender_confidence: float | None = None
     age: float | None = None

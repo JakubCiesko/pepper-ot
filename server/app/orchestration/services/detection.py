@@ -1,4 +1,3 @@
-import base64
 import io
 import json
 import logging
@@ -165,5 +164,5 @@ class DetectService:
         await save_last_state_async(state_path, persist_payload)
 
 
-def decode_base64_image(image_b64: str) -> bytes:
-    return base64.b64decode(image_b64.encode("utf-8"))
+# def decode_base64_image(image_b64: str) -> bytes:
+#     return base64.b64decode(image_b64.encode("utf-8"))

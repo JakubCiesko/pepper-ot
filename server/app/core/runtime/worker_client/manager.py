@@ -130,7 +130,7 @@ class WorkerManager(WorkerMonitorMixin, WorkerProcessMixin, WorkerRPCMixin):
             body = {
                 "request_id": str(uuid4()),
                 "config_version": self._config_version,
-                "deadline_ms": int(self.internal_timeout * 1000),
+                # "deadline_ms": int(self.internal_timeout * 1000),
                 "image_b64": base64.b64encode(image_bytes).decode("utf-8"),
                 "robot_metadata": (
                     robot_metadata.model_dump() if robot_metadata else None

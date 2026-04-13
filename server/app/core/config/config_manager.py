@@ -104,7 +104,7 @@ def behavior_contracts() -> dict[str, Any]:
             "STARTING",
             "READY",
             "BUSY",
-            "DRAINING",
+            # "DRAINING",
             "STOPPING",
             "FAILED",
         ],
