@@ -33,10 +33,14 @@ class ChatService:
         config: ChatConfig,
         memory: SceneMemory,
         system_prompt: str,
+        user_prompt: str | None = None,
+        object_system_prompt: str | None = None,
         object_user_prompt: str | None = None,
     ):
         self.memory = memory
         self.system_prompt = system_prompt
+        self.user_prompt = user_prompt
+        self.object_system_prompt = object_system_prompt
         self.object_user_prompt = object_user_prompt
         self.llm = LLMClient(config)
 
@@ -138,17 +142,7 @@ class ChatService:
     def _normalize_label(value: str | None) -> str:
         return (value or "").strip().lower()
 
-    @staticmethod
-    def _render_object_user_prompt(
-        template: str,
-        values: dict[str, str],
-    ) -> str:
-        rendered = template
-        for key, value in values.items():
-            rendered = rendered.replace("{" + key + "}", value)
-        return rendered
-
-    async def compose_prompt(self, base: str) -> str:
+    async def _base_prompt_values(self) -> dict[str, str]:
         world_context = await self._build_context_string()
         latest_caption = await self._latest_caption()
         captions_recent = await self._recent_captions()
@@ -157,7 +151,21 @@ class ChatService:
             caption=latest_caption,
             captions_recent=captions_recent,
         )
-        rendered = render_prompt_template(base, render_context)
+        return {
+            key: str(value or "")
+            for key, value in render_context.to_template_values().items()
+        }
+
+    async def compose_prompt(
+        self,
+        base: str,
+        *,
+        extra: dict[str, str] | None = None,
+    ) -> str:
+        values = await self._base_prompt_values()
+        if extra:
+            values.update({key: str(value or "") for key, value in extra.items()})
+        rendered = render_prompt_template(base, values)
         return rendered or base
 
     @staticmethod
@@ -177,10 +185,17 @@ class ChatService:
         conversation_history: list[tuple[str, str]] | None = None,
     ) -> str:
         system_prompt = await self.compose_prompt(self.system_prompt)
-        user_query = await self.compose_prompt(user_query)
         logger.debug("Chat request received, system prompt: %s", system_prompt)
         history_text = self._format_history(conversation_history)
-        if history_text:
+        if self.user_prompt:
+            user_prompt = await self.compose_prompt(
+                self.user_prompt,
+                extra={
+                    "query": user_query,
+                    "history": history_text,
+                },
+            )
+        elif history_text:
             user_prompt = (
                 "Conversation so far:\n"
                 f"{history_text}\n\n"
@@ -344,28 +359,42 @@ class ChatService:
         object_context = "\n".join(object_context_lines)
         resolved_label = matched_objects[0].label if matched_objects else object_label
 
-        system_prompt = await self.compose_prompt(self.system_prompt)
         history_text = self._format_history(conversation_history)
-
-        if self.object_user_prompt:
-            matched_ids_text = (
-                ", ".join(str(object_id) for object_id in source_object_ids)
-                if source_object_ids
-                else "none"
-            )
-            prompt_values = {
+        base_prompt_values = await self._base_prompt_values()
+        object_prompt_values = dict(base_prompt_values)
+        object_prompt_values.update(
+            {
                 "query": user_query,
+                "history": history_text,
                 "object_label": object_label,
                 "resolved_label": resolved_label,
-                "matched_ids": matched_ids_text,
+                "matched_ids": (
+                    ", ".join(str(object_id) for object_id in source_object_ids)
+                    if source_object_ids
+                    else "none"
+                ),
                 "matched_count": str(len(source_object_ids)),
-                "history": history_text,
-                "object_context": object_context,
+                "scene_context": base_prompt_values.get("context", ""),
                 "context": object_context,
+                "object_context": object_context,
             }
-            user_prompt = self._render_object_user_prompt(
-                self.object_user_prompt,
-                prompt_values,
+        )
+        system_prompt_template = self.object_system_prompt or self.system_prompt
+        system_prompt = (
+            render_prompt_template(
+                system_prompt_template,
+                object_prompt_values,
+            )
+            or system_prompt_template
+        )
+
+        if self.object_user_prompt:
+            user_prompt = (
+                render_prompt_template(
+                    self.object_user_prompt,
+                    object_prompt_values,
+                )
+                or self.object_user_prompt
             )
         elif history_text:
             user_prompt = (

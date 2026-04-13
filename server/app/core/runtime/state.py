@@ -122,6 +122,16 @@ class AppState:
     def _initialize_chat_components(self, base_dir: Path):
         assert self.config is not None
         chat_system_prompt: str = self.config.chat.system_prompt.resolve(base_dir)
+        chat_user_prompt = (
+            self.config.chat.user_prompt.resolve(base_dir)
+            if self.config.chat.user_prompt is not None
+            else None
+        )
+        object_system_prompt = (
+            self.config.chat.object_system_prompt.resolve(base_dir)
+            if self.config.chat.object_system_prompt is not None
+            else None
+        )
         object_user_prompt = (
             self.config.chat.object_user_prompt.resolve(base_dir)
             if self.config.chat.object_user_prompt is not None
@@ -136,6 +146,8 @@ class AppState:
             self.config.chat,
             chat_memory,
             system_prompt=chat_system_prompt,
+            user_prompt=chat_user_prompt,
+            object_system_prompt=object_system_prompt,
             object_user_prompt=object_user_prompt,
         )
         if self.conversation_service is None:

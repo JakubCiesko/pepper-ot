@@ -64,6 +64,16 @@ def resolve_config(cfg: AppConfig) -> dict[str, Any]:
 
     resolved_chat = resolved.get("chat", {})
     resolved_chat["resolved_system_prompt"] = cfg.chat.system_prompt.resolve(base_dir)
+    resolved_chat["resolved_user_prompt"] = (
+        cfg.chat.user_prompt.resolve(base_dir)
+        if cfg.chat.user_prompt is not None
+        else None
+    )
+    resolved_chat["resolved_object_system_prompt"] = (
+        cfg.chat.object_system_prompt.resolve(base_dir)
+        if cfg.chat.object_system_prompt is not None
+        else None
+    )
     resolved_chat["resolved_object_user_prompt"] = (
         cfg.chat.object_user_prompt.resolve(base_dir)
         if cfg.chat.object_user_prompt is not None
@@ -193,6 +203,18 @@ def _validate_paths(cfg: AppConfig):
         "scene_graph.vlm.ontology",
     )
     check(cfg.chat.system_prompt.path, prompt_roots, "chat.system_prompt")
+    if cfg.chat.user_prompt is not None:
+        check(
+            cfg.chat.user_prompt.path,
+            prompt_roots,
+            "chat.user_prompt",
+        )
+    if cfg.chat.object_system_prompt is not None:
+        check(
+            cfg.chat.object_system_prompt.path,
+            prompt_roots,
+            "chat.object_system_prompt",
+        )
     if cfg.chat.object_user_prompt is not None:
         check(
             cfg.chat.object_user_prompt.path,

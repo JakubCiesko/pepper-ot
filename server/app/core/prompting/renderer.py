@@ -29,15 +29,6 @@ class PromptRenderContext:
         return values
 
 
-_ALLOWED_TEMPLATE_KEYS: tuple[str, ...] = (
-    "captions_recent",
-    "caption_recent",
-    "predicates",
-    "context",
-    "caption",  # pass ontology anywher etoo
-)
-
-
 def render_prompt_template(
     template: str | None,
     values: dict[str, Any] | PromptRenderContext | None = None,
@@ -50,6 +41,6 @@ def render_prompt_template(
         payload = values or {}
 
     rendered = template
-    for key in _ALLOWED_TEMPLATE_KEYS:
-        rendered = rendered.replace("{" + key + "}", str(payload.get(key, "") or ""))
+    for key, value in payload.items():
+        rendered = rendered.replace("{" + key + "}", str(value or ""))
     return rendered

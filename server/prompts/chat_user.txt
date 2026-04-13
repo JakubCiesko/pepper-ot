@@ -1,0 +1,14 @@
+Conversation so far:
+{history}
+
+Current scene context:
+{context}
+
+Latest caption:
+{caption}
+
+Recent captions:
+{captions_recent}
+
+Current user message:
+{query}

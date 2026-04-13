@@ -4,6 +4,12 @@
                     <label class="block text-md" for="chat-system">System Prompt</label>
                     <p class="text-md panel-muted mt-1">Base assistant behavior and tone for chat responses. Supports placeholders: <code>{context}</code>, <code>{caption}</code>, <code>{captions_recent}</code>, <code>{caption_recent}</code>, and <code>{predicates}</code>.</p>
                     <textarea id="chat-system" rows="16" class="w-full border rounded px-3 py-2 mt-1"></textarea>
+                    <label class="block text-md mt-4" for="chat-user">General User Prompt Template</label>
+                    <p class="text-md panel-muted mt-1">Template used for normal <code>mode=general</code> chat. Supports placeholders: <code>{query}</code>, <code>{history}</code>, <code>{context}</code>, <code>{caption}</code>, and <code>{captions_recent}</code>. Leave empty to use built-in fallback formatting.</p>
+                    <textarea id="chat-user" rows="10" class="w-full border rounded px-3 py-2 mt-1" placeholder="Leave empty to use built-in fallback general user prompt."></textarea>
+                    <label class="block text-md mt-4" for="chat-object-system">Object System Prompt</label>
+                    <p class="text-md panel-muted mt-1">System prompt used only for <code>mode=object</code>. Supports <code>{context}</code> and <code>{object_context}</code> as the narrow object context, plus <code>{scene_context}</code> for full scene context if you explicitly want it.</p>
+                    <textarea id="chat-object-system" rows="12" class="w-full border rounded px-3 py-2 mt-1" placeholder="Leave empty to fall back to the general system prompt."></textarea>
                     <label class="block text-md mt-4" for="chat-object-user">Object User Prompt Template</label>
                     <p class="text-md panel-muted mt-1">Template used only for <code>mode=object</code>. Supports placeholders: <code>{query}</code>, <code>{object_label}</code>, <code>{resolved_label}</code>, <code>{matched_ids}</code>, <code>{matched_count}</code>, <code>{history}</code>, and <code>{object_context}</code>.</p>
                     <textarea id="chat-object-user" rows="12" class="w-full border rounded px-3 py-2 mt-1" placeholder="Leave empty to use built-in fallback object prompt."></textarea>
