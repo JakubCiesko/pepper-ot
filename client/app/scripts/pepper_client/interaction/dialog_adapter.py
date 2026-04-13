@@ -82,7 +82,9 @@ class DialogAdapter(object):
         self.logger.warning("Failed to clear dynamic concept %s", name)
         return False
 
-    def refresh_memory_concepts(self, labels, attributes, relations):
+    def refresh_memory_concepts(
+        self, labels, attributes, relations, cached_questions=None
+    ):
         if self.dialog is None:
             return False
         dialog_cfg = self.config.get("dialog", {})
@@ -93,17 +95,23 @@ class DialogAdapter(object):
         labels = self._cap(labels, dialog_cfg.get("memory_objects_max"))
         attributes = self._cap(attributes, dialog_cfg.get("memory_attributes_max"))
         relations = self._cap(relations, dialog_cfg.get("memory_relations_max"))
+        cached_questions = self._cap(
+            cached_questions or [],
+            dialog_cfg.get("memory_cached_questions_max"),
+        )
 
         ok_objects = self.set_dynamic_concept("memory_objects", labels)
         ok_attrs = self.set_dynamic_concept("memory_attributes", attributes)
         ok_rels = self.set_dynamic_concept("memory_relations", relations)
+        ok_qa = self.set_dynamic_concept("memory_cached_questions", cached_questions)
         self.logger.info(
-            "Refreshed memory concepts objects=%s attrs=%s rels=%s",
+            "Refreshed memory concepts objects=%s attrs=%s rels=%s questions=%s",
             len(labels),
             len(attributes),
             len(relations),
+            len(cached_questions),
         )
-        return bool(ok_objects or ok_attrs or ok_rels)
+        return bool(ok_objects or ok_attrs or ok_rels or ok_qa)
 
     def build_memory_summary_url(self, base_url, summary_path, render_limit, explicit_url=None):
         explicit = str(explicit_url or "").strip()

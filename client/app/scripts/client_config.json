@@ -40,6 +40,7 @@
     "enable_dynamic_memory_concepts": true,
     "language_code": "enu",
     "memory_attributes_max": 100,
+    "memory_cached_questions_max": 60,
     "memory_objects_max": 100,
     "memory_relations_max": 100,
     "refresh_after_detect": true,
@@ -63,6 +64,7 @@
     "caption_timeout_seconds": 60,
     "chat_path": "/api/v1/chat",
     "chat_timeout_seconds": 60,
+    "pregenerate_qa_path": "/api/v1/chat/pregenerate_qa",
     "config_patch_path": "/api/v1/config",
     "config_timeout_seconds": 60,
     "dashboard_url": "https://raye-uncontractile-attently.ngrok-free.dev/dashboard",
@@ -94,7 +96,12 @@
     "face_match_max_angle_rad": 0.35
   },
   "tablet": {
+    "bridge_retry_attempts": 12,
+    "bridge_retry_interval_seconds": 0.25,
+    "local_app_name": "pepper-grounded-client",
+    "local_memory_page_path": "html/memory/index.html",
     "memory_page_url": "",
-    "memory_render_limit": 5
+    "memory_render_limit": 5,
+    "pregenerated_questions_count": 5
   }
 }

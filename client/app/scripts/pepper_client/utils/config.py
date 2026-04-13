@@ -14,6 +14,7 @@ DEFAULT_CONFIG = {
         "detect_path": "/api/v1/detect",
         "detect_panorama_path": "/api/v1/detect/panorama",
         "chat_path": "/api/v1/chat",
+        "pregenerate_qa_path": "/api/v1/chat/pregenerate_qa",
         "config_patch_path": "/api/v1/config",
         "dashboard_url": "http://127.0.0.1:8000/dashboard",
         "memory_summary_path": "/api/v1/memory/summary",
@@ -75,6 +76,7 @@ DEFAULT_CONFIG = {
         "memory_objects_max": 100,
         "memory_attributes_max": 100,
         "memory_relations_max": 100,
+        "memory_cached_questions_max": 60,
         "refresh_after_detect": True,
         "refresh_after_scan": True,
         "refresh_after_reset": True,
@@ -89,6 +91,11 @@ DEFAULT_CONFIG = {
     "tablet": {
         "memory_page_url": "",
         "memory_render_limit": 5,
+        "local_app_name": "pepper-grounded-client",
+        "local_memory_page_path": "html/memory/index.html",
+        "bridge_retry_attempts": 12,
+        "bridge_retry_interval_seconds": 0.25,
+        "pregenerated_questions_count": 5,
     },
 }
 
@@ -140,7 +147,12 @@ def normalize_config(config):
         dialog.get("enable_dynamic_memory_concepts", True)
     )
     dialog["language_code"] = str(dialog.get("language_code") or "enu").strip().lower()
-    for key in ("memory_objects_max", "memory_attributes_max", "memory_relations_max"):
+    for key in (
+        "memory_objects_max",
+        "memory_attributes_max",
+        "memory_relations_max",
+        "memory_cached_questions_max",
+    ):
         try:
             dialog[key] = max(1, int(dialog.get(key, 100)))
         except Exception:
@@ -163,10 +175,34 @@ def normalize_config(config):
 
     tablet = config.setdefault("tablet", {})
     tablet["memory_page_url"] = str(tablet.get("memory_page_url") or "").strip()
+    tablet["local_app_name"] = str(
+        tablet.get("local_app_name") or "pepper-grounded-client"
+    ).strip()
+    tablet["local_memory_page_path"] = str(
+        tablet.get("local_memory_page_path") or "html/memory/index.html"
+    ).strip()
     try:
         tablet["memory_render_limit"] = max(1, int(tablet.get("memory_render_limit", 5)))
     except Exception:
         tablet["memory_render_limit"] = 5
+    try:
+        tablet["bridge_retry_attempts"] = max(
+            1, int(tablet.get("bridge_retry_attempts", 12))
+        )
+    except Exception:
+        tablet["bridge_retry_attempts"] = 12
+    try:
+        tablet["bridge_retry_interval_seconds"] = max(
+            0.0, float(tablet.get("bridge_retry_interval_seconds", 0.25))
+        )
+    except Exception:
+        tablet["bridge_retry_interval_seconds"] = 0.25
+    try:
+        tablet["pregenerated_questions_count"] = max(
+            1, int(tablet.get("pregenerated_questions_count", 5))
+        )
+    except Exception:
+        tablet["pregenerated_questions_count"] = 5
 
     mode = normalize_output_language(config["language"].get("output_language_mode"))
     config["language"]["output_language_mode"] = mode

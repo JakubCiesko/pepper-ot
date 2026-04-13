@@ -1,0 +1,209 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pepper Memory</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 14px;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 22px;
+      color: #f8fafc;
+    }
+    h2 {
+      margin: 0 0 8px 0;
+      font-size: 17px;
+      color: #bfdbfe;
+    }
+    .muted {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    .chips {
+      margin-top: 6px;
+      line-height: 1.9;
+    }
+    .chip {
+      display: inline-block;
+      margin: 3px 6px 3px 0;
+      padding: 4px 9px;
+      background: #1f2937;
+      border: 1px solid #334155;
+      border-radius: 999px;
+      font-size: 13px;
+      color: #e5e7eb;
+    }
+    #graph svg {
+      width: 100%;
+      height: auto;
+      background: #ffffff;
+      border-radius: 8px;
+    }
+    .qa-item {
+      border-top: 1px dashed #334155;
+      padding: 9px 0;
+    }
+    .qa-item:first-child {
+      border-top: none;
+      padding-top: 0;
+    }
+    .q {
+      color: #fde68a;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+    .a {
+      color: #dcfce7;
+      font-size: 15px;
+    }
+    .small {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pepper Memory</h1>
+
+  <div class="card">
+    <h2>Remembered Objects</h2>
+    <div id="labels" class="chips"></div>
+    <div id="meta" class="small"></div>
+  </div>
+
+  <div class="card">
+    <h2>Memory Graph</h2>
+    <div id="graph" class="muted">No memory graph yet.</div>
+  </div>
+
+  <div class="card">
+    <h2>Suggested Questions</h2>
+    <div id="qa" class="muted">No generated questions yet.</div>
+  </div>
+
+  <script>
+    (function () {
+      function safeText(value) {
+        if (value === null || value === undefined) {
+          return "";
+        }
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function asObject(value) {
+        if (!value) {
+          return {};
+        }
+        if (typeof value === "string") {
+          try {
+            return JSON.parse(value);
+          } catch (e) {
+            return {};
+          }
+        }
+        return value;
+      }
+
+      function renderLabels(summary) {
+        var host = document.getElementById("labels");
+        var meta = document.getElementById("meta");
+        var counts = summary.label_counts || {};
+        var labels = summary.labels || [];
+        var html = "";
+        var i;
+
+        if (!labels.length) {
+          host.innerHTML = '<span class="muted">No objects remembered.</span>';
+          meta.innerHTML = "";
+          return;
+        }
+
+        for (i = 0; i < labels.length; i += 1) {
+          var label = labels[i];
+          var count = counts[label] || 0;
+          html += '<span class="chip">' + safeText(label) + ' (' + safeText(count) + ')</span>';
+        }
+        host.innerHTML = html;
+        meta.innerHTML = "Total labels: " + safeText(labels.length);
+      }
+
+      function renderGraph(summary) {
+        var host = document.getElementById("graph");
+        var svg = summary.graph_svg || "";
+        if (!svg) {
+          host.innerHTML = "No memory graph yet.";
+          return;
+        }
+        host.innerHTML = svg;
+      }
+
+      function renderQA(payload) {
+        var host = document.getElementById("qa");
+        var pairs = payload.pregenerated_qa || [];
+        var html = "";
+        var i;
+
+        if (!pairs.length) {
+          host.innerHTML = "No generated questions yet.";
+          return;
+        }
+
+        for (i = 0; i < pairs.length; i += 1) {
+          var item = pairs[i] || {};
+          var q = safeText(item.question || "");
+          var a = safeText(item.answer || "");
+          if (!q || !a) {
+            continue;
+          }
+          html += '<div class="qa-item">';
+          html += '<div class="q">Q: ' + q + '</div>';
+          html += '<div class="a">A: ' + a + '</div>';
+          html += '</div>';
+        }
+
+        if (!html) {
+          host.innerHTML = "No generated questions yet.";
+          return;
+        }
+        host.innerHTML = html;
+      }
+
+      function render(payload) {
+        payload = asObject(payload);
+        var summary = asObject(payload.summary || {});
+        renderLabels(summary);
+        renderGraph(summary);
+        renderQA(payload);
+      }
+
+      window.PepperMemoryPage = {
+        renderFromBridge: function (payload) {
+          render(payload);
+          return true;
+        }
+      };
+
+      render({});
+    })();
+  </script>
+</body>
+</html>

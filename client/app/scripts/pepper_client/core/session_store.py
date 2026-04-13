@@ -116,6 +116,36 @@ class SessionStore(object):
             self._state["last_memory_summary_ts"] = time_utils.now_ts()
             self._state["last_response"] = summary
 
+    def update_after_pregenerated_qa(self, qa_response):
+        qa_response = qa_response or {}
+        pairs = qa_response.get("pregenerated_qa", []) or []
+        cached_questions = []
+        cached_answers = {}
+        for item in pairs:
+            if not isinstance(item, dict):
+                continue
+            question = str(item.get("question") or "").strip()
+            answer = str(item.get("answer") or "").strip()
+            if not question or not answer:
+                continue
+            cached_questions.append(question)
+            cached_answers[question] = answer
+        with self._lock:
+            self.logger.info(
+                "Updating SessionStore after pregenerated QA pairs=%s",
+                len(cached_questions),
+            )
+            self._state["cached_questions"] = self._sorted_unique(cached_questions)
+            self._state["cached_answers"] = cached_answers
+
+    def get_cached_questions(self):
+        with self._lock:
+            return list(self._state.get("cached_questions", []))
+
+    def get_cached_answers(self):
+        with self._lock:
+            return copy.deepcopy(self._state.get("cached_answers", {}))
+
     def get_memory_labels(self):
         with self._lock:
             return list(self._state.get("remembered_labels", []))

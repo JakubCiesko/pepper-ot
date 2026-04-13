@@ -402,10 +402,11 @@ async def get_memory_pregenerated_qa(
         if item.question.strip() and item.answer.strip()
     ]
     logger.info("PregeneratedQA Pre-Translation: %s", pregenerated_pairs)
-    pregenerated_pairs = await asyncio.gather(*[
-        translate_pair(pair) for pair in pregenerated_pairs
-    ])
-    logger.info("PregeneratedQA Final Output After Translation %s", pregenerated_pairs)
+    if output_language is not None and output_language != "default":
+        pregenerated_pairs = await asyncio.gather(*[
+            translate_pair(pair) for pair in pregenerated_pairs
+        ])
+        logger.info("PregeneratedQA Final Output After Translation %s", pregenerated_pairs)
 
     metadata: dict[str, object] = {
         "model_id": app_state.config.chat.model_id,

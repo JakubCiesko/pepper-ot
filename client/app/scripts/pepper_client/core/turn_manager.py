@@ -339,20 +339,26 @@ class TurnManager(object):
         render_limit = scan_planner.memory_render_limit(self.config)
         summary = self.transport.memory_summary(render_limit=render_limit)
         self.session_store.update_after_memory_summary(summary)
+        qa_response = None
+        try:
+            qa_response = self.transport.pregenerate_qa(
+                requested_number_of_pairs=self._pregenerated_questions_count(),
+                language=self._speech_lang(lang_code),
+            )
+            self.session_store.update_after_pregenerated_qa(qa_response)
+        except Exception as exc:
+            self.logger.warning("Pregenerated QA request failed: %s", exc)
         self._refresh_dynamic_concepts_from_summary(summary)
 
-        if self.dialog_adapter is not None:
-            memory_page_url = self.dialog_adapter.build_memory_summary_url(
-                base_url=self.config["server"].get("base_url"),
-                summary_path=self.config["server"].get(
-                    "memory_summary_path", "/api/v1/memory/summary"
-                ),
-                render_limit=render_limit,
-                explicit_url=self.config.get("tablet", {}).get("memory_page_url"),
-            )
+        explicit_url = str(
+            self.config.get("tablet", {}).get("memory_page_url") or ""
+        ).strip()
+        if explicit_url:
+            shown = self.tablet_adapter.show_memory_page(explicit_url)
         else:
-            memory_page_url = self.config.get("tablet", {}).get("memory_page_url")
-        shown = self.tablet_adapter.show_memory_page(memory_page_url)
+            shown = self.tablet_adapter.show_local_memory_page(
+                payload=self._build_memory_page_payload(summary, qa_response)
+            )
         if not shown:
             self._safe_say(
                 fallback_message("unexpected", lang_code),
@@ -476,4 +482,33 @@ class TurnManager(object):
                 attributes.append(relation)
             else:
                 relations.append(relation)
-        return self.dialog_adapter.refresh_memory_concepts(labels, attributes, relations)
+        return self.dialog_adapter.refresh_memory_concepts(
+            labels,
+            attributes,
+            relations,
+            cached_questions=self.session_store.get_cached_questions(),
+        )
+
+    def _pregenerated_questions_count(self):
+        tablet_cfg = self.config.get("tablet", {})
+        try:
+            value = int(tablet_cfg.get("pregenerated_questions_count", 5))
+        except Exception:
+            value = 5
+        return max(1, value)
+
+    def _build_memory_page_payload(self, summary, qa_response):
+        payload = {
+            "summary": summary or {},
+            "pregenerated_qa": [],
+        }
+        if isinstance(qa_response, dict):
+            payload["pregenerated_qa"] = qa_response.get("pregenerated_qa", []) or []
+            payload["qa_metadata"] = qa_response.get("metadata", {}) or {}
+        else:
+            cached_answers = self.session_store.get_cached_answers()
+            payload["pregenerated_qa"] = [
+                {"question": q, "answer": cached_answers.get(q, "")}
+                for q in self.session_store.get_cached_questions()
+            ]
+        return payload

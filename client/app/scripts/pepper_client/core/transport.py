@@ -150,6 +150,22 @@ class PepperServerTransport(object):
             raise MalformedResponseError("Memory reset failed")
         return data
 
+    def pregenerate_qa(self, requested_number_of_pairs=5, language=None):
+        path = self.config["server"].get(
+            "pregenerate_qa_path", "/api/v1/chat/pregenerate_qa"
+        )
+        payload = {"requested_number_of_pairs": int(requested_number_of_pairs)}
+        if language:
+            payload["output_language"] = self._normalize_output_language(language)
+        data = self._post_json(
+            path,
+            payload,
+            self.config["server"].get("chat_timeout_seconds", 45),
+        )
+        if not isinstance(data, dict) or not isinstance(data.get("pregenerated_qa"), list):
+            raise MalformedResponseError("Pregenerated QA response missing pregenerated_qa")
+        return data
+
     def reset_conversation(self, chat_id):
         if not chat_id:
             return {"ok": True, "skipped": True}

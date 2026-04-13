@@ -9,6 +9,7 @@
     </Dialogs>
     <Resources>
         <File name="icon" src="icon.png" />
+        <File name="memory_page_html" src="html/memory/index.html" />
         <File name="peppergroundedclient" src="scripts/peppergroundedclient.py" />
         <File name="client_config" src="scripts/client_config.json" />
 
