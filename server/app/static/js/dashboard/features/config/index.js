@@ -149,7 +149,9 @@ const captionCallKwargsStatus = document.getElementById(
   'caption-call-kwargs-status',
 );
 const translationsLabels = document.getElementById('translations-labels');
-const translationsAttributes = document.getElementById('translations-attributes');
+const translationsAttributes = document.getElementById(
+  'translations-attributes',
+);
 const translationsRelations = document.getElementById('translations-relations');
 const translationsLabelsStatus = document.getElementById(
   'translations-labels-status',
