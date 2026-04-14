@@ -2,6 +2,7 @@ import logging
 
 from app.core.config import config_manager
 from app.core.runtime.state import app_state
+from app.providers.translation.vocabulary import vocabulary_translator
 from fastapi import APIRouter
 from fastapi import File
 from fastapi import HTTPException
@@ -12,6 +13,9 @@ from fastapi.responses import Response
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
+# TODO: think about the vocabulary_translator whether to have it here
+# It makes sense since it does not affect the pipeline or processors in any way but ... it is weird
 
 @router.get("/config")
 async def get_config():
@@ -31,6 +35,7 @@ async def get_config():
         "active": config_manager.dump_config(active),
         "saved": config_manager.dump_config(saved),
         "active_resolved": config_manager.resolve_config(active),
+        "translations": vocabulary_translator.get_dashboard_payload(),
         "contracts": {
             **config_manager.behavior_contracts(),
             "hard_reload_fields": hard_reload_fields,
@@ -78,10 +83,35 @@ async def patch_config(request: Request):
     if app_state.config is None:
         raise HTTPException(status_code=503, detail="Config not initialized")
     data = await request.json()
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="Config patch must be an object")
+
+    translations_patch = data.pop("translations", None)
+    translations_meta = None
     try:
         logger.info("Applying patch to config, with data: %s", data)
-        updated = config_manager.apply_patch(app_state.config, data)
-        diff = config_manager.diff_config(app_state.config, updated)
+        if data:
+            updated = config_manager.apply_patch(app_state.config, data)
+            diff = config_manager.diff_config(app_state.config, updated)
+        else:
+            updated = app_state.config
+            diff = config_manager.diff_config(app_state.config, app_state.config)
+
+        if translations_patch is not None:
+            translations_meta = await vocabulary_translator.apply_dashboard_patch(
+                translations_patch
+            )
+
+        if not data:
+            return {
+                "ok": True,
+                "reloaded": False,
+                "applied": [],
+                "requires_reload": [],
+                "translations_applied": translations_patch is not None,
+                "translations_persisted": translations_patch is not None,
+                "translations_meta": translations_meta,
+            }
         # needs rebuild
         if diff.hard:
             logger.info(
@@ -93,6 +123,9 @@ async def patch_config(request: Request):
                 "reloaded": True,
                 "applied": diff.hot,
                 "requires_reload": diff.hard,
+                "translations_applied": translations_patch is not None,
+                "translations_persisted": translations_patch is not None,
+                "translations_meta": translations_meta,
             }
         # can change settings, no need to rebuild
         await config_manager.apply_hot_config(app_state, updated)
@@ -101,6 +134,9 @@ async def patch_config(request: Request):
             "reloaded": False,
             "applied": diff.hot,
             "requires_reload": [],
+            "translations_applied": translations_patch is not None,
+            "translations_persisted": translations_patch is not None,
+            "translations_meta": translations_meta,
         }
     except ValueError as exc:
         logger.error(

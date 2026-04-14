@@ -145,6 +145,20 @@
           </button>
           <button
             class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3"
+            data-page-target="page-translations"
+          >
+            <span
+              class="w-2 h-2 rounded-full"
+              style="background: var(--c8)"
+            ></span>
+            <span class="sidebar-label">Translations</span>
+            <span
+              class="sidebar-tooltip absolute left-full ml-2 text-md px-2 py-1 rounded panel-alt border panel-border"
+              >Translations</span
+            >
+          </button>
+          <button
+            class="nav-item relative w-full text-left px-3 py-2 rounded border panel-border flex items-center gap-3"
             data-page-target="page-runtime"
           >
             <span
@@ -311,7 +325,8 @@
         {% include 'dashboard/pages/live.html' %} {% include
         'dashboard/pages/detection.html' %} {% include
         'dashboard/pages/som.html' %} {% include 'dashboard/pages/scene.html' %}
-        {% include 'dashboard/pages/runtime.html' %} {% include
+        {% include 'dashboard/pages/translations.html' %} {% include
+        'dashboard/pages/runtime.html' %} {% include
         'dashboard/pages/memory-settings.html' %} {% include
         'dashboard/pages/storage.html' %} {% include 'dashboard/pages/chat.html'
         %} {% include 'dashboard/pages/caption.html' %}

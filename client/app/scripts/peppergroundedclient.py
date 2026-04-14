@@ -151,7 +151,7 @@ class PepperGroundedClient(object):
         )
         self.speech_adapter.say(
             speech_policy.acknowledgement("reset", reset_lang),
-            reset_lang,
+            #reset_lang, dont change lang!
         )
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String, qi.String])
@@ -162,6 +162,15 @@ class PepperGroundedClient(object):
             object_label,
         )
         self.turn_manager.start_object_ask(lang_code, object_label)
+
+    @qi.bind(returnType=qi.Void, paramsType=[qi.String, qi.String])
+    def answerCachedQuestion(self, lang_code, question):
+        self.logger.info(
+            "answerCachedQuestion called lang_code=%s question=%s",
+            lang_code,
+            question,
+        )
+        self.turn_manager.start_cached_answer(lang_code, question)
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def showMemory(self, lang_code):

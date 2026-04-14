@@ -35,9 +35,20 @@ class MemoryGraphRenderService:
         *,
         crop_map: dict[int, bytes | None] | None = None,
         render_limit: int | None = None,
+        object_label_overrides: dict[int, str] | None = None,
+        object_attribute_overrides: dict[int, list[str]] | None = None,
+        relation_label_overrides: dict[tuple[int, str, int], str] | None = None,
     ) -> MemorySummary:
-        labels, label_counts = self._labels_and_counts(state)
-        relations, attribute_counts, relationship_counts = self._build_relations(state)
+        labels, label_counts = self._labels_and_counts(
+            state,
+            object_label_overrides=object_label_overrides,
+        )
+        relations, attribute_counts, relationship_counts = self._build_relations(
+            state,
+            object_label_overrides=object_label_overrides,
+            object_attribute_overrides=object_attribute_overrides,
+            relation_label_overrides=relation_label_overrides,
+        )
         limit = (
             self.MAX_RENDER_OBJECTS
             if render_limit is None
@@ -48,6 +59,9 @@ class MemoryGraphRenderService:
             state,
             crop_map=crop_map or {},
             render_object_ids=render_ids,
+            object_label_overrides=object_label_overrides,
+            object_attribute_overrides=object_attribute_overrides,
+            relation_label_overrides=relation_label_overrides,
         )
         # TODO: think whether to send this -> will slow down communication, 
         # maybe save space and make pepper parse the counts and all.
@@ -84,17 +98,35 @@ class MemoryGraphRenderService:
             objects = objects[:limit]
         return [obj.id for obj in objects]
 
-    def _labels_and_counts(self, state: SceneState) -> tuple[list[str], dict[str, int]]:
+    def _labels_and_counts(
+        self,
+        state: SceneState,
+        *,
+        object_label_overrides: dict[int, str] | None = None,
+    ) -> tuple[list[str], dict[str, int]]:
         counts: dict[str, int] = {}
         for obj in state.objects:
-            label = str(obj.label).strip()
+            label = str(
+                (object_label_overrides or {}).get(obj.id, obj.label)
+            ).strip()
             if not label:
                 continue
             counts[label] = counts.get(label, 0) + 1
         labels = sorted(counts)
         return labels, counts
 
-    def _build_relations(self, state: SceneState) -> list[SceneGraphRelation]:
+    def _build_relations(
+        self,
+        state: SceneState,
+        *,
+        object_label_overrides: dict[int, str] | None = None,
+        object_attribute_overrides: dict[int, list[str]] | None = None,
+        relation_label_overrides: dict[tuple[int, str, int], str] | None = None,
+    ) -> tuple[
+        list[SceneGraphRelation],
+        dict[tuple[str, str, str], int],
+        dict[tuple[str, str, str], int],
+    ]:
         object_map = {obj.id: obj for obj in state.objects}
         relations: list[SceneGraphRelation] = []
         attribute_counts: dict[tuple[str, str, str]: int] = {}
@@ -102,8 +134,10 @@ class MemoryGraphRenderService:
         seen: set[tuple[str, str, str]] = set()
 
         for obj in sorted(state.objects, key=lambda item: item.id):
-            node_name = f"{obj.label}_{obj.id}"
-            for attribute in sorted(set(obj.attributes or [])):
+            label = str((object_label_overrides or {}).get(obj.id, obj.label)).strip()
+            node_name = f"{label}_{obj.id}"
+            attributes = (object_attribute_overrides or {}).get(obj.id, obj.attributes or [])
+            for attribute in sorted(set(attributes or [])):
                 key = (node_name, attribute, node_name)
                 attribute_counts[key] = attribute_counts.get(key, 0) + 1
                 if key in seen:
@@ -121,15 +155,26 @@ class MemoryGraphRenderService:
             obj = object_map.get(rel.object_id)
             if subject is None or obj is None:
                 continue
-            sub_name = f"{subject.label}_{subject.id}"
-            obj_name = f"{obj.label}_{obj.id}"
-            key = (sub_name, rel.predicate, obj_name)
+            sub_label = str(
+                (object_label_overrides or {}).get(subject.id, subject.label)
+            ).strip()
+            obj_label = str(
+                (object_label_overrides or {}).get(obj.id, obj.label)
+            ).strip()
+            predicate = str(
+                (relation_label_overrides or {}).get(
+                    (rel.subject_id, rel.predicate, rel.object_id), rel.predicate
+                )
+            ).strip()
+            sub_name = f"{sub_label}_{subject.id}"
+            obj_name = f"{obj_label}_{obj.id}"
+            key = (sub_name, predicate, obj_name)
             relationship_counts[key] = relationship_counts.get(key, 0) + 1
             if key in seen:
                 continue
             seen.add(key)
             relations.append(
-                SceneGraphRelation(sub=sub_name, rel=rel.predicate, obj=obj_name)
+                SceneGraphRelation(sub=sub_name, rel=predicate, obj=obj_name)
             )
         return relations, attribute_counts, relationship_counts
 
@@ -139,6 +184,9 @@ class MemoryGraphRenderService:
         *,
         crop_map: dict[int, bytes | None],
         render_object_ids: list[int],
+        object_label_overrides: dict[int, str] | None = None,
+        object_attribute_overrides: dict[int, list[str]] | None = None,
+        relation_label_overrides: dict[tuple[int, str, int], str] | None = None,
     ) -> str:
         if not render_object_ids:
             return self._empty_svg()
@@ -185,7 +233,11 @@ class MemoryGraphRenderService:
                     src_y=src[1] + self.THUMB_HEIGHT / 2,
                     dst_x=dst[0] + self.NODE_WIDTH / 2,
                     dst_y=dst[1] + self.THUMB_HEIGHT / 2,
-                    label=rel.predicate,
+                    label=str(
+                        (relation_label_overrides or {}).get(
+                            (rel.subject_id, rel.predicate, rel.object_id), rel.predicate
+                        )
+                    ).strip(),
                 )
             )
 
@@ -195,6 +247,12 @@ class MemoryGraphRenderService:
                 self._render_node(
                     obj,
                     crop_bytes=crop_map.get(obj.id),
+                    display_label=str(
+                        (object_label_overrides or {}).get(obj.id, obj.label)
+                    ).strip(),
+                    display_attributes=(object_attribute_overrides or {}).get(
+                        obj.id, obj.attributes or []
+                    ),
                     x=x,
                     y=y,
                 )
@@ -219,14 +277,16 @@ class MemoryGraphRenderService:
         obj: TrackedObjectState,
         *,
         crop_bytes: bytes | None,
+        display_label: str,
+        display_attributes: list[str],
         x: int,
         y: int,
     ) -> str:
         image_x = x + (self.NODE_WIDTH - self.THUMB_WIDTH) / 2
         image_y = y
         pills_y = image_y + self.THUMB_HEIGHT + 10
-        pills = [self._title_pill(obj)]
-        pills.extend(self._attribute_pills(obj))
+        pills = [self._title_pill(display_label, obj.id)]
+        pills.extend(self._attribute_pills(display_attributes))
 
         image_fragment = self._render_thumbnail(crop_bytes, image_x, image_y)
         pill_fragments: list[str] = []
@@ -244,11 +304,11 @@ class MemoryGraphRenderService:
 
         return f'<g>{image_fragment}{"".join(pill_fragments)}</g>'
 
-    def _title_pill(self, obj: TrackedObjectState) -> str:
-        return f"{obj.label}_{obj.id}"
+    def _title_pill(self, label: str, object_id: int) -> str:
+        return f"{label}_{object_id}"
 
-    def _attribute_pills(self, obj: TrackedObjectState) -> list[str]:
-        attributes = sorted(set(obj.attributes or []))
+    def _attribute_pills(self, attributes: list[str] | None) -> list[str]:
+        attributes = sorted(set(attributes or []))
         if not attributes:
             return ["no attributes"]
         visible = attributes[: self.MAX_ATTRIBUTE_PILLS]

@@ -7,6 +7,7 @@ from pydantic import Field
 from app.core.infra.ws_manager import ws_manager
 from app.orchestration.adapters.runtime import memory_payload
 from app.orchestration.services.memory_graph_render import MemoryGraphRenderService
+from app.providers.translation.vocabulary import vocabulary_translator
 from app.schemas.scene import MemorySummary
 from app.schemas.scene import Relationship
 from app.schemas.scene import SceneState
@@ -85,7 +86,11 @@ class MemoryService:
     async def get_memory(self) -> SceneState:
         return await self.runtime.scene_state()
 
-    async def get_memory_summary(self, render_limit: int = 5) -> MemorySummary:
+    async def get_memory_summary(
+        self,
+        render_limit: int = 5,
+        lang: str | None = None,
+    ) -> MemorySummary:
         state = await self.runtime.scene_state()
         safe_limit = max(1, min(int(render_limit), self.renderer.MAX_RENDER_OBJECTS))
         render_object_ids = self.renderer.select_render_object_ids(
@@ -96,10 +101,25 @@ class MemoryService:
         if getter is not None:
             for object_id in render_object_ids:
                 crop_map[object_id] = await getter(object_id)
+        target_language = vocabulary_translator.normalize_language(lang)
+        if target_language == "en":
+            return self.renderer.build_summary(
+                state,
+                crop_map=crop_map,
+                render_limit=safe_limit,
+            )
+
+        overrides = await vocabulary_translator.build_memory_display_overrides(
+            state,
+            language=target_language,
+        )
         return self.renderer.build_summary(
             state,
             crop_map=crop_map,
             render_limit=safe_limit,
+            object_label_overrides=overrides.get("object_labels"),
+            object_attribute_overrides=overrides.get("object_attributes"),
+            relation_label_overrides=overrides.get("relation_labels"),
         )
 
     async def build_text_description(self): 

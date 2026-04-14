@@ -10,6 +10,7 @@ from app.core.config.mutations.components import apply_hot_changes
 from app.core.config.mutations.components import diff_config as contract_diff_config
 from app.core.config.mutations.components import hard_reload_fields
 from app.core.runtime.state import AppState
+from app.providers.translation.vocabulary import vocabulary_translator
 from app.providers.common.utils import provider_capability_matrix
 from app.schemas.config import AppConfig
 from app.schemas.config import PipelineControls
@@ -233,6 +234,8 @@ def diff_config(old, new) -> ConfigDiff:
 async def apply_hot_config(ml_state: AppState, new: AppConfig):
     old = ml_state.config or new
     await apply_hot_changes(ml_state, old, new)
+    base_dir = new._config_path.parent if new._config_path is not None else Path.cwd()
+    await vocabulary_translator.warm_from_config(new, base_dir)
 
 
 def hard_fields() -> list[str]:

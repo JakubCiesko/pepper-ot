@@ -10,6 +10,12 @@
     <Resources>
         <File name="icon" src="icon.png" />
         <File name="memory_page_html" src="html/memory/index.html" />
+        <File name="topic_enu_dynamic" src="pepper-grounded-client/pepper-grounded-client_enu_dynamic.top" />
+        <File name="topic_enu_perception" src="pepper-grounded-client/pepper-grounded-client_enu_perception.top" />
+        <File name="topic_enu_memory" src="pepper-grounded-client/pepper-grounded-client_enu_memory.top" />
+        <File name="topic_enu_object" src="pepper-grounded-client/pepper-grounded-client_enu_object.top" />
+        <File name="topic_enu_cached_qa" src="pepper-grounded-client/pepper-grounded-client_enu_cached_qa.top" />
+        <File name="topic_enu_general" src="pepper-grounded-client/pepper-grounded-client_enu_general.top" />
         <File name="peppergroundedclient" src="scripts/peppergroundedclient.py" />
         <File name="client_config" src="scripts/client_config.json" />
 

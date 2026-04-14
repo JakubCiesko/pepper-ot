@@ -5,12 +5,17 @@ import cv2
 import numpy as np
 from PIL import Image
 from PIL import ImageOps
+import datetime 
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
-def save_debug(image_bytes: bytes, name: str):
-    with open(pth := f"/tmp/pepper_server/{name}.jpg", "wb") as f:
+def save_debug(image_bytes: bytes, name: str, date_stamp: bool=True):
+    now = str(datetime.datetime.now())
+    folder = Path("/tmp/pepper_server/")
+    folder.mkdir(parents=True, exist_ok=True)
+    with open(pth := folder / f"{now + "_" if date_stamp else ""}{name}.jpg", "wb") as f:
         f.write(image_bytes)
         logger.info("Saved debug image: %s to %s", name, pth)
 

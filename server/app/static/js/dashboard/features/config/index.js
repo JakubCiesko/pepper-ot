@@ -148,6 +148,18 @@ const captionCallKwargs = document.getElementById('caption-call-kwargs');
 const captionCallKwargsStatus = document.getElementById(
   'caption-call-kwargs-status',
 );
+const translationsLabels = document.getElementById('translations-labels');
+const translationsAttributes = document.getElementById('translations-attributes');
+const translationsRelations = document.getElementById('translations-relations');
+const translationsLabelsStatus = document.getElementById(
+  'translations-labels-status',
+);
+const translationsAttributesStatus = document.getElementById(
+  'translations-attributes-status',
+);
+const translationsRelationsStatus = document.getElementById(
+  'translations-relations-status',
+);
 
 const applyBtn = document.getElementById('apply-config');
 const saveBtn = document.getElementById('save-config');
@@ -535,6 +547,22 @@ async function loadConfig() {
     null,
     2,
   );
+  const translations = data.translations?.active || {};
+  translationsLabels.value = JSON.stringify(
+    translations.labels?.cs || {},
+    null,
+    2,
+  );
+  translationsAttributes.value = JSON.stringify(
+    translations.attributes?.cs || {},
+    null,
+    2,
+  );
+  translationsRelations.value = JSON.stringify(
+    translations.relations?.cs || {},
+    null,
+    2,
+  );
 
   sggEnableVlm.checked = active.scene_graph?.vlm?.enabled ?? true;
   sggEnableRules.checked = active.scene_graph?.rules?.enabled ?? true;
@@ -632,6 +660,21 @@ async function loadConfig() {
     captionCallKwargsStatus,
     'Caption Call Kwargs',
   );
+  setJsonValidationStatus(
+    translationsLabels,
+    translationsLabelsStatus,
+    'Translations Labels (cs)',
+  );
+  setJsonValidationStatus(
+    translationsAttributes,
+    translationsAttributesStatus,
+    'Translations Attributes (cs)',
+  );
+  setJsonValidationStatus(
+    translationsRelations,
+    translationsRelationsStatus,
+    'Translations Relations (cs)',
+  );
 }
 
 function buildPatch() {
@@ -674,6 +717,18 @@ function buildPatch() {
     captionCallKwargs.value,
     'Caption Call Kwargs',
   );
+  const parsedTranslationLabels = parseJsonObject(
+    translationsLabels.value,
+    'Translations Labels (cs)',
+  );
+  const parsedTranslationAttributes = parseJsonObject(
+    translationsAttributes.value,
+    'Translations Attributes (cs)',
+  );
+  const parsedTranslationRelations = parseJsonObject(
+    translationsRelations.value,
+    'Translations Relations (cs)',
+  );
   const parsedWorkerRestartBackoff = parseNumberList(
     workerRestartBackoff.value,
   );
@@ -684,6 +739,11 @@ function buildPatch() {
   }
 
   return {
+    translations: {
+      labels: { cs: parsedTranslationLabels },
+      attributes: { cs: parsedTranslationAttributes },
+      relations: { cs: parsedTranslationRelations },
+    },
     system: {
       output_language: outputLanguageSelect.value,
     },
@@ -1015,6 +1075,27 @@ captionCallKwargs.addEventListener('input', () =>
     captionCallKwargs,
     captionCallKwargsStatus,
     'Caption Call Kwargs',
+  ),
+);
+translationsLabels.addEventListener('input', () =>
+  setJsonValidationStatus(
+    translationsLabels,
+    translationsLabelsStatus,
+    'Translations Labels (cs)',
+  ),
+);
+translationsAttributes.addEventListener('input', () =>
+  setJsonValidationStatus(
+    translationsAttributes,
+    translationsAttributesStatus,
+    'Translations Attributes (cs)',
+  ),
+);
+translationsRelations.addEventListener('input', () =>
+  setJsonValidationStatus(
+    translationsRelations,
+    translationsRelationsStatus,
+    'Translations Relations (cs)',
   ),
 );
 pipelinePreset.addEventListener('change', () => {

@@ -1,0 +1,45 @@
+concept:(object_query_lead) [
+    "tell me about"
+    "what do you know about"
+    "what can you tell me about"
+    "describe"
+    "describe the"
+    "say everything you know about"
+]
+
+concept:(object_query_prefix) [
+    "can you"
+    "could you"
+    "please"
+    "please can you"
+    "would you"
+]
+
+u:(~object_query_lead _~memory_objects {please})
+    "Okay I will focus on $1."
+    $last_object=$1
+    ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+    u1:(["tell me more" "what else" "more details" "anything else"])
+        ^sCall(PepperGroundedClient.askAboutObject("en", $last_object))
+    u1:(["and what about" "what about"] _~memory_objects)
+        $last_object=$1
+        ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+
+u:(~object_query_prefix ~object_query_lead _~memory_objects {please})
+    "Okay I will focus on $1."
+    $last_object=$1
+    ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+    u1:(["tell me more" "what else" "more details" "anything else"])
+        ^sCall(PepperGroundedClient.askAboutObject("en", $last_object))
+    u1:(["and what about" "what about"] _~memory_objects)
+        $last_object=$1
+        ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+
+u:(["what about" "and what about"] _~memory_objects)
+    $last_object=$1
+    ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+    u1:(["tell me more" "what else" "more details" "anything else"])
+        ^sCall(PepperGroundedClient.askAboutObject("en", $last_object))
+
+u:(["how many" "count"] _~memory_objects)
+    ^sCall(PepperGroundedClient.ask("en", $1))

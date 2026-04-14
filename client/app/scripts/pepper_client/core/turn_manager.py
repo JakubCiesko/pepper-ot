@@ -75,6 +75,15 @@ class TurnManager(object):
             lang_code,
         )
 
+    def start_cached_answer(self, lang_code, query):
+        return self._start_async(
+            "cached_answer",
+            lang_code,
+            self._run_cached_answer,
+            lang_code,
+            query,
+        )
+
     def start_reset_memory(self, lang_code):
         return self._start_async(
             "reset_memory",
@@ -331,6 +340,34 @@ class TurnManager(object):
             query=query,
             chat_id=self.session_store.get_chat_id(),
             language=language,
+        )
+        self.session_store.update_after_chat(query, chat_response)
+        self._safe_say(chat_response.get("sentence"), language)
+
+    def _run_cached_answer(self, lang_code, query):
+        language = self._speech_lang(lang_code)
+        max_chars = int(self.config["behavior"].get("max_query_chars", 320))
+        query = speech_policy.sanitize_query(query, max_chars)
+        if not query:
+            self.logger.info("Ignoring cached answer with empty query")
+            return
+        cached_answers = self.session_store.get_cached_answers()
+        answer = cached_answers.get(query)
+        if answer is None:
+            normalized_query = query.strip().lower()
+            for question, candidate in cached_answers.items():
+                if str(question or "").strip().lower() == normalized_query:
+                    answer = candidate
+                    break
+        if answer:
+            self.logger.info("Answering from pregenerated cache for query=%s", query)
+            self._safe_say(answer, language)
+            return
+        self.logger.info("Cached answer miss, falling back to general chat query=%s", query)
+        chat_response = self.transport.chat_general(
+            query,
+            self.session_store.get_chat_id(),
+            language,
         )
         self.session_store.update_after_chat(query, chat_response)
         self._safe_say(chat_response.get("sentence"), language)

@@ -1,61 +1,224 @@
 topic: ~pepper-grounded-client()
 language: czc
 
-concept:(look) [
+# Dynamic concepts are filled from Python via ALDialog.setConcept.
+dynamic:memory_objects
+dynamic:memory_attributes
+dynamic:memory_relations
+dynamic:memory_cached_questions
+
+concept:(quick_look_action) [
     "co vidíš"
     "co kolem sebe vidíš"
     "podívej se"
     "mrkni se"
-    "co vidíš před sebou"
+    "podívej se teď"
+    "udělej rychlý pohled"
+    "rychlý pohled"
     "popiš co vidíš"
-    "popiš co teď vidíš"
-    "co se kolem tebe děje"
-    "řekni co vidíš"
-    "řekni co se před tebou děje"
-    "řekni co se děje"
-    "popiš co se děje"
-    "popiš co se teď děje"
+    "popiš scénu"
+    "co vidíš před sebou"
 ]
 
+concept:(quick_look) [
+    "~quick_look_action"
+    "prosím ~quick_look_action"
+    "můžeš ~quick_look_action"
+    "mohl bys ~quick_look_action"
+    "mohla bys ~quick_look_action"
+    "můžeš prosím ~quick_look_action"
+]
 
-# TODO: musis make pkg, potom scp na auroru z pepper_root/my_apps/, potom make install, add logview, add uninstall?
-# stabilizuj
-# ngrok kill na finally alebo za yield
-
-
-concept:(scan) [
+concept:(panorama_scan_action) [
     "rozhlídni se"
     "naskenuj místnost"
+    "udělej plný sken"
+    "udělej panorama sken"
+    "panorama sken"
     "podívej se všude"
-    "udelěj sken místnosti"
-    "naskenuj své okoli"
-    "naskenuj okolí"
+    "dlouhý sken"
 ]
 
-concept:(reset_session) [
-    "začneme znovu"
+concept:(panorama_scan) [
+    "~panorama_scan_action"
+    "prosím ~panorama_scan_action"
+    "můžeš ~panorama_scan_action"
+    "mohl bys ~panorama_scan_action"
+    "mohla bys ~panorama_scan_action"
+    "můžeš prosím ~panorama_scan_action"
+]
+
+concept:(show_memory_graph) [
+    "ukaž paměť"
+    "otevři paměť"
+    "ukaž graf paměti"
+    "otevři graf paměti"
+    "ukaž scénový graf"
+    "otevři scénový graf"
+    "co si pamatuješ"
+    "co si teď pamatuješ"
+    "ukaž co si pamatuješ"
+]
+
+concept:(reset_memory_only) [
+    "resetuj paměť"
+    "vymaž paměť"
+    "resetuj vizuální paměť"
+    "vymaž vizuální paměť"
+    "resetuj scénovou paměť"
+    "vymaž scénovou paměť"
+    "zapomeň co jsi viděl"
+]
+
+concept:(reset_conversation_only) [
     "resetuj konverzaci"
+    "vymaž konverzaci"
+    "začni novou konverzaci"
     "zapomeň konverzaci"
-    "nová konverzace"
+    "nová konverzace prosím"
+]
+
+concept:(reset_all) [
+    "začneme znovu"
+    "začni od začátku"
+    "začneme od nuly"
+    "pojďme od začátku"
+]
+
+concept:(refresh_memory_concepts) [
+    "obnov paměťová slova"
+    "aktualizuj paměťová slova"
+    "obnov paměťové koncepty"
+    "aktualizuj paměťové koncepty"
+    "načti znovu paměťová slova"
+]
+
+concept:(object_query_lead) [
+    "řekni mi něco o"
+    "co víš o"
+    "co mi řekneš o"
+    "popiš"
+    "popiš ten"
+    "řekni všechno co víš o"
+]
+
+concept:(object_query_prefix) [
+    "můžeš"
+    "mohl bys"
+    "mohla bys"
+    "prosím"
+    "prosím můžeš"
+]
+
+concept:(ask_suggested_questions) [
+    "na co se můžu zeptat"
+    "navrhni otázky"
+    "ukaž doporučené otázky"
+    "jaké otázky mám položit"
+    "dej mi příklady otázek"
+    "ukaž rychlé otázky"
 ]
 
 concept:(show_dashboard) [
     "ukaž dashboard"
     "otevři dashboard"
-    "ukaž svuj dashboard"
+    "ukaž svůj dashboard"
+    "otevři svůj dashboard"
 ]
 
-u:(~look)
-    "Dobře."
-    ^pCall(PepperGroundedClient.look("cs"))
+u:(~quick_look)
+    "Dobře udělám rychlý pohled."
+    ^sCall(PepperGroundedClient.look("cs"))
+    u1:(["a teď naskenuj místnost" "a udělej plný sken" "teď udělej dlouhý sken"])
+        ^sCall(PepperGroundedClient.scan("cs"))
 
-u:(~scan)
-    "Dej mi chvilku, jen se pořádně rozhlédnu"
-    ^pCall(PepperGroundedClient.scan("cs"))
+u:(~panorama_scan)
+    "Dobře rozhlédnu se kolem sebe."
+    ^sCall(PepperGroundedClient.scan("cs"))
+    u1:(["ukaž paměť" "ukaž scénový graf" "ukaž graf paměti"])
+        ^sCall(PepperGroundedClient.showMemory("cs"))
 
-u:(~reset_session)
-    "Tak fajn. Už si nic nepamatuju."
-    ^pCall(PepperGroundedClient.resetConversation())
+u:(["ukaž" "otevři"] {"mi"} {"svou"} ["paměť" "graf paměti" "scénový graf"])
+    "Dobře ukazuji paměť."
+    ^sCall(PepperGroundedClient.showMemory("cs"))
+
+u:(~show_memory_graph)
+    "Dobře ukazuji paměť."
+    ^sCall(PepperGroundedClient.showMemory("cs"))
+    u1:(["a obnov paměťová slova" "a aktualizuj paměťová slova" "obnov koncepty"])
+        ^sCall(PepperGroundedClient.refreshMemoryConcepts())
+
+u:(["resetuj" "vymaž"] ["paměť" "vizuální paměť" "scénovou paměť"])
+    "Dobře vymažu paměť."
+    ^sCall(PepperGroundedClient.resetMemory("cs"))
+
+u:(~reset_memory_only)
+    "Dobře vymažu paměť."
+    ^sCall(PepperGroundedClient.resetMemory("cs"))
+
+u:(["resetuj" "vymaž"] konverzaci)
+    "Dobře resetuji konverzaci."
+    ^sCall(PepperGroundedClient.resetConversation())
+
+u:(~reset_conversation_only)
+    "Dobře resetuji konverzaci."
+    ^sCall(PepperGroundedClient.resetConversation())
+
+u:(~reset_all)
+    "Dobře vymažu paměť a začneme znovu."
+    ^sCall(PepperGroundedClient.resetMemory("cs"))
+    ^sCall(PepperGroundedClient.resetConversation())
+
+u:(~refresh_memory_concepts)
+    "Dobře obnovím paměťová slova."
+    ^sCall(PepperGroundedClient.refreshMemoryConcepts())
+
+u:(~object_query_lead _~memory_objects {prosím})
+    "Dobře zaměřím se na $1."
+    $last_object=$1
+    ^sCall(PepperGroundedClient.askAboutObject("cs", $1))
+    u1:(["řekni víc" "co ještě" "více detailů" "něco dalšího"])
+        ^sCall(PepperGroundedClient.askAboutObject("cs", $last_object))
+    u1:(["a co" "co třeba"] _~memory_objects)
+        $last_object=$1
+        ^sCall(PepperGroundedClient.askAboutObject("cs", $1))
+
+u:(~object_query_prefix ~object_query_lead _~memory_objects {prosím})
+    "Dobře zaměřím se na $1."
+    $last_object=$1
+    ^sCall(PepperGroundedClient.askAboutObject("cs", $1))
+    u1:(["řekni víc" "co ještě" "více detailů" "něco dalšího"])
+        ^sCall(PepperGroundedClient.askAboutObject("cs", $last_object))
+    u1:(["a co" "co třeba"] _~memory_objects)
+        $last_object=$1
+        ^sCall(PepperGroundedClient.askAboutObject("cs", $1))
+
+u:(["a co" "co třeba"] _~memory_objects)
+    $last_object=$1
+    ^sCall(PepperGroundedClient.askAboutObject("cs", $1))
+    u1:(["řekni víc" "co ještě" "více detailů" "něco dalšího"])
+        ^sCall(PepperGroundedClient.askAboutObject("cs", $last_object))
+
+u:(["kolik je" "spočítej"] _~memory_objects)
+    ^sCall(PepperGroundedClient.ask("cs", $1))
+
+u:(~ask_suggested_questions)
+    "Dobře ukážu navržené otázky z paměti."
+    ^sCall(PepperGroundedClient.showMemory("cs"))
+    u1:(_~memory_cached_questions)
+        ^sCall(PepperGroundedClient.answerCachedQuestion("cs", $1))
+
+u:(_~memory_cached_questions)
+    ^sCall(PepperGroundedClient.answerCachedQuestion("cs", $1))
 
 u:(~show_dashboard)
     ^sCall(PepperGroundedClient.showDashboard())
+
+u:(["obnov a" "nejdřív obnov a" "obnov potom"] _*)
+    ^sCall(PepperGroundedClient.refreshAndAsk("cs", $1))
+
+u:(["zeptej se" "otázka"] _*)
+    ^sCall(PepperGroundedClient.ask("cs", $1))
+
+u:(_*)
+    ^sCall(PepperGroundedClient.ask("cs", $1))

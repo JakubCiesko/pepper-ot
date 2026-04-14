@@ -1,0 +1,7 @@
+# Dynamic concepts are filled from Python via ALDialog.setConcept.
+# They are refreshed after detect, scan, memory view and reset flows.
+
+dynamic:memory_objects
+dynamic:memory_attributes
+dynamic:memory_relations
+dynamic:memory_cached_questions

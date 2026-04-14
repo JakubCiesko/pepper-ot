@@ -1,0 +1,52 @@
+concept:(quick_look_action) [
+    "what do you see"
+    "what can you see"
+    "look now"
+    "look around"
+    "take a quick look"
+    "quick look"
+    "check the scene"
+    "describe what you see"
+    "describe the scene"
+    "what is in front of you"
+]
+
+concept:(quick_look) [
+    "~quick_look_action"
+    "please ~quick_look_action"
+    "can you ~quick_look_action"
+    "could you ~quick_look_action"
+    "would you ~quick_look_action"
+    "can you please ~quick_look_action"
+]
+
+concept:(panorama_scan_action) [
+    "scan the room"
+    "do a full scan"
+    "panorama scan"
+    "take a panoramic scan"
+    "look everywhere"
+    "look around the room"
+    "long scan"
+]
+
+concept:(panorama_scan) [
+    "~panorama_scan_action"
+    "please ~panorama_scan_action"
+    "can you ~panorama_scan_action"
+    "could you ~panorama_scan_action"
+    "would you ~panorama_scan_action"
+    "can you please ~panorama_scan_action"
+]
+
+u:(~quick_look)
+    "Okay I will take a quick look."
+    ^sCall(PepperGroundedClient.look("en"))
+    u1:(["and now scan the room" "and do a full scan" "now do a long scan"])
+        ^sCall(PepperGroundedClient.scan("en"))
+
+u:(~panorama_scan)
+    "Okay I will scan around me."
+    ^sCall(PepperGroundedClient.scan("en"))
+    u1:(["show me memory" "show scene graph" "show memory graph"])
+        ^sCall(PepperGroundedClient.showMemory("en"))

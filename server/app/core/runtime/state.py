@@ -13,6 +13,7 @@ from app.inference.pipeline import PerceptionPipeline
 from app.orchestration.services.caption import CaptionService
 from app.orchestration.services.chat import ChatService
 from app.orchestration.services.conversation import ConversationService
+from app.providers.translation.vocabulary import vocabulary_translator
 from app.schemas.config import AppConfig
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,7 @@ class AppState:
         await self._ensure_worker_manager()
         await self._apply_runtime_mode()
         base_dir = self._resolve_base_dir()
+        await vocabulary_translator.warm_from_config(self.config, base_dir)
         self._initialize_chat_components(base_dir)
         self._initialize_caption_component(base_dir)
         await self._finalize_worker_startup()

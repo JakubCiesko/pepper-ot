@@ -1,56 +1,9 @@
 topic: ~pepper-grounded-client()
 language: enu
 
-concept:(look) [
-    "what do you see"
-    "what can you see"
-    "look around"
-    "take a look"
-    "take a quick look"
-    "observe"
-    "describe what you see"
-    "what is happening"
-    "what is going on"
-    "what is going on in front of you"
-    "what is happening in front of you"
-]
-
-concept:(scan) [
-    "scan the room"
-    "scan around"
-    "look everywhere"
-    "do a full scan"
-    "scan the scene"
-    "monitor the scene"
-]
-
-concept:(reset_session) [
-    "start over"
-    "reset the conversation"
-    "forget the conversation"
-    "start a new conversation"
-]
-
-concept:(show_dashboard) [
-    "show the dashboard"
-    "open the dashboard"
-    "show your dashboard"
-]
-
-u:(~look)
-    "Alright."
-    ^sCall(PepperGroundedClient.look("en"))
-
-u:(~scan)
-    "Give me a second. I will scan around me."
-    ^sCall(PepperGroundedClient.scan("en"))
-
-u:(~reset_session)
-    "Alright, I remember nothing now."
-    ^sCall(PepperGroundedClient.resetConversation())
-
-u:(~show_dashboard)
-    ^sCall(PepperGroundedClient.showDashboard())
-
-u:(_*)
-    ^sCall(PepperGroundedClient.ask("en", $1))
+include: pepper-grounded-client_enu_dynamic.top
+include: pepper-grounded-client_enu_perception.top
+include: pepper-grounded-client_enu_memory.top
+include: pepper-grounded-client_enu_object.top
+include: pepper-grounded-client_enu_cached_qa.top
+include: pepper-grounded-client_enu_general.top

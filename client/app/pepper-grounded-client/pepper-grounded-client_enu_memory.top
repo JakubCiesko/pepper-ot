@@ -1,0 +1,83 @@
+concept:(show_memory_graph) [
+    "show memory"
+    "open memory"
+    "show memory graph"
+    "open memory graph"
+    "show scene graph"
+    "open scene graph"
+    "what do you remember"
+    "what do you currently remember"
+    "show what you remember"
+]
+
+concept:(reset_memory_only) [
+    "reset memory"
+    "clear memory"
+    "reset visual memory"
+    "clear visual memory"
+    "reset scene memory"
+    "clear scene memory"
+    "forget what you saw"
+    "forget visual memory"
+]
+
+concept:(reset_conversation_only) [
+    "reset conversation"
+    "clear conversation"
+    "start a new conversation"
+    "forget the conversation"
+    "new conversation please"
+]
+
+concept:(reset_all) [
+    "start over"
+    "let us start over"
+    "let's start over"
+    "start from scratch"
+    "let us talk from scratch"
+    "let's talk from scratch"
+]
+
+concept:(refresh_memory_concepts) [
+    "refresh memory words"
+    "update memory words"
+    "refresh memory concepts"
+    "update memory concepts"
+    "reload memory words"
+    "reload memory concepts"
+]
+
+u:([show open] {"me"} {"your"} ["memory" "memory graph" "scene graph"])
+    "Okay showing memory now."
+    ^sCall(PepperGroundedClient.showMemory("en"))
+
+u:(~show_memory_graph)
+    "Okay showing memory now."
+    ^sCall(PepperGroundedClient.showMemory("en"))
+    u1:(["and refresh memory words" "and update memory words" "refresh concepts"])
+        ^sCall(PepperGroundedClient.refreshMemoryConcepts())
+
+u:([reset clear] ["memory" "visual memory" "scene memory"])
+    "Okay I will clear memory."
+    ^sCall(PepperGroundedClient.resetMemory("en"))
+
+u:(~reset_memory_only)
+    "Okay I will clear memory."
+    ^sCall(PepperGroundedClient.resetMemory("en"))
+
+u:([reset clear] conversation)
+    "Okay I will reset the conversation."
+    ^sCall(PepperGroundedClient.resetConversation())
+
+u:(~reset_conversation_only)
+    "Okay I will reset the conversation."
+    ^sCall(PepperGroundedClient.resetConversation())
+
+u:(~reset_all)
+    "Okay I will clear memory and restart our conversation."
+    ^sCall(PepperGroundedClient.resetMemory("en"))
+    ^sCall(PepperGroundedClient.resetConversation())
+
+u:(~refresh_memory_concepts)
+    "Okay I will refresh memory words."
+    ^sCall(PepperGroundedClient.refreshMemoryConcepts())

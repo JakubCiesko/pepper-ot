@@ -1,0 +1,54 @@
+<section id="page-translations" class="page-panel mt-8 hidden">
+  <div class="panel border rounded-xl p-5">
+    <h3 class="text-md uppercase tracking-widest panel-muted mb-4">
+      Robot Vocabulary Translations
+    </h3>
+    <p class="text-md panel-muted mb-4">
+      Editable Czech translation dictionaries for robot-facing labels,
+      attributes, and relations. Applying changes updates runtime and persists
+      the dictionaries immediately.
+    </p>
+
+    <div class="grid xl:grid-cols-3 gap-5">
+      <div>
+        <label class="block text-md mb-1">Labels (cs)</label>
+        <textarea
+          id="translations-labels"
+          rows="16"
+          class="w-full border rounded px-3 py-2 font-mono text-md"
+          placeholder='{"person":"osoba"}'
+        ></textarea>
+        <p id="translations-labels-status" class="text-md panel-muted mt-1">
+          Valid JSON object.
+        </p>
+      </div>
+
+      <div>
+        <label class="block text-md mb-1">Attributes (cs)</label>
+        <textarea
+          id="translations-attributes"
+          rows="16"
+          class="w-full border rounded px-3 py-2 font-mono text-md"
+          placeholder='{"is_open":"otevřené"}'
+        ></textarea>
+        <p id="translations-attributes-status" class="text-md panel-muted mt-1">
+          Valid JSON object.
+        </p>
+      </div>
+
+      <div>
+        <label class="block text-md mb-1">Relations (cs)</label>
+        <textarea
+          id="translations-relations"
+          rows="16"
+          class="w-full border rounded px-3 py-2 font-mono text-md"
+          placeholder='{"left_of":"vlevo od"}'
+        ></textarea>
+        <p id="translations-relations-status" class="text-md panel-muted mt-1">
+          Valid JSON object.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+

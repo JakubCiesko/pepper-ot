@@ -29,11 +29,18 @@ async def get_memory():
 
 
 @router.get("/memory/summary", response_model=MemorySummary)
-async def get_memory_summary(render_limit: int = Query(5, ge=1, le=20)):
+async def get_memory_summary(
+    render_limit: int = Query(5, ge=1, le=20),
+    lang: str = Query("en", pattern="^(en|english|cs|czech)$"),
+):
     service = _service()
-    logger.info("Memory summary requested render_limit=%s", render_limit)
+    logger.info(
+        "Memory summary requested render_limit=%s lang=%s",
+        render_limit,
+        lang,
+    )
     return await run_memory_action(
-        lambda: service.get_memory_summary(render_limit=render_limit)
+        lambda: service.get_memory_summary(render_limit=render_limit, lang=lang)
     )
 
 

@@ -24,6 +24,9 @@ class DialogAdapter(object):
     def update_config(self, config):
         self.config = config
 
+
+    # TODO: SEND FROM SERVER LABELS AND CZECH LABELS!!
+    # USE ROBOT LANGUAGE FROM TTS WHERE POSSIBLE! ALWAYS UPDATE THE CURRENT CONECPT. ALSO UPDATE BOTH LANGAUGES REALLY with just DIFFERENT LABLES. translations!!
     def resolve_dialog_language(self, lang_code=None):
         preferred = self.config.get("dialog", {}).get("language_code")
         value = preferred or lang_code or self.config.get("language", {}).get(
