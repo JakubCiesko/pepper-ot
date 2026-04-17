@@ -3,12 +3,13 @@ import threading
 from pepper_client.interaction import speech_policy
 from pepper_client.perception import scan_planner
 from pepper_client.utils import ids
-from pepper_client.utils import time_utils
+from pepper_client.utils import timing as time_utils
 from pepper_client.utils.error_policy import CameraCaptureError
 from pepper_client.utils.error_policy import MalformedResponseError
 from pepper_client.utils.error_policy import ServerTimeoutError
 from pepper_client.utils.error_policy import ServerUnavailableError
 from pepper_client.utils.error_policy import fallback_message
+from pepper_client.utils import text as text_utils
 
 
 class TurnManager(object):
@@ -156,7 +157,9 @@ class TurnManager(object):
             self.logger.warning("Server unavailable in turn %s: %s", turn_id, exc)
             self._safe_say(fallback_message("server_unavailable", lang_code), lang_code)
         except MalformedResponseError as exc:
-            self.logger.warning("Malformed server response in turn %s: %s", turn_id, exc)
+            self.logger.warning(
+                "Malformed server response in turn %s: %s", turn_id, exc
+            )
             self._safe_say(fallback_message("malformed", lang_code), lang_code)
         except Exception as exc:
             self.logger.error(
@@ -285,7 +288,9 @@ class TurnManager(object):
                 self.config["capture"].get("head_move_speed", 0.15),
             )
             time_utils.sleep_seconds(settle_seconds)
-            frame_id = ids.new_frame_id(self.config["capture"].get("frame_prefix", "frame"))
+            frame_id = ids.new_frame_id(
+                self.config["capture"].get("frame_prefix", "frame")
+            )
             capture, metadata = self._capture_with_metadata(frame_id, scan_id, "scan")
             captures.append(
                 {
@@ -298,7 +303,7 @@ class TurnManager(object):
 
     def _run_ask(self, lang_code, query, force_refresh):
         max_chars = int(self.config["behavior"].get("max_query_chars", 320))
-        query = speech_policy.sanitize_query(query, max_chars)
+        query = text_utils.sanitize_query(query, max_chars)
         self.logger.info("Starting ask with sanitized query %s", query)
         if not query:
             self.logger.info("Ignoring empty query after sanitization")
@@ -306,7 +311,9 @@ class TurnManager(object):
 
         refresh_ttl = float(self.config["capture"].get("refresh_ttl_seconds", 25))
         should_refresh = bool(force_refresh)
-        if not should_refresh and self.config["behavior"].get("auto_refresh_before_chat", True):
+        if not should_refresh and self.config["behavior"].get(
+            "auto_refresh_before_chat", True
+        ):
             should_refresh = self.session_store.needs_visual_refresh(refresh_ttl)
         if should_refresh:
             self.logger.info("Refreshing visual context before chat")
@@ -328,7 +335,7 @@ class TurnManager(object):
             return
 
         max_chars = int(self.config["behavior"].get("max_query_chars", 320))
-        query = speech_policy.sanitize_query(query, max_chars)
+        query = text_utils.sanitize_query(query, max_chars)
         if not query:
             query = self._object_default_query(lang_code, object_label)
 
@@ -344,7 +351,7 @@ class TurnManager(object):
     def _run_cached_answer(self, lang_code, query):
         language = self._speech_lang(lang_code)
         max_chars = int(self.config["behavior"].get("max_query_chars", 320))
-        query = speech_policy.sanitize_query(query, max_chars)
+        query = text_utils.sanitize_query(query, max_chars)
         if not query:
             self.logger.info("Ignoring cached answer with empty query")
             return
@@ -360,7 +367,9 @@ class TurnManager(object):
             self.logger.info("Answering from pregenerated cache for query=%s", query)
             self._safe_say(answer, language)
             return
-        self.logger.info("Cached answer miss, falling back to general chat query=%s", query)
+        self.logger.info(
+            "Cached answer miss, falling back to general chat query=%s", query
+        )
         chat_response = self.transport.chat_general(
             query,
             self.session_store.get_chat_id(),
@@ -437,10 +446,14 @@ class TurnManager(object):
     def _capture_with_metadata(self, frame_id, scan_id, capture_mode):
         capture = self.camera_adapter.capture_frame(frame_id=frame_id)
         context = self.robot_context.snapshot()
-        metadata = self.metadata_builder.build(capture, context, frame_id, scan_id, capture_mode)
+        metadata = self.metadata_builder.build(
+            capture, context, frame_id, scan_id, capture_mode
+        )
         return capture, metadata
 
-    def _caption_with_optional_retry(self, image_bytes, metadata, run_detect, publish, language):
+    def _caption_with_optional_retry(
+        self, image_bytes, metadata, run_detect, publish, language
+    ):
         try:
             return self.transport.caption(
                 image_bytes,
@@ -511,11 +524,11 @@ class TurnManager(object):
         for edge in summary.get("scene_graph", []) or []:
             if not isinstance(edge, dict):
                 continue
-            relation = str(edge.get("rel") or "").strip()
+            relation = text_utils.clean_text(edge.get("rel"))
             if not relation:
                 continue
-            sub = str(edge.get("sub") or "").strip()
-            obj = str(edge.get("obj") or "").strip()
+            sub = text_utils.clean_text(edge.get("sub"))
+            obj = text_utils.clean_text(edge.get("obj"))
             if sub and obj and sub == obj:
                 attributes.append(relation)
             else:
@@ -543,11 +556,11 @@ class TurnManager(object):
         for edge in scene_graph:
             if not isinstance(edge, dict):
                 continue
-            relation = str(edge.get("rel") or "").strip()
+            relation = text_utils.clean_text(edge.get("rel"))
             if not relation:
                 continue
-            sub = str(edge.get("sub") or "").strip()
-            obj = str(edge.get("obj") or "").strip()
+            sub = text_utils.clean_text(edge.get("sub"))
+            obj = text_utils.clean_text(edge.get("obj"))
             cleaned = {"sub": sub, "rel": relation, "obj": obj}
             if sub and obj and sub == obj:
                 attributes.append(cleaned)

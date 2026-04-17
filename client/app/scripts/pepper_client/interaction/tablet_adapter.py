@@ -1,6 +1,6 @@
 import json
 
-from pepper_client.utils import time_utils
+from pepper_client.utils import timing as time_utils
 
 
 class TabletAdapter(object):

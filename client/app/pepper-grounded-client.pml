@@ -39,9 +39,10 @@
         <File name="pc_config" src="scripts/pepper_client/utils/config.py" />
         <File name="pc_error_policy" src="scripts/pepper_client/utils/error_policy.py" />
         <File name="pc_ids" src="scripts/pepper_client/utils/ids.py" />
-        <File name="pc_logging_utils" src="scripts/pepper_client/utils/logging_utils.py" />
+        <File name="pc_logging_utils" src="scripts/pepper_client/utils/logging.py" />
         <File name="pc_metadata_builder" src="scripts/pepper_client/utils/metadata_builder.py" />
-        <File name="pc_time_utils" src="scripts/pepper_client/utils/time_utils.py" />
+        <File name="pc_time_utils" src="scripts/pepper_client/utils/timing.py" />
+        <File name="pc_text_utils" src="scripts/pepper_client/utils/text.py" />
         <File name="translation_cs_CZ" src="translations/translation_cs_CZ.qm" />
         <File name="translation_en_US" src="translations/translation_en_US.qm" />
         <File name="index" src="html/index.html" />

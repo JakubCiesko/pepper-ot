@@ -1,7 +1,8 @@
 import copy
 import threading
 
-from pepper_client.utils import time_utils
+from pepper_client.utils import timing as time_utils
+from pepper_client.utils import text as text_utils
 
 
 class SessionStore(object):
@@ -58,7 +59,9 @@ class SessionStore(object):
 
     def update_after_caption(self, caption_response):
         with self._lock:
-            self.logger.info("Updating SessionStore after caption: %s", caption_response)
+            self.logger.info(
+                "Updating SessionStore after caption: %s", caption_response
+            )
             self._state["last_caption"] = caption_response.get("caption")
             self._state["last_caption_ts"] = time_utils.now_ts()
             self._state["last_detect_request_id"] = caption_response.get(
@@ -98,11 +101,11 @@ class SessionStore(object):
         for edge in summary.get("scene_graph", []) or []:
             if not isinstance(edge, dict):
                 continue
-            rel = str(edge.get("rel") or "").strip()
+            rel = text_utils.clean_text(edge.get("rel"))
             if not rel:
                 continue
-            sub = str(edge.get("sub") or "").strip()
-            obj = str(edge.get("obj") or "").strip()
+            sub = text_utils.clean_text(edge.get("sub"))
+            obj = text_utils.clean_text(edge.get("obj"))
             if sub and obj and sub == obj:
                 attributes.append(rel)
             else:
@@ -185,7 +188,7 @@ class SessionStore(object):
         seen = set()
         output = []
         for value in values or []:
-            text = str(value or "").strip()
+            text = text_utils.clean_text(value)
             if not text:
                 continue
             if text in seen:

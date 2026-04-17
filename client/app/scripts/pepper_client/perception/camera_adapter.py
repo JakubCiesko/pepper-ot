@@ -1,6 +1,6 @@
 import io
 import time
-
+# todo: time utils use instead of time module
 from PIL import Image
 
 from pepper_client.utils.error_policy import CameraCaptureError

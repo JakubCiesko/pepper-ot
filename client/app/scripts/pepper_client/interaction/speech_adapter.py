@@ -2,6 +2,7 @@ import threading
 
 from pepper_client.utils.error_policy import SpeechError
 from pepper_client.interaction import speech_policy
+from pepper_client.utils import text as text_utils
 
 
 class SpeechAdapter(object):
@@ -18,7 +19,7 @@ class SpeechAdapter(object):
         self._last_tts_language = None
 
     def say(self, text, lang_code=None):
-        text = speech_policy.clean_text(text)
+        text = text_utils.clean_text(text)
         if not text:
             self.logger.info("Skipping empty speech payload")
             return
@@ -26,13 +27,17 @@ class SpeechAdapter(object):
             raise SpeechError("No speech service available")
         with self._lock:
             self._apply_language(lang_code)
+            if isinstance(text, unicode):
+                text = text.encode("utf-8")
             self.logger.info("Speaking text: %s", text)
             if self.animated is not None:
                 try:
                     self.animated.say(text)
                     return
                 except Exception as exc:
-                    self.logger.info("Animated speech unavailable, falling back to TTS: %s", exc)
+                    self.logger.info(
+                        "Animated speech unavailable, falling back to TTS: %s", exc
+                    )
             if self.tts is None:
                 raise SpeechError("No text to speech service available")
             try:

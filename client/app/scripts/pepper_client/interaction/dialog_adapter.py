@@ -1,3 +1,6 @@
+from pepper_client.utils import text as text_utils
+
+
 class DialogAdapter(object):
     """Thin ALDialog wrapper for runtime dynamic concept refresh."""
 
@@ -18,19 +21,22 @@ class DialogAdapter(object):
     def update_config(self, config):
         self.config = config
 
-
     # TODO: SEND FROM SERVER LABELS AND CZECH LABELS!!
     # USE ROBOT LANGUAGE FROM TTS WHERE POSSIBLE! ALWAYS UPDATE THE CURRENT CONECPT. ALSO UPDATE BOTH LANGAUGES REALLY with just DIFFERENT LABLES. translations!!
     def resolve_dialog_language(self, lang_code=None):
         preferred = self.config.get("dialog", {}).get("language_code")
-        value = preferred or lang_code or self.config.get("language", {}).get(
-            "default_dialog_language", "en"
+        value = (
+            preferred
+            or lang_code
+            or self.config.get("language", {}).get("default_dialog_language", "en")
         )
         return self.LANGUAGE_ALIASES.get(str(value).strip().lower(), "enu")
 
     def set_dynamic_concept(self, name, values, language=None):
         if self.dialog is None:
-            self.logger.info("ALDialog unavailable, skipping concept update for %s", name)
+            self.logger.info(
+                "ALDialog unavailable, skipping concept update for %s", name
+            )
             return False
         language = self.resolve_dialog_language(language)
         cleaned = self._clean_values(values)
@@ -49,10 +55,12 @@ class DialogAdapter(object):
             try:
                 self.dialog.setConcept(*args)
                 self.logger.info(
-                    "Updated dynamic concept %s (%s entries, lang=%s)",
+                    "Updated dynamic concept %s (%s entries, lang=%s), %s = %s",
                     name,
                     len(cleaned),
                     language,
+                    name,
+                    args,
                 )
                 return True
             except Exception as exc:
@@ -116,7 +124,7 @@ class DialogAdapter(object):
         seen = set()
         cleaned = []
         for value in list(values):
-            text = str(value or "").strip()
+            text = text_utils.clean_text(value)
             if not text:
                 continue
             if text in seen:

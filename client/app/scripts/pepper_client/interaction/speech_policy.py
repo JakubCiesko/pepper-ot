@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-import re
 import random
-
-TEXT_TYPES = (str, bytes, unicode)
 
 _ACK = {
     "look": {
@@ -158,8 +155,6 @@ _GENERIC = {
     },
 }
 
-_WHITESPACE_RE = re.compile(r"\s+")
-
 
 def language_code(value, default="en"):
     lang = str(value or default).strip().lower()
@@ -178,29 +173,8 @@ def pick_random(pick_from, kind, lang_code):
 def acknowledgement(kind, lang_code):
     return pick_random(_ACK, kind, lang_code)
 
+
 def generic_message(kind, lang_code):
     return pick_random(_GENERIC, kind, lang_code)
 
 
-def clean_text(text, max_chars=None):
-    if text is None:
-        return ""
-    if isinstance(text, bytes):
-        try:
-            text = text.decode("utf-8")
-        except Exception:
-            text = str(text)
-    else:
-        try:
-            text = text.encode("utf-8")
-        except Exception:
-            text = str(text)
-    text = text.replace("\n", " ").replace("\r", " ")
-    text = _WHITESPACE_RE.sub(" ", text).strip()
-    if max_chars and len(text) > max_chars:
-        text = text[: max_chars - 1].rstrip() + "..."
-    return text
-
-
-def sanitize_query(query, max_chars):
-    return clean_text(query, max_chars=max_chars)

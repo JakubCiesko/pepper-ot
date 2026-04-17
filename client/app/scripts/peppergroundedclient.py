@@ -171,13 +171,13 @@ class PepperGroundedClient(object):
         )
         self.turn_manager.start_cached_answer(lang_code, question)
 
-    @qi.bind(returnType=qi.List)
-    def listCachedQuestions(self):
-        return self.session_store.get_cached_questions()
+    # @qi.bind(returnType=qi.List)
+    # def listCachedQuestions(self):
+    #     return self.session_store.get_cached_questions()
 
-    @qi.bind(returnType=qi.List)
-    def listCachedAnswers(self):
-        return self.session_store.get_cached_answers()
+    # @qi.bind(returnType=qi.List)
+    # def listCachedAnswers(self):
+    #     return self.session_store.get_cached_answers()
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def showMemory(self, lang_code):
