@@ -5,7 +5,7 @@ import os
 
 DEFAULT_CONFIG = {
     "app": {
-        "app_id": "com.aldebaran.PepperGroundedClient",
+        "app_id": "PepperGroundedClient",
         "service_name": "PepperGroundedClient",
     },
     "server": {
@@ -16,7 +16,6 @@ DEFAULT_CONFIG = {
         "chat_path": "/api/v1/chat",
         "pregenerate_qa_path": "/api/v1/chat/pregenerate_qa",
         "config_patch_path": "/api/v1/config",
-        "dashboard_url": "http://127.0.0.1:8000/dashboard",
         "memory_summary_path": "/api/v1/memory/summary",
         "memory_reset_path": "/api/v1/memory/reset",
         "publish": True,
@@ -48,8 +47,6 @@ DEFAULT_CONFIG = {
         "caption_retry_on_timeout": True,
         "auto_refresh_before_chat": True,
         "allow_scan_summary_chat": True,
-        "show_dashboard_on_start": False,
-        "show_dashboard_during_scan": False,
         "speak_acknowledgements": True,
         "auto_restore_head_pose": True,
         "max_query_chars": 500,
@@ -89,10 +86,8 @@ DEFAULT_CONFIG = {
         "render_limit": 5,
     },
     "tablet": {
-        "memory_page_url": "",
         "memory_render_limit": 5,
         "local_app_name": "pepper-grounded-client",
-        "local_memory_page_path": "html/memory/index.html",
         "bridge_retry_attempts": 12,
         "bridge_retry_interval_seconds": 0.25,
         "pregenerated_questions_count": 5,
@@ -134,8 +129,6 @@ def normalize_config(config):
     if base_url.endswith("/"):
         base_url = base_url[:-1]
     config["server"]["base_url"] = base_url
-    dashboard_url = str(config["server"].get("dashboard_url") or "").strip()
-    config["server"]["dashboard_url"] = dashboard_url
 
     scan_yaws = config["capture"].get("scan_yaws_deg") or [-35, 0, 35]
     if not isinstance(scan_yaws, list) or not scan_yaws:
@@ -174,12 +167,8 @@ def normalize_config(config):
         panorama["render_limit"] = 5
 
     tablet = config.setdefault("tablet", {})
-    tablet["memory_page_url"] = str(tablet.get("memory_page_url") or "").strip()
     tablet["local_app_name"] = str(
         tablet.get("local_app_name") or "pepper-grounded-client"
-    ).strip()
-    tablet["local_memory_page_path"] = str(
-        tablet.get("local_memory_page_path") or "html/memory/index.html"
     ).strip()
     try:
         tablet["memory_render_limit"] = max(1, int(tablet.get("memory_render_limit", 5)))

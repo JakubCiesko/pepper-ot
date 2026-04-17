@@ -1,6 +1,6 @@
 {
   "app": {
-    "app_id": "com.aldebaran.PepperGroundedClient",
+    "app_id": "PepperGroundedClient",
     "service_name": "PepperGroundedClient"
   },
   "behavior": {
@@ -10,8 +10,6 @@
     "caption_retry_on_timeout": true,
     "caption_run_detect": true,
     "max_query_chars": 500,
-    "show_dashboard_during_scan": false,
-    "show_dashboard_on_start": false,
     "speak_acknowledgements": true
   },
   "capture": {
@@ -33,7 +31,7 @@
       35
     ],
     "settle_seconds": 0.6,
-    "fake_camera": false,
+    "fake_camera": true,
     "fake_camera_path": "/home/jakub-ciesko/Desktop/test-imgs/test/one"
   },
   "dialog": {
@@ -67,7 +65,6 @@
     "pregenerate_qa_path": "/api/v1/chat/pregenerate_qa",
     "config_patch_path": "/api/v1/config",
     "config_timeout_seconds": 60,
-    "dashboard_url": "https://raye-uncontractile-attently.ngrok-free.dev/dashboard",
     "detect_path": "/api/v1/detect",
     "detect_panorama_path": "/api/v1/detect/panorama",
     "detect_timeout_seconds": 60,
@@ -99,8 +96,6 @@
     "bridge_retry_attempts": 12,
     "bridge_retry_interval_seconds": 0.25,
     "local_app_name": "pepper-grounded-client",
-    "local_memory_page_path": "html/memory/index.html",
-    "memory_page_url": "",
     "memory_render_limit": 5,
     "pregenerated_questions_count": 5
   }

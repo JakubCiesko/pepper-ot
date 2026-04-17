@@ -1,0 +1,474 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1280, user-scalable=no" />
+  <title>Pepper Memory</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      gap: 12px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      color: #f8fafc;
+    }
+    .status {
+      font-size: 13px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid #334155;
+      background: #1f2937;
+      color: #cbd5e1;
+      white-space: nowrap;
+    }
+    .status.ok {
+      border-color: #14532d;
+      background: #052e16;
+      color: #bbf7d0;
+    }
+    .status.warn {
+      border-color: #854d0e;
+      background: #422006;
+      color: #fde68a;
+    }
+    .status.err {
+      border-color: #7f1d1d;
+      background: #450a0a;
+      color: #fecaca;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-gap: 12px;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 110px;
+    }
+    .card.wide {
+      grid-column: 1 / span 2;
+    }
+    h2 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      color: #bfdbfe;
+    }
+    .chips {
+      line-height: 1.8;
+    }
+    .chip {
+      display: inline-block;
+      margin: 3px 6px 3px 0;
+      padding: 4px 10px;
+      border: 1px solid #334155;
+      border-radius: 999px;
+      background: #1f2937;
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+    .list {
+      margin: 0;
+      padding-left: 18px;
+      line-height: 1.6;
+    }
+    .list li {
+      margin-bottom: 4px;
+    }
+    .muted {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    #graph svg {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+    .qa-item {
+      border-top: 1px dashed #334155;
+      padding: 10px 0;
+    }
+    .qa-item:first-child {
+      border-top: none;
+      padding-top: 0;
+    }
+    .qa-btn {
+      width: 100%;
+      text-align: left;
+      font-size: 15px;
+      padding: 8px 10px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      background: #0b1324;
+      color: #fde68a;
+      cursor: pointer;
+    }
+    .qa-btn:hover {
+      background: #111d34;
+    }
+    .qa-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+    .qa-answer {
+      margin-top: 6px;
+      color: #dcfce7;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .qa-error {
+      margin-top: 8px;
+      color: #fecaca;
+      font-size: 13px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Pepper Memory</h1>
+    <div id="service-status" class="status warn">Connecting to robot service...</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Detected Objects</h2>
+      <div id="objects" class="chips"></div>
+    </div>
+
+    <div class="card">
+      <h2>Detected Attributes</h2>
+      <ul id="attributes" class="list"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Detected Relationships</h2>
+      <ul id="relationships" class="list"></ul>
+    </div>
+
+    <div class="card wide">
+      <h2>Scene Graph</h2>
+      <div id="graph" class="muted">No scene graph yet.</div>
+    </div>
+
+    <div class="card wide">
+      <h2>Pregenerated Q/A</h2>
+      <div id="qa" class="muted">No pregenerated questions yet.</div>
+      <div id="qa-error" class="qa-error"></div>
+    </div>
+  </div>
+
+  <script src="/libs/qi/2/qi.js"></script>
+  <script>
+    (function () {
+      var appState = {
+        payload: {},
+        language: "en",
+        serviceReady: false,
+        service: null,
+        session: null,
+        connecting: false,
+        buttonCooldownMs: 600,
+        cooldownByQuestion: {}
+      };
+
+      function asObject(value) {
+        if (!value) {
+          return {};
+        }
+        if (typeof value === "string") {
+          try {
+            return JSON.parse(value);
+          } catch (e) {
+            return {};
+          }
+        }
+        return value;
+      }
+
+      function escapeHtml(value) {
+        return String(value === undefined || value === null ? "" : value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function setServiceStatus(text, mode) {
+        var node = document.getElementById("service-status");
+        node.className = "status " + (mode || "warn");
+        node.textContent = text;
+      }
+
+      function showQaError(text) {
+        var node = document.getElementById("qa-error");
+        if (!text) {
+          node.style.display = "none";
+          node.textContent = "";
+          return;
+        }
+        node.style.display = "block";
+        node.textContent = text;
+      }
+
+      function currentLanguage() {
+        return appState.language === "cs" ? "cs" : "en";
+      }
+
+      function renderObjects(payload) {
+        var host = document.getElementById("objects");
+        var labels = payload.object_labels || [];
+        var counts = payload.label_counts || {};
+        var html = "";
+        var i;
+
+        if (!labels.length) {
+          host.innerHTML = '<span class="muted">No objects remembered.</span>';
+          return;
+        }
+
+        for (i = 0; i < labels.length; i += 1) {
+          var label = labels[i];
+          var count = counts[label] || 0;
+          html += '<span class="chip">' + escapeHtml(label) + ' (' + escapeHtml(count) + ')</span>';
+        }
+        host.innerHTML = html;
+      }
+
+      function renderEdgeList(hostId, edges, formatter, emptyText) {
+        var host = document.getElementById(hostId);
+        var html = "";
+        var i;
+
+        if (!edges || !edges.length) {
+          host.innerHTML = '<li class="muted">' + escapeHtml(emptyText) + '</li>';
+          return;
+        }
+
+        for (i = 0; i < edges.length; i += 1) {
+          var edge = edges[i] || {};
+          html += '<li>' + escapeHtml(formatter(edge)) + '</li>';
+        }
+        host.innerHTML = html;
+      }
+
+      function renderGraph(payload) {
+        var host = document.getElementById("graph");
+        var svg = payload.graph_svg || "";
+        if (!svg) {
+          host.innerHTML = "No scene graph yet.";
+          return;
+        }
+        host.innerHTML = svg;
+      }
+
+      function renderQA(payload) {
+        var host = document.getElementById("qa");
+        var pairs = payload.pregenerated_qa || [];
+        var html = "";
+        var i;
+
+        if (!pairs.length) {
+          host.innerHTML = "No pregenerated questions yet.";
+          return;
+        }
+
+        for (i = 0; i < pairs.length; i += 1) {
+          var item = pairs[i] || {};
+          var q = String(item.question || "").trim();
+          var a = String(item.answer || "").trim();
+          if (!q) {
+            continue;
+          }
+          html += '<div class="qa-item">';
+          html += '<button class="qa-btn" data-question="' + escapeHtml(q) + '">' + escapeHtml(q) + '</button>';
+          if (a) {
+            html += '<div class="qa-answer">' + escapeHtml(a) + '</div>';
+          }
+          html += '</div>';
+        }
+
+        if (!html) {
+          host.innerHTML = "No pregenerated questions yet.";
+          return;
+        }
+
+        host.innerHTML = html;
+        bindQuestionButtons();
+        refreshButtonAvailability();
+      }
+
+      function bindQuestionButtons() {
+        var buttons = document.querySelectorAll(".qa-btn");
+        var i;
+        for (i = 0; i < buttons.length; i += 1) {
+          buttons[i].onclick = onQuestionButtonClick;
+        }
+      }
+
+      function refreshButtonAvailability() {
+        var buttons = document.querySelectorAll(".qa-btn");
+        var disabled = !appState.serviceReady;
+        var i;
+        for (i = 0; i < buttons.length; i += 1) {
+          buttons[i].disabled = disabled;
+        }
+      }
+
+      function onQuestionButtonClick(event) {
+        var button = event && event.currentTarget;
+        if (!button) {
+          return;
+        }
+        var question = String(button.getAttribute("data-question") || "").trim();
+        if (!question) {
+          return;
+        }
+        if (!appState.serviceReady || !appState.service) {
+          showQaError("Robot service unavailable. Try again.");
+          return;
+        }
+        if (appState.cooldownByQuestion[question]) {
+          return;
+        }
+        appState.cooldownByQuestion[question] = true;
+        button.disabled = true;
+        showQaError("");
+
+        appState.service.answerCachedQuestion(currentLanguage(), question).then(
+          function () {
+            setTimeout(function () {
+              appState.cooldownByQuestion[question] = false;
+              refreshButtonAvailability();
+            }, appState.buttonCooldownMs);
+          },
+          function (error) {
+            showQaError("Failed to trigger robot answer. Try again.");
+            setServiceStatus("Service call failed", "warn");
+            if (error) {
+              console.log("answerCachedQuestion failed", error);
+            }
+            setTimeout(function () {
+              appState.cooldownByQuestion[question] = false;
+              refreshButtonAvailability();
+            }, appState.buttonCooldownMs);
+          }
+        );
+      }
+
+      function resolvePepperService(session) {
+        var candidates = ["PepperGroundedClient", "peppergroundedclient"];
+
+        function tryCandidate(index) {
+          if (index >= candidates.length) {
+            appState.service = null;
+            appState.serviceReady = false;
+            setServiceStatus("Robot service unavailable", "err");
+            refreshButtonAvailability();
+            return;
+          }
+          session.service(candidates[index]).then(
+            function (service) {
+              appState.service = service;
+              appState.serviceReady = true;
+              setServiceStatus("Robot service connected", "ok");
+              refreshButtonAvailability();
+            },
+            function () {
+              tryCandidate(index + 1);
+            }
+          );
+        }
+
+        tryCandidate(0);
+      }
+
+      function ensureServiceConnected() {
+        if (appState.serviceReady || appState.connecting) {
+          return;
+        }
+        if (typeof QiSession !== "function") {
+          setServiceStatus("qi.js unavailable", "err");
+          refreshButtonAvailability();
+          return;
+        }
+
+        appState.connecting = true;
+        setServiceStatus("Connecting to robot service...", "warn");
+        QiSession(
+          function (session) {
+            appState.connecting = false;
+            appState.session = session;
+            resolvePepperService(session);
+          },
+          function () {
+            appState.connecting = false;
+            appState.session = null;
+            appState.service = null;
+            appState.serviceReady = false;
+            setServiceStatus("Robot service disconnected", "warn");
+            refreshButtonAvailability();
+          }
+        );
+      }
+
+      function render(payload) {
+        payload = asObject(payload);
+        appState.payload = payload;
+        appState.language = String(payload.ui_language || "en").trim().toLowerCase();
+
+        renderObjects(payload);
+        renderEdgeList(
+          "attributes",
+          payload.attributes || [],
+          function (edge) {
+            var sub = edge.sub || "object";
+            var rel = edge.rel || "attribute";
+            return sub + ': ' + rel;
+          },
+          "No attributes remembered."
+        );
+        renderEdgeList(
+          "relationships",
+          payload.relationships || [],
+          function (edge) {
+            return (edge.sub || "?") + ' ' + (edge.rel || "related_to") + ' ' + (edge.obj || "?");
+          },
+          "No relationships remembered."
+        );
+        renderGraph(payload);
+        renderQA(payload);
+      }
+
+      window.PepperMemoryPage = {
+        renderFromBridge: function (payload) {
+          render(payload);
+          ensureServiceConnected();
+          return true;
+        }
+      };
+
+      window.PepperMemoryPageReady = true;
+      ensureServiceConnected();
+      setInterval(ensureServiceConnected, 5000);
+      render({});
+    })();
+  </script>
+</body>
+</html>

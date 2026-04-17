@@ -191,12 +191,9 @@ class TurnManager(object):
         self._safe_say(caption_response["caption"], self._speech_lang(lang_code))
 
         if self.config.get("dialog", {}).get("refresh_after_detect", True):
-            self._refresh_dynamic_concepts_from_server()
+            self._refresh_dynamic_concepts_from_server(lang_code)
 
     def _run_scan(self, lang_code):
-        if self.config["behavior"].get("show_dashboard_during_scan", False):
-            self.tablet_adapter.show_dashboard()
-
         scan_id = ids.new_scan_id(self.config["capture"].get("scan_prefix", "scan"))
         original_pose = self.pose_adapter.snapshot()
         self.logger.info("Starting scan sweep scan_id=%s", scan_id)
@@ -214,7 +211,7 @@ class TurnManager(object):
                 )
 
         if self.config.get("dialog", {}).get("refresh_after_scan", True):
-            self._refresh_dynamic_concepts_from_server()
+            self._refresh_dynamic_concepts_from_server(lang_code)
 
         language = self._speech_lang(lang_code)
         if scan_planner.summary_after_scan(self.config):
@@ -313,7 +310,7 @@ class TurnManager(object):
             should_refresh = self.session_store.needs_visual_refresh(refresh_ttl)
         if should_refresh:
             self.logger.info("Refreshing visual context before chat")
-            self._refresh_visual_context()
+            self._refresh_visual_context(lang_code)
         language = self._speech_lang(lang_code)
         chat_response = self.transport.chat_general(
             query,
@@ -374,7 +371,10 @@ class TurnManager(object):
 
     def _run_show_memory(self, lang_code):
         render_limit = scan_planner.memory_render_limit(self.config)
-        summary = self.transport.memory_summary(render_limit=render_limit)
+        summary = self.transport.memory_summary(
+            render_limit=render_limit,
+            language=self._speech_lang(lang_code),
+        )
         self.session_store.update_after_memory_summary(summary)
         qa_response = None
         try:
@@ -387,15 +387,13 @@ class TurnManager(object):
             self.logger.warning("Pregenerated QA request failed: %s", exc)
         self._refresh_dynamic_concepts_from_summary(summary)
 
-        explicit_url = str(
-            self.config.get("tablet", {}).get("memory_page_url") or ""
-        ).strip()
-        if explicit_url:
-            shown = self.tablet_adapter.show_memory_page(explicit_url)
-        else:
-            shown = self.tablet_adapter.show_local_memory_page(
-                payload=self._build_memory_page_payload(summary, qa_response)
+        shown = self.tablet_adapter.show_memory_page(
+            payload=self._build_memory_page_payload(
+                summary,
+                qa_response,
+                ui_language=self._speech_lang(lang_code),
             )
+        )
         if not shown:
             self._safe_say(
                 fallback_message("unexpected", lang_code),
@@ -417,13 +415,13 @@ class TurnManager(object):
                     exc,
                 )
         if self.config.get("dialog", {}).get("refresh_after_reset", True):
-            self._refresh_dynamic_concepts_from_server()
+            self._refresh_dynamic_concepts_from_server(lang_code)
         self._safe_say(
             speech_policy.acknowledgement("reset", lang_code),
             self._speech_lang(lang_code),
         )
 
-    def _refresh_visual_context(self):
+    def _refresh_visual_context(self, lang_code=None):
         frame_id = ids.new_frame_id(self.config["capture"].get("frame_prefix", "frame"))
         capture, metadata = self._capture_with_metadata(frame_id, None, "detect")
         detect_response = self.transport.detect(
@@ -433,7 +431,7 @@ class TurnManager(object):
         )
         self.session_store.update_after_detect(detect_response)
         if self.config.get("dialog", {}).get("refresh_after_detect", True):
-            self._refresh_dynamic_concepts_from_server()
+            self._refresh_dynamic_concepts_from_server(lang_code)
         return detect_response
 
     def _capture_with_metadata(self, frame_id, scan_id, capture_mode):
@@ -494,10 +492,13 @@ class TurnManager(object):
             return "Co vis o objektu %s" % object_label
         return "Tell me what you know about %s" % object_label
 
-    def _refresh_dynamic_concepts_from_server(self):
+    def _refresh_dynamic_concepts_from_server(self, lang_code=None):
         if self.dialog_adapter is None:
             return False
-        summary = self.transport.memory_summary(render_limit=scan_planner.memory_render_limit(self.config))
+        summary = self.transport.memory_summary(
+            render_limit=scan_planner.memory_render_limit(self.config),
+            language=self._speech_lang(lang_code),
+        )
         self.session_store.update_after_memory_summary(summary)
         return self._refresh_dynamic_concepts_from_summary(summary)
 
@@ -534,9 +535,32 @@ class TurnManager(object):
             value = 5
         return max(1, value)
 
-    def _build_memory_page_payload(self, summary, qa_response):
+    def _build_memory_page_payload(self, summary, qa_response, ui_language):
+        summary = summary or {}
+        scene_graph = list(summary.get("scene_graph") or [])
+        attributes = []
+        relationships = []
+        for edge in scene_graph:
+            if not isinstance(edge, dict):
+                continue
+            relation = str(edge.get("rel") or "").strip()
+            if not relation:
+                continue
+            sub = str(edge.get("sub") or "").strip()
+            obj = str(edge.get("obj") or "").strip()
+            cleaned = {"sub": sub, "rel": relation, "obj": obj}
+            if sub and obj and sub == obj:
+                attributes.append(cleaned)
+            else:
+                relationships.append(cleaned)
+
         payload = {
-            "summary": summary or {},
+            "ui_language": speech_policy.language_code(ui_language),
+            "object_labels": list(summary.get("labels") or []),
+            "label_counts": dict(summary.get("label_counts") or {}),
+            "attributes": attributes,
+            "relationships": relationships,
+            "graph_svg": summary.get("graph_svg"),
             "pregenerated_qa": [],
         }
         if isinstance(qa_response, dict):

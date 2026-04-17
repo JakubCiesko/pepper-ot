@@ -21,10 +21,6 @@ _ACK = {
         "en": ["I will start a new conversation.", "Resetting conversation.", "Let's start over."],
         "cs": ["Zacnu novou konverzaci.", "Resetuji konverzaci.", "Začneme znovu."],
     },
-    "dashboard": {
-        "en": ["I will show the dashboard.", "Opening the dashboard.", "Displaying the dashboard."],
-        "cs": ["Ukážu dashboard.", "Otevírám dashboard.", "Zobrazuji dashboard."],
-    },
     "greet": {
         "en": ["Hello!", "Hi there!", "Greetings!"],
         "cs": ["Ahoj!", "Dobrý den!", "Zdravím!"],

@@ -1,9 +1,3 @@
-try:
-    from urllib import quote
-except ImportError:
-    from urllib.parse import quote
-
-
 class DialogAdapter(object):
     """Thin ALDialog wrapper for runtime dynamic concept refresh."""
 
@@ -115,20 +109,6 @@ class DialogAdapter(object):
             len(cached_questions),
         )
         return bool(ok_objects or ok_attrs or ok_rels or ok_qa)
-
-    def build_memory_summary_url(self, base_url, summary_path, render_limit, explicit_url=None):
-        explicit = str(explicit_url or "").strip()
-        if explicit:
-            return explicit
-        base_url = str(base_url or "").rstrip("/")
-        summary_path = str(summary_path or "/api/v1/memory/summary").strip()
-        if not summary_path.startswith("/"):
-            summary_path = "/" + summary_path
-        return "%s%s?render_limit=%s" % (
-            base_url,
-            summary_path,
-            quote(str(int(render_limit))),
-        )
 
     def _clean_values(self, values):
         if values is None:

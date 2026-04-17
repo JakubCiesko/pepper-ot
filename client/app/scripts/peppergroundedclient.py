@@ -31,7 +31,7 @@ import stk.services
 
 
 class PepperGroundedClient(object):
-    APP_ID = "com.aldebaran.PepperGroundedClient"
+    APP_ID = "PepperGroundedClient"
 
     def __init__(self, qiapp):
         self.qiapp = qiapp
@@ -106,12 +106,11 @@ class PepperGroundedClient(object):
         self.face_adapter.start()
         self.robot_context.start()
         self.turn_manager.refresh_memory_concepts()
-        if self.config["behavior"].get("show_dashboard_on_start", False):
-            self.tablet_adapter.show_dashboard()
 
     @qi.nobind
     def on_stop(self):
         self.logger.info("PepperGroundedClient stopping")
+        self.tablet_adapter.hide_memory_page()
         self.turn_manager.shutdown()
         self.robot_context.stop()
         self.face_adapter.stop()
@@ -172,10 +171,23 @@ class PepperGroundedClient(object):
         )
         self.turn_manager.start_cached_answer(lang_code, question)
 
+    @qi.bind(returnType=qi.List)
+    def listCachedQuestions(self):
+        return self.session_store.get_cached_questions()
+
+    @qi.bind(returnType=qi.List)
+    def listCachedAnswers(self):
+        return self.session_store.get_cached_answers()
+
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def showMemory(self, lang_code):
         self.logger.info("showMemory called lang_code=%s", lang_code)
         self.turn_manager.start_show_memory(lang_code)
+
+    @qi.bind(returnType=qi.Void, paramsType=[])
+    def hideMemory(self):
+        self.logger.info("hideMemory called")
+        self.tablet_adapter.hide_memory_page()
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def resetMemory(self, lang_code):
@@ -214,11 +226,6 @@ class PepperGroundedClient(object):
         self._apply_loaded_config(loaded)
         return json.dumps(self.getStatusObject(), sort_keys=True)
 
-    @qi.bind(returnType=qi.Void, paramsType=[])
-    def showDashboard(self):
-        self.logger.info("showDashboard called")
-        self.tablet_adapter.show_dashboard()
-
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def say(self, text):
         self.logger.info("say called text=%s", text)
@@ -237,7 +244,6 @@ class PepperGroundedClient(object):
     def getStatusObject(self):
         status = self.turn_manager.status()
         status["server_base_url"] = self.config["server"].get("base_url")
-        status["dashboard_url"] = self.config["server"].get("dashboard_url")
         status["output_language_mode"] = self.config["language"].get("output_language_mode")
         return status
 

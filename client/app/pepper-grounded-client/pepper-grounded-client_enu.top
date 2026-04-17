@@ -1,9 +1,232 @@
 topic: ~pepper-grounded-client()
 language: enu
 
-include: pepper-grounded-client_enu_dynamic.top
-include: pepper-grounded-client_enu_perception.top
-include: pepper-grounded-client_enu_memory.top
-include: pepper-grounded-client_enu_object.top
-include: pepper-grounded-client_enu_cached_qa.top
-include: pepper-grounded-client_enu_general.top
+# dynamic concepts
+dynamic: memory_objects
+dynamic: memory_attributes
+dynamic: memory_relations
+dynamic: memory_cached_questions
+
+
+# perception 
+concept:(quick_look_action) [
+    "what do you see"
+    "what can you see"
+    "look now"
+    "look around"
+    "take a quick look"
+    "quick look"
+    "check the scene"
+    "describe what you see"
+    "describe the scene"
+    "what is in front of you"
+]
+
+concept:(quick_look) [
+    "~quick_look_action"
+    "please ~quick_look_action"
+    "can you ~quick_look_action"
+    "could you ~quick_look_action"
+    "would you ~quick_look_action"
+    "can you please ~quick_look_action"
+]
+
+concept:(panorama_scan_action) [
+    "scan the room"
+    "do a full scan"
+    "panorama scan"
+    "take a panoramic scan"
+    "look everywhere"
+    "look around the room"
+    "long scan"
+]   
+
+concept:(panorama_scan) [
+    "~panorama_scan_action"
+    "please ~panorama_scan_action"
+    "can you ~panorama_scan_action"
+    "could you ~panorama_scan_action"
+    "would you ~panorama_scan_action"
+    "can you please ~panorama_scan_action"
+]
+
+u:(~quick_look)
+    "Okay I will take a quick look."
+    ^sCall(PepperGroundedClient.look("en"))
+    u1:(["and now scan the room" "and do a full scan" "now do a long scan"])
+        ^sCall(PepperGroundedClient.scan("en"))
+
+u:(~panorama_scan)
+    "Okay I will scan around me."
+    ^sCall(PepperGroundedClient.scan("en"))
+    u1:(["show me memory" "show scene graph" "show memory graph"])
+        ^sCall(PepperGroundedClient.showMemory("en"))
+
+
+# memory
+concept:(show_memory_graph) [
+    "show memory"
+    "open memory"
+    "show memory graph"
+    "open memory graph"
+    "show scene graph"
+    "open scene graph"
+    "what do you remember"
+    "what do you currently remember"
+    "show what you remember"
+]
+
+concept:(reset_memory_only) [
+    "reset memory"
+    "clear memory"
+    "reset visual memory"
+    "clear visual memory"
+    "reset scene memory"
+    "clear scene memory"
+    "forget what you saw"
+    "forget visual memory"
+]
+
+concept:(reset_conversation_only) [
+    "reset conversation"
+    "clear conversation"
+    "start a new conversation"
+    "forget the conversation"
+    "new conversation please"
+]
+
+concept:(reset_all) [
+    "start over"
+    "let us start over"
+    "let's start over"
+    "start from scratch"
+    "let us talk from scratch"
+    "let's talk from scratch"
+]
+
+concept:(refresh_memory_concepts) [
+    "refresh memory words"
+    "update memory words"
+    "refresh memory concepts"
+    "update memory concepts"
+    "reload memory words"
+    "reload memory concepts"
+]
+
+u:([show open] {"me"} {"your"} ["memory" "memory graph" "scene graph"])
+    "Okay showing memory now."
+    ^sCall(PepperGroundedClient.showMemory("en"))
+
+u:(~show_memory_graph)
+    "Okay showing memory now."
+    ^sCall(PepperGroundedClient.showMemory("en"))
+    u1:(["and refresh memory words" "and update memory words" "refresh concepts"])
+        ^sCall(PepperGroundedClient.refreshMemoryConcepts())
+
+u:([reset clear] ["memory" "visual memory" "scene memory"])
+    "Okay I will clear memory."
+    ^sCall(PepperGroundedClient.resetMemory("en"))
+
+u:(~reset_memory_only)
+    "Okay I will clear memory."
+    ^sCall(PepperGroundedClient.resetMemory("en"))
+
+u:([reset clear] conversation)
+    "Okay I will reset the conversation."
+    ^sCall(PepperGroundedClient.resetConversation())
+
+u:(~reset_conversation_only)
+    "Okay I will reset the conversation."
+    ^sCall(PepperGroundedClient.resetConversation())
+
+u:(~reset_all)
+    "Okay I will clear memory and restart our conversation."
+    ^sCall(PepperGroundedClient.resetMemory("en"))
+    ^sCall(PepperGroundedClient.resetConversation())
+
+u:(~refresh_memory_concepts)
+    "Okay I will refresh memory words."
+    ^sCall(PepperGroundedClient.refreshMemoryConcepts())
+
+
+# object 
+concept:(object_query_lead) [
+    "tell me about"
+    "what do you know about"
+    "what can you tell me about"
+    "describe"
+    "describe the"
+    "say everything you know about"
+]
+
+concept:(object_query_prefix) [
+    "can you"
+    "could you"
+    "please"
+    "please can you"
+    "would you"
+]
+
+u:(~object_query_lead _~memory_objects {please})
+    "Okay I will focus on $1."
+    $last_object=$1
+    ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+    u1:(["tell me more" "what else" "more details" "anything else"])
+        ^sCall(PepperGroundedClient.askAboutObject("en", $last_object))
+    u1:(["and what about" "what about"] _~memory_objects)
+        $last_object=$1
+        ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+
+u:(~object_query_prefix ~object_query_lead _~memory_objects {please})
+    "Okay I will focus on $1."
+    $last_object=$1
+    ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+    u1:(["tell me more" "what else" "more details" "anything else"])
+        ^sCall(PepperGroundedClient.askAboutObject("en", $last_object))
+    u1:(["and what about" "what about"] _~memory_objects)
+        $last_object=$1
+        ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+
+u:(["what about" "and what about"] _~memory_objects)
+    $last_object=$1
+    ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+    u1:(["tell me more" "what else" "more details" "anything else"])
+        ^sCall(PepperGroundedClient.askAboutObject("en", $last_object))
+
+u:(["how many" "count"] _~memory_objects)
+    ^sCall(PepperGroundedClient.ask("en", $1))
+
+# cached_qa 
+concept:(ask_suggested_questions) [
+    "what can I ask"
+    "what can i ask"
+    "suggest questions"
+    "show suggested questions"
+    "what questions do you have"
+    "give me example questions"
+    "give me sample questions"
+    "show quick questions"
+    "show fast questions"
+]
+
+u:(~ask_suggested_questions)
+    "Okay I will show suggested questions from memory."
+    ^sCall(PepperGroundedClient.showMemory("en"))
+    u1:(_~memory_cached_questions)
+        ^sCall(PepperGroundedClient.answerCachedQuestion("en", $1))
+
+u:(_~memory_cached_questions)
+    ^sCall(PepperGroundedClient.answerCachedQuestion("en", $1))
+
+
+# general 
+
+u:(["refresh and" "first refresh and" "refresh then"] _*)
+    ^sCall(PepperGroundedClient.refreshAndAsk("en", $1))
+
+u:(["ask" "question"] _*)
+    ^sCall(PepperGroundedClient.ask("en", $1))
+
+u:(_*)
+    ^sCall(PepperGroundedClient.ask("en", $1))
+

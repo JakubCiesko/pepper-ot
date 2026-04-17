@@ -1,7 +1,6 @@
 topic: ~pepper-grounded-client()
 language: czc
 
-# Dynamic concepts are filled from Python via ALDialog.setConcept.
 dynamic:memory_objects
 dynamic:memory_attributes
 dynamic:memory_relations
@@ -119,13 +118,6 @@ concept:(ask_suggested_questions) [
     "ukaž rychlé otázky"
 ]
 
-concept:(show_dashboard) [
-    "ukaž dashboard"
-    "otevři dashboard"
-    "ukaž svůj dashboard"
-    "otevři svůj dashboard"
-]
-
 u:(~quick_look)
     "Dobře udělám rychlý pohled."
     ^sCall(PepperGroundedClient.look("cs"))
@@ -210,9 +202,6 @@ u:(~ask_suggested_questions)
 
 u:(_~memory_cached_questions)
     ^sCall(PepperGroundedClient.answerCachedQuestion("cs", $1))
-
-u:(~show_dashboard)
-    ^sCall(PepperGroundedClient.showDashboard())
 
 u:(["obnov a" "nejdřív obnov a" "obnov potom"] _*)
     ^sCall(PepperGroundedClient.refreshAndAsk("cs", $1))

@@ -1,38 +1,39 @@
-<package uuid="pepper-grounded-client" version="0.1.13">
-  <names>
-    <name lang="cs_CZ">pepper-grounded-client</name>
-    <name lang="en_US">pepper-grounded-client</name>
-    </names>
-  <descriptions>
-    <description lang="cs_CZ">Grounded Pepper client service that captures images and robot metadata, sends them to the server, and speaks scene-aware answers.</description>
-    <description lang="en_US">Grounded Pepper client service that captures images and robot metadata, sends them to the server, and speaks scene-aware answers.</description>
-    </descriptions>
-  <supportedLanguages>
-    <language>en_US</language>
-    <language>cs_CZ</language>
-    </supportedLanguages>
-  <descriptionLanguages>
-    <language>en_US</language>
-    <language>cs_CZ</language>
-    </descriptionLanguages>
-  <contents>
-    <behaviorContent path="testrun">
-      <nature>interactive</nature>
-      <descriptions>
-        <description lang="en_US">Launch the grounded client dialog and service for testing.</description>
-        </descriptions>
-      <permissions />
-      </behaviorContent>
-    <dialogContent topicName="pepper-grounded-client" typeVersion="1.0">
-      <topic language="cs_CZ" path="pepper-grounded-client/pepper-grounded-client_czc.top" />
-      <topic language="en_US" path="pepper-grounded-client/pepper-grounded-client_enu.top" />
-      </dialogContent>
-    </contents>
-  <requirements>
-    <naoqiRequirement maxVersion="2.5" minVersion="2.5" />
-    <robotRequirement model="JULIETTE_Y20" />
-    </requirements>
-  <services>
-    <service autorun="true" execStart="/usr/bin/python2 scripts/peppergroundedclient.py" name="peppergroundedclient" />
-    </services>
-  </package>
+<?xml version='1.0' encoding='UTF-8'?>
+<package version="0.1.23" uuid="pepper-grounded-client">
+ <names>
+  <name lang="cs_CZ">pepper-grounded-client</name>
+  <name lang="en_US">pepper-grounded-client</name>
+ </names>
+ <descriptions>
+  <description lang="cs_CZ">Grounded Pepper client service that captures images and robot metadata, sends them to the server, and speaks scene-aware answers.</description>
+  <description lang="en_US">Grounded Pepper client service that captures images and robot metadata, sends them to the server, and speaks scene-aware answers.</description>
+ </descriptions>
+ <supportedLanguages>
+  <language>en_US</language>
+  <language>cs_CZ</language>
+ </supportedLanguages>
+ <descriptionLanguages>
+  <language>en_US</language>
+  <language>cs_CZ</language>
+ </descriptionLanguages>
+ <contents>
+  <behaviorContent path="testrun">
+   <nature>interactive</nature>
+   <descriptions>
+    <description lang="en_US">Launch the grounded client dialog and service for testing.</description>
+   </descriptions>
+   <permissions/>
+  </behaviorContent>
+  <dialogContent topicName="pepper-grounded-client" typeVersion="1.0">
+   <topic path="pepper-grounded-client/pepper-grounded-client_czc.top" language="cs_CZ"/>
+   <topic path="pepper-grounded-client/pepper-grounded-client_enu.top" language="en_US"/>
+  </dialogContent>
+ </contents>
+ <requirements>
+  <naoqiRequirement minVersion="2.5" maxVersion="2.5"/>
+  <robotRequirement model="JULIETTE_Y20"/>
+ </requirements>
+ <services>
+  <service autorun="true" execStart="/usr/bin/python2 scripts/peppergroundedclient.py" name="PepperGroundedClient"/>
+ </services>
+</package>

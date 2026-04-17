@@ -123,9 +123,13 @@ class PepperServerTransport(object):
             object_label=object_label,
         )
 
-    def memory_summary(self, render_limit=5):
+    def memory_summary(self, render_limit=5, language=None):
         path = self.config["server"].get("memory_summary_path", "/api/v1/memory/summary")
-        path = "%s?render_limit=%s" % (path, int(render_limit))
+        separator = "&" if "?" in path else "?"
+        path = "%s%srender_limit=%s" % (path, separator, int(render_limit))
+        if language:
+            lang = speech_policy.language_code(language)
+            path = "%s&lang=%s" % (path, lang)
         data = self._request(
             method="get",
             path=path,
