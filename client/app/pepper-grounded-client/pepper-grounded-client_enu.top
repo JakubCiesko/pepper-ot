@@ -7,60 +7,195 @@ dynamic: memory_attributes
 dynamic: memory_relations
 dynamic: memory_cached_questions
 
+# system introduction 
+concept:(question_prefix) [
+    "how do you"
+    "how can you"
+    "how you"
+]
+
+concept:(vision_action) [
+    know what is around you
+    understand what is around you
+    know your surroundings
+    see
+    perceive
+    see the scene
+    see your surroundings
+    analyze the scene
+    understand the scene
+    understand the environment
+    understand your surroundings
+    perceive the environment
+    perceive the scene
+    perceive your surroundings
+    process images 
+
+]
+
+concept:(explain_system)[
+    "~question_prefix ~vision_action"
+    "how does {your} vision {system} work"
+]
+
+
+
+u:(~explain_system)
+    ^mode(contextual)
+    ^rand["I am glad you ask." "That is a good question." ""]
+    ^runTag(explain)
+    I use cameras and artificial intelligence to understand my surroundings.
+
+    ^run(animations/Stand/Gestures/Explain_1)
+    I take images and send them to a server for processing.
+
+    ^run(animations/Stand/Gestures/YouKnowWhat_1)
+    The server detects objects, their attributes, and relationships between them.
+
+    ^run(animations/Stand/Gestures/Explain_2)
+    Then I organize this information into a structured representation of the scene
+
+    ^run(animations/Stand/Gestures/YouKnowWhat_6)
+    This allows me to answer questions about what I see and how things are related. 
+    ^runTag(you)
+    You can ask me more about how I work.
+    u1:(["what can I ask" "what questions can I ask" "what can you tell me" "what else" "more" "continue" "anything else"])
+        ^runTag(explain)
+        ["You can ask about speed detection scanning or memory" "You can ask me about what I see, how fast I am, how I process the scene, or what I remember"]
+        What would you like to know?
+        ^stayInScope
+        u2:(["speed" "how fast {are you}"])
+            ^goto(speed)
+
+        u2:(["detection" "objects" "what {do} you see"])
+            ^goto(objects)
+
+        u2:(["scan" "scanning" "how {do} you process {the} scene"])
+            ^goto(scan)
+
+        u2:(["memory" "how do you remember" "what do you remember"])
+            ^goto(memory)
+        
+        u2:(["{okay} thank you" "thanks" "I know {everything} {now}"])
+            ^goto(exit)
+        
+    u1:(["what objects can you detect" "what do you recognize" "what can you see"]) %objects
+        ^runTag(explain)
+        I can recognize many common objects such as chairs, tables, screens, books, and more.
+
+        ^run(animations/Stand/Gestures/Show_1)
+        If the objects are visible and clear, I will try to detect them. 
+        ^stayInScope
+    u1:(["how fast are you" "are you fast" "is it quick" "how long does it take"]) %speed
+        ^run(animations/Stand/Gestures/Explain_4)
+        A quick look is usually fast.
+
+        ^run(animations/Stand/Gestures/Explain_2)
+        A full scan takes a few seconds because multiple images need to be processed.
+        During that time, I am still working even if I am silent.
+        ^stayInScope
+   u1:(["what is a full scan" "what does scan mean" "what is scanning"]) %scan
+        ^runTag(explain)
+        A scan means I observe the environment from multiple directions. I will look around like this
+        ^run(animations/Stand/Gestures/LookAround_1)
+        Then I combine the observations into a more complete understanding of the scene. 
+        A quick look is a faster alternative of the full scan
+        ^stayInScope
+
+    u1:(["can you remember things" "do you remember" "do you have memory"]) %memory
+        ^run(animations/Stand/Gestures/No_1)
+        I do not store information permanently by myself.
+
+        ^run(animations/Stand/Gestures/ShowSky_1)
+        However, the server can store information for me.
+
+        ^runTag(explain)
+        I can use that stored information to answer your questions later.
+
+        u1:(["can I ask questions" "what can I ask" "how can I use you"])
+        ^run(animations/Stand/Gestures/You_1)
+        You can ask me what I see.
+
+        ^run(animations/Stand/Gestures/Show_2)
+        You can ask where objects are.
+
+        ^run(animations/Stand/Gestures/Explain_1)
+        Or you can ask what is happening in the scene.
+
+        ^runTag(yes)
+        I will try to answer as accurately as possible.
+        ^stayInScope
+    u1:(["{okay} thank you" "thanks" "I know {everything} {now}"]) %exit
+        You are welcome
+        Let's start talking about what I see then
+
 
 # perception 
+# this is just one fast scan of the scene
 concept:(quick_look_action) [
     "what do you see"
     "what can you see"
-    "look now"
+    "what do you see now"
     "look around"
-    "take a quick look"
-    "quick look"
+    "look"
+    "check"
     "check the scene"
     "describe what you see"
     "describe the scene"
+    "what is here"
     "what is in front of you"
-]
-
-concept:(quick_look) [
-    "~quick_look_action"
-    "please ~quick_look_action"
-    "can you ~quick_look_action"
-    "could you ~quick_look_action"
-    "would you ~quick_look_action"
-    "can you please ~quick_look_action"
+    "do you see anything"
+    "tell me what is here"
+    "tell me what you see"
 ]
 
 concept:(panorama_scan_action) [
     "scan the room"
+    "scan around"
     "do a full scan"
+    "full scan"
     "panorama scan"
-    "take a panoramic scan"
     "look everywhere"
     "look around the room"
-    "long scan"
-]   
+    "scan everything {closely}"
+    "analyze the whole room"
+    "check everything"
+    "scan closely"
+    "look closely"
+] 
+
+concept:(quick_look) [
+    "{please} ~quick_look_action"
+    "can you {please} ~quick_look_action"
+    "could you {please} ~quick_look_action"
+]
 
 concept:(panorama_scan) [
-    "~panorama_scan_action"
-    "please ~panorama_scan_action"
-    "can you ~panorama_scan_action"
-    "could you ~panorama_scan_action"
-    "would you ~panorama_scan_action"
-    "can you please ~panorama_scan_action"
+    "{please} ~panorama_scan_action"
+    "can you {please} ~panorama_scan_action"
+    "could you {please} ~panorama_scan_action"
 ]
 
 u:(~quick_look)
-    "Okay I will take a quick look."
-    ^sCall(PepperGroundedClient.look("en"))
-    u1:(["and now scan the room" "and do a full scan" "now do a long scan"])
-        ^sCall(PepperGroundedClient.scan("en"))
+    ^mode(contextual)
+    ^rand[
+        "Okay I will take a quick look."
+        "Let me take a quick look."
+        "I will check the scene."
+    ]
+    ^pCall(PepperGroundedClient.look("en")) 
+    ^runTag(look)
+    This will take {just} a [moment second].
 
 u:(~panorama_scan)
-    "Okay I will scan around me."
-    ^sCall(PepperGroundedClient.scan("en"))
-    u1:(["show me memory" "show scene graph" "show memory graph"])
-        ^sCall(PepperGroundedClient.showMemory("en"))
+    ^mode(contextual)
+    ^rand[
+        "Oosh Okay I will scan the room."
+        "Starting a full scan."
+        "I will analyze the whole environment."
+    ]
+    ^pCall(PepperGroundedClient.scan("en"))
+    This may take a few [seconds moments]. ["Please be patient" "Don't go anywhere" ""]
 
 
 # memory
@@ -225,8 +360,5 @@ u:(["refresh and" "first refresh and" "refresh then"] _*)
     ^sCall(PepperGroundedClient.refreshAndAsk("en", $1))
 
 u:(["ask" "question"] _*)
-    ^sCall(PepperGroundedClient.ask("en", $1))
-
-u:(_*)
     ^sCall(PepperGroundedClient.ask("en", $1))
 

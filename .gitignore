@@ -44,3 +44,4 @@ node_modules/
 package.json
 .codex
 client/html example
+client/vs-code-highlight-qichat
