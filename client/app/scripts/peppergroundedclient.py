@@ -284,4 +284,21 @@ class PepperGroundedClient(object):
 
 
 if __name__ == "__main__":
-    stk.runner.run_service(PepperGroundedClient)
+    run_local = True 
+    if run_local: 
+        app = qi.Application()
+        app.start()
+
+        session = app.session
+
+        service_instance = PepperGroundedClient(app)
+
+        session.registerService("PepperGroundedClient", service_instance)
+
+        service_instance.on_start()
+
+        app.run()
+
+        service_instance.on_stop()
+    else:
+        stk.runner.run_service(PepperGroundedClient)

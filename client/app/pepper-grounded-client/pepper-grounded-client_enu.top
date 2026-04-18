@@ -199,36 +199,63 @@ u:(~panorama_scan)
 
 
 # memory
+
+# shows memory state on tablet
 concept:(show_memory_graph) [
-    "show memory"
-    "open memory"
-    "show memory graph"
-    "open memory graph"
-    "show scene graph"
-    "open scene graph"
-    "what do you remember"
-    "what do you currently remember"
+    "[show open display present] {to me the} memory {graph}"
+    "[show open display present] {to me the} scene graph"
+    "what do you {currently} remember"
     "show what you remember"
+    "what is in {your} memory"
 ]
 
+
+u:(~show_memory_graph)
+    ^mode(contextual)
+    ^rand[
+        "Okay showing memory."
+        "Let me show you what I remember."
+        "Opening memory view."
+        "Watch my tablet"
+        "Look at my tablet"
+    ]
+    ^run(animations/Stand/Gestures/ShowTablet_3)
+    ^pCall(PepperGroundedClient.showMemory("en"))
+    u1:(["[refresh update reload] [concepts memory graph]"])
+        Okay I will refresh my memory.
+        ^pCall(PepperGroundedClient.refreshMemoryConcepts())
+
+
 concept:(reset_memory_only) [
-    "reset memory"
-    "clear memory"
-    "reset visual memory"
-    "clear visual memory"
-    "reset scene memory"
-    "clear scene memory"
+    "[reset clear delete] {visual scene} memory"
     "forget what you saw"
     "forget visual memory"
 ]
 
+u:(~reset_memory_only)
+    ^mode(contextual)
+    ^run(animations/Stand/Gestures/Think_1)
+    Do you really want me to clear my memory?
+
+    u1:(["yes" "yes do it" "confirm" "go ahead" "delete" "clear"])
+        ^runTag(yes)
+        Okay I will clear my memory.
+        ^pCall(PepperGroundedClient.resetMemory("en"))
+
+    u1:(["no" "cancel" "stop"])
+        ^runTag(no)
+        Okay I will keep my memory.
+
 concept:(reset_conversation_only) [
-    "reset conversation"
-    "clear conversation"
+    "[reset clear delete restart] {the} conversation"
     "start a new conversation"
     "forget the conversation"
-    "new conversation please"
+    "new conversation {please}"
 ]
+u:(~reset_conversation_only)
+    ^runTag(explain)
+    Okay ["I will reset the conversation" "we can start over"]
+    ^pCall(PepperGroundedClient.resetConversation())
 
 concept:(reset_all) [
     "start over"
@@ -239,7 +266,26 @@ concept:(reset_all) [
     "let's talk from scratch"
 ]
 
+
+u:(~reset_all)
+    ^run(animations/Stand/Gestures/Think_1)
+    This will clear memory and restart everything. Do you want to continue?
+
+    u1:(["yes" "confirm" "do it"])
+        ^runTag(yes)
+        Okay restarting everything.
+
+        ^pCall(PepperGroundedClient.resetMemory("en"))
+        ^pCall(PepperGroundedClient.resetConversation())
+
+    u1:(["no" "cancel"])
+        ^runTag(no)
+        Okay I will not reset anything.
+
+
 concept:(refresh_memory_concepts) [
+    "[refresh update] memory"
+    "[refresh update] memory [words concepts]"
     "refresh memory words"
     "update memory words"
     "refresh memory concepts"
@@ -248,50 +294,20 @@ concept:(refresh_memory_concepts) [
     "reload memory concepts"
 ]
 
-u:([show open] {"me"} {"your"} ["memory" "memory graph" "scene graph"])
-    "Okay showing memory now."
-    ^sCall(PepperGroundedClient.showMemory("en"))
-
-u:(~show_memory_graph)
-    "Okay showing memory now."
-    ^sCall(PepperGroundedClient.showMemory("en"))
-    u1:(["and refresh memory words" "and update memory words" "refresh concepts"])
-        ^sCall(PepperGroundedClient.refreshMemoryConcepts())
-
-u:([reset clear] ["memory" "visual memory" "scene memory"])
-    "Okay I will clear memory."
-    ^sCall(PepperGroundedClient.resetMemory("en"))
-
-u:(~reset_memory_only)
-    "Okay I will clear memory."
-    ^sCall(PepperGroundedClient.resetMemory("en"))
-
-u:([reset clear] conversation)
-    "Okay I will reset the conversation."
-    ^sCall(PepperGroundedClient.resetConversation())
-
-u:(~reset_conversation_only)
-    "Okay I will reset the conversation."
-    ^sCall(PepperGroundedClient.resetConversation())
-
-u:(~reset_all)
-    "Okay I will clear memory and restart our conversation."
-    ^sCall(PepperGroundedClient.resetMemory("en"))
-    ^sCall(PepperGroundedClient.resetConversation())
 
 u:(~refresh_memory_concepts)
-    "Okay I will refresh memory words."
-    ^sCall(PepperGroundedClient.refreshMemoryConcepts())
+    ^runTag(explain)
+    I will refresh my memory representation.
+    ^pCall(PepperGroundedClient.refreshMemoryConcepts())
 
 
-# object 
+# dynamic concept conversation 
 concept:(object_query_lead) [
     "tell me about"
     "what do you know about"
-    "what can you tell me about"
-    "describe"
-    "describe the"
-    "say everything you know about"
+    "what can you [say tell] {me} about"
+    "describe {the}"
+    "say everything {what} you know about"
 ]
 
 concept:(object_query_prefix) [
@@ -302,63 +318,156 @@ concept:(object_query_prefix) [
     "would you"
 ]
 
-u:(~object_query_lead _~memory_objects {please})
-    "Okay I will focus on $1."
+
+u:({~object_query_prefix} ~object_query_lead _~memory_objects {please})
+    ^mode(contextual)
+    ^runTag(explain)
+    ^pCall(PepperGroundedClient.askAboutObject("en", $1))
+    Okay I will focus on the $1.
     $last_object=$1
-    ^sCall(PepperGroundedClient.askAboutObject("en", $1))
-    u1:(["tell me more" "what else" "more details" "anything else"])
-        ^sCall(PepperGroundedClient.askAboutObject("en", $last_object))
+    ["Let me think about it for a while" "I will just think about it" "Just give me a second to think about it" "Let's just wait for the server to tell me more about it" ""]
+    u1:(["tell me more {please}" "what else {please}" "more details" "anything else"])
+        ^pCall(PepperGroundedClient.askAboutObject("en", $last_object))
+        ["Well of course" "Just a second" "Surely there is more to talk about"]
+        ^stayInScope
     u1:(["and what about" "what about"] _~memory_objects)
         $last_object=$1
-        ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+        ^runTag(explain)
+        Now focusing on the $1. Let me think
+        ^pCall(PepperGroundedClient.askAboutObject("en", $1))
+        ^stayInScope
+    u1:(["{wow} that was interesting" "thanks" "{let's} focus on {something} else"])
+        No problem, let's talk about something else
 
-u:(~object_query_prefix ~object_query_lead _~memory_objects {please})
-    "Okay I will focus on $1."
-    $last_object=$1
-    ^sCall(PepperGroundedClient.askAboutObject("en", $1))
-    u1:(["tell me more" "what else" "more details" "anything else"])
-        ^sCall(PepperGroundedClient.askAboutObject("en", $last_object))
-    u1:(["and what about" "what about"] _~memory_objects)
-        $last_object=$1
-        ^sCall(PepperGroundedClient.askAboutObject("en", $1))
+# with fallbacks
+concept:(counts) [
+   "{"tell me"} how many"
+   "{"tell me" the} count"
+    "{"tell me" the} number {of}"
+]
+u:(~counts _~memory_objects)
+    $query="how many $1"
+    ^pCall(PepperGroundedClient.ask("en", $query))
+    Perfect question let me count $1 really fast
 
-u:(["what about" "and what about"] _~memory_objects)
-    $last_object=$1
-    ^sCall(PepperGroundedClient.askAboutObject("en", $1))
-    u1:(["tell me more" "what else" "more details" "anything else"])
-        ^sCall(PepperGroundedClient.askAboutObject("en", $last_object))
+u:(~counts _*)
+    $query="how many $1" # do you see or remember
+    ^pCall(PepperGroundedClient.ask("en", $query))
+    Perfect question let me count the objects really fast
 
-u:(["how many" "count"] _~memory_objects)
-    ^sCall(PepperGroundedClient.ask("en", $1))
+concept:(present) [
+    "do you see"
+    "can you see"
+    "is there"
+    "is any"
+]
+u:(~present _~memory_objects)
+    $query="do you see $1"
+    ^pCall(PepperGroundedClient.ask("en", $query))
+    Let me see
+
+u:(~present _*)
+    $query="do you see $1"
+    ^pCall(PepperGroundedClient.ask("en", $query))
+    Let me see 
+
+
+concept:(position) [
+    "where [is are]"
+    "where can I find"
+    "in what position [is are]"
+    "what is {the} [position place] of"
+]
+u:(~position _~memory_objects)
+    $query="where is $1 located"
+    ^pCall(PepperGroundedClient.ask("en", $query))
+    I surely know it is somewhere, but I need to think.
+
+u:(~position _*)
+    $query="where is $1 located"
+    ^pCall(PepperGroundedClient.ask("en", $query))
+    Let me think
+    
+
+u:(["what is happening" "describe the situation"])
+    $query="describe the scene and what is happening"
+    ^pCall(PepperGroundedClient.ask("en", $query))
+
+
+concept:(color) [
+    red blue green yellow black white gray brown orange purple pink
+]
+concept:(size) [
+    big small large tiny huge tall short
+]
+concept:(shape) [
+    round square rectangular flat long thin
+]
+concept:(state) [
+    open closed empty full broken clean dirty
+]
+concept:(material) [
+    wooden metal plastic glass
+]
+
+concept:(attribute) [
+    ~color
+    ~size
+    ~shape
+    ~state
+    ~material
+]
+
+u:("[what which] [color colour] is" _~memory_objects)
+    $query="what color is $1"
+    ^pCall(PepperGroundedClient.ask("en", $query))
+    Colors, there is plenty of them.
+
+
+u:("[what which] [objects things] [is are]" _~attribute)
+    $query="which objects are $1"    
+    ^pCall(PepperGroundedClient.ask("en", $query))
+    Now! that is a question! Let me mine my own memory.
+
+u:("[what which] [relation relations attributes] [is are has have]" _~memory_objects {in})
+    $query="What relations and attributes do $1 have"    
+    ^pCall(PepperGroundedClient.ask("en", $query))
+    I like $1! But this is really complex. Give me a moment.
+
+
+u:("[does is] [anything anybody anyone] {have} {the relation of}" _~memory_relations)
+    $query="Does anybody have relation or attribute $1 . If so, state who or what is it."    
+    ^pCall(PepperGroundedClient.ask("en", $query))
+    $1 is an interesting relation right? Let me think
+
 
 # cached_qa 
 concept:(ask_suggested_questions) [
-    "what can I ask"
-    "what can i ask"
+    "what can [i I] ask"
     "suggest questions"
     "show suggested questions"
-    "what questions do you have"
-    "give me example questions"
-    "give me sample questions"
-    "show quick questions"
-    "show fast questions"
+    "what questions do you have {prepared}"
+    "give {me} [example sample] questions"
+    "show {me} [quick fast] questions"
 ]
 
 u:(~ask_suggested_questions)
     "Okay I will show suggested questions from memory."
-    ^sCall(PepperGroundedClient.showMemory("en"))
+    ^pCall(PepperGroundedClient.showMemory("en"))
+    #^sCall(PepperGroundedClient.presentCachedQuestions("en"))
     u1:(_~memory_cached_questions)
-        ^sCall(PepperGroundedClient.answerCachedQuestion("en", $1))
+        ^pCall(PepperGroundedClient.answerCachedQuestion("en", $1))
 
 u:(_~memory_cached_questions)
-    ^sCall(PepperGroundedClient.answerCachedQuestion("en", $1))
+    ^pCall(PepperGroundedClient.answerCachedQuestion("en", $1))
 
 
 # general 
+# TO BE REMOVED
+#u:(["refresh and" "first refresh and" "refresh then"] _*)
+#    ^sCall(PepperGroundedClient.refreshAndAsk("en", $1))
 
-u:(["refresh and" "first refresh and" "refresh then"] _*)
-    ^sCall(PepperGroundedClient.refreshAndAsk("en", $1))
-
-u:(["ask" "question"] _*)
-    ^sCall(PepperGroundedClient.ask("en", $1))
+u:(["Let me ask {this question}" "Tell me" "Answer me {this} question"] _*)
+    I am on it
+    ^pCall(PepperGroundedClient.ask("en", $1))
 
