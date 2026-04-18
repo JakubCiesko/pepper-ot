@@ -21,6 +21,7 @@ from pepper_client.core.session_store import SessionStore
 from pepper_client.perception.social_adapter import SocialAdapter
 from pepper_client.perception.sonar_adapter import SonarAdapter
 from pepper_client.interaction.speech_adapter import SpeechAdapter
+from pepper_client.interaction.tablet_adapter import FakeTabletAdapter
 from pepper_client.interaction.tablet_adapter import TabletAdapter
 from pepper_client.interaction.dialog_adapter import DialogAdapter
 from pepper_client.core.transport import PepperServerTransport
@@ -63,7 +64,8 @@ class PepperGroundedClient(object):
         )
         self.sonar_adapter = SonarAdapter(self.services, self.config, self.logger)
         self.speech_adapter = SpeechAdapter(self.services, self.logger)
-        self.tablet_adapter = TabletAdapter(self.services, self.config, self.logger)
+        self.tablet_adapter = None
+        self._initialize_tablet_adapter()
         self.dialog_adapter = DialogAdapter(self.services, self.config, self.logger)
         self.robot_context = RobotContextCollector(
             self.pose_adapter,
@@ -95,6 +97,17 @@ class PepperGroundedClient(object):
         else:
             self.logger.info("Using default robot camera")
             self.camera_adapter=CameraAdapter(self.services, self.config, self.logger)
+
+    @qi.nobind
+    def _initialize_tablet_adapter(self):
+        if self.config.get("tablet", {}).get("fake_tablet", False):
+            self.tablet_adapter = FakeTabletAdapter(self.services, self.config, self.logger)
+            fake_url = self.tablet_adapter.local_fake_url()
+            self.logger.info("Using fake tablet adapter for local browser mirror, url: %s" % fake_url)
+        
+        else:
+            self.logger.info("Using robot ALTabletService adapter")
+            self.tablet_adapter = TabletAdapter(self.services, self.config, self.logger)
 
     @qi.nobind
     def on_start(self):
@@ -262,8 +275,10 @@ class PepperGroundedClient(object):
         self.face_adapter.start()
         self.robot_context.start()
         self._initialize_camera_adapter()
+        self._initialize_tablet_adapter()
         if self.turn_manager:
             self.turn_manager.camera_adapter = self.camera_adapter
+            self.turn_manager.tablet_adapter = self.tablet_adapter
         self.logger.info("New config: %s", self.config)
         self.logger.info("Client config reloaded")
 

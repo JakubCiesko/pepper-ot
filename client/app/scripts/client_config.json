@@ -46,8 +46,8 @@
     "refresh_after_scan": true
   },
   "language": {
-    "default_dialog_language": "en",
-    "output_language_mode": "czech"
+    "default_dialog_language": "english",
+    "output_language_mode": "english"
   },
   "panorama": {
     "enabled": true,
@@ -95,6 +95,10 @@
   "tablet": {
     "bridge_retry_attempts": 12,
     "bridge_retry_interval_seconds": 0.25,
+    "fake_host": "127.0.0.1",
+    "fake_poll_interval_ms": 1000,
+    "fake_port": 8766,
+    "fake_tablet": true,
     "local_app_name": "pepper-grounded-client",
     "memory_render_limit": 5,
     "pregenerated_questions_count": 5

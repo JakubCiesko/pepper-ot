@@ -1,0 +1,155 @@
+body {
+    margin: 0;
+    padding: 16px;
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 12px;
+}
+
+h1 {
+    margin: 0;
+    font-size: 26px;
+    color: #f8fafc;
+}
+
+.status {
+    font-size: 13px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid #334155;
+    background: #1f2937;
+    color: #cbd5e1;
+    white-space: nowrap;
+}
+
+.status.ok {
+    border-color: #14532d;
+    background: #052e16;
+    color: #bbf7d0;
+}
+
+.status.warn {
+    border-color: #854d0e;
+    background: #422006;
+    color: #fde68a;
+}
+
+.status.err {
+    border-color: #7f1d1d;
+    background: #450a0a;
+    color: #fecaca;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 12px;
+}
+
+.card {
+    background: #111827;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 12px;
+    min-height: 110px;
+}
+
+.card.wide {
+    grid-column: 1 / span 2;
+}
+
+h2 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    color: #bfdbfe;
+}
+
+.chips {
+    line-height: 1.8;
+}
+
+.chip {
+    display: inline-block;
+    margin: 3px 6px 3px 0;
+    padding: 4px 10px;
+    border: 1px solid #334155;
+    border-radius: 999px;
+    background: #1f2937;
+    font-size: 14px;
+    color: #e5e7eb;
+}
+
+.list {
+    margin: 0;
+    padding-left: 18px;
+    line-height: 1.6;
+}
+
+.list li {
+    margin-bottom: 4px;
+}
+
+.muted {
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+#graph svg {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.qa-item {
+    border-top: 1px dashed #334155;
+    padding: 10px 0;
+}
+
+.qa-item:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+.qa-btn {
+    width: 100%;
+    text-align: left;
+    font-size: 15px;
+    padding: 8px 10px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: #0b1324;
+    color: #fde68a;
+    cursor: pointer;
+}
+
+.qa-btn:hover {
+    background: #111d34;
+}
+
+.qa-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.qa-answer {
+    margin-top: 6px;
+    color: #dcfce7;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.qa-error {
+    margin-top: 8px;
+    color: #fecaca;
+    font-size: 13px;
+    display: none;
+}

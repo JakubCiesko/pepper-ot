@@ -30,6 +30,7 @@ class SpeechAdapter(object):
             if isinstance(text, unicode):
                 text = text.encode("utf-8")
             self.logger.info("Speaking text: %s", text)
+            # animated is primary
             if self.animated is not None:
                 try:
                     self.animated.say(text)

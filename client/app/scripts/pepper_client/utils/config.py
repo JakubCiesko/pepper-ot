@@ -91,6 +91,10 @@ DEFAULT_CONFIG = {
         "bridge_retry_attempts": 12,
         "bridge_retry_interval_seconds": 0.25,
         "pregenerated_questions_count": 5,
+        "fake_tablet": False,
+        "fake_host": "127.0.0.1",
+        "fake_port": 8766,
+        "fake_poll_interval_ms": 500,
     },
 }
 
@@ -192,6 +196,22 @@ def normalize_config(config):
         )
     except Exception:
         tablet["pregenerated_questions_count"] = 5
+    tablet["fake_tablet"] = bool(tablet.get("fake_tablet", False))
+    tablet["fake_host"] = str(tablet.get("fake_host") or "127.0.0.1").strip()
+    if not tablet["fake_host"]:
+        tablet["fake_host"] = "127.0.0.1"
+    try:
+        tablet["fake_port"] = int(tablet.get("fake_port", 8766))
+    except Exception:
+        tablet["fake_port"] = 8766
+    if tablet["fake_port"] < 1 or tablet["fake_port"] > 65535:
+        tablet["fake_port"] = 8766
+    try:
+        tablet["fake_poll_interval_ms"] = int(tablet.get("fake_poll_interval_ms", 500))
+    except Exception:
+        tablet["fake_poll_interval_ms"] = 500
+    if tablet["fake_poll_interval_ms"] < 100:
+        tablet["fake_poll_interval_ms"] = 100
 
     mode = normalize_output_language(config["language"].get("output_language_mode"))
     config["language"]["output_language_mode"] = mode

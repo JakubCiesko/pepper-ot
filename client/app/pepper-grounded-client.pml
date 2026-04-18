@@ -8,7 +8,6 @@
         <Dialog name="pepper-grounded-client" src="pepper-grounded-client/pepper-grounded-client.dlg" />
     </Dialogs>
     <Resources>
-        <File name="icon" src="icon.png" />
         <File name="peppergroundedclient" src="scripts/peppergroundedclient.py" />
         <File name="client_config" src="scripts/client_config.json" />
         <File name="stk_init" src="scripts/stk/__init__.py" />
@@ -41,11 +40,19 @@
         <File name="pc_ids" src="scripts/pepper_client/utils/ids.py" />
         <File name="pc_logging_utils" src="scripts/pepper_client/utils/logging.py" />
         <File name="pc_metadata_builder" src="scripts/pepper_client/utils/metadata_builder.py" />
-        <File name="pc_time_utils" src="scripts/pepper_client/utils/timing.py" />
         <File name="pc_text_utils" src="scripts/pepper_client/utils/text.py" />
+        <File name="pc_time_utils" src="scripts/pepper_client/utils/timing.py" />
         <File name="translation_cs_CZ" src="translations/translation_cs_CZ.qm" />
         <File name="translation_en_US" src="translations/translation_en_US.qm" />
         <File name="index" src="html/index.html" />
+        <File name="style" src="html/css/style.css" />
+        <File name="state_js" src="html/js/state.js" />
+        <File name="render_js" src="html/js/render.js" />
+        <File name="service_bridge_js" src="html/js/service_bridge.js" />
+        <File name="utils_js" src="html/js/utils.js" />
+        <File name="app_js" src="html/js/app.js" />
+        <File name="fake_tablet_js" src="html/js/fake_tablet.js" />
+        <File name="icon" src="icon.png" />
     </Resources>
     <Topics>
         <Topic name="pepper-grounded-client_enu" src="pepper-grounded-client/pepper-grounded-client_enu.top" topicName="pepper-grounded-client" language="en_US" />

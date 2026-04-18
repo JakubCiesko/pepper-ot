@@ -1,1 +1,1 @@
-$PEPPER_ROOT/pyenv/bin/python2 app/scripts/peppergroundedclient.py --qi-url tcp://127.0.0.1:43587
+$PEPPER_ROOT/pyenv/bin/python2 app/scripts/peppergroundedclient.py --qi-url tcp://127.0.0.1:$VIRTUAL_ROBOT_PORT
