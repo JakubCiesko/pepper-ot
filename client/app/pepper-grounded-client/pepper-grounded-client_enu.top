@@ -339,7 +339,19 @@ u:({~object_query_prefix} ~object_query_lead _~memory_objects {please})
     u1:(["{wow} that was interesting" "thanks" "{let's} focus on {something} else"])
         No problem, let's talk about something else
 
-# with fallbacks
+# with fallbacks dynamic concepts 
+
+u:([what which list] [objects things] {do} you see)
+    ^pCall(PepperGroundedClient.listObjects("en"))
+
+u:([what which list] [attributes] {do} you see)
+    ^pCall(PepperGroundedClient.listAttributes("en"))
+
+u:([what which list] [relations] {do} you see)
+    ^pCall(PepperGroundedClient.listRelations("en"))
+
+
+
 concept:(counts) [
    "{"tell me"} how many"
    "{"tell me" the} count"
@@ -356,15 +368,15 @@ u:(~counts _*)
     Perfect question let me count the objects really fast
 
 concept:(present) [
-    "do you see"
-    "can you see"
+    "do you see {any}"
+    "can you see {any}"
     "is there"
     "is any"
 ]
-u:(~present _~memory_objects)
+u:(~present _~memory_objects {there})
     $query="do you see $1"
     ^pCall(PepperGroundedClient.ask("en", $query))
-    Let me see
+    I sure do
 
 u:(~present _*)
     $query="do you see $1"
@@ -373,10 +385,10 @@ u:(~present _*)
 
 
 concept:(position) [
-    "where [is are]"
-    "where can I find"
-    "in what position [is are]"
-    "what is {the} [position place] of"
+    "where [is are] {the}"
+    "where can I find {the}"
+    "in what position [is are] {the}"
+    "what is {the} [position place] of {the}"
 ]
 u:(~position _~memory_objects)
     $query="where is $1 located"
@@ -429,6 +441,10 @@ u:("[what which] [objects things] [is are]" _~attribute)
     ^pCall(PepperGroundedClient.ask("en", $query))
     Now! that is a question! Let me mine my own memory.
 
+u:(["how is" "what is"] {the} _~memory_objects {like})
+    $query="what is $1 like"
+    ^pCall(PepperGroundedClient.ask("en", $query))
+
 u:("[what which] [relation relations attributes] [is are has have]" _~memory_objects {in})
     $query="What relations and attributes do $1 have"    
     ^pCall(PepperGroundedClient.ask("en", $query))
@@ -454,18 +470,11 @@ concept:(ask_suggested_questions) [
 u:(~ask_suggested_questions)
     "Okay I will show suggested questions from memory."
     ^pCall(PepperGroundedClient.showMemory("en"))
-    #^sCall(PepperGroundedClient.presentCachedQuestions("en"))
-    u1:(_~memory_cached_questions)
-        ^pCall(PepperGroundedClient.answerCachedQuestion("en", $1))
+    ^pCall(PepperGroundedClient.listCachedQuestions("en"))
 
 u:(_~memory_cached_questions)
     ^pCall(PepperGroundedClient.answerCachedQuestion("en", $1))
 
-
-# general 
-# TO BE REMOVED
-#u:(["refresh and" "first refresh and" "refresh then"] _*)
-#    ^sCall(PepperGroundedClient.refreshAndAsk("en", $1))
 
 u:(["Let me ask {this question}" "Tell me" "Answer me {this} question"] _*)
     I am on it

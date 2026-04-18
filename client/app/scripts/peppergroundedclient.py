@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 __version__ = "0.0.3"
 
 __copyright__ = "Copyright 2015, Aldebaran Robotics"
@@ -8,6 +9,7 @@ import json
 import os
 
 import qi
+import random 
 
 from pepper_client.utils import config as client_config
 from pepper_client.interaction import speech_policy
@@ -185,12 +187,79 @@ class PepperGroundedClient(object):
         self.turn_manager.start_cached_answer(lang_code, question)
 
     # @qi.bind(returnType=qi.List)
-    # def listCachedQuestions(self):
-    #     return self.session_store.get_cached_questions()
-
-    # @qi.bind(returnType=qi.List)
     # def listCachedAnswers(self):
     #     return self.session_store.get_cached_answers()
+
+    @qi.nobind
+    def prefix_for_listing(self, lang_code, empty):
+        if empty: 
+            if lang_code == "cs":
+                return "Je mi to líto ale nic nevidím" 
+            return "I am sorry, but I don't see anything"
+        if lang_code == "cs":
+            return "Vidím "
+        return "I see "
+    
+    @qi.nobind
+    def listDynamicConcept(self, lang_code, concept, sample_size, return_concept_only=False):
+        self.logger.info("listDynamicConcept called lang_code=%s concept=%s", lang_code, concept)
+        concept_getters = {
+            "objects": self.session_store.get_memory_labels,
+            "attributes": self.session_store.get_memory_attributes,
+            "relations": self.session_store.get_memory_relations,
+            "cached_questions": self.session_store.get_cached_questions,
+            "cached_answers": self.session_store.get_cached_answers,
+        }
+        getter = concept_getters.get(concept)
+        error_output = self.prefix_for_listing(lang_code, True)
+        if not getter:
+            return error_output
+        dynamic_concept = getter()
+        if not dynamic_concept:
+            return error_output if not return_concept_only else dynamic_concept
+        if return_concept_only:
+            return dynamic_concept
+        # all are lists but just to be sure 
+        if not isinstance(dynamic_concept, (list, tuple)):
+            return error_output
+        
+        if sample_size > 0:
+            sample = random.sample(dynamic_concept, min(sample_size, len(dynamic_concept)))
+        else:
+            sample = dynamic_concept
+        prefix = self.prefix_for_listing(lang_code, False)
+        return prefix + ", ".join([s.replace("_", " ") for s in sample])
+        
+    # TODO: make the 10 tunable
+    @qi.bind(returnType=qi.Void, paramsType=[qi.String])
+    def listRelations(self, lang_code):
+        self.say(self.listDynamicConcept(lang_code, "relations", 10))
+
+    @qi.bind(returnType=qi.Void, paramsType=[qi.String])
+    def listAttributes(self, lang_code):    
+        self.say(self.listDynamicConcept(lang_code, "attributes", 10))
+
+    @qi.bind(returnType=qi.Void, paramsType=[qi.String])
+    def listObjects(self, lang_code):
+        self.say(self.listDynamicConcept(lang_code, "objects", 10))
+
+    @qi.bind(returnType=qi.Void, paramsType=[qi.String])
+    def listCachedQuestions(self, lang_code):
+        questions = self.listDynamicConcept(lang_code, "cached_questions", 1, return_concept_only=True)
+        questions = random.sample(questions, min(len(questions), 1))
+        if questions: 
+            if lang_code == "cs":
+                text = "Mužeš se zeptat třeba tohle: %s" % questions[0]
+            else: 
+                text = "You can ask me like this: %s" % questions[0]
+        else: 
+            if lang_code == "cs":
+                text = "Zeptej se cokoliv, teď nemám nic přichystané"
+            else: 
+                text = "You can ask anything you like. I have nothing prepared"
+        self.say(text)
+        
+
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def showMemory(self, lang_code):
