@@ -354,6 +354,7 @@ class PepperGroundedClient(object):
 
 if __name__ == "__main__":
     run_local = True 
+    czech = True 
     if run_local: 
         app = qi.Application()
         app.start()
@@ -365,7 +366,13 @@ if __name__ == "__main__":
         session.registerService("PepperGroundedClient", service_instance)
 
         service_instance.on_start()
-
+        if czech: 
+            dialog = session.service("ALDialog")
+            dialog.setLanguage("Czech")
+            #asr = session.service("ALSpeechRecognition")
+            #asr.setLanguage("Czech")
+            tts = session.service("ALTextToSpeech")
+            tts.setLanguage("Czech")
         app.run()
 
         service_instance.on_stop()

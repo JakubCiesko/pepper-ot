@@ -6,208 +6,491 @@ dynamic:memory_attributes
 dynamic:memory_relations
 dynamic:memory_cached_questions
 
-concept:(quick_look_action) [
-    "co vidíš"
-    "co kolem sebe vidíš"
-    "podívej se"
-    "mrkni se"
-    "podívej se teď"
-    "udělej rychlý pohled"
-    "rychlý pohled"
-    "popiš co vidíš"
-    "popiš scénu"
-    "co vidíš před sebou"
+# system introduction 
+concept:(question_prefix) [
+    "[jak jako]"
+    "pomocí čeho"
+    "na základě čeho"
 ]
 
-concept:(quick_look) [
-    "~quick_look_action"
-    "prosím ~quick_look_action"
-    "můžeš ~quick_look_action"
-    "mohl bys ~quick_look_action"
-    "mohla bys ~quick_look_action"
-    "můžeš prosím ~quick_look_action"
+concept:(vision_action) [
+    [rozumíš víš poznáš analyzuješ chápeš] co je kolem [tebe tobě]
+    [rozeznáváš rozeznáš poznáš vidíš vnímáš chápeš] ["své okolí" "scénu" "stav věcí" "místnost" "prostředí" "vztahy věcí"]
+    [rozeznáváš rozeznáš poznáš vidíš vnímáš chápeš]
+    [zpracovávaš [obrázky fotky obrazy scény]] 
+]
+
+concept:(explain_system)[
+    "~question_prefix ~vision_action"
+    "[jak jako] [funguje pracuje] {tvůj} systém vidění"
+]
+
+
+
+u:(~explain_system)
+    ^mode(contextual)
+    ^rand["Super, že se ptáš." "Skvělá otázka." ""]
+    ^runTag(explain)
+    Používám kamery a umělou inteligenci, abych pochopil své okolí.
+    ^run(animations/Stand/Gestures/Explain_1)
+    Pořízuju obrázky, které pak odešlu na server ke zpracování.
+    ^run(animations/Stand/Gestures/YouKnowWhat_1)
+    Server detekuje objekty, jejich atributy a vztahy mezi nimi.
+    ^run(animations/Stand/Gestures/Explain_2)
+    Pak tyto informace uspořádám do strukturované reprezentace obrazu
+    ^run(animations/Stand/Gestures/YouKnowWhat_6)
+    To mi umožňuje odpovídat na otázky o tom, co vidím a jak spolu věci souvisejí.
+    ^runTag(you)
+    Můžeš se mě zeptat více na to, jak pracuji.
+    u1:(["na co se mohu zeptat" "na jaké otázky se mohu zeptat" "co mi můžeš říct" "víc" "pokračuj" "{a} dál"])
+        ^runTag(explain)
+        ["Můžeš se zeptat třeba na skenování, detekci, rychlost skenování nebo paměť. Nebo se zeptej na to jak se ptát" 
+        "Můžeš se mě zeptat na to, co vidím, jak jsem rychlý, jak zpracovávám scény nebo co si pamatuji. Nebo se zeptej na to jak se ptát"]
+        Co bys chtěl vědět 
+        ^stayInScope
+        u2:(["{zajímá mně} rychlost {skenování}" "jak rychlý {jsi}"])
+            ^goto(speed)
+
+        u2:(["{zajímá mně} detekce" "objekty" "co {vlastně} vidíš"])
+            ^goto(objects)
+
+        u2:(["{zajímá mně} {proces} skenování" "{proces} skenování" "jak {vlastně} zpracúvaš obrázky "])
+            ^goto(scan)
+
+        u2:(["paměť" "co si pamatuješ" "jak si pamatuješ"])
+            ^goto(memory)
+        
+        u2:("jak se {vlastně} ptát")
+            ^goto(how)
+
+        u2:(["díky" "děkuji" "to stačí"])
+            ^goto(exit)
+        
+    u1:(["jaké objekty poznáš" "co dokážeš rozpoznat" "co vidíš"]) %objects
+        ^runTag(explain)
+        Dokážu rozpoznat běžné objekty jako židle stoly obrazovky knihy a další
+
+        ^run(animations/Stand/Gestures/Show_1)
+        Pokud jsou objekty dobře viditelné a muj model je rozezná, pokusím se je detekovat
+        ^stayInScope
+
+    u1:(["jak rychlý jsi" "jsi rychlý" "jak dlouho to trvá"]) %speed
+        ^run(animations/Stand/Gestures/Explain_4)
+        Mám dva módy. Pomalý a rychlý pohled. Rychlý pohled je obvykle krátký
+
+        ^run(animations/Stand/Gestures/Explain_2)
+        Kompletní sken trvá několik sekund protože se zpracovává více obrázků
+        Během té doby stále pracuji i když právě mlčím
+        ^stayInScope
+
+
+    u1:(["co je skenování" "co znamená sken" "jak funguje skenování"]) %scan
+        ^runTag(explain)
+        Skenování znamená že se dívám na okolí z víc uhlu
+
+        ^run(animations/Stand/Gestures/LookAround_1)
+        Poté tyto pohledy spojím do porozumění celkové scény
+
+        Rychlý pohled je jednodušší a rychlejší varianta
+        ^stayInScope
+
+    u1:(["pamatuješ si něco" "máš paměť" "co si pamatuješ"]) %memory
+        ^run(animations/Stand/Gestures/No_1)
+        Sám o sobě si informace trvale neukládám
+
+        ^run(animations/Stand/Gestures/ShowSky_1)
+        Server si ale informace ukládat může
+
+        ^runTag(explain)
+        Díky tomu dokážu později odpovídat na otázky
+        ^stayInScope
+
+    u1:(["co se můžu zeptat" "jak tě můžu [používat použít]"]) %how
+        ^run(animations/Stand/Gestures/You_1)
+        Můžeš se mě zeptat co vidím
+
+        ^run(animations/Stand/Gestures/Show_2)
+        Kde se které objekty nachází
+
+        ^run(animations/Stand/Gestures/Explain_1)
+        Nebo co se děje ve scéně
+
+        ^runTag(yes)
+        Pokusím se odpovědět co nejpřesněji
+        #TODO: add this to english too
+        Dokážu odpovědet i na obecní otázky když je uvedeš slovami Prosím tě odpověz mi na toto
+        ^stayInScope
+
+    u1:(["díky" "děkuji" "to stačí" "{už} rozumím"]) %exit
+        Není zač
+        Můžeme se teď bavit o tom co vidím
+
+
+
+
+# perception 
+# this is just one fast scan of the scene
+concept:(quick_look_action) [
+    "{řekni} co {teď} vidíš {teď}"
+    "co můžeš vidět"
+    "podívej se {rychle}"
+    "koukni"
+    "{rychle jednoduše} popiš co vidíš"
+    "{rychle jednoduše} popiš [scénu "svůj pohled"]"
+    "{řekni} co je tady"
+    "{řekni} co tu je"
+    "vidíš něco"
+    "koukni a řekni co vidíš"
 ]
 
 concept:(panorama_scan_action) [
-    "rozhlídni se"
-    "naskenuj místnost"
-    "udělej plný sken"
-    "udělej panorama sken"
-    "panorama sken"
-    "podívej se všude"
-    "dlouhý sken"
+    "[oskenuj naskenuj analyzuj] [místnost okolí]"
+    "udělej {plný} sken"
+    "plný sken"
+    "udelěj panoramatický [sken snímek záznam]"
+    "podívej se všude {detailně}"
+    "[podívej rozhlédni] se po místnosti"
+    "oskenuj všechno {tady}"
+    "analyzuj celou místnost"
+    "zkontroluj všechno"
+    "oskenuj detailně"
+    "podívej se detailně"
+] 
+
+concept:(quick_look) [
+    "{prosím} ~quick_look_action"
+    "můžeš {prosím} ~quick_look_action"
+    "mohl bys {prosím} ~quick_look_action"
 ]
 
 concept:(panorama_scan) [
-    "~panorama_scan_action"
-    "prosím ~panorama_scan_action"
-    "můžeš ~panorama_scan_action"
-    "mohl bys ~panorama_scan_action"
-    "mohla bys ~panorama_scan_action"
-    "můžeš prosím ~panorama_scan_action"
+    "{prosím} ~panorama_scan_action"
+    "můžeš {prosím} ~panorama_scan_action"
+    "mohl bys {prosím} ~panorama_scan_action"
 ]
 
+
+
+u:(~quick_look)
+    ^mode(contextual)
+    ^rand[
+        "Dobře ["podívám se" "jdu na to"]"
+        "Hned se podívám"
+        "Hned jdu na to"
+        "Tak a budu fotit! Řekni sýr!"
+        "Usměj se, fotím"
+    ]
+    ^pCall(PepperGroundedClient.look("cs")) 
+    ^runTag(look)
+    Zabere to {jen} [chvilinku okamžik]
+
+u:(~panorama_scan)
+    ^mode(contextual)
+    ^rand[
+        "Dobře oskenuji své okolí"
+        "Spouštím plný {panoramatický} sken"
+        "Prohlédnu celé okolí"
+    ]
+    ^pCall(PepperGroundedClient.scan("cs"))
+    Může to trvat několik [sekund okamžiků] ["Prosím vydrž" "Chvilku počkej" ""]
+
+
+
+# shows memory state on tablet
 concept:(show_memory_graph) [
-    "ukaž paměť"
-    "otevři paměť"
-    "ukaž graf paměti"
-    "otevři graf paměti"
-    "ukaž scénový graf"
-    "otevři scénový graf"
-    "co si pamatuješ"
-    "co si teď pamatuješ"
-    "ukaž co si pamatuješ"
+    "[ukaž otevři zobraz] {mi} paměť"
+    "[ukaž otevři zobraz] {mi} co máš v paměti"
+    "{ukaž} co si teď pamatuješ"
+    "ukaž graf [scény paměti]"
 ]
+
+
+u:(~show_memory_graph)
+    ^mode(contextual)
+    ^rand[
+        "Dobře ukážu ti paměť na tabletu"
+        "Ukážu ti co si pamatuji"
+        "Otevírám paměť"
+        "Podívej se na tablet"
+        "Koukni na můj tablet"
+    ]
+    ^run(animations/Stand/Gestures/ShowTablet_3)
+    ^pCall(PepperGroundedClient.showMemory("cs"))
+    u1:(["[obnov updateuj aktualizuj] [koncepty paměť graf]"])
+        Okay I will refresh my memory.
+        ^pCall(PepperGroundedClient.refreshMemoryConcepts())
+
+
 
 concept:(reset_memory_only) [
-    "resetuj paměť"
-    "vymaž paměť"
-    "resetuj vizuální paměť"
-    "vymaž vizuální paměť"
-    "resetuj scénovou paměť"
-    "vymaž scénovou paměť"
+    "[resetuj vymaž smaž zapomeň] {vizuální} paměť"
     "zapomeň co jsi viděl"
+    "zapomeň na {vizuální} paměť"
 ]
+
+u:(~reset_memory_only)
+    ^mode(contextual)
+    ^run(animations/Stand/Gestures/Think_1)
+    Opravdu chceš abych všechno zapomněl?
+
+    u1:(["ano" "ano udělej to" "potvrzuji" "pokračuj" "smaž" "vymaž"])
+        ^runTag(yes)
+        Dobře jdu na to. Mažu paměť
+        #TODO: why have lang here
+        ^pCall(PepperGroundedClient.resetMemory("cs"))
+
+    u1:(["ne" "zruš" "stop"])
+        ^runTag(no)
+        Dobře paměť je v cajku
 
 concept:(reset_conversation_only) [
     "resetuj konverzaci"
     "vymaž konverzaci"
+    "restartuj konverzaci"
     "začni novou konverzaci"
     "zapomeň konverzaci"
-    "nová konverzace prosím"
+    "nová konverzace"
 ]
+u:(~reset_conversation_only)
+    ^runTag(explain)
+    ["Dobře resetuji konverzaci" "Můžeme začít znovu"]
+    ^pCall(PepperGroundedClient.resetConversation())
 
 concept:(reset_all) [
-    "začneme znovu"
+    "začni znovu"
+    "začněme znovu"
     "začni od začátku"
-    "začneme od nuly"
-    "pojďme od začátku"
+    "začněme od začátku"
+    "začni od nuly"
 ]
+
+
+u:(~reset_all)
+    ^run(animations/Stand/Gestures/Think_1)
+    Tímto se vymažeš paměť a restartuješ konverzaci. Chceš pokračovat?
+
+    u1:(["ano" "potvrzuji" "udělej to"])
+        ^runTag(yes)
+        Dobře restartuji vše
+
+        ^pCall(PepperGroundedClient.resetMemory("cs"))
+        ^pCall(PepperGroundedClient.resetConversation())
+
+    u1:(["ne" "zruš"])
+        ^runTag(no)
+        Dobře nic nebudu resetovat
+
+
 
 concept:(refresh_memory_concepts) [
-    "obnov paměťová slova"
-    "aktualizuj paměťová slova"
-    "obnov paměťové koncepty"
-    "aktualizuj paměťové koncepty"
-    "načti znovu paměťová slova"
+    "obnov paměť"
+    "aktualizuj paměť"
+    "obnov slova v paměti"
+    "aktualizuj slova v paměti"
+    "obnov koncepty"
+    "aktualizuj koncepty"
+    "načti znovu paměť"
+    "znovu načti paměť"
 ]
 
+
+u:(~refresh_memory_concepts)
+    ^runTag(explain)
+    Obnovuji jsi svou paměť.
+    ^pCall(PepperGroundedClient.refreshMemoryConcepts())
+
+# TODO: problematic
+
+# dynamic concept conversation 
 concept:(object_query_lead) [
     "řekni mi něco o"
     "co víš o"
-    "co mi řekneš o"
+    "co mi můžeš říct o"
     "popiš"
-    "popiš ten"
-    "řekni všechno co víš o"
+    "řekni mi všechno o"
+    "{mi} [říct popsat] {všechno něco} {"co víš"} o"
 ]
 
 concept:(object_query_prefix) [
     "můžeš"
     "mohl bys"
-    "mohla bys"
     "prosím"
     "prosím můžeš"
 ]
 
-concept:(ask_suggested_questions) [
-    "na co se můžu zeptat"
-    "navrhni otázky"
-    "ukaž doporučené otázky"
-    "jaké otázky mám položit"
-    "dej mi příklady otázek"
-    "ukaž rychlé otázky"
+
+u:({~object_query_prefix} ~object_query_lead _~memory_objects)
+    ^mode(contextual)
+    ^runTag(explain)
+    ^pCall(PepperGroundedClient.askAboutObject("cs", $1))
+
+    Dobře zaměřím se na $1
+    $last_object=$1
+
+    ["Chvilku o tom přemýšlím"
+     "Dej mi chvilku"
+     "Nech mě to zpracovat"
+     "Počkej chvíli na odpověď"
+     ""]
+     u1:(["řekni {mi} víc" "co ještě {víš}" "[více víc] detailů" "něco dalšího"])
+        ^pCall(PepperGroundedClient.askAboutObject("cs", $last_object))
+        ["Jasně"
+         "Ještě něco k tomu mám"]
+        ^stayInScope
+    u1:(["a co" "co třeba"] _~memory_objects)
+        $last_object=$1
+        ^runTag(explain)
+        Dobře podívám se na $1
+        ^pCall(PepperGroundedClient.askAboutObject("cs", $1))
+        ^stayInScope
+
+    u1:(["{vau} {"to bylo"} zajímavé" "díky" "pojďme na něco jiného"])
+        Dobře pojďme se bavit o něčem jiném
+
+
+
+# with fallbacks dynamic concepts 
+
+u:([co jaké které jmenuj] [objekty věci předměty] [vidíš vnímáš pozoruješ])
+    ^pCall(PepperGroundedClient.listObjects("cs"))
+
+u:([co jaké které jmenuj] [vlastnosti atributy] [vidíš vnímáš pozoruješ])
+    ^pCall(PepperGroundedClient.listAttributes("cs"))
+
+u:([co jaké které jmenuj] [vztahy predikáty] [vidíš vnímáš pozoruješ])
+    ^pCall(PepperGroundedClient.listRelations("cs"))
+
+
+
+concept:(counts) [
+    "{řekni} kolik {je}"
+    "spočítej {kolik} {je}"
+]
+u:(~counts _~memory_objects)
+    $query="Kolik predmětú $1 vidíš nebo si pamatuješ?"
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+    Dobrá otázka hned to spočítám
+
+u:(~counts _*)
+    $query="Kolik predmětú $1 vidíš nebo si pamatuješ?" # do you see or remember
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+    Zkusím to spočítat
+
+concept:(present) [
+    "vidíš {vubec} {nějaké nějakého nějakou}"
+    "nachází se tady"
+    "nachází"
+]
+u:(~present _~memory_objects {there})
+    $query="Vidíš aspoň jedenkrát objekt: $1"
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+    Jasně, že vidím.
+
+u:(~present _*)
+    $query="Vidíš aspoň jedenkrát objekt: $1"
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+    Počkej, musím se zamyslet.
+
+
+concept:(position) [
+    "kde je"
+    "kde jsou"
+    "kde najdu"
+    "kde se nachází"
+    "kde leží"
+]
+u:(~position _~memory_objects)
+    $query="Kde se nachází $1"
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+    Jistě vím, že jsem to někde viděl. Jen teď nevím kde. Počkej.
+
+u:(~position _*)
+    $query="Kde se nachází $1"
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+    Podívám se kde to muže být
+    
+
+u:(["co se děje" "popiš situaci" "jak bys popsal tuto situaci"])
+    $query="Popiš situaci a co se v ní děje"
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+
+
+concept:(color) [
+    červené modré zelené žluté černé bílé šedé hnědé oranžové fialové růžové
 ]
 
-u:(~quick_look)
-    "Dobře udělám rychlý pohled."
-    ^sCall(PepperGroundedClient.look("cs"))
-    u1:(["a teď naskenuj místnost" "a udělej plný sken" "teď udělej dlouhý sken"])
-        ^sCall(PepperGroundedClient.scan("cs"))
+concept:(size) [
+    velké malé velké malé obrovské drobné vysoké nízké
+]
 
-u:(~panorama_scan)
-    "Dobře rozhlédnu se kolem sebe."
-    ^sCall(PepperGroundedClient.scan("cs"))
-    u1:(["ukaž paměť" "ukaž scénový graf" "ukaž graf paměti"])
-        ^sCall(PepperGroundedClient.showMemory("cs"))
+concept:(shape) [
+    kulaté čtvercové obdélníkové ploché dlouhé tenké
+]
 
-u:(["ukaž" "otevři"] {"mi"} {"svou"} ["paměť" "graf paměti" "scénový graf"])
-    "Dobře ukazuji paměť."
-    ^sCall(PepperGroundedClient.showMemory("cs"))
+concept:(state) [
+    otevřené zavřené prázdné plné rozbité čisté špinavé
+]
 
-u:(~show_memory_graph)
-    "Dobře ukazuji paměť."
-    ^sCall(PepperGroundedClient.showMemory("cs"))
-    u1:(["a obnov paměťová slova" "a aktualizuj paměťová slova" "obnov koncepty"])
-        ^sCall(PepperGroundedClient.refreshMemoryConcepts())
+concept:(material) [
+    dřevěné kovové plastové skleněné
+]
 
-u:(["resetuj" "vymaž"] ["paměť" "vizuální paměť" "scénovou paměť"])
-    "Dobře vymažu paměť."
-    ^sCall(PepperGroundedClient.resetMemory("cs"))
+concept:(attribute) [
+    ~color
+    ~size
+    ~shape
+    ~state
+    ~material
+]
 
-u:(~reset_memory_only)
-    "Dobře vymažu paměť."
-    ^sCall(PepperGroundedClient.resetMemory("cs"))
+u:("jakou barvu má" _~memory_objects)
+    $query="Jakou barvu má objekt $1"
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+    Barve je hodně, Musím se podívat jakou barvu má $1.
 
-u:(["resetuj" "vymaž"] konverzaci)
-    "Dobře resetuji konverzaci."
-    ^sCall(PepperGroundedClient.resetConversation())
 
-u:(~reset_conversation_only)
-    "Dobře resetuji konverzaci."
-    ^sCall(PepperGroundedClient.resetConversation())
+u:("[co něco některé] {[věci předměty]} [je jsou] " _~attribute)
+    $query="Které objekty jsou $1"    
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+    Tak to je otázka. Musím se pořádně zamyslet.
 
-u:(~reset_all)
-    "Dobře vymažu paměť a začneme znovu."
-    ^sCall(PepperGroundedClient.resetMemory("cs"))
-    ^sCall(PepperGroundedClient.resetConversation())
+u:(["jaký je" "co je"] _~memory_objects {zač})
+    $query="Jaký je $1"
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+    $1? 
 
-u:(~refresh_memory_concepts)
-    "Dobře obnovím paměťová slova."
-    ^sCall(PepperGroundedClient.refreshMemoryConcepts())
+u:(["jaké" "které"] ["vztahy" "vlastnosti" "atributy"] ["má" "vykazuje"] _~memory_objects)
+    $query="jaké vztahy nebo atributy má $1"
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+    To je složitější nech mě to zpracovat
 
-u:(~object_query_lead _~memory_objects {prosím})
-    "Dobře zaměřím se na $1."
-    $last_object=$1
-    ^sCall(PepperGroundedClient.askAboutObject("cs", $1))
-    u1:(["řekni víc" "co ještě" "více detailů" "něco dalšího"])
-        ^sCall(PepperGroundedClient.askAboutObject("cs", $last_object))
-    u1:(["a co" "co třeba"] _~memory_objects)
-        $last_object=$1
-        ^sCall(PepperGroundedClient.askAboutObject("cs", $1))
 
-u:(~object_query_prefix ~object_query_lead _~memory_objects {prosím})
-    "Dobře zaměřím se na $1."
-    $last_object=$1
-    ^sCall(PepperGroundedClient.askAboutObject("cs", $1))
-    u1:(["řekni víc" "co ještě" "více detailů" "něco dalšího"])
-        ^sCall(PepperGroundedClient.askAboutObject("cs", $last_object))
-    u1:(["a co" "co třeba"] _~memory_objects)
-        $last_object=$1
-        ^sCall(PepperGroundedClient.askAboutObject("cs", $1))
+u:(["má něco" "existuje něco"] ["ve vztahu" "s vlastností"] _~memory_relations)
+    $query="Má někdo nebo něco atribut nebo vztah $1"
+    ^pCall(PepperGroundedClient.ask("cs", $query))
+    Zajímavá otázka. Zkusím si spomenout.
 
-u:(["a co" "co třeba"] _~memory_objects)
-    $last_object=$1
-    ^sCall(PepperGroundedClient.askAboutObject("cs", $1))
-    u1:(["řekni víc" "co ještě" "více detailů" "něco dalšího"])
-        ^sCall(PepperGroundedClient.askAboutObject("cs", $last_object))
 
-u:(["kolik je" "spočítej"] _~memory_objects)
-    ^sCall(PepperGroundedClient.ask("cs", $1))
+# cached_qa 
+concept:(ask_suggested_questions) [
+    "na co se [můžu mohu] zeptat"
+    "navrhni otázky"
+    "ukaž otázky"
+    "jaké otázky [můžu mohu] položit"
+    "dej mi příklady otázek"
+    "ukaž {rychlé} otázky"
+]
 
 u:(~ask_suggested_questions)
-    "Dobře ukážu navržené otázky z paměti."
-    ^sCall(PepperGroundedClient.showMemory("cs"))
-    u1:(_~memory_cached_questions)
-        ^sCall(PepperGroundedClient.answerCachedQuestion("cs", $1))
+    "Ukážu ti možné otázky"
+    ^pCall(PepperGroundedClient.showMemory("cs"))
+    ^pCall(PepperGroundedClient.listCachedQuestions("cs"))
 
 u:(_~memory_cached_questions)
-    ^sCall(PepperGroundedClient.answerCachedQuestion("cs", $1))
+    ^pCall(PepperGroundedClient.answerCachedQuestion("cs", $1))
 
-u:(["obnov a" "nejdřív obnov a" "obnov potom"] _*)
-    ^sCall(PepperGroundedClient.refreshAndAsk("cs", $1))
 
-u:(["zeptej se" "otázka"] _*)
-    ^sCall(PepperGroundedClient.ask("cs", $1))
+u:(["zeptám se" "odpověz mi" "řekni mi"] _*)
+    Pracuji na tom
+    ^pCall(PepperGroundedClient.ask("cs", $1))
 
-u:(_*)
-    ^sCall(PepperGroundedClient.ask("cs", $1))
