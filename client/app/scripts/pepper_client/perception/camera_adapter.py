@@ -7,6 +7,7 @@ from pepper_client.utils.error_policy import CameraCaptureError
 
 
 class CameraAdapter(object):
+
     def __init__(self, services, config, logger):
         self.services = services
         self.config = config
@@ -44,8 +45,10 @@ class CameraAdapter(object):
             height = int(nao_image[1])
             raw_data = self._coerce_bytes(nao_image[6])
             image = self._build_image(width, height, raw_data)
-            jpeg_bytes = self._encode_jpeg(image, capture_cfg.get("jpeg_quality", 90))
-            camera_hfov, camera_vfov = self._camera_fov(int(capture_cfg["camera_id"]))
+            jpeg_bytes = self._encode_jpeg(image,
+                                           capture_cfg.get("jpeg_quality", 90))
+            camera_hfov, camera_vfov = self._camera_fov(
+                int(capture_cfg["camera_id"]))
             timestamp = time.time()
             self.logger.info(
                 "Captured frame frame_id=%s size=%sx%s hfov=%s vfov=%s",
@@ -74,7 +77,8 @@ class CameraAdapter(object):
                     self.video.unsubscribe(handle)
                     self.logger.info("Camera unsubscribed")
                 except Exception as exc:
-                    self.logger.warning("Failed to unsubscribe camera: %s", exc)
+                    self.logger.warning("Failed to unsubscribe camera: %s",
+                                        exc)
 
     def _build_image(self, width, height, raw_data):
         try:
@@ -113,8 +117,10 @@ class CameraAdapter(object):
         except Exception:
             return str(raw_data)
 
+
 # TODO: remove this, this is here just for now for use with virtual robot
 class FakeCameraAdapter(object):
+
     def __init__(self, folder, logger):
         import os
         self.folder = folder
@@ -125,7 +131,6 @@ class FakeCameraAdapter(object):
         ]
         if not self.image_paths:
             raise RuntimeError("No images found in folder: %s" % folder)
-
 
     def capture_frame(self, frame_id=None):
         import random

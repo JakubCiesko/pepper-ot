@@ -6,6 +6,7 @@ from pepper_client.utils import text as text_utils
 
 
 class SpeechAdapter(object):
+
     def __init__(self, services, config, logger):
         self.tts = services.ALTextToSpeech
         self.animated = services.ALAnimatedSpeech
@@ -32,8 +33,8 @@ class SpeechAdapter(object):
                     return
                 except Exception as exc:
                     self.logger.info(
-                        "Animated speech unavailable, falling back to TTS: %s", exc
-                    )
+                        "Animated speech unavailable, falling back to TTS: %s",
+                        exc)
             if self.tts is None:
                 raise SpeechError("No text to speech service available")
             try:
@@ -83,4 +84,5 @@ class SpeechAdapter(object):
             self.tts.setLanguage(target)
             self.logger.info("TTS language set to %s", target)
         except Exception as exc:
-            self.logger.info("Failed to set TTS language to %s: %s", target, exc)
+            self.logger.info("Failed to set TTS language to %s: %s", target,
+                             exc)

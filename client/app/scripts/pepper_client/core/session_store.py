@@ -6,6 +6,7 @@ from pepper_client.utils import text as text_utils
 
 
 class SessionStore(object):
+
     def __init__(self, logger=None):
         self.logger = logger
         self._lock = threading.RLock()
@@ -58,26 +59,26 @@ class SessionStore(object):
 
     def update_after_caption(self, caption_response):
         with self._lock:
-            self.logger.info(
-                "Updating SessionStore after caption: %s", caption_response
-            )
+            self.logger.info("Updating SessionStore after caption: %s",
+                             caption_response)
             self._state["last_caption"] = caption_response.get("caption")
             self._state["last_caption_ts"] = time_utils.now_ts()
             self._state["last_detect_request_id"] = caption_response.get(
-                "detect_request_id"
-            )
+                "detect_request_id")
             self._state["last_response"] = caption_response
 
     def update_after_detect(self, detect_response, scan_id=None):
         with self._lock:
-            self.logger.info("Updating SessionStore after detect: %s", detect_response)
+            self.logger.info("Updating SessionStore after detect: %s",
+                             detect_response)
             self._state["last_detect_ts"] = time_utils.now_ts()
             self._state["last_scan_id"] = scan_id
             self._state["last_response"] = detect_response
 
     def update_after_chat(self, query, chat_response):
         with self._lock:
-            self.logger.info("Updating SessionStore after chat: %s", chat_response)
+            self.logger.info("Updating SessionStore after chat: %s",
+                             chat_response)
             self._state["chat_id"] = chat_response.get("chat_id")
             self._state["last_query"] = query
             self._state["last_response"] = chat_response
@@ -107,8 +108,10 @@ class SessionStore(object):
         with self._lock:
             self.logger.info("Updating SessionStore after memory summary")
             self._state["remembered_labels"] = labels
-            self._state["remembered_attributes"] = self._sorted_unique(attributes)
-            self._state["remembered_relations"] = self._sorted_unique(relations)
+            self._state["remembered_attributes"] = self._sorted_unique(
+                attributes)
+            self._state["remembered_relations"] = self._sorted_unique(
+                relations)
             self._state["last_memory_summary"] = summary
             self._state["last_memory_summary_ts"] = time_utils.now_ts()
             self._state["last_response"] = summary
@@ -132,7 +135,8 @@ class SessionStore(object):
                 "Updating SessionStore after pregenerated QA pairs=%s",
                 len(cached_questions),
             )
-            self._state["cached_questions"] = self._sorted_unique(cached_questions)
+            self._state["cached_questions"] = self._sorted_unique(
+                cached_questions)
             self._state["cached_answers"] = cached_answers
 
     def get_cached_questions(self):
@@ -154,6 +158,7 @@ class SessionStore(object):
     def get_memory_relations(self):
         with self._lock:
             return list(self._state.get("remembered_relations", []))
+
     #REMOVAL never used
     def get_last_memory_summary(self):
         with self._lock:

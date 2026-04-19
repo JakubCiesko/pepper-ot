@@ -26,8 +26,7 @@ class DialogAdapter(object):
     def set_dynamic_concept(self, name, values, language=None):
         if self.dialog is None:
             self.logger.info(
-                "ALDialog unavailable, skipping concept update for %s", name
-            )
+                "ALDialog unavailable, skipping concept update for %s", name)
             return False
         language = self.resolve_dialog_language(language)
         cleaned = self._clean_values(values)
@@ -78,9 +77,11 @@ class DialogAdapter(object):
         self.logger.warning("Failed to clear dynamic concept %s", name)
         return False
 
-    def refresh_memory_concepts(
-        self, labels, attributes, relations, cached_questions=None
-    ):
+    def refresh_memory_concepts(self,
+                                labels,
+                                attributes,
+                                relations,
+                                cached_questions=None):
         if self.dialog is None:
             return False
         dialog_cfg = self.config.get("dialog", {})
@@ -89,8 +90,10 @@ class DialogAdapter(object):
             return False
 
         labels = self._cap(labels, dialog_cfg.get("memory_objects_max"))
-        attributes = self._cap(attributes, dialog_cfg.get("memory_attributes_max"))
-        relations = self._cap(relations, dialog_cfg.get("memory_relations_max"))
+        attributes = self._cap(attributes,
+                               dialog_cfg.get("memory_attributes_max"))
+        relations = self._cap(relations,
+                              dialog_cfg.get("memory_relations_max"))
         cached_questions = self._cap(
             cached_questions or [],
             dialog_cfg.get("memory_cached_questions_max"),
@@ -99,7 +102,8 @@ class DialogAdapter(object):
         ok_objects = self.set_dynamic_concept("memory_objects", labels)
         ok_attrs = self.set_dynamic_concept("memory_attributes", attributes)
         ok_rels = self.set_dynamic_concept("memory_relations", relations)
-        ok_qa = self.set_dynamic_concept("memory_cached_questions", cached_questions)
+        ok_qa = self.set_dynamic_concept("memory_cached_questions",
+                                         cached_questions)
         self.logger.info(
             "Refreshed memory concepts objects=%s attrs=%s rels=%s questions=%s",
             len(labels),

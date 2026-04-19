@@ -24,6 +24,7 @@ except ImportError:
 
 
 class TabletAdapter(object):
+
     def __init__(self, services, config, logger):
         self.services = services
         self.config = config
@@ -33,7 +34,9 @@ class TabletAdapter(object):
 
     def local_app_url(self):
         tablet_cfg = self.config.get("tablet", {})
-        app_name = str(tablet_cfg.get("local_app_name") or "pepper-grounded-client").strip()
+        app_name = str(
+            tablet_cfg.get("local_app_name")
+            or "pepper-grounded-client").strip()
         return "http://198.18.0.1/apps/%s/" % app_name
 
     def show_memory_page(self, payload=None):
@@ -58,13 +61,15 @@ class TabletAdapter(object):
             self.logger.info("Memory webview hidden")
             return True
         except Exception as exc:
-            self.logger.info("hideWebview failed (possibly already hidden): %s", exc)
+            self.logger.info(
+                "hideWebview failed (possibly already hidden): %s", exc)
             return True
 
     def push_memory_payload(self, payload):
         tablet = self._tablet()
         if tablet is None:
-            self.logger.info("ALTabletService unavailable, skipping memory payload push")
+            self.logger.info(
+                "ALTabletService unavailable, skipping memory payload push")
             return False
         tablet_cfg = self.config.get("tablet", {})
         try:
@@ -73,14 +78,14 @@ class TabletAdapter(object):
             attempts = 12
         attempts = max(1, attempts)
         try:
-            interval = float(tablet_cfg.get("bridge_retry_interval_seconds", 0.25))
+            interval = float(
+                tablet_cfg.get("bridge_retry_interval_seconds", 0.25))
         except Exception:
             interval = 0.25
         interval = max(0.0, interval)
         if not self._wait_page_ready(tablet, attempts, interval):
             self.logger.warning(
-                "Memory page did not become ready before payload injection"
-            )
+                "Memory page did not become ready before payload injection")
             return False
         payload_json = json.dumps(payload or {})
         script = (
@@ -92,8 +97,7 @@ class TabletAdapter(object):
             "}"
             "return false;"
             "}catch(e){return false;}"
-            "})();"
-        ) % payload_json
+            "})();") % payload_json
         for attempt in range(attempts):
             try:
                 result = tablet.executeJS(script)
@@ -111,7 +115,8 @@ class TabletAdapter(object):
                 )
             if attempt < attempts - 1 and interval > 0:
                 time_utils.sleep_seconds(interval)
-        self.logger.warning("Failed to inject memory payload into local tablet page")
+        self.logger.warning(
+            "Failed to inject memory payload into local tablet page")
         return False
 
     def _js_result_is_true(self, value):
@@ -124,8 +129,7 @@ class TabletAdapter(object):
         readiness_script = (
             "(function(){"
             "try{return !!window.PepperMemoryPageReady;}catch(e){return false;}"
-            "})();"
-        )
+            "})();")
         for attempt in range(attempts):
             try:
                 result = tablet.executeJS(readiness_script)
@@ -150,8 +154,7 @@ class TabletAdapter(object):
             return True
         app_name = str(
             self.config.get("tablet", {}).get("local_app_name")
-            or "pepper-grounded-client"
-        ).strip()
+            or "pepper-grounded-client").strip()
         url = self.local_app_url()
         try:
             tablet.loadApplication(app_name)
@@ -170,7 +173,8 @@ class TabletAdapter(object):
             self.logger.info("Loaded local tablet URL: %s", url)
             return True
         except Exception as exc:
-            self.logger.warning("Failed to load local tablet URL %s: %s", url, exc)
+            self.logger.warning("Failed to load local tablet URL %s: %s", url,
+                                exc)
             self._app_loaded = False
             return False
 
@@ -183,7 +187,8 @@ class TabletAdapter(object):
             self.logger.info("Memory webview shown")
             return True
         except Exception as exc:
-            self.logger.info("showWebview() failed, trying showWebview(url): %s", exc)
+            self.logger.info(
+                "showWebview() failed, trying showWebview(url): %s", exc)
         url = self.local_app_url()
         try:
             tablet.showWebview(url)
@@ -191,7 +196,8 @@ class TabletAdapter(object):
             self.logger.info("Memory webview shown via URL: %s", url)
             return True
         except Exception as exc:
-            self.logger.warning("Failed to show memory webview for %s: %s", url, exc)
+            self.logger.warning("Failed to show memory webview for %s: %s",
+                                url, exc)
             self._webview_visible = False
             return False
 
@@ -226,7 +232,8 @@ class FakeTabletAdapter(object):
         with self._lock:
             self._webview_visible = True
         if not self._url_logged:
-            self.logger.info("Fake tablet page available at %s", self.local_fake_url())
+            self.logger.info("Fake tablet page available at %s",
+                             self.local_fake_url())
             self._url_logged = True
         return self.push_memory_payload(payload or {})
 
@@ -284,6 +291,7 @@ class FakeTabletAdapter(object):
         adapter = self
 
         class _RequestHandler(BaseHTTPRequestHandler):
+
             def do_GET(self):
                 parsed = urlparse(self.path)
                 path = unquote(parsed.path or "/")
@@ -331,7 +339,8 @@ class FakeTabletAdapter(object):
             self._server_thread = thread
             self._server_started = True
 
-        self.logger.info("Started fake tablet HTTP server at http://%s:%s", host, port)
+        self.logger.info("Started fake tablet HTTP server at http://%s:%s",
+                         host, port)
         return True
 
     def _serve_index(self, handler):
@@ -340,7 +349,8 @@ class FakeTabletAdapter(object):
             with open(index_path, "rb") as handle:
                 body = handle.read()
         except Exception as exc:
-            self.logger.warning("Failed to read fake tablet index at %s: %s", index_path, exc)
+            self.logger.warning("Failed to read fake tablet index at %s: %s",
+                                index_path, exc)
             self._write_response(
                 handler,
                 500,
@@ -392,7 +402,9 @@ class FakeTabletAdapter(object):
             with open(static_file, "rb") as handle:
                 body = handle.read()
         except Exception as exc:
-            self.logger.warning("Failed reading fake tablet static file %s: %s", static_file, exc)
+            self.logger.warning(
+                "Failed reading fake tablet static file %s: %s", static_file,
+                exc)
             self._write_response(
                 handler,
                 500,
@@ -419,9 +431,7 @@ class FakeTabletAdapter(object):
 
     def _html_root(self):
         here = os.path.dirname(os.path.abspath(__file__))
-        return os.path.normpath(
-            os.path.join(here, "..", "..", "..", "html")
-        )
+        return os.path.normpath(os.path.join(here, "..", "..", "..", "html"))
 
     def _safe_static_file(self, relative):
         root = self._html_root()

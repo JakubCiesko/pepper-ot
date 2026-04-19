@@ -4,7 +4,6 @@ import os
 
 from pepper_client.interaction import speech_policy
 
-
 DEFAULT_CONFIG = {
     "app": {
         "app_id": "PepperGroundedClient",
@@ -30,20 +29,33 @@ DEFAULT_CONFIG = {
         "config_timeout_seconds": 20,
     },
     "capture": {
-        "camera_id": 0,
-        "resolution": 2,
-        "color_space": 11,
-        "fps": 10,
-        "jpeg_quality": 90,
+        "camera_id":
+        0,
+        "resolution":
+        2,
+        "color_space":
+        11,
+        "fps":
+        10,
+        "jpeg_quality":
+        90,
         "scan_yaws_deg": [-35, 0, 35],
-        "scan_head_pitch": -0.1,
-        "head_move_speed": 0.15,
-        "settle_seconds": 0.6,
-        "refresh_ttl_seconds": 25,
-        "frame_prefix": "pepper_frame",
-        "scan_prefix": "pepper_scan",
-        "scan_summary_query_en": "Briefly describe what you can see now using the current visual memory.",
-        "scan_summary_query_cs": "Strucne popis co ted vidis podle aktualni vizualni pameti.",
+        "scan_head_pitch":
+        -0.1,
+        "head_move_speed":
+        0.15,
+        "settle_seconds":
+        0.6,
+        "refresh_ttl_seconds":
+        25,
+        "frame_prefix":
+        "pepper_frame",
+        "scan_prefix":
+        "pepper_scan",
+        "scan_summary_query_en":
+        "Briefly describe what you can see now using the current visual memory.",
+        "scan_summary_query_cs":
+        "Strucne popis co ted vidis podle aktualni vizualni pameti.",
     },
     "behavior": {
         "caption_run_detect": True,
@@ -97,6 +109,7 @@ DEFAULT_CONFIG = {
     },
 }
 
+
 def _deep_merge(base, override):
     for key, value in override.items():
         if isinstance(value, dict) and isinstance(base.get(key), dict):
@@ -116,7 +129,8 @@ def load_config(path, logger=None):
                 _deep_merge(config, payload)
         except Exception as exc:
             if logger is not None:
-                logger.warning("Failed to load client config %s: %s", path, exc)
+                logger.warning("Failed to load client config %s: %s", path,
+                               exc)
     elif logger is not None:
         logger.info("Client config file not found, using defaults: %s", path)
     normalize_config(config)
@@ -138,23 +152,22 @@ def normalize_config(config):
 
     dialog = config.setdefault("dialog", {})
     dialog["enable_dynamic_memory_concepts"] = bool(
-        dialog.get("enable_dynamic_memory_concepts", True)
-    )
+        dialog.get("enable_dynamic_memory_concepts", True))
     dialog.pop("language_code", None)
     dialog["language"] = speech_policy.normalize_dialog_language(
-        dialog.get("language")
-    )
+        dialog.get("language"))
     for key in (
-        "memory_objects_max",
-        "memory_attributes_max",
-        "memory_relations_max",
-        "memory_cached_questions_max",
+            "memory_objects_max",
+            "memory_attributes_max",
+            "memory_relations_max",
+            "memory_cached_questions_max",
     ):
         try:
             dialog[key] = max(1, int(dialog.get(key, 100)))
         except Exception:
             dialog[key] = 100
-    for key in ("refresh_after_detect", "refresh_after_scan", "refresh_after_reset"):
+    for key in ("refresh_after_detect", "refresh_after_scan",
+                "refresh_after_reset"):
         dialog[key] = bool(dialog.get(key, True))
 
     panorama = config.setdefault("panorama", {})
@@ -164,7 +177,8 @@ def normalize_config(config):
         mode = "panorama_detect"
     panorama["mode"] = mode
     panorama["stick_together"] = bool(panorama.get("stick_together", True))
-    panorama["summary_after_scan"] = bool(panorama.get("summary_after_scan", True))
+    panorama["summary_after_scan"] = bool(
+        panorama.get("summary_after_scan", True))
     try:
         panorama["render_limit"] = max(1, int(panorama.get("render_limit", 5)))
     except Exception:
@@ -172,28 +186,25 @@ def normalize_config(config):
 
     tablet = config.setdefault("tablet", {})
     tablet["local_app_name"] = str(
-        tablet.get("local_app_name") or "pepper-grounded-client"
-    ).strip()
+        tablet.get("local_app_name") or "pepper-grounded-client").strip()
     try:
-        tablet["memory_render_limit"] = max(1, int(tablet.get("memory_render_limit", 5)))
+        tablet["memory_render_limit"] = max(
+            1, int(tablet.get("memory_render_limit", 5)))
     except Exception:
         tablet["memory_render_limit"] = 5
     try:
         tablet["bridge_retry_attempts"] = max(
-            1, int(tablet.get("bridge_retry_attempts", 12))
-        )
+            1, int(tablet.get("bridge_retry_attempts", 12)))
     except Exception:
         tablet["bridge_retry_attempts"] = 12
     try:
         tablet["bridge_retry_interval_seconds"] = max(
-            0.0, float(tablet.get("bridge_retry_interval_seconds", 0.25))
-        )
+            0.0, float(tablet.get("bridge_retry_interval_seconds", 0.25)))
     except Exception:
         tablet["bridge_retry_interval_seconds"] = 0.25
     try:
         tablet["pregenerated_questions_count"] = max(
-            1, int(tablet.get("pregenerated_questions_count", 5))
-        )
+            1, int(tablet.get("pregenerated_questions_count", 5)))
     except Exception:
         tablet["pregenerated_questions_count"] = 5
     tablet["fake_tablet"] = bool(tablet.get("fake_tablet", False))
@@ -207,7 +218,8 @@ def normalize_config(config):
     if tablet["fake_port"] < 1 or tablet["fake_port"] > 65535:
         tablet["fake_port"] = 8766
     try:
-        tablet["fake_poll_interval_ms"] = int(tablet.get("fake_poll_interval_ms", 500))
+        tablet["fake_poll_interval_ms"] = int(
+            tablet.get("fake_poll_interval_ms", 500))
     except Exception:
         tablet["fake_poll_interval_ms"] = 500
     if tablet["fake_poll_interval_ms"] < 100:

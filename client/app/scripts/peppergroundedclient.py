@@ -9,7 +9,7 @@ import json
 import os
 
 import qi
-import random 
+import random
 
 from pepper_client.utils import config as client_config
 from pepper_client.utils import text as text_utils
@@ -43,30 +43,37 @@ class PepperGroundedClient(object):
         self.logger = stk.logging.get_logger(self.session, self.APP_ID)
         self.services = stk.services.ServiceCache(self.session)
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.config_path = client_config.build_script_path(self.script_dir, "client_config.json")
+        self.config_path = client_config.build_script_path(
+            self.script_dir, "client_config.json")
         self.config = client_config.load_config(self.config_path, self.logger)
         self.logger.info("Loaded client config from %s", self.config_path)
 
         self.session_store = SessionStore(self.logger)
-        self.session_store.set_server_base_url(self.config["server"].get("base_url"))
+        self.session_store.set_server_base_url(
+            self.config["server"].get("base_url"))
 
         self.transport = PepperServerTransport(self.config, self.logger)
         self.camera_adapter = None
         self._initialize_camera_adapter()
         self.pose_adapter = PoseAdapter(self.services, self.logger)
-        self.face_adapter = FaceAdapter(self.services, self.config, self.logger)
-        self.people_adapter = PeopleAdapter(self.services, self.config, self.logger)
+        self.face_adapter = FaceAdapter(self.services, self.config,
+                                        self.logger)
+        self.people_adapter = PeopleAdapter(self.services, self.config,
+                                            self.logger)
         self.social_adapter = SocialAdapter(
             self.services,
             self.config,
             self.logger,
             self.face_adapter,
         )
-        self.sonar_adapter = SonarAdapter(self.services, self.config, self.logger)
-        self.speech_adapter = SpeechAdapter(self.services, self.config, self.logger)
+        self.sonar_adapter = SonarAdapter(self.services, self.config,
+                                          self.logger)
+        self.speech_adapter = SpeechAdapter(self.services, self.config,
+                                            self.logger)
         self.tablet_adapter = None
         self._initialize_tablet_adapter()
-        self.dialog_adapter = DialogAdapter(self.services, self.config, self.logger)
+        self.dialog_adapter = DialogAdapter(self.services, self.config,
+                                            self.logger)
         self.robot_context = RobotContextCollector(
             self.pose_adapter,
             self.people_adapter,
@@ -91,23 +98,33 @@ class PepperGroundedClient(object):
 
     @qi.nobind
     def _initialize_camera_adapter(self):
-        if self.config["capture"].get("fake_camera", False) and self.config["capture"].get("fake_camera_path", None):
-            self.logger.info("Using fake camera for testing and simulation, path: %s", self.config["capture"]["fake_camera_path"])
-            self.camera_adapter = FakeCameraAdapter(self.config["capture"].get("fake_camera_path"), self.logger)
+        if self.config["capture"].get("fake_camera",
+                                      False) and self.config["capture"].get(
+                                          "fake_camera_path", None):
+            self.logger.info(
+                "Using fake camera for testing and simulation, path: %s",
+                self.config["capture"]["fake_camera_path"])
+            self.camera_adapter = FakeCameraAdapter(
+                self.config["capture"].get("fake_camera_path"), self.logger)
         else:
             self.logger.info("Using default robot camera")
-            self.camera_adapter=CameraAdapter(self.services, self.config, self.logger)
+            self.camera_adapter = CameraAdapter(self.services, self.config,
+                                                self.logger)
 
     @qi.nobind
     def _initialize_tablet_adapter(self):
         if self.config.get("tablet", {}).get("fake_tablet", False):
-            self.tablet_adapter = FakeTabletAdapter(self.services, self.config, self.logger)
+            self.tablet_adapter = FakeTabletAdapter(self.services, self.config,
+                                                    self.logger)
             fake_url = self.tablet_adapter.local_fake_url()
-            self.logger.info("Using fake tablet adapter for local browser mirror, url: %s" % fake_url)
-        
+            self.logger.info(
+                "Using fake tablet adapter for local browser mirror, url: %s" %
+                fake_url)
+
         else:
             self.logger.info("Using robot ALTabletService adapter")
-            self.tablet_adapter = TabletAdapter(self.services, self.config, self.logger)
+            self.tablet_adapter = TabletAdapter(self.services, self.config,
+                                                self.logger)
 
     @qi.nobind
     def on_start(self):
@@ -154,7 +171,8 @@ class PepperGroundedClient(object):
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String, qi.String])
     def refreshAndAsk(self, lang_code, query):
-        self.logger.info("refreshAndAsk called lang_code=%s query=%s", lang_code, query)
+        self.logger.info("refreshAndAsk called lang_code=%s query=%s",
+                         lang_code, query)
         self.turn_manager.start_ask(lang_code, query, force_refresh=True)
 
     @qi.bind(returnType=qi.Void, paramsType=[])
@@ -166,7 +184,8 @@ class PepperGroundedClient(object):
             try:
                 self.transport.reset_conversation(chat_id)
             except Exception as exc:
-                self.logger.info("Server conversation reset failed for %s: %s", chat_id, exc)
+                self.logger.info("Server conversation reset failed for %s: %s",
+                                 chat_id, exc)
         reset_lang = speech_policy.resolve_language_state(
             self.config,
             tts=self.speech_adapter.tts,
@@ -202,17 +221,22 @@ class PepperGroundedClient(object):
     @qi.nobind
     def prefix_for_listing(self, lang_code, empty):
         lang_code = self._runtime_language(lang_code)
-        if empty: 
+        if empty:
             if lang_code == "cs":
-                return "Je mi to líto ale nic nevidím" 
+                return "Je mi to líto ale nic nevidím"
             return "I am sorry, but I don't see anything"
         if lang_code == "cs":
             return "Vidím "
         return "I see "
-    
+
     @qi.nobind
-    def listDynamicConcept(self, lang_code, concept, sample_size, return_concept_only=False):
-        self.logger.info("listDynamicConcept called lang_code=%s concept=%s", lang_code, concept)
+    def listDynamicConcept(self,
+                           lang_code,
+                           concept,
+                           sample_size,
+                           return_concept_only=False):
+        self.logger.info("listDynamicConcept called lang_code=%s concept=%s",
+                         lang_code, concept)
         concept_getters = {
             "objects": self.session_store.get_memory_labels,
             "attributes": self.session_store.get_memory_attributes,
@@ -227,30 +251,31 @@ class PepperGroundedClient(object):
         dynamic_concept = getter()
         if not dynamic_concept:
             return error_output if not return_concept_only else dynamic_concept
-        
+
         if return_concept_only:
             return dynamic_concept
-        # all are lists but just to be sure 
+        # all are lists but just to be sure
         if not isinstance(dynamic_concept, (list, tuple)):
             return error_output
-        
+
         if sample_size > 0:
-            sample = random.sample(dynamic_concept, min(sample_size, len(dynamic_concept)))
+            sample = random.sample(dynamic_concept,
+                                   min(sample_size, len(dynamic_concept)))
         else:
             sample = dynamic_concept
-        
+
         prefix = self.prefix_for_listing(lang_code, False)
         prefix = text_utils.clean_text_unicode(prefix) + u" "
         sample = [text_utils.clean_text_unicode(s) for s in sample]
         return prefix + u", ".join([s.replace(u"_", u" ") for s in sample])
-        
+
     # TODO: make the 10 tunable
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def listRelations(self, lang_code):
         self.say(self.listDynamicConcept(lang_code, "relations", 10))
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
-    def listAttributes(self, lang_code):    
+    def listAttributes(self, lang_code):
         self.say(self.listDynamicConcept(lang_code, "attributes", 10))
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
@@ -259,22 +284,23 @@ class PepperGroundedClient(object):
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def listCachedQuestions(self, lang_code):
-        questions = self.listDynamicConcept(lang_code, "cached_questions", 1, return_concept_only=True)
+        questions = self.listDynamicConcept(lang_code,
+                                            "cached_questions",
+                                            1,
+                                            return_concept_only=True)
         questions = random.sample(questions, min(len(questions), 1))
         lang_code = self._runtime_language(lang_code)
-        if questions: 
+        if questions:
             if lang_code == "cs":
                 text = u"Mužeš se zeptat třeba tohle: %s" % questions[0]
-            else: 
+            else:
                 text = u"You can ask me like this: %s" % questions[0]
-        else: 
+        else:
             if lang_code == "cs":
                 text = u"Zeptej se cokoliv, teď nemám nic přichystané"
-            else: 
+            else:
                 text = u"You can ask anything you like. I have nothing prepared"
         self.say(text_utils.clean_text_unicode(text))
-        
-
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def showMemory(self, lang_code):
@@ -345,7 +371,8 @@ class PepperGroundedClient(object):
     def getStatusObject(self):
         status = self.turn_manager.status()
         status["server_base_url"] = self.config["server"].get("base_url")
-        status["dialog_language"] = self.config.get("dialog", {}).get("language")
+        status["dialog_language"] = self.config.get("dialog",
+                                                    {}).get("language")
         return status
 
     @qi.nobind
@@ -354,7 +381,8 @@ class PepperGroundedClient(object):
         self.face_adapter.stop()
         self.config.clear()
         self.config.update(loaded)
-        self.session_store.set_server_base_url(self.config["server"].get("base_url"))
+        self.session_store.set_server_base_url(
+            self.config["server"].get("base_url"))
         self.transport.update_config(self.config)
         self.dialog_adapter.update_config(self.config)
         self.face_adapter.start()
@@ -369,9 +397,9 @@ class PepperGroundedClient(object):
 
 
 if __name__ == "__main__":
-    run_local = True 
-    czech = True 
-    if run_local: 
+    run_local = True
+    czech = True
+    if run_local:
         app = qi.Application()
         app.start()
 
@@ -382,7 +410,7 @@ if __name__ == "__main__":
         session.registerService("PepperGroundedClient", service_instance)
 
         service_instance.on_start()
-        if czech: 
+        if czech:
             dialog = session.service("ALDialog")
             dialog.setLanguage("Czech")
             #asr = session.service("ALSpeechRecognition")

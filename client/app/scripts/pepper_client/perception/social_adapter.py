@@ -2,6 +2,7 @@ from pepper_client.utils import timing as time_utils
 
 
 class SocialAdapter(object):
+
     def __init__(self, services, config, logger, face_adapter):
         self.services = services
         self.config = config
@@ -11,11 +12,21 @@ class SocialAdapter(object):
         self.subscription_name = "%s_social" % config["app"]["service_name"]
         self._subscribed_services = []
         self._service_map = {
-            "face_characteristics": (services.ALFaceCharacteristics, config["social"].get("enable_face_characteristics", True)),
-            "gaze_analysis": (services.ALGazeAnalysis, config["social"].get("enable_gaze_analysis", True)),
-            "engagement_zones": (services.ALEngagementZones, config["social"].get("enable_engagement_zones", True)),
-            "sitting_detection": (services.ALSittingPeopleDetection, config["social"].get("enable_sitting_detection", True)),
-            "waving_detection": (services.ALWavingDetection, config["social"].get("enable_waving_detection", True)),
+            "face_characteristics":
+            (services.ALFaceCharacteristics,
+             config["social"].get("enable_face_characteristics", True)),
+            "gaze_analysis": (services.ALGazeAnalysis,
+                              config["social"].get("enable_gaze_analysis",
+                                                   True)),
+            "engagement_zones":
+            (services.ALEngagementZones,
+             config["social"].get("enable_engagement_zones", True)),
+            "sitting_detection":
+            (services.ALSittingPeopleDetection,
+             config["social"].get("enable_sitting_detection", True)),
+            "waving_detection":
+            (services.ALWavingDetection,
+             config["social"].get("enable_waving_detection", True)),
         }
 
     def start(self):
@@ -34,7 +45,9 @@ class SocialAdapter(object):
     def snapshot_social_people(self, people):
         if not people:
             return []
-        self.logger.info("Running SocailAdapter.snapshot_social_people on (%s) people=%s", len(people), people)
+        self.logger.info(
+            "Running SocailAdapter.snapshot_social_people on (%s) people=%s",
+            len(people), people)
         face_map = self.face_adapter.match_faces_to_people(people)
         result = []
         for person in people:
@@ -43,26 +56,30 @@ class SocialAdapter(object):
             social.update(face_data)
             if len(social.keys()) > 2:
                 result.append(social)
-        self.logger.info("Social snapshot contains %s enriched people", len(result))
+        self.logger.info("Social snapshot contains %s enriched people",
+                         len(result))
         return result
 
     #TODO: check this more
     def _snapshot_person(self, person_id):
         payload = {"id": int(person_id), "timestamp": time_utils.now_ts()}
 
-        age_value, age_conf = self._pair("PeoplePerception/Person/%s/AgeProperties" % person_id)
+        age_value, age_conf = self._pair(
+            "PeoplePerception/Person/%s/AgeProperties" % person_id)
         if age_value is not None:
             payload["age"] = age_value
             payload["age_confidence"] = age_conf
             payload["age_bucket"] = self._age_bucket(age_value)
 
-        gender_value, gender_conf = self._pair("PeoplePerception/Person/%s/GenderProperties" % person_id)
+        gender_value, gender_conf = self._pair(
+            "PeoplePerception/Person/%s/GenderProperties" % person_id)
         if gender_value is not None:
             payload["gender_code"] = gender_value
             payload["gender_confidence"] = gender_conf
             payload["gender"] = self._gender_label(gender_value)
 
-        smile_value, smile_conf = self._pair("PeoplePerception/Person/%s/SmileProperties" % person_id)
+        smile_value, smile_conf = self._pair(
+            "PeoplePerception/Person/%s/SmileProperties" % person_id)
         if smile_value is not None:
             payload["smile_score"] = smile_value
             payload["smile_confidence"] = smile_conf
@@ -89,15 +106,22 @@ class SocialAdapter(object):
             None,
         )
         if looking_score is not None:
-            payload["looking_at_robot_score"] = self._float_or_none(looking_score)
+            payload["looking_at_robot_score"] = self._float_or_none(
+                looking_score)
 
         head_angles = self._get_memory_value(
             "PeoplePerception/Person/%s/HeadAngles" % person_id,
             None,
         )
         if isinstance(head_angles, (list, tuple)) and len(head_angles) >= 2:
-            payload["head_angles"] = [self._float_or_none(head_angles[0]), self._float_or_none(head_angles[1])]
-            payload["gaze_direction"] = [self._gaze_direction_left_right(head_angles), self._gaze_direction_up_down(head_angles)]
+            payload["head_angles"] = [
+                self._float_or_none(head_angles[0]),
+                self._float_or_none(head_angles[1])
+            ]
+            payload["gaze_direction"] = [
+                self._gaze_direction_left_right(head_angles),
+                self._gaze_direction_up_down(head_angles)
+            ]
 
         engagement_zone = self._get_memory_value(
             "PeoplePerception/Person/%s/EngagementZone" % person_id,
@@ -132,18 +156,21 @@ class SocialAdapter(object):
             "PeoplePerception/Person/%s/IsWaving" % person_id,
             None,
         )
-        if any(value is not None for value in [waving_center, waving_left, waving_right, is_waving]):
-            payload["is_waving"] = bool(is_waving or waving_center or waving_left or waving_right)
-            payload["is_waving_center"] = bool(waving_center) if waving_center is not None else False
-            payload["is_waving_left"] = bool(waving_left) if waving_left is not None else False
-            payload["is_waving_right"] = bool(waving_right) if waving_right is not None else False
+        if any(value is not None for value in
+               [waving_center, waving_left, waving_right, is_waving]):
+            payload["is_waving"] = bool(is_waving or waving_center
+                                        or waving_left or waving_right)
+            payload["is_waving_center"] = bool(
+                waving_center) if waving_center is not None else False
+            payload["is_waving_left"] = bool(
+                waving_left) if waving_left is not None else False
+            payload["is_waving_right"] = bool(
+                waving_right) if waving_right is not None else False
 
         eyes_opened = self._get_memory_value(
-            "PeoplePerception/Person/%s/EyeOpeningDegree" % person_id
-        )
+            "PeoplePerception/Person/%s/EyeOpeningDegree" % person_id)
         if isinstance(eyes_opened, (list, tuple)) and len(eyes_opened) >= 2:
             payload["eyes_opened"] = eyes_opened
-
 
         return payload
 
@@ -236,7 +263,8 @@ class SocialAdapter(object):
             service.subscribe(name)
             return True
         except Exception as exc:
-            self.logger.info("Subscribe skipped for service %s: %s", service, exc)
+            self.logger.info("Subscribe skipped for service %s: %s", service,
+                             exc)
             return False
 
     def _safe_unsubscribe(self, service, name):
@@ -246,5 +274,6 @@ class SocialAdapter(object):
             service.unsubscribe(name)
             return True
         except Exception as exc:
-            self.logger.info("Unsubscribe skipped for service %s: %s", service, exc)
+            self.logger.info("Unsubscribe skipped for service %s: %s", service,
+                             exc)
             return False

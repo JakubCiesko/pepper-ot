@@ -23,7 +23,8 @@ class SonarAdapter(object):
             self.logger.info("ALSonar subscribe skipped: %s", exc)
 
     def stop(self):
-        if self._subscribed and self.sonar is not None and hasattr(self.sonar, "unsubscribe"):
+        if self._subscribed and self.sonar is not None and hasattr(
+                self.sonar, "unsubscribe"):
             try:
                 self.sonar.unsubscribe(self.subscription_name)
                 self.logger.info("Unsubscribed from ALSonar")

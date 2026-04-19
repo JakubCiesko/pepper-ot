@@ -5,6 +5,7 @@ import traceback
 
 import qi
 
+
 def _safe_convert(x):
     try:
         if isinstance(x, unicode):
@@ -14,7 +15,7 @@ def _safe_convert(x):
         elif isinstance(x, (list, tuple)):
             return type(x)(_safe_convert(i) for i in x)
         elif isinstance(x, dict):
-            return { _safe_convert(k): _safe_convert(v) for k, v in x.items() }
+            return {_safe_convert(k): _safe_convert(v) for k, v in x.items()}
         else:
             return str(x)
     except Exception:
@@ -22,6 +23,7 @@ def _safe_convert(x):
 
 
 class SafeLogger(object):
+
     def __init__(self, logger):
         self._logger = logger
 
@@ -46,7 +48,6 @@ class SafeLogger(object):
         return getattr(self._logger, name)
 
 
-
 def get_logger(session, app_id):
     base_logger = qi.logging.Logger(app_id)
     try:
@@ -61,6 +62,7 @@ def get_logger(session, app_id):
 
 #REMOVAL unsued
 def log_exceptions(func):
+
     @functools.wraps(func)
     def wrapped(self, *args, **kwargs):
         try:

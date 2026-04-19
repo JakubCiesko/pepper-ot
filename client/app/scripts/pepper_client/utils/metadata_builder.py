@@ -1,8 +1,14 @@
 class MetadataBuilder(object):
+
     def __init__(self, logger):
         self.logger = logger
 
-    def build(self, capture, context, frame_id, scan_id=None, capture_mode=None):
+    def build(self,
+              capture,
+              context,
+              frame_id,
+              scan_id=None,
+              capture_mode=None):
         pose = context.get("pose") or {}
         metadata = {
             "head_yaw": pose.get("head_yaw", 0.0),
@@ -25,5 +31,7 @@ class MetadataBuilder(object):
             metadata["sonar"] = sonar
         if capture_mode:
             metadata["capture_mode"] = capture_mode
-        self.logger.info("Built metadata payload for frame_id=%s scan_id=%s, metadata=%s", frame_id, scan_id, metadata)
+        self.logger.info(
+            "Built metadata payload for frame_id=%s scan_id=%s, metadata=%s",
+            frame_id, scan_id, metadata)
         return metadata

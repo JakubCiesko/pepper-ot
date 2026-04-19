@@ -11,6 +11,7 @@ from pepper_client.utils.error_policy import ServerUnavailableError
 
 
 class PepperServerTransport(object):
+
     def __init__(self, config, logger):
         self.logger = logger
         self.session = requests.Session()
@@ -62,13 +63,17 @@ class PepperServerTransport(object):
             payload,
             self.config["server"].get("detect_timeout_seconds", 120),
         )
-        if not isinstance(data, dict) or not isinstance(data.get("objects", []), list):
-            raise MalformedResponseError("Detect response missing objects list")
+        if not isinstance(data, dict) or not isinstance(
+                data.get("objects", []), list):
+            raise MalformedResponseError(
+                "Detect response missing objects list")
         return data
 
-    def panorama_detect(
-        self, captures, publish=True, resize_image=True, stick_together=True
-    ):
+    def panorama_detect(self,
+                        captures,
+                        publish=True,
+                        resize_image=True,
+                        stick_together=True):
         files = []
         form_data = [
             ("publish", self._bool_str(publish)),
@@ -78,29 +83,32 @@ class PepperServerTransport(object):
         for index, item in enumerate(captures or []):
             image_bytes = item.get("image_bytes")
             metadata = item.get("metadata") or {}
-            files.append(
-                (
-                    "files",
-                    ("capture_%s.jpg" % index, image_bytes, "image/jpeg"),
-                )
-            )
+            files.append((
+                "files",
+                ("capture_%s.jpg" % index, image_bytes, "image/jpeg"),
+            ))
             form_data.append(("metadata", json.dumps(metadata)))
         data = self._request(
             method="post",
-            path=self.config["server"].get(
-                "detect_panorama_path", "/api/v1/detect/panorama"
-            ),
-            timeout_seconds=self.config["server"].get("detect_timeout_seconds", 120),
+            path=self.config["server"].get("detect_panorama_path",
+                                           "/api/v1/detect/panorama"),
+            timeout_seconds=self.config["server"].get("detect_timeout_seconds",
+                                                      120),
             files=files,
             data=form_data,
         )
-        if not isinstance(data, dict) or not isinstance(data.get("objects", []), list):
+        if not isinstance(data, dict) or not isinstance(
+                data.get("objects", []), list):
             raise MalformedResponseError(
-                "Panorama detect response missing objects list"
-            )
+                "Panorama detect response missing objects list")
         return data
 
-    def chat(self, query, chat_id=None, language=None, mode=None, object_label=None):
+    def chat(self,
+             query,
+             chat_id=None,
+             language=None,
+             mode=None,
+             object_label=None):
         payload = {"query": query}
         if chat_id:
             payload["chat_id"] = chat_id
@@ -112,19 +120,19 @@ class PepperServerTransport(object):
         if object_label:
             payload["object_label"] = str(object_label)
         if self.config["server"]["model_facing_language"]:
-            self.logger.info("Will enforce model facing language %s", self.config["server"]["model_facing_language"])
-            payload["model_facing_language"] = self.config["server"]["model_facing_language"]
+            self.logger.info("Will enforce model facing language %s",
+                             self.config["server"]["model_facing_language"])
+            payload["model_facing_language"] = self.config["server"][
+                "model_facing_language"]
         data = self._post_json(
             self.config["server"]["chat_path"],
             payload,
             self.config["server"].get("chat_timeout_seconds", 45),
         )
-        if (
-            not isinstance(data, dict)
-            or not data.get("sentence")
-            or not data.get("chat_id")
-        ):
-            raise MalformedResponseError("Chat response missing sentence or chat_id")
+        if (not isinstance(data, dict) or not data.get("sentence")
+                or not data.get("chat_id")):
+            raise MalformedResponseError(
+                "Chat response missing sentence or chat_id")
         return data
 
     def chat_general(self, query, chat_id=None, language=None):
@@ -143,11 +151,11 @@ class PepperServerTransport(object):
             mode="object",
             object_label=object_label,
         )
+
     #TODO: is this properly used? the language
     def memory_summary(self, render_limit=5, language=None):
-        path = self.config["server"].get(
-            "memory_summary_path", "/api/v1/memory/summary"
-        )
+        path = self.config["server"].get("memory_summary_path",
+                                         "/api/v1/memory/summary")
         separator = "&" if "?" in path else "?"
         path = "%s%srender_limit=%s" % (path, separator, int(render_limit))
         if language:
@@ -158,14 +166,17 @@ class PepperServerTransport(object):
         data = self._request(
             method="get",
             path=path,
-            timeout_seconds=self.config["server"].get("memory_timeout_seconds", 20),
+            timeout_seconds=self.config["server"].get("memory_timeout_seconds",
+                                                      20),
         )
         if not isinstance(data, dict):
-            raise MalformedResponseError("Memory summary response is not an object")
+            raise MalformedResponseError(
+                "Memory summary response is not an object")
         return data
 
     def reset_memory(self):
-        path = self.config["server"].get("memory_reset_path", "/api/v1/memory/reset")
+        path = self.config["server"].get("memory_reset_path",
+                                         "/api/v1/memory/reset")
         if "?" in path:
             request_path = path
         else:
@@ -180,23 +191,21 @@ class PepperServerTransport(object):
         return data
 
     def pregenerate_qa(self, requested_number_of_pairs=5, language=None):
-        path = self.config["server"].get(
-            "pregenerate_qa_path", "/api/v1/chat/pregenerate_qa"
-        )
+        path = self.config["server"].get("pregenerate_qa_path",
+                                         "/api/v1/chat/pregenerate_qa")
         payload = {"requested_number_of_pairs": int(requested_number_of_pairs)}
         if language:
-            payload["output_language"] = self._normalize_output_language(language)
+            payload["output_language"] = self._normalize_output_language(
+                language)
         data = self._post_json(
             path,
             payload,
             self.config["server"].get("chat_timeout_seconds", 45),
         )
         if not isinstance(data, dict) or not isinstance(
-            data.get("pregenerated_qa"), list
-        ):
+                data.get("pregenerated_qa"), list):
             raise MalformedResponseError(
-                "Pregenerated QA response missing pregenerated_qa"
-            )
+                "Pregenerated QA response missing pregenerated_qa")
         return data
 
     def reset_conversation(self, chat_id):
@@ -204,8 +213,7 @@ class PepperServerTransport(object):
             return {"ok": True, "skipped": True}
         path = "/api/v1/chat/conversations/%s/reset" % chat_id
         return self._post_json(
-            path, {}, self.config["server"].get("config_timeout_seconds", 10)
-        )
+            path, {}, self.config["server"].get("config_timeout_seconds", 10))
 
     def _post_multipart(self, path, image_bytes, form_data, timeout_seconds):
         files = {"file": ("capture.jpg", image_bytes, "image/jpeg")}
@@ -239,13 +247,11 @@ class PepperServerTransport(object):
         url = "%s%s" % (self.base_url, path)
         self.logger.info("HTTP %s %s", method.upper(), url)
         try:
-            response = self.session.request(
-                method=method,
-                url=url,
-                timeout=float(timeout_seconds),
-                verify=self.verify_tls,
-                **kwargs
-            )
+            response = self.session.request(method=method,
+                                            url=url,
+                                            timeout=float(timeout_seconds),
+                                            verify=self.verify_tls,
+                                            **kwargs)
         except requests.Timeout as exc:
             raise ServerTimeoutError(str(exc))
         except requests.RequestException as exc:
@@ -258,13 +264,16 @@ class PepperServerTransport(object):
                 response.status_code,
                 text_utils.clean_text_unicode(detail, max_chars=240),
             )
-            raise ServerUnavailableError("HTTP %s for %s" % (response.status_code, url))
+            raise ServerUnavailableError("HTTP %s for %s" %
+                                         (response.status_code, url))
         try:
             data = response.json()
         except ValueError:
-            self.logger.warning("Invalid JSON response body: %s", response.text)
+            self.logger.warning("Invalid JSON response body: %s",
+                                response.text)
             raise MalformedResponseError("Response was not valid JSON")
-        self.logger.info("HTTP response payload: %s", logging.safe_json(data)[:240])
+        self.logger.info("HTTP response payload: %s",
+                         logging.safe_json(data)[:240])
         return data
 
     def _bool_str(self, value):

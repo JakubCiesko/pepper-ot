@@ -2,6 +2,7 @@ from pepper_client.utils import timing as time_utils
 
 
 class PoseAdapter(object):
+
     def __init__(self, services, logger):
         self.motion = services.ALMotion
         self.logger = logger
@@ -9,7 +10,9 @@ class PoseAdapter(object):
     def snapshot(self):
         head_yaw, head_pitch = self.get_head_angles()
         body_yaw = self.get_body_yaw()
-        self.logger.info("PoseAdapter.snapshot output: head_yaw=%s head_pitch=%s, body_yaw=%s", head_yaw, head_pitch, body_yaw)
+        self.logger.info(
+            "PoseAdapter.snapshot output: head_yaw=%s head_pitch=%s, body_yaw=%s",
+            head_yaw, head_pitch, body_yaw)
         return {
             "head_yaw": head_yaw,
             "head_pitch": head_pitch,
@@ -43,8 +46,10 @@ class PoseAdapter(object):
             self.logger.info("ALMotion unavailable, skipping head move")
             return False
         try:
-            self.motion.setAngles(["HeadYaw", "HeadPitch"], [float(yaw), float(pitch)], float(speed))
-            self.logger.info("Moved head to yaw=%s pitch=%s speed=%s", yaw, pitch, speed)
+            self.motion.setAngles(["HeadYaw", "HeadPitch"],
+                                  [float(yaw), float(pitch)], float(speed))
+            self.logger.info("Moved head to yaw=%s pitch=%s speed=%s", yaw,
+                             pitch, speed)
             return True
         except Exception as exc:
             self.logger.warning("Failed to move head: %s", exc)

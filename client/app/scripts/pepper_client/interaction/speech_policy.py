@@ -7,16 +7,34 @@ _ACK = {
         "cs": ["Podívám se.", "Chvilku počkej, podívám se.", "Mrknu na to."],
     },
     "scan": {
-        "en": ["I will scan around me.", "Scanning now.", "Let me see what's around."],
-        "cs": ["Rozhlednu se kolem sebe.", "Teď skenuju.", "Podívám se, co je kolem.", "Tohle chvilku potrvá. Jdu na to."],
+        "en": [
+            "I will scan around me.", "Scanning now.",
+            "Let me see what's around."
+        ],
+        "cs": [
+            "Rozhlednu se kolem sebe.", "Teď skenuju.",
+            "Podívám se, co je kolem.", "Tohle chvilku potrvá. Jdu na to."
+        ],
     },
     "ask": {
-        "en": ["Let me think about that.", "I need a moment to consider.", "Thinking"],
-        "cs": ["Podívám se na to.", "Chvilku přemýšlím.", "Přemýšlím", "Hm",],
+        "en": [
+            "Let me think about that.", "I need a moment to consider.",
+            "Thinking"
+        ],
+        "cs": [
+            "Podívám se na to.",
+            "Chvilku přemýšlím.",
+            "Přemýšlím",
+            "Hm",
+        ],
     },
     "reset": {
-        "en": ["I will start a new conversation.", "Resetting conversation.", "Let's start over."],
-        "cs": ["Zacnu novou konverzaci.", "Resetuji konverzaci.", "Začneme znovu."],
+        "en": [
+            "I will start a new conversation.", "Resetting conversation.",
+            "Let's start over."
+        ],
+        "cs":
+        ["Zacnu novou konverzaci.", "Resetuji konverzaci.", "Začneme znovu."],
     },
     "greet": {
         "en": ["Hello!", "Hi there!", "Greetings!"],
@@ -35,7 +53,10 @@ _ACK = {
         "cs": ["Rozumím.", "Chápu.", "Beru na vědomí."],
     },
     "error": {
-        "en": ["Something went wrong.", "I encountered an error.", "Oops, an error occurred."],
+        "en": [
+            "Something went wrong.", "I encountered an error.",
+            "Oops, an error occurred."
+        ],
         "cs": ["Něco se pokazilo.", "Došlo k chybě.", "Jejda, nastala chyba."],
     },
 }
@@ -43,113 +64,81 @@ _ACK = {
 _GENERIC = {
     "scan_complete": {
         "en": [
-            "My view is updated.",
-            "Scanning complete.",
-            "I have finished scanning.",
-            "The environment is now observed."
+            "My view is updated.", "Scanning complete.",
+            "I have finished scanning.", "The environment is now observed."
         ],
         "cs": [
-            "Můj pohled je aktuální.",
-            "Skenování dokončeno.",
-            "Dokončil jsem skenování.",
-            "Okolí bylo prozkoumáno."
+            "Můj pohled je aktuální.", "Skenování dokončeno.",
+            "Dokončil jsem skenování.", "Okolí bylo prozkoumáno."
         ],
     },
     "language_updated": {
         "en": [
-            "Output language updated.",
-            "The language has been changed.",
-            "Language settings updated.",
-            "System output language is now set."
+            "Output language updated.", "The language has been changed.",
+            "Language settings updated.", "System output language is now set."
         ],
         "cs": [
-            "Výstupní jazyk byl změněn.",
-            "Jazyk byl aktualizován.",
-            "Nastavení jazyka bylo upraveno.",
-            "Od teď používám nový jazyk."
+            "Výstupní jazyk byl změněn.", "Jazyk byl aktualizován.",
+            "Nastavení jazyka bylo upraveno.", "Od teď používám nový jazyk."
         ],
     },
     "system_ready": {
         "en": [
-            "System is ready.",
-            "All systems operational.",
-            "I am ready to proceed.",
-            "I am online and ready."
+            "System is ready.", "All systems operational.",
+            "I am ready to proceed.", "I am online and ready."
         ],
         "cs": [
-            "Systém je připraven.",
-            "Všechny systémy jsou funkční.",
-            "Jsem připraven pokračovat.",
-            "Jsem onlajn a připraven."
+            "Systém je připraven.", "Všechny systémy jsou funkční.",
+            "Jsem připraven pokračovat.", "Jsem onlajn a připraven."
         ],
     },
     "action_confirmed": {
         "en": [
-            "Action confirmed.",
-            "Understood and confirmed.",
-            "I will proceed as requested.",
-            "Confirmed, executing now."
+            "Action confirmed.", "Understood and confirmed.",
+            "I will proceed as requested.", "Confirmed, executing now."
         ],
         "cs": [
-            "Akce potvrzena.",
-            "Rozumím a potvrzuji.",
-            "Budou provedeny požadované kroky.",
-            "Potvrzeno, nyní provádím."
+            "Akce potvrzena.", "Rozumím a potvrzuji.",
+            "Budou provedeny požadované kroky.", "Potvrzeno, nyní provádím."
         ],
     },
     "waiting": {
         "en": [
-            "Please wait a moment.",
-            "Hold on, processing.",
-            "I am working on it.",
-            "Give me a second, please."
+            "Please wait a moment.", "Hold on, processing.",
+            "I am working on it.", "Give me a second, please."
         ],
         "cs": [
-            "Počkejte prosím chvíli.",
-            "Chvilku počkejte, teďkom pracuji.",
-            "Pracuji na tom.",
-            "Dejte mi prosím vteřinu."
+            "Počkejte prosím chvíli.", "Chvilku počkejte, teďkom pracuji.",
+            "Pracuji na tom.", "Dejte mi prosím vteřinu."
         ],
     },
     "error_occurred": {
         "en": [
-            "An error occurred.",
-            "Something went wrong.",
-            "I encountered a problem.",
-            "Oops, there was an issue."
+            "An error occurred.", "Something went wrong.",
+            "I encountered a problem.", "Oops, there was an issue."
         ],
         "cs": [
-            "Došlo k chybě.",
-            "Něco se pokazilo.",
-            "Narazil jsem na problém.",
+            "Došlo k chybě.", "Něco se pokazilo.", "Narazil jsem na problém.",
             "Jejda, nastal problém."
         ],
     },
     "task_completed": {
         "en": [
-            "Task completed successfully.",
-            "All steps finished.",
-            "I have completed the task.",
-            "Task execution finished."
+            "Task completed successfully.", "All steps finished.",
+            "I have completed the task.", "Task execution finished."
         ],
         "cs": [
-            "Úkol byl úspěšně dokončen.",
-            "Všechny kroky jsou hotové.",
-            "Dokončil jsem úkol.",
-            "Provádění úkolu dokončeno."
+            "Úkol byl úspěšně dokončen.", "Všechny kroky jsou hotové.",
+            "Dokončil jsem úkol.", "Provádění úkolu dokončeno."
         ],
     },
     "idle": {
         "en": [
-            "I am idle.",
-            "Standing by.",
-            "Awaiting instructions.",
+            "I am idle.", "Standing by.", "Awaiting instructions.",
             "I am ready for the next task."
         ],
         "cs": [
-            "Jsem nečinný.",
-            "Čekám.",
-            "Čekám na instrukce.",
+            "Jsem nečinný.", "Čekám.", "Čekám na instrukce.",
             "Jsem připraven na další úkol."
         ],
     },
@@ -158,7 +147,8 @@ _GENERIC = {
 
 def language_code(value, default="en"):
     lang = str(value or default).strip().lower()
-    if lang.startswith("cs") or lang.startswith("cz") or lang.startswith("czech"):
+    if lang.startswith("cs") or lang.startswith("cz") or lang.startswith(
+            "czech"):
         return "cs"
     if lang.startswith("auto"):
         return "auto"
@@ -171,9 +161,11 @@ def normalize_dialog_language(value, default="auto"):
     lang = str(value or default).strip().lower()
     if lang.startswith("auto"):
         return "auto"
-    if lang.startswith("cs") or lang.startswith("cz") or lang.startswith("czech"):
+    if lang.startswith("cs") or lang.startswith("cz") or lang.startswith(
+            "czech"):
         return "czech"
-    if lang.startswith("en") or lang.startswith("eng") or lang.startswith("english"):
+    if lang.startswith("en") or lang.startswith("eng") or lang.startswith(
+            "english"):
         return "english"
     return "auto"
 
@@ -182,10 +174,12 @@ def tts_language_to_runtime(tts_language, logger=None):
     lang = str(tts_language or "").strip().lower()
     if lang.startswith("english") or lang.startswith("en"):
         return "en"
-    if lang.startswith("czech") or lang.startswith("cs") or lang.startswith("cz"):
+    if lang.startswith("czech") or lang.startswith("cs") or lang.startswith(
+            "cz"):
         return "cs"
     if logger is not None:
-        logger.warning("Unexpected TTS language %s, falling back to English", tts_language)
+        logger.warning("Unexpected TTS language %s, falling back to English",
+                       tts_language)
     return "en"
 
 
@@ -198,7 +192,9 @@ def current_tts_runtime_language(tts, logger=None):
         language = tts.getLanguage()
     except Exception as exc:
         if logger is not None:
-            logger.warning("Failed to read TTS language, falling back to English: %s", exc)
+            logger.warning(
+                "Failed to read TTS language, falling back to English: %s",
+                exc)
         return "en"
     return tts_language_to_runtime(language, logger=logger)
 
@@ -240,10 +236,10 @@ def pick_random(pick_from, kind, lang_code):
         return random.choice(options)
     return ""
 
+
 def acknowledgement(kind, lang_code):
     return pick_random(_ACK, kind, lang_code)
 
 
 def generic_message(kind, lang_code):
     return pick_random(_GENERIC, kind, lang_code)
-

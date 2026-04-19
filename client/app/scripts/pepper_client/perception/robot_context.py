@@ -1,5 +1,7 @@
 class RobotContextCollector(object):
-    def __init__(self, pose_adapter, people_adapter, social_adapter, sonar_adapter, logger):
+
+    def __init__(self, pose_adapter, people_adapter, social_adapter,
+                 sonar_adapter, logger):
         self.pose_adapter = pose_adapter
         self.people_adapter = people_adapter
         self.social_adapter = social_adapter

@@ -1,4 +1,5 @@
 class PeopleAdapter(object):
+
     def __init__(self, services, config, logger):
         self.services = services
         self.config = config
@@ -11,20 +12,25 @@ class PeopleAdapter(object):
     def start(self):
         if not self.config["social"].get("enable_people_perception", True):
             return
-        self._subscribed = self._safe_subscribe(self.people_perception, self.subscription_name)
+        self._subscribed = self._safe_subscribe(self.people_perception,
+                                                self.subscription_name)
         if self._subscribed:
             self.logger.info("Subscribed to ALPeoplePerception")
 
     def stop(self):
         if self._subscribed:
-            self._safe_unsubscribe(self.people_perception, self.subscription_name)
+            self._safe_unsubscribe(self.people_perception,
+                                   self.subscription_name)
             self._subscribed = False
 
     def snapshot_people(self):
         if self.memory is None:
             return []
-        people_ids = self._get_memory_value("PeoplePerception/PeopleList", []) or []
-        self.logger.info("Running PeopleAdapter.snapshot_people on people_ids=%s", people_ids)
+        people_ids = self._get_memory_value("PeoplePerception/PeopleList",
+                                            []) or []
+        self.logger.info(
+            "Running PeopleAdapter.snapshot_people on people_ids=%s",
+            people_ids)
         result = []
         for person_id in people_ids:
             try:
@@ -46,17 +52,16 @@ class PeopleAdapter(object):
             if distance is None:
                 continue
             try:
-                result.append(
-                    {
-                        "id": person_id,
-                        "yaw": float(angles[0]),
-                        "pitch": float(angles[1]),
-                        "distance": float(distance),
-                    }
-                )
+                result.append({
+                    "id": person_id,
+                    "yaw": float(angles[0]),
+                    "pitch": float(angles[1]),
+                    "distance": float(distance),
+                })
             except Exception:
                 continue
-        self.logger.info("People snapshot contains %s visible people", len(result))
+        self.logger.info("People snapshot contains %s visible people",
+                         len(result))
         return result
 
     def _is_person_visible(self, person_id):

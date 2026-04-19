@@ -13,6 +13,7 @@ from pepper_client.utils import text as text_utils
 
 
 class TurnManager(object):
+
     def __init__(
         self,
         config,
@@ -123,7 +124,8 @@ class TurnManager(object):
                     kind,
                     self._active_turn,
                 )
-                self._safe_say(fallback_message("busy", runtime_lang), speech_mode)
+                self._safe_say(fallback_message("busy", runtime_lang),
+                               speech_mode)
                 return False
             self._busy = True
             self._active_turn = {"id": turn_id, "kind": kind}
@@ -154,19 +156,21 @@ class TurnManager(object):
         except ServerTimeoutError as exc:
             self.logger.warning("Server timeout in turn %s: %s", turn_id, exc)
             self._safe_say(
-                fallback_message("server_timeout", self._speech_lang(lang_code)),
+                fallback_message("server_timeout",
+                                 self._speech_lang(lang_code)),
                 self._speech_request_language(lang_code),
             )
         except ServerUnavailableError as exc:
-            self.logger.warning("Server unavailable in turn %s: %s", turn_id, exc)
+            self.logger.warning("Server unavailable in turn %s: %s", turn_id,
+                                exc)
             self._safe_say(
-                fallback_message("server_unavailable", self._speech_lang(lang_code)),
+                fallback_message("server_unavailable",
+                                 self._speech_lang(lang_code)),
                 self._speech_request_language(lang_code),
             )
         except MalformedResponseError as exc:
-            self.logger.warning(
-                "Malformed server response in turn %s: %s", turn_id, exc
-            )
+            self.logger.warning("Malformed server response in turn %s: %s",
+                                turn_id, exc)
             self._safe_say(
                 fallback_message("malformed", self._speech_lang(lang_code)),
                 self._speech_request_language(lang_code),
@@ -191,9 +195,12 @@ class TurnManager(object):
         self.logger.info("Running look method with lang code: %s", lang_code)
         runtime_lang = self._speech_lang(lang_code)
         speech_mode = self._speech_request_language(lang_code)
-        frame_id = ids.new_frame_id(self.config["capture"].get("frame_prefix", "frame"))
-        capture, metadata = self._capture_with_metadata(frame_id, None, "caption")
-        run_detect = bool(self.config["behavior"].get("caption_run_detect", True))
+        frame_id = ids.new_frame_id(self.config["capture"].get(
+            "frame_prefix", "frame"))
+        capture, metadata = self._capture_with_metadata(
+            frame_id, None, "caption")
+        run_detect = bool(self.config["behavior"].get("caption_run_detect",
+                                                      True))
         publish = bool(self.config["server"].get("publish", True))
         language = speech_policy.server_language_for_runtime(runtime_lang)
         caption_response = self._caption_with_optional_retry(
@@ -212,7 +219,8 @@ class TurnManager(object):
     def _run_scan(self, lang_code):
         runtime_lang = self._speech_lang(lang_code)
         speech_mode = self._speech_request_language(lang_code)
-        scan_id = ids.new_scan_id(self.config["capture"].get("scan_prefix", "scan"))
+        scan_id = ids.new_scan_id(self.config["capture"].get(
+            "scan_prefix", "scan"))
         original_pose = self.pose_adapter.snapshot()
         self.logger.info("Starting scan sweep scan_id=%s", scan_id)
         try:
@@ -274,7 +282,8 @@ class TurnManager(object):
                     capture_item["metadata"],
                     publish=bool(self.config["server"].get("publish", True)),
                 )
-                self.session_store.update_after_detect(detect_response, scan_id=scan_id)
+                self.session_store.update_after_detect(detect_response,
+                                                       scan_id=scan_id)
                 successes += 1
                 self.logger.info(
                     "Scan frame %s completed objects=%s",
@@ -302,17 +311,15 @@ class TurnManager(object):
                 self.config["capture"].get("head_move_speed", 0.15),
             )
             time_utils.sleep_seconds(settle_seconds)
-            frame_id = ids.new_frame_id(
-                self.config["capture"].get("frame_prefix", "frame")
-            )
-            capture, metadata = self._capture_with_metadata(frame_id, scan_id, "scan")
-            captures.append(
-                {
-                    "index": index,
-                    "image_bytes": capture["image_bytes"],
-                    "metadata": metadata,
-                }
-            )
+            frame_id = ids.new_frame_id(self.config["capture"].get(
+                "frame_prefix", "frame"))
+            capture, metadata = self._capture_with_metadata(
+                frame_id, scan_id, "scan")
+            captures.append({
+                "index": index,
+                "image_bytes": capture["image_bytes"],
+                "metadata": metadata,
+            })
         return captures
 
     def _run_ask(self, lang_code, query, force_refresh):
@@ -325,12 +332,13 @@ class TurnManager(object):
             self.logger.info("Ignoring empty query after sanitization")
             return
 
-        refresh_ttl = float(self.config["capture"].get("refresh_ttl_seconds", 25))
+        refresh_ttl = float(self.config["capture"].get("refresh_ttl_seconds",
+                                                       25))
         should_refresh = bool(force_refresh)
         if not should_refresh and self.config["behavior"].get(
-            "auto_refresh_before_chat", True
-        ):
-            should_refresh = self.session_store.needs_visual_refresh(refresh_ttl)
+                "auto_refresh_before_chat", True):
+            should_refresh = self.session_store.needs_visual_refresh(
+                refresh_ttl)
         if should_refresh:
             self.logger.info("Refreshing visual context before chat")
             self._refresh_visual_context(lang_code, runtime_lang)
@@ -381,12 +389,12 @@ class TurnManager(object):
                     answer = candidate
                     break
         if answer:
-            self.logger.info("Answering from pregenerated cache for query=%s", query)
+            self.logger.info("Answering from pregenerated cache for query=%s",
+                             query)
             self._safe_say(answer, speech_mode)
             return
         self.logger.info(
-            "Cached answer miss, falling back to general chat query=%s", query
-        )
+            "Cached answer miss, falling back to general chat query=%s", query)
         chat_response = self.transport.chat_general(
             query,
             self.session_store.get_chat_id(),
@@ -420,8 +428,7 @@ class TurnManager(object):
                 summary,
                 qa_response,
                 ui_language=runtime_lang,
-            )
-        )
+            ))
         if not shown:
             self._safe_say(
                 fallback_message("unexpected", runtime_lang),
@@ -454,8 +461,10 @@ class TurnManager(object):
     def _refresh_visual_context(self, lang_code=None, runtime_lang=None):
         if runtime_lang is None:
             runtime_lang = self._speech_lang(lang_code)
-        frame_id = ids.new_frame_id(self.config["capture"].get("frame_prefix", "frame"))
-        capture, metadata = self._capture_with_metadata(frame_id, None, "detect")
+        frame_id = ids.new_frame_id(self.config["capture"].get(
+            "frame_prefix", "frame"))
+        capture, metadata = self._capture_with_metadata(
+            frame_id, None, "detect")
         detect_response = self.transport.detect(
             capture["image_bytes"],
             metadata,
@@ -469,14 +478,12 @@ class TurnManager(object):
     def _capture_with_metadata(self, frame_id, scan_id, capture_mode):
         capture = self.camera_adapter.capture_frame(frame_id=frame_id)
         context = self.robot_context.snapshot()
-        metadata = self.metadata_builder.build(
-            capture, context, frame_id, scan_id, capture_mode
-        )
+        metadata = self.metadata_builder.build(capture, context, frame_id,
+                                               scan_id, capture_mode)
         return capture, metadata
 
-    def _caption_with_optional_retry(
-        self, image_bytes, metadata, run_detect, publish, language
-    ):
+    def _caption_with_optional_retry(self, image_bytes, metadata, run_detect,
+                                     publish, language):
         try:
             return self.transport.caption(
                 image_bytes,
@@ -486,7 +493,8 @@ class TurnManager(object):
                 language=language,
             )
         except ServerTimeoutError:
-            if not self.config["behavior"].get("caption_retry_on_timeout", True):
+            if not self.config["behavior"].get("caption_retry_on_timeout",
+                                               True):
                 raise
             self.logger.info("Retrying caption once after timeout")
             return self.transport.caption(
@@ -518,8 +526,7 @@ class TurnManager(object):
         if requested_lang is not None:
             return requested_lang
         return speech_policy.normalize_dialog_language(
-            self.config.get("dialog", {}).get("language", "auto")
-        )
+            self.config.get("dialog", {}).get("language", "auto"))
 
     def _scan_summary_query(self, lang_code):
         lang_code = self._speech_lang(lang_code)
@@ -538,7 +545,9 @@ class TurnManager(object):
             return "Co vis o objektu %s" % object_label
         return "Tell me what you know about %s" % object_label
 
-    def _refresh_dynamic_concepts_from_server(self, lang_code=None, runtime_lang=None):
+    def _refresh_dynamic_concepts_from_server(self,
+                                              lang_code=None,
+                                              runtime_lang=None):
         if self.dialog_adapter is None:
             return False
         if runtime_lang is None:
@@ -612,12 +621,13 @@ class TurnManager(object):
             "pregenerated_qa": [],
         }
         if isinstance(qa_response, dict):
-            payload["pregenerated_qa"] = qa_response.get("pregenerated_qa", []) or []
+            payload["pregenerated_qa"] = qa_response.get(
+                "pregenerated_qa", []) or []
             payload["qa_metadata"] = qa_response.get("metadata", {}) or {}
         else:
             cached_answers = self.session_store.get_cached_answers()
-            payload["pregenerated_qa"] = [
-                {"question": q, "answer": cached_answers.get(q, "")}
-                for q in self.session_store.get_cached_questions()
-            ]
+            payload["pregenerated_qa"] = [{
+                "question": q,
+                "answer": cached_answers.get(q, "")
+            } for q in self.session_store.get_cached_questions()]
         return payload

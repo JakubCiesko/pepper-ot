@@ -28,13 +28,15 @@ def summary_after_scan(config):
     panorama = config.get("panorama", {})
     if "summary_after_scan" in panorama:
         return bool(panorama.get("summary_after_scan"))
-    return bool(config.get("behavior", {}).get("allow_scan_summary_chat", True))
+    return bool(
+        config.get("behavior", {}).get("allow_scan_summary_chat", True))
 
 
 def memory_render_limit(config):
     tablet_cfg = config.get("tablet", {})
     panorama_cfg = config.get("panorama", {})
-    candidate = tablet_cfg.get("memory_render_limit", panorama_cfg.get("render_limit", 5))
+    candidate = tablet_cfg.get("memory_render_limit",
+                               panorama_cfg.get("render_limit", 5))
     try:
         return max(1, int(candidate))
     except Exception:

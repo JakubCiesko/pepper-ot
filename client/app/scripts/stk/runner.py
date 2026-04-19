@@ -10,7 +10,8 @@ import qi
 
 def check_commandline_args(description):
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--qi-url", help="connect to a specific NAOqi instance")
+    parser.add_argument("--qi-url",
+                        help="connect to a specific NAOqi instance")
     return parser.parse_args()
 
 
@@ -31,7 +32,8 @@ def get_debug_robot():
 
         qiq_robot = qiq.config.defaultHost()
         if qiq_robot:
-            robot = _prompt("connect to which robot? (default is %s) " % qiq_robot)
+            robot = _prompt("connect to which robot? (default is %s) " %
+                            qiq_robot)
             return robot or qiq_robot
     except Exception:
         pass
@@ -54,7 +56,8 @@ def init(qi_url=None):
                 raise RuntimeError("No robot selected")
 
     sys.argv[0] = str(sys.argv[0])
-    if qi_url and LooseVersion(getattr(qi, "__version__", "2.5")) < LooseVersion("2.3"):
+    if qi_url and LooseVersion(getattr(qi, "__version__",
+                                       "2.5")) < LooseVersion("2.3"):
         qiapp = qi.Application(url="tcp://%s:9559" % qi_url)
     else:
         qiapp = qi.Application()

@@ -1,8 +1,8 @@
 import re
 
-
 _WHITESPACE_RE = re.compile(r"\s+")
 _WHITESPACE_RE_UNICODE = re.compile(ur"\s+")
+
 
 def clean_text(text, max_chars=None):
     if text is None:
@@ -21,7 +21,7 @@ def clean_text(text, max_chars=None):
     text = _WHITESPACE_RE.sub(" ", text).strip()
 
     if max_chars and len(text) > max_chars:
-        text = text[: max_chars - 1].rstrip() + "..."
+        text = text[:max_chars - 1].rstrip() + "..."
     # deffensive text output
     return text or ""
 
@@ -48,6 +48,6 @@ def clean_text_unicode(text, max_chars=None):
     text = _WHITESPACE_RE_UNICODE.sub(u" ", text).strip()
 
     if max_chars and len(text) > max_chars:
-        text = text[: max_chars - 1].rstrip() + u"..."
+        text = text[:max_chars - 1].rstrip() + u"..."
 
     return text or u""
