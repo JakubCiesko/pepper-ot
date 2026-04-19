@@ -117,6 +117,34 @@ const memoryMaxAgeSeconds = document.getElementById('memory-max-age-seconds');
 const memoryMaxObjects = document.getElementById('memory-max-objects');
 const memoryMaxRelations = document.getElementById('memory-max-relations');
 
+const fusionPersonBboxMatchThresholdPx = document.getElementById(
+  'fusion-person-bbox-match-threshold-px',
+);
+const fusionEstimatedPersonBboxBasePx = document.getElementById(
+  'fusion-estimated-person-bbox-base-px',
+);
+const fusionEstimatedPersonBboxMinPx = document.getElementById(
+  'fusion-estimated-person-bbox-min-px',
+);
+const fusionEstimatedPersonBboxMaxPx = document.getElementById(
+  'fusion-estimated-person-bbox-max-px',
+);
+const fusionAngularYawThresholdRad = document.getElementById(
+  'fusion-angular-yaw-threshold-rad',
+);
+const fusionAngularPitchThresholdRad = document.getElementById(
+  'fusion-angular-pitch-threshold-rad',
+);
+const fusionMatchedPersonMinConfidence = document.getElementById(
+  'fusion-matched-person-min-confidence',
+);
+const fusionSyntheticPersonConfidence = document.getElementById(
+  'fusion-synthetic-person-confidence',
+);
+const fusionPepperBindingMaxMisses = document.getElementById(
+  'fusion-pepper-binding-max-misses',
+);
+
 const chatSystem = document.getElementById('chat-system');
 const chatUser = document.getElementById('chat-user');
 const chatObjectSystem = document.getElementById('chat-object-system');
@@ -273,6 +301,21 @@ function parseNumberList(text) {
     .split(',')
     .map((v) => Number(v.trim()))
     .filter((v) => Number.isFinite(v) && v > 0);
+}
+
+function parseNumberValue(text, fallback) {
+  const value = Number.parseFloat(String(text || '').trim());
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function parseNonNegativeNumberValue(text, fallback) {
+  const value = parseNumberValue(text, fallback);
+  return value >= 0 ? value : fallback;
+}
+
+function parseNonNegativeIntegerValue(text, fallback) {
+  const value = Number.parseInt(String(text || '').trim(), 10);
+  return Number.isInteger(value) && value >= 0 ? value : fallback;
 }
 
 function parseJsonObject(text, fieldName) {
@@ -650,6 +693,24 @@ async function loadConfig() {
   memoryMaxObjects.value = tracking.memory_max_objects ?? 200;
   memoryMaxRelations.value = tracking.memory_max_relations ?? 500;
 
+  const fusion = active.fusion || {};
+  fusionPersonBboxMatchThresholdPx.value =
+    fusion.person_bbox_match_threshold_px ?? 10.0;
+  fusionEstimatedPersonBboxBasePx.value =
+    fusion.estimated_person_bbox_base_px ?? 80.0;
+  fusionEstimatedPersonBboxMinPx.value =
+    fusion.estimated_person_bbox_min_px ?? 40.0;
+  fusionEstimatedPersonBboxMaxPx.value =
+    fusion.estimated_person_bbox_max_px ?? 200.0;
+  fusionAngularYawThresholdRad.value = fusion.angular_yaw_threshold_rad ?? 0.2;
+  fusionAngularPitchThresholdRad.value =
+    fusion.angular_pitch_threshold_rad ?? 0.15;
+  fusionMatchedPersonMinConfidence.value =
+    fusion.matched_person_min_confidence ?? 0.85;
+  fusionSyntheticPersonConfidence.value =
+    fusion.synthetic_person_confidence ?? 0.65;
+  fusionPepperBindingMaxMisses.value = fusion.pepper_binding_max_misses ?? 4;
+
   updateStructuredCapabilityHint(
     vlmProvider,
     vlmStructuredMode,
@@ -810,6 +871,44 @@ function buildPatch() {
         target_size: parseTargetSize(memoryFeatTargetSize.value),
         resampling_method: memoryFeatResampling.value.trim() || null,
       },
+    },
+    fusion: {
+      person_bbox_match_threshold_px: parseNonNegativeNumberValue(
+        fusionPersonBboxMatchThresholdPx.value,
+        10.0,
+      ),
+      estimated_person_bbox_base_px: parseNonNegativeNumberValue(
+        fusionEstimatedPersonBboxBasePx.value,
+        80.0,
+      ),
+      estimated_person_bbox_min_px: parseNonNegativeNumberValue(
+        fusionEstimatedPersonBboxMinPx.value,
+        40.0,
+      ),
+      estimated_person_bbox_max_px: parseNonNegativeNumberValue(
+        fusionEstimatedPersonBboxMaxPx.value,
+        200.0,
+      ),
+      angular_yaw_threshold_rad: parseNonNegativeNumberValue(
+        fusionAngularYawThresholdRad.value,
+        0.2,
+      ),
+      angular_pitch_threshold_rad: parseNonNegativeNumberValue(
+        fusionAngularPitchThresholdRad.value,
+        0.15,
+      ),
+      matched_person_min_confidence: parseNonNegativeNumberValue(
+        fusionMatchedPersonMinConfidence.value,
+        0.85,
+      ),
+      synthetic_person_confidence: parseNonNegativeNumberValue(
+        fusionSyntheticPersonConfidence.value,
+        0.65,
+      ),
+      pepper_binding_max_misses: parseNonNegativeIntegerValue(
+        fusionPepperBindingMaxMisses.value,
+        4,
+      ),
     },
     scene_graph: {
       vlm: {

@@ -9,6 +9,7 @@ class SpeechAdapter(object):
     LANGUAGE_MAP = {
         "en": "English",
         "cs": "Czech",
+        "auto": "auto"
     }
 
     def __init__(self, services, logger):
@@ -64,6 +65,8 @@ class SpeechAdapter(object):
             return
         lang_code = speech_policy.language_code(lang_code)
         target = self.LANGUAGE_MAP.get(lang_code)
+        if lang_code == "auto":
+            target = self.tts.getLanguage()
         if not target or target == self._last_tts_language:
             return
         try:

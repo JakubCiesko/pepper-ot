@@ -64,12 +64,12 @@ DEFAULT_CONFIG = {
         "expression_labels": ["neutral", "happy", "surprised", "angry", "sad"],
     },
     "language": {
-        "default_dialog_language": "en",
+        "default_dialog_language": "auto",
         "output_language_mode": "default",
     },
     "dialog": {
         "enable_dynamic_memory_concepts": True,
-        "language_code": "enu",
+        "language_code": "auto",
         "memory_objects_max": 100,
         "memory_attributes_max": 100,
         "memory_relations_max": 100,
@@ -98,7 +98,7 @@ DEFAULT_CONFIG = {
     },
 }
 
-VALID_OUTPUT_LANGUAGES = ("default", "english", "czech")
+VALID_OUTPUT_LANGUAGES = ("default", "english", "czech", "auto")
 
 
 def _deep_merge(base, override):

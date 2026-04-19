@@ -160,6 +160,8 @@ def language_code(value, default="en"):
     lang = str(value or default).strip().lower()
     if lang.startswith("cs"):
         return "cs"
+    if lang.startswith("auto"):
+        return "auto"
     return "en"
 
 

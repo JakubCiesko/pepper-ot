@@ -11,6 +11,7 @@ class DialogAdapter(object):
         "cs": "czc",
         "czc": "czc",
         "czech": "czc",
+        "auto": "auto"
     }
 
     def __init__(self, services, config, logger):
@@ -28,7 +29,7 @@ class DialogAdapter(object):
         value = (
             preferred
             or lang_code
-            or self.config.get("language", {}).get("default_dialog_language", "en")
+            or self.config.get("language", {}).get("default_dialog_language", "auto")
         )
         return self.LANGUAGE_ALIASES.get(str(value).strip().lower(), "enu")
 

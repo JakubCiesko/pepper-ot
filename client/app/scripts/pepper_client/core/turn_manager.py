@@ -93,9 +93,9 @@ class TurnManager(object):
             lang_code,
         )
 
-    def refresh_memory_concepts(self):
+    def refresh_memory_concepts(self, lang_code=None):
         try:
-            self._refresh_dynamic_concepts_from_server()
+            self._refresh_dynamic_concepts_from_server(lang_code)
             return True
         except Exception as exc:
             self.logger.warning("Failed to refresh memory concepts: %s", exc)
@@ -485,7 +485,7 @@ class TurnManager(object):
     def _speech_lang(self, requested_lang):
         return speech_policy.language_code(
             requested_lang,
-            self.config["language"].get("default_dialog_language", "en"),
+            self.config["language"].get("default_dialog_language", "auto"),
         )
 
     def _scan_summary_query(self, lang_code):

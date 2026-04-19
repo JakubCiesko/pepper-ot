@@ -113,6 +113,139 @@
 
     <div class="mt-6 border-t panel-border pt-6">
       <h4 class="text-md uppercase tracking-widest panel-muted mb-3">
+        Robot Fusion
+      </h4>
+      <p class="text-md panel-muted mb-4">
+        Parameters used when the server combines Pepper robot people metadata
+        with vision detections.
+      </p>
+
+      <label class="block text-md">Person BBox Match Threshold (px)</label>
+      <input
+        id="fusion-person-bbox-match-threshold-px"
+        type="number"
+        min="0"
+        step="1"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="10"
+      />
+      <p class="text-md panel-muted mt-1">
+        Maximum pixel mismatch allowed between Pepper's projected person
+        location and a server detection.
+      </p>
+
+      <label class="block text-xlg mt-3">Estimated Person BBox Base (px)</label>
+      <input
+        id="fusion-estimated-person-bbox-base-px"
+        type="number"
+        min="0"
+        step="1"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="80"
+      />
+      <p class="text-md panel-muted mt-1">
+        Base size used when estimating a synthetic Pepper-person box in image
+        space.
+      </p>
+
+      <label class="block text-xlg mt-3">Estimated Person BBox Min (px)</label>
+      <input
+        id="fusion-estimated-person-bbox-min-px"
+        type="number"
+        min="0"
+        step="1"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="40"
+      />
+      <p class="text-md panel-muted mt-1">
+        Lower clamp for the synthetic Pepper-person box size.
+      </p>
+
+      <label class="block text-xlg mt-3">Estimated Person BBox Max (px)</label>
+      <input
+        id="fusion-estimated-person-bbox-max-px"
+        type="number"
+        min="0"
+        step="1"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="200"
+      />
+      <p class="text-md panel-muted mt-1">
+        Upper clamp for the synthetic Pepper-person box size.
+      </p>
+
+      <label class="block text-xlg mt-3">Angular Yaw Threshold (rad)</label>
+      <input
+        id="fusion-angular-yaw-threshold-rad"
+        type="number"
+        min="0"
+        step="0.01"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="0.20"
+      />
+      <p class="text-md panel-muted mt-1">
+        Allowed yaw error when matching a Pepper person to a detection.
+      </p>
+
+      <label class="block text-xlg mt-3">Angular Pitch Threshold (rad)</label>
+      <input
+        id="fusion-angular-pitch-threshold-rad"
+        type="number"
+        min="0"
+        step="0.01"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="0.15"
+      />
+      <p class="text-md panel-muted mt-1">
+        Allowed pitch error when matching a Pepper person to a detection.
+      </p>
+
+      <label class="block text-xlg mt-3">Matched Person Min Confidence</label>
+      <input
+        id="fusion-matched-person-min-confidence"
+        type="number"
+        min="0"
+        max="1"
+        step="0.01"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="0.85"
+      />
+      <p class="text-md panel-muted mt-1">
+        Minimum confidence floor applied to a matched detection after fusion.
+      </p>
+
+      <label class="block text-xlg mt-3">Synthetic Person Confidence</label>
+      <input
+        id="fusion-synthetic-person-confidence"
+        type="number"
+        min="0"
+        max="1"
+        step="0.01"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="0.65"
+      />
+      <p class="text-md panel-muted mt-1">
+        Confidence assigned to a generated Pepper-person detection when no
+        server detection matches.
+      </p>
+
+      <label class="block text-xlg mt-3">Pepper Binding Max Misses</label>
+      <input
+        id="fusion-pepper-binding-max-misses"
+        type="number"
+        min="0"
+        step="1"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="4"
+      />
+      <p class="text-md panel-muted mt-1">
+        Number of consecutive missing robot observations before a Pepper
+        binding is dropped.
+      </p>
+    </div>
+
+    <div class="mt-6 border-t panel-border pt-6">
+      <h4 class="text-md uppercase tracking-widest panel-muted mb-3">
         Memory Limits
       </h4>
       <label class="block text-md">Max Age (seconds)</label>

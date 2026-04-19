@@ -271,7 +271,7 @@ class PepperServerTransport(object):
         except ValueError:
             self.logger.warning("Invalid JSON response body: %s", response.text)
             raise MalformedResponseError("Response was not valid JSON")
-        self.logger.info("HTTP response payload: %s", logging.safe_json(data))
+        self.logger.info("HTTP response payload: %s", logging.safe_json(data)[:240])
         return data
 
     def _bool_str(self, value):

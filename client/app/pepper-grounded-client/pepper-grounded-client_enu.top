@@ -223,7 +223,7 @@ u:(~show_memory_graph)
     ^pCall(PepperGroundedClient.showMemory("en"))
     u1:(["[refresh update reload] [concepts memory graph]"])
         Okay I will refresh my memory.
-        ^pCall(PepperGroundedClient.refreshMemoryConcepts())
+        ^pCall(PepperGroundedClient.refreshMemoryConcepts("en"))
 
 
 concept:(reset_memory_only) [
@@ -298,7 +298,7 @@ concept:(refresh_memory_concepts) [
 u:(~refresh_memory_concepts)
     ^runTag(explain)
     I will refresh my memory representation.
-    ^pCall(PepperGroundedClient.refreshMemoryConcepts())
+    ^pCall(PepperGroundedClient.refreshMemoryConcepts("en"))
 
 
 # dynamic concept conversation 

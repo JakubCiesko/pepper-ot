@@ -12,6 +12,7 @@ import qi
 import random 
 
 from pepper_client.utils import config as client_config
+from pepper_client.utils import text as text_utils
 from pepper_client.interaction import speech_policy
 from pepper_client.perception.camera_adapter import CameraAdapter, FakeCameraAdapter
 from pepper_client.perception.face_adapter import FaceAdapter
@@ -161,7 +162,7 @@ class PepperGroundedClient(object):
             except Exception as exc:
                 self.logger.info("Server conversation reset failed for %s: %s", chat_id, exc)
         reset_lang = speech_policy.language_code(
-            self.config["language"].get("default_dialog_language", "en")
+            self.config["language"].get("default_dialog_language", "auto")
         )
         self.speech_adapter.say(
             speech_policy.acknowledgement("reset", reset_lang),
@@ -217,6 +218,7 @@ class PepperGroundedClient(object):
         dynamic_concept = getter()
         if not dynamic_concept:
             return error_output if not return_concept_only else dynamic_concept
+        
         if return_concept_only:
             return dynamic_concept
         # all are lists but just to be sure 
@@ -227,8 +229,11 @@ class PepperGroundedClient(object):
             sample = random.sample(dynamic_concept, min(sample_size, len(dynamic_concept)))
         else:
             sample = dynamic_concept
+        
         prefix = self.prefix_for_listing(lang_code, False)
-        return prefix + ", ".join([s.replace("_", " ") for s in sample])
+        prefix = text_utils.clean_text_unicode(prefix) + u" "
+        sample = [text_utils.clean_text_unicode(s) for s in sample]
+        return prefix + u", ".join([s.replace(u"_", u" ") for s in sample])
         
     # TODO: make the 10 tunable
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
@@ -276,10 +281,10 @@ class PepperGroundedClient(object):
         self.logger.info("resetMemory called lang_code=%s", lang_code)
         self.turn_manager.start_reset_memory(lang_code)
 
-    @qi.bind(returnType=qi.Void, paramsType=[])
-    def refreshMemoryConcepts(self):
+    @qi.bind(returnType=qi.Void, paramsType=[qi.String])
+    def refreshMemoryConcepts(self, lang_code=None):
         self.logger.info("refreshMemoryConcepts called")
-        self.turn_manager.refresh_memory_concepts()
+        self.turn_manager.refresh_memory_concepts(lang_code=lang_code)
 
     @qi.bind(returnType=qi.String, paramsType=[qi.String])
     def setOutputLanguage(self, mode):
@@ -310,7 +315,8 @@ class PepperGroundedClient(object):
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def say(self, text):
-        self.logger.info("say called text=%s", text)
+        text = text_utils.clean_text_unicode(text)
+        self.logger.info("say called text=%s", text.encode("utf-8"))
         self.speech_adapter.say(text)
 
     @qi.bind(returnType=qi.String, paramsType=[])
