@@ -5,7 +5,6 @@ import requests
 from pepper_client.utils import logging
 from pepper_client.utils import text as text_utils
 from pepper_client.interaction import speech_policy
-from pepper_client.utils.error_policy import ConfigUpdateError
 from pepper_client.utils.error_policy import MalformedResponseError
 from pepper_client.utils.error_policy import ServerTimeoutError
 from pepper_client.utils.error_policy import ServerUnavailableError
@@ -141,7 +140,7 @@ class PepperServerTransport(object):
             mode="object",
             object_label=object_label,
         )
-
+    #TODO: is this properly used? the language
     def memory_summary(self, render_limit=5, language=None):
         path = self.config["server"].get(
             "memory_summary_path", "/api/v1/memory/summary"
@@ -150,6 +149,8 @@ class PepperServerTransport(object):
         path = "%s%srender_limit=%s" % (path, separator, int(render_limit))
         if language:
             lang = speech_policy.language_code(language)
+            if lang == "auto":
+                lang = "en"
             path = "%s&lang=%s" % (path, lang)
         data = self._request(
             method="get",
@@ -202,17 +203,6 @@ class PepperServerTransport(object):
         return self._post_json(
             path, {}, self.config["server"].get("config_timeout_seconds", 10)
         )
-
-    def patch_output_language(self, mode):
-        payload = {"system": {"output_language": mode}}
-        data = self._patch_json(
-            self.config["server"]["config_patch_path"],
-            payload,
-            self.config["server"].get("config_timeout_seconds", 10),
-        )
-        if not isinstance(data, dict) or not data.get("ok"):
-            raise ConfigUpdateError("Output language patch failed")
-        return data
 
     def _post_multipart(self, path, image_bytes, form_data, timeout_seconds):
         files = {"file": ("capture.jpg", image_bytes, "image/jpeg")}

@@ -6,18 +6,12 @@ from pepper_client.utils import text as text_utils
 
 
 class SpeechAdapter(object):
-    LANGUAGE_MAP = {
-        "en": "English",
-        "cs": "Czech",
-        "auto": "auto"
-    }
-
-    def __init__(self, services, logger):
+    def __init__(self, services, config, logger):
         self.tts = services.ALTextToSpeech
         self.animated = services.ALAnimatedSpeech
+        self.config = config
         self.logger = logger
         self._lock = threading.RLock()
-        self._last_tts_language = None
 
     def say(self, text, lang_code=None):
         text = text_utils.clean_text(text)
@@ -63,11 +57,14 @@ class SpeechAdapter(object):
     def _apply_language(self, lang_code):
         if self.tts is None:
             return
-        lang_code = speech_policy.language_code(lang_code)
-        target = self.LANGUAGE_MAP.get(lang_code)
-        if lang_code == "auto":
-            target = self.tts.getLanguage()
-        if not target or target == self._last_tts_language:
+        mode, _ = speech_policy.resolve_language_state(
+            self.config,
+            requested=lang_code,
+            tts=self.tts,
+            logger=self.logger,
+        )
+        target = speech_policy.tts_language_for_mode(mode)
+        if mode == "auto" or not target:
             return
         try:
             available = self.tts.getAvailableLanguages()
@@ -77,8 +74,13 @@ class SpeechAdapter(object):
             self.logger.info("TTS language %s not available", target)
             return
         try:
+            current = self.tts.getLanguage()
+        except Exception:
+            current = None
+        if current == target:
+            return
+        try:
             self.tts.setLanguage(target)
-            self._last_tts_language = target
             self.logger.info("TTS language set to %s", target)
         except Exception as exc:
             self.logger.info("Failed to set TTS language to %s: %s", target, exc)

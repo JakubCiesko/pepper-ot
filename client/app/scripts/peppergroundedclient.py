@@ -48,9 +48,6 @@ class PepperGroundedClient(object):
         self.logger.info("Loaded client config from %s", self.config_path)
 
         self.session_store = SessionStore(self.logger)
-        self.session_store.set_output_language_mode(
-            self.config["language"].get("output_language_mode", "default")
-        )
         self.session_store.set_server_base_url(self.config["server"].get("base_url"))
 
         self.transport = PepperServerTransport(self.config, self.logger)
@@ -66,7 +63,7 @@ class PepperGroundedClient(object):
             self.face_adapter,
         )
         self.sonar_adapter = SonarAdapter(self.services, self.config, self.logger)
-        self.speech_adapter = SpeechAdapter(self.services, self.logger)
+        self.speech_adapter = SpeechAdapter(self.services, self.config, self.logger)
         self.tablet_adapter = None
         self._initialize_tablet_adapter()
         self.dialog_adapter = DialogAdapter(self.services, self.config, self.logger)
@@ -115,9 +112,9 @@ class PepperGroundedClient(object):
     @qi.nobind
     def on_start(self):
         self.logger.info(
-            "PepperGroundedClient starting with server=%s output_language=%s",
+            "PepperGroundedClient starting with server=%s dialog_language=%s",
             self.config["server"].get("base_url"),
-            self.config["language"].get("output_language_mode"),
+            self.config.get("dialog", {}).get("language"),
         )
         self.face_adapter.start()
         self.robot_context.start()
@@ -130,6 +127,15 @@ class PepperGroundedClient(object):
         self.turn_manager.shutdown()
         self.robot_context.stop()
         self.face_adapter.stop()
+
+    @qi.nobind
+    def _runtime_language(self, requested_lang=None):
+        return speech_policy.resolve_language_state(
+            self.config,
+            requested=requested_lang,
+            tts=self.speech_adapter.tts,
+            logger=self.logger,
+        )[1]
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def look(self, lang_code):
@@ -161,12 +167,14 @@ class PepperGroundedClient(object):
                 self.transport.reset_conversation(chat_id)
             except Exception as exc:
                 self.logger.info("Server conversation reset failed for %s: %s", chat_id, exc)
-        reset_lang = speech_policy.language_code(
-            self.config["language"].get("default_dialog_language", "auto")
-        )
+        reset_lang = speech_policy.resolve_language_state(
+            self.config,
+            tts=self.speech_adapter.tts,
+            logger=self.logger,
+        )[1]
         self.speech_adapter.say(
             speech_policy.acknowledgement("reset", reset_lang),
-            #reset_lang, dont change lang!
+            self.config.get("dialog", {}).get("language", "auto"),
         )
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String, qi.String])
@@ -193,6 +201,7 @@ class PepperGroundedClient(object):
 
     @qi.nobind
     def prefix_for_listing(self, lang_code, empty):
+        lang_code = self._runtime_language(lang_code)
         if empty: 
             if lang_code == "cs":
                 return "Je mi to líto ale nic nevidím" 
@@ -252,6 +261,7 @@ class PepperGroundedClient(object):
     def listCachedQuestions(self, lang_code):
         questions = self.listDynamicConcept(lang_code, "cached_questions", 1, return_concept_only=True)
         questions = random.sample(questions, min(len(questions), 1))
+        lang_code = self._runtime_language(lang_code)
         if questions: 
             if lang_code == "cs":
                 text = "Mužeš se zeptat třeba tohle: %s" % questions[0]
@@ -286,13 +296,16 @@ class PepperGroundedClient(object):
         self.logger.info("refreshMemoryConcepts called")
         self.turn_manager.refresh_memory_concepts(lang_code=lang_code)
 
+    #TODO: this should not be used anywhere really lots of binded functions are useless now
     @qi.bind(returnType=qi.String, paramsType=[qi.String])
-    def setOutputLanguage(self, mode):
-        normalized = client_config.normalize_output_language(mode)
-        self.logger.info("setOutputLanguage called mode=%s normalized=%s", mode, normalized)
-        self.transport.patch_output_language(normalized)
-        self.session_store.set_output_language_mode(normalized)
-        self.config["language"]["output_language_mode"] = normalized
+    def setDialogLanguage(self, mode):
+        normalized = speech_policy.normalize_dialog_language(mode)
+        self.logger.info(
+            "setDialogLanguage called mode=%s normalized=%s",
+            mode,
+            normalized,
+        )
+        self.config.setdefault("dialog", {})["language"] = normalized
         client_config.save_config(self.config, self.logger)
         return normalized
 
@@ -332,7 +345,7 @@ class PepperGroundedClient(object):
     def getStatusObject(self):
         status = self.turn_manager.status()
         status["server_base_url"] = self.config["server"].get("base_url")
-        status["output_language_mode"] = self.config["language"].get("output_language_mode")
+        status["dialog_language"] = self.config.get("dialog", {}).get("language")
         return status
 
     @qi.nobind
@@ -341,9 +354,6 @@ class PepperGroundedClient(object):
         self.face_adapter.stop()
         self.config.clear()
         self.config.update(loaded)
-        self.session_store.set_output_language_mode(
-            self.config["language"].get("output_language_mode", "default")
-        )
         self.session_store.set_server_base_url(self.config["server"].get("base_url"))
         self.transport.update_config(self.config)
         self.dialog_adapter.update_config(self.config)

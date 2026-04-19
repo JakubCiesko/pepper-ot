@@ -158,11 +158,79 @@ _GENERIC = {
 
 def language_code(value, default="en"):
     lang = str(value or default).strip().lower()
-    if lang.startswith("cs"):
+    if lang.startswith("cs") or lang.startswith("cz") or lang.startswith("czech"):
         return "cs"
     if lang.startswith("auto"):
         return "auto"
+    if lang.startswith("en") or lang.startswith("english"):
+        return "en"
     return "en"
+
+
+def normalize_dialog_language(value, default="auto"):
+    lang = str(value or default).strip().lower()
+    if lang.startswith("auto"):
+        return "auto"
+    if lang.startswith("cs") or lang.startswith("cz") or lang.startswith("czech"):
+        return "czech"
+    if lang.startswith("en") or lang.startswith("eng") or lang.startswith("english"):
+        return "english"
+    return "auto"
+
+
+def tts_language_to_runtime(tts_language, logger=None):
+    lang = str(tts_language or "").strip().lower()
+    if lang.startswith("english") or lang.startswith("en"):
+        return "en"
+    if lang.startswith("czech") or lang.startswith("cs") or lang.startswith("cz"):
+        return "cs"
+    if logger is not None:
+        logger.warning("Unexpected TTS language %s, falling back to English", tts_language)
+    return "en"
+
+
+def current_tts_runtime_language(tts, logger=None):
+    if tts is None:
+        if logger is not None:
+            logger.warning("No TTS service available, falling back to English")
+        return "en"
+    try:
+        language = tts.getLanguage()
+    except Exception as exc:
+        if logger is not None:
+            logger.warning("Failed to read TTS language, falling back to English: %s", exc)
+        return "en"
+    return tts_language_to_runtime(language, logger=logger)
+
+
+def resolve_language_state(config, requested=None, tts=None, logger=None):
+    if requested is not None:
+        mode = normalize_dialog_language(requested)
+    else:
+        dialog = (config or {}).get("dialog", {})
+        mode = normalize_dialog_language(dialog.get("language"))
+    if mode == "auto":
+        return mode, current_tts_runtime_language(tts, logger=logger)
+    if mode == "czech":
+        return mode, "cs"
+    return mode, "en"
+
+
+def dialog_language_for_runtime(language):
+    return "czc" if language_code(language) == "cs" else "enu"
+
+
+def server_language_for_runtime(language):
+    return "czech" if language_code(language) == "cs" else "english"
+
+
+def tts_language_for_mode(mode):
+    mode = normalize_dialog_language(mode)
+    if mode == "english":
+        return "English"
+    if mode == "czech":
+        return "Czech"
+    return None
 
 
 def pick_random(pick_from, kind, lang_code):
@@ -178,5 +246,4 @@ def acknowledgement(kind, lang_code):
 
 def generic_message(kind, lang_code):
     return pick_random(_GENERIC, kind, lang_code)
-
 

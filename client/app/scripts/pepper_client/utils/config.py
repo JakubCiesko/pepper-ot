@@ -2,6 +2,8 @@ import copy
 import json
 import os
 
+from pepper_client.interaction import speech_policy
+
 
 DEFAULT_CONFIG = {
     "app": {
@@ -63,13 +65,9 @@ DEFAULT_CONFIG = {
         "face_match_max_angle_rad": 0.35,
         "expression_labels": ["neutral", "happy", "surprised", "angry", "sad"],
     },
-    "language": {
-        "default_dialog_language": "auto",
-        "output_language_mode": "default",
-    },
     "dialog": {
         "enable_dynamic_memory_concepts": True,
-        "language_code": "auto",
+        "language": "auto",
         "memory_objects_max": 100,
         "memory_attributes_max": 100,
         "memory_relations_max": 100,
@@ -97,9 +95,6 @@ DEFAULT_CONFIG = {
         "fake_poll_interval_ms": 500,
     },
 }
-
-VALID_OUTPUT_LANGUAGES = ("default", "english", "czech", "auto")
-
 
 def _deep_merge(base, override):
     for key, value in override.items():
@@ -129,6 +124,7 @@ def load_config(path, logger=None):
 
 
 def normalize_config(config):
+    config.pop("language", None)
     base_url = str(config["server"].get("base_url") or "").strip()
     if base_url.endswith("/"):
         base_url = base_url[:-1]
@@ -143,7 +139,10 @@ def normalize_config(config):
     dialog["enable_dynamic_memory_concepts"] = bool(
         dialog.get("enable_dynamic_memory_concepts", True)
     )
-    dialog["language_code"] = str(dialog.get("language_code") or "enu").strip().lower()
+    dialog.pop("language_code", None)
+    dialog["language"] = speech_policy.normalize_dialog_language(
+        dialog.get("language")
+    )
     for key in (
         "memory_objects_max",
         "memory_attributes_max",
@@ -213,16 +212,7 @@ def normalize_config(config):
     if tablet["fake_poll_interval_ms"] < 100:
         tablet["fake_poll_interval_ms"] = 100
 
-    mode = normalize_output_language(config["language"].get("output_language_mode"))
-    config["language"]["output_language_mode"] = mode
     return config
-
-
-def normalize_output_language(mode):
-    normalized = str(mode or "default").strip().lower()
-    if normalized not in VALID_OUTPUT_LANGUAGES:
-        return "default"
-    return normalized
 
 
 def save_config(config, logger=None):

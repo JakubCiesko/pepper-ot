@@ -23,7 +23,6 @@ class SessionStore(object):
                 "last_response": None,
                 "last_query": None,
                 "last_detect_request_id": None,
-                "output_language_mode": "default",
                 "last_server_base_url": None,
                 "remembered_labels": [],
                 "remembered_attributes": [],
@@ -82,11 +81,6 @@ class SessionStore(object):
             self._state["chat_id"] = chat_response.get("chat_id")
             self._state["last_query"] = query
             self._state["last_response"] = chat_response
-
-    def set_output_language_mode(self, mode):
-        with self._lock:
-            self.logger.info("Setting output language mode to %s", mode)
-            self._state["output_language_mode"] = mode
 
     def set_server_base_url(self, value):
         with self._lock:
@@ -168,10 +162,6 @@ class SessionStore(object):
     def get_chat_id(self):
         with self._lock:
             return self._state.get("chat_id")
-
-    def get_output_language_mode(self):
-        with self._lock:
-            return self._state.get("output_language_mode")
 
     def needs_visual_refresh(self, ttl_seconds):
         with self._lock:

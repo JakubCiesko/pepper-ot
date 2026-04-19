@@ -1,37 +1,27 @@
+from pepper_client.interaction import speech_policy
 from pepper_client.utils import text as text_utils
 
 
 class DialogAdapter(object):
     """Thin ALDialog wrapper for runtime dynamic concept refresh."""
 
-    LANGUAGE_ALIASES = {
-        "en": "enu",
-        "enu": "enu",
-        "english": "enu",
-        "cs": "czc",
-        "czc": "czc",
-        "czech": "czc",
-        "auto": "auto"
-    }
-
     def __init__(self, services, config, logger):
         self.dialog = services.ALDialog
+        self.tts = services.ALTextToSpeech
         self.config = config
         self.logger = logger
 
     def update_config(self, config):
         self.config = config
 
-    # TODO: SEND FROM SERVER LABELS AND CZECH LABELS!!
-    # USE ROBOT LANGUAGE FROM TTS WHERE POSSIBLE! ALWAYS UPDATE THE CURRENT CONECPT. ALSO UPDATE BOTH LANGAUGES REALLY with just DIFFERENT LABLES. translations!!
     def resolve_dialog_language(self, lang_code=None):
-        preferred = self.config.get("dialog", {}).get("language_code")
-        value = (
-            preferred
-            or lang_code
-            or self.config.get("language", {}).get("default_dialog_language", "auto")
+        _, runtime_language = speech_policy.resolve_language_state(
+            self.config,
+            requested=lang_code,
+            tts=self.tts,
+            logger=self.logger,
         )
-        return self.LANGUAGE_ALIASES.get(str(value).strip().lower(), "enu")
+        return speech_policy.dialog_language_for_runtime(runtime_language)
 
     def set_dynamic_concept(self, name, values, language=None):
         if self.dialog is None:

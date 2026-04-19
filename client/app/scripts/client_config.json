@@ -36,7 +36,7 @@
   },
   "dialog": {
     "enable_dynamic_memory_concepts": true,
-    "language_code": "auto",
+    "language": "auto",
     "memory_attributes_max": 100,
     "memory_cached_questions_max": 60,
     "memory_objects_max": 100,
@@ -44,10 +44,6 @@
     "refresh_after_detect": true,
     "refresh_after_reset": true,
     "refresh_after_scan": true
-  },
-  "language": {
-    "default_dialog_language": "auto",
-    "output_language_mode": "auto"
   },
   "panorama": {
     "enabled": true,
