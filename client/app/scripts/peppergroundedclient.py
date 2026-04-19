@@ -7,31 +7,32 @@ __email__ = "jakub.ciesko@gmail.com"
 
 import json
 import os
-
-import qi
 import random
 
-from pepper_client.utils import config as client_config
-from pepper_client.utils import text as text_utils
-from pepper_client.interaction import speech_policy
-from pepper_client.perception.camera_adapter import CameraAdapter, FakeCameraAdapter
-from pepper_client.perception.face_adapter import FaceAdapter
-from pepper_client.utils.metadata_builder import MetadataBuilder
-from pepper_client.perception.people_adapter import PeopleAdapter
-from pepper_client.perception.pose_adapter import PoseAdapter
-from pepper_client.perception.robot_context import RobotContextCollector
-from pepper_client.core.session_store import SessionStore
-from pepper_client.perception.social_adapter import SocialAdapter
-from pepper_client.perception.sonar_adapter import SonarAdapter
-from pepper_client.interaction.speech_adapter import SpeechAdapter
-from pepper_client.interaction.tablet_adapter import FakeTabletAdapter
-from pepper_client.interaction.tablet_adapter import TabletAdapter
-from pepper_client.interaction.dialog_adapter import DialogAdapter
-from pepper_client.core.transport import PepperServerTransport
-from pepper_client.core.turn_manager import TurnManager
+import qi
+
 import stk.logging
 import stk.runner
 import stk.services
+from pepper_client.core.session_store import SessionStore
+from pepper_client.core.transport import PepperServerTransport
+from pepper_client.core.turn_manager import TurnManager
+from pepper_client.interaction import speech_policy
+from pepper_client.interaction.dialog_adapter import DialogAdapter
+from pepper_client.interaction.speech_adapter import SpeechAdapter
+from pepper_client.interaction.tablet_adapter import (FakeTabletAdapter,
+                                                      TabletAdapter)
+from pepper_client.perception.camera_adapter import (CameraAdapter,
+                                                     FakeCameraAdapter)
+from pepper_client.perception.face_adapter import FaceAdapter
+from pepper_client.perception.people_adapter import PeopleAdapter
+from pepper_client.perception.pose_adapter import PoseAdapter
+from pepper_client.perception.robot_context import RobotContextCollector
+from pepper_client.perception.social_adapter import SocialAdapter
+from pepper_client.perception.sonar_adapter import SonarAdapter
+from pepper_client.utils import config as client_config
+from pepper_client.utils import text as text_utils
+from pepper_client.utils.metadata_builder import MetadataBuilder
 
 
 class PepperGroundedClient(object):

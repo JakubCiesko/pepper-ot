@@ -1,8 +1,8 @@
 import threading
 
-from pepper_client.utils.error_policy import SpeechError
 from pepper_client.interaction import speech_policy
 from pepper_client.utils import text as text_utils
+from pepper_client.utils.error_policy import SpeechError
 
 
 class SpeechAdapter(object):

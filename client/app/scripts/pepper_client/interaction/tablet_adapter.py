@@ -6,11 +6,9 @@ import threading
 from pepper_client.utils import timing as time_utils
 
 try:
-    from BaseHTTPServer import BaseHTTPRequestHandler
-    from BaseHTTPServer import HTTPServer
+    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 except ImportError:
-    from http.server import BaseHTTPRequestHandler
-    from http.server import HTTPServer
+    from http.server import BaseHTTPRequestHandler, HTTPServer
 
 try:
     from urlparse import urlparse
