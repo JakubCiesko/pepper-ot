@@ -19,7 +19,7 @@ def get_logger(session, app_id):
     return logger
 
 
-
+#REMOVAL unsued
 def log_exceptions(func):
     @functools.wraps(func)
     def wrapped(self, *args, **kwargs):

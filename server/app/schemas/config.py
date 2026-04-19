@@ -107,7 +107,7 @@ class PromptSource(BaseModel):
             data = (base_dir / self.path).read_text(encoding="utf-8")
             return data.strip()
         return (self.text or "").strip()
-
+    #REMOVAL
     def strip(self):
         return self.text.strip() if self.text else ""
 

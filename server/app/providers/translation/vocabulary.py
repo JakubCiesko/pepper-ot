@@ -7,8 +7,8 @@ from typing import Iterable
 
 from app.providers.translation.google_trans import english_to_czech
 from app.schemas.config import AppConfig
-from app.schemas.scene import MemorySummary
-from app.schemas.scene import SceneGraphRelation
+# from app.schemas.scene import MemorySummary
+# from app.schemas.scene import SceneGraphRelation
 from app.schemas.scene import SceneState
 
 logger = logging.getLogger(__name__)

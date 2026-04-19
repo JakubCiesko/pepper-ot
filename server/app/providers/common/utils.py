@@ -90,7 +90,7 @@ def normalize_openai_parse_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
         out["max_output_tokens"] = out.pop("max_tokens")
     return out
 
-
+#REMOVAL
 def _expect_type(
     where: str, key: str, value: Any, allowed_types: tuple[type, ...]
 ) -> None:

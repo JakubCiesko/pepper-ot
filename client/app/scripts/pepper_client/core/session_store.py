@@ -160,7 +160,7 @@ class SessionStore(object):
     def get_memory_relations(self):
         with self._lock:
             return list(self._state.get("remembered_relations", []))
-
+    #REMOVAL never used
     def get_last_memory_summary(self):
         with self._lock:
             return copy.deepcopy(self._state.get("last_memory_summary"))

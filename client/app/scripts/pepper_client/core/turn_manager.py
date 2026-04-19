@@ -100,7 +100,7 @@ class TurnManager(object):
         except Exception as exc:
             self.logger.warning("Failed to refresh memory concepts: %s", exc)
             return False
-
+    #REMOVAL UNUSED
     def is_busy(self):
         with self._lock:
             return self._busy

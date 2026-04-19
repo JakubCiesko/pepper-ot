@@ -2,7 +2,7 @@
 
 import qi
 
-
+# REMOVAL (unused code)
 class EventHelper(object):
     def __init__(self, session=None):
         self.session = None

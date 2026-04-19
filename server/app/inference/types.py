@@ -64,7 +64,7 @@ class TrackedObject:
         self.hits += 1
         self.frames_since_seen = 0
 
-
+#REMOVAL
 class BoundingBox:
     def __init__(self, x1: float, y1: float, x2: float, y2: float):
         self.x1, self.y1, self.x2, self.y2 = x1, y1, x2, y2
@@ -87,7 +87,7 @@ class BoundingBox:
         union_area = self.area + other.area - inter_area
         return inter_area / union_area if union_area > 0 else 0
 
-
+#REMOVAL
 class InternalDetection:
     """Internal transient detection holding NumPy embeddings."""
 

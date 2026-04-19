@@ -189,7 +189,7 @@ const PIPELINE_PRESETS_FALLBACK = {
     track_memory: true,
     paint_som: true,
     scene_graph: true,
-    qa_generation: false,
+    qa_generation: true,
     update_scene_memory: true,
   },
   detect_only: {
@@ -594,7 +594,7 @@ async function loadConfig() {
     2,
   );
   reltrCheckpointPath.value = active.scene_graph?.reltr?.checkpoint_path || '';
-  reltrDevice.value = active.scene_graph?.reltr?.device || 'cpu';
+  reltrDevice.value = active.scene_graph?.reltr?.device || 'cuda';
   reltrThreshold.value = active.scene_graph?.reltr?.threshold ?? 0.3;
   reltrTopk.value = active.scene_graph?.reltr?.topk ?? 100;
   reltrIouMatchThreshold.value =

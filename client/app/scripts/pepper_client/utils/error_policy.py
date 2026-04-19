@@ -2,6 +2,7 @@
 class PepperClientError(Exception):
     pass
 
+#REMOVAL unsuds
 class BusyError(PepperClientError):
     pass
 
