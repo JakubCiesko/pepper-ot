@@ -92,7 +92,7 @@ class SceneMemoryStoreSocialMixin:
 
         if social_person.engagement_zone is not None:
             eng_zone = int(social_person.engagement_zone)
-            eng_zone_attr = cls.ENGAGEMENT_ZONE_TO_ATTRIBUTES_MAPPING[eng_zone]
+            eng_zone_attr = cls.ENGAGEMENT_ZONE_TO_ATTRIBUTES_MAPPING.get(eng_zone, "is_far")
             attrs.add(eng_zone_attr)
 
         gender = (social_person.gender or "").strip().lower()
