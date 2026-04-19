@@ -3,13 +3,40 @@ from pathlib import Path
 
 from PIL import Image
 import torch
-
+from torchvision.ops import nms
 from app.inference.detection.detectors import DetectionModelType
 from app.inference.detection.model_registry import DetectionModelRegistry
 from app.inference.types import InferenceDetectionObject
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
+#TODO: expose this in dashboard, will be relevant for open vocab and low-confidence detection
+def apply_nms(detections: list[InferenceDetectionObject], iou_threshold:float=0.5) -> list[InferenceDetectionObject]:
+    if not detections:
+        return detections 
+    boxes = torch.tensor([d.bbox for d in detections], dtype=torch.float32)
+    scores = torch.tensor([d.confidence for d in detections], dtype=torch.float32)
+
+    keep = nms(boxes, scores, iou_threshold)
+    return [detections[i] for i in keep.tolist()]
+
+def apply_nms_per_class(detections, iou_threshold=0.5):
+    grouped = defaultdict(list)
+
+    for d in detections:
+        grouped[d.class_id].append(d)
+
+    final = []
+
+    for cls, dets in grouped.items():
+        boxes = torch.tensor([d.bbox for d in dets], dtype=torch.float32)
+        scores = torch.tensor([d.confidence for d in dets], dtype=torch.float32)
+
+        keep = nms(boxes, scores, iou_threshold)
+        final.extend([dets[i] for i in keep.tolist()])
+
+    return final
 
 class DetectionService:
     """
@@ -49,6 +76,7 @@ class DetectionService:
         )
         self._ontology = ontology
         self._threshold = threshold
+        self._nms_iou_threshold = 0.5 #TODO: tunable
         self._device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         logger.info("Loading Detection Model: %s on %s", self.model_path, self.device)
         self.model = DetectionModelRegistry.load_detector(
@@ -115,6 +143,9 @@ class DetectionService:
     def detect_batch(
         self, images: list[Image.Image]
     ) -> list[list[InferenceDetectionObject]]:
+        # if use_apply_nms:
+        #     detections = apply_nms(detections, self._nms_iou_threshold)
+ 
         return self.model.predict_batch(images)
 
     def __call__(
