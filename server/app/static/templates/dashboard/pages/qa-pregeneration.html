@@ -1,0 +1,76 @@
+<section id="page-qa-pregeneration" class="page-panel mt-8 hidden">
+  <div class="panel border rounded-xl p-5">
+    <h3 class="text-md uppercase tracking-widest panel-muted mb-4">
+      QA Pregeneration
+    </h3>
+    <p class="text-md panel-muted mb-4">
+      Read and edit bilingual scene Q/A pool entries used by robot shortcuts.
+      Each item should include <code>question_en</code>, <code>answer_en</code>,
+      <code>question_cs</code>, and <code>answer_cs</code>.
+    </p>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
+      <label class="block">
+        <span class="text-md panel-muted">Auto pairs per frame</span>
+        <input
+          id="qa-pairs-per-update"
+          type="number"
+          min="1"
+          max="10"
+          step="1"
+          class="w-full border rounded px-3 py-2 mt-1"
+        />
+      </label>
+      <label class="block">
+        <span class="text-md panel-muted">Pool max entries</span>
+        <input
+          id="qa-pool-max-entries"
+          type="number"
+          min="1"
+          max="5000"
+          step="1"
+          class="w-full border rounded px-3 py-2 mt-1"
+        />
+      </label>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 mb-3">
+      <button
+        id="qa-pool-refresh"
+        class="px-3 py-2 text-md rounded border panel-border panel-alt"
+        type="button"
+      >
+        Refresh Pool
+      </button>
+      <button
+        id="qa-pool-save"
+        class="px-3 py-2 text-md rounded btn-primary font-semibold"
+        type="button"
+      >
+        Save Pool
+      </button>
+      <button
+        id="qa-pool-reset-editor"
+        class="px-3 py-2 text-md rounded border panel-border panel-alt"
+        type="button"
+      >
+        Reset Editor
+      </button>
+      <button
+        id="qa-pool-force-generate"
+        class="px-3 py-2 text-md rounded border panel-border panel-alt"
+        type="button"
+      >
+        Force Generate If Empty
+      </button>
+    </div>
+    <p id="qa-pool-status" class="text-md panel-muted mb-3"></p>
+
+    <textarea
+      id="qa-pool-json"
+      rows="18"
+      class="w-full border rounded px-3 py-2 font-mono text-sm"
+      placeholder='[{"question_en":"...","answer_en":"...","question_cs":"...","answer_cs":"..."}]'
+    ></textarea>
+  </div>
+</section>

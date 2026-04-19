@@ -247,3 +247,4 @@ class PipelineResult:
     caption: str | None = None
     caption_provider: str | None = None
     caption_model_id: str | None = None
+    qa_pairs: list[dict[str, str]] = field(default_factory=list)

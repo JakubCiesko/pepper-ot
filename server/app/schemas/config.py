@@ -187,6 +187,11 @@ class CaptionConfig(LLMConfig):
     model_id: str = "Salesforce/blip-image-captioning-large"
 
 
+class QAGenerationConfig(BaseModel):
+    pairs_per_update: int = Field(default=2, ge=1, le=10)
+    pool_max_entries: int = Field(default=200, ge=1, le=5000)
+
+
 class VisConfig(BaseModel):
     show_bbox: bool = True
     show_mask: bool = False
@@ -275,7 +280,7 @@ class WorkerRuntimeConfig(BaseModel):
             raise ValueError("restart_backoff_seconds values must be > 0")
         return self
 
-
+# TODO: preset map is useless anymore, i think
 class PipelineControls(BaseModel):
     preset: Literal[
         "full",
@@ -291,6 +296,7 @@ class PipelineControls(BaseModel):
     track_memory: bool = True
     paint_som: bool = True
     scene_graph: bool = True
+    qa_generation: bool = False
     update_scene_memory: bool = True
 
     @staticmethod
@@ -302,6 +308,7 @@ class PipelineControls(BaseModel):
                 "track_memory": True,
                 "paint_som": True,
                 "scene_graph": True,
+                "qa_generation": True,
                 "update_scene_memory": True,
             },
             "detect_only": {
@@ -310,6 +317,7 @@ class PipelineControls(BaseModel):
                 "track_memory": False,
                 "paint_som": False,
                 "scene_graph": False,
+                "qa_generation": False,
                 "update_scene_memory": False,
             },
             "caption_only": {
@@ -318,6 +326,7 @@ class PipelineControls(BaseModel):
                 "track_memory": False,
                 "paint_som": False,
                 "scene_graph": False,
+                "qa_generation": False,
                 "update_scene_memory": False,
             },
             "vlm_only": {
@@ -326,6 +335,7 @@ class PipelineControls(BaseModel):
                 "track_memory": False,
                 "paint_som": False,
                 "scene_graph": True,
+                "qa_generation": False,
                 "update_scene_memory": False,
             },
             "rules_only": {
@@ -334,6 +344,7 @@ class PipelineControls(BaseModel):
                 "track_memory": True,
                 "paint_som": False,
                 "scene_graph": True,
+                "qa_generation": False,
                 "update_scene_memory": True,
             },
             "minimal": {
@@ -342,6 +353,7 @@ class PipelineControls(BaseModel):
                 "track_memory": False,
                 "paint_som": False,
                 "scene_graph": False,
+                "qa_generation": False,
                 "update_scene_memory": False,
             },
         }
@@ -356,6 +368,7 @@ class PipelineControls(BaseModel):
                 self.track_memory = mapped["track_memory"]
                 self.paint_som = mapped["paint_som"]
                 self.scene_graph = mapped["scene_graph"]
+                self.qa_generation = mapped["qa_generation"]
                 self.update_scene_memory = mapped["update_scene_memory"]
                 return self
 
@@ -367,6 +380,7 @@ class PipelineControls(BaseModel):
                 and self.track_memory == flags["track_memory"]
                 and self.paint_som == flags["paint_som"]
                 and self.scene_graph == flags["scene_graph"]
+                and self.qa_generation == flags["qa_generation"]
                 and self.update_scene_memory == flags["update_scene_memory"]
             ):
                 self.preset = name
@@ -380,6 +394,7 @@ class AppConfig(BaseModel):
     detection: DetectionConfig
     tracking: TrackingConfig
     scene_graph: SceneGraphConfig
+    qa_generation: QAGenerationConfig = Field(default_factory=QAGenerationConfig)
     chat: ChatConfig
     caption: CaptionConfig = Field(default_factory=CaptionConfig)
     visualization: VisConfig
@@ -399,6 +414,10 @@ class AppConfig(BaseModel):
         if controls.update_scene_memory and not controls.scene_graph:
             raise ValueError(
                 "pipeline_controls.update_scene_memory requires scene_graph=true"
+            )
+        if controls.qa_generation and not controls.scene_graph:
+            raise ValueError(
+                "pipeline_controls.qa_generation requires scene_graph=true"
             )
         if controls.update_scene_memory and not controls.track_memory:
             raise ValueError(

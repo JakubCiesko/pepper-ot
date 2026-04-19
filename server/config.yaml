@@ -122,6 +122,10 @@ chat:
   object_user_prompt:
     path: "prompts/chat_object_user.txt"
 
+qa_generation:
+  pairs_per_update: 4
+  pool_max_entries: 200
+
 visualization:
   show_bbox: true
   show_mask: false
@@ -190,4 +194,5 @@ pipeline_controls:
   track_memory: true
   paint_som: true
   scene_graph: true
+  qa_generation: true
   update_scene_memory: true

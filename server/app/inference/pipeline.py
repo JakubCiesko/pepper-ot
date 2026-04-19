@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 
 from app.inference.caption.service import CaptionInferenceService
+from app.inference.qa.service import SceneQAGenerationService
 from app.inference.scene_graph.service import SceneGraphService
 from app.inference.types import InferenceDetectionObject
 from app.inference.types import PipelineResult
@@ -30,7 +31,7 @@ async def stage_timer(step_name: str, metrics: dict[str, float]):
     metrics[step_name] = duration
     logger.info("%s took %f seconds", step_name, duration)
 
-
+#TODO: add sequential_run flag, some of the stages can be run in parallel really
 class PerceptionPipeline:
     def __init__(
         self,
@@ -39,6 +40,7 @@ class PerceptionPipeline:
         painter: Any,
         scene_graph_service: SceneGraphService,
         caption_service: CaptionInferenceService | None,
+        qa_service: SceneQAGenerationService | None,
         fusion_config,
         vis_config: VisConfig,
         pipeline_controls: PipelineControls,
@@ -48,6 +50,7 @@ class PerceptionPipeline:
         self.painter = painter
         self.scene_graph_service = scene_graph_service
         self.caption_service = caption_service
+        self.qa_service = qa_service
         self.fusion_config = fusion_config
         self.vis_config = vis_config
         self.pipeline_controls = pipeline_controls
@@ -98,6 +101,14 @@ class PerceptionPipeline:
             caption_text,
             scene_state=scene_state,
         )
+        qa_pairs = await self._run_qa_generation(
+            scene_graph=scene_graph,
+            detections=tracked_detections,
+            caption_text=caption_text,
+            controls=controls,
+            metrics=metrics,
+            executed_stages=executed_stages,
+        )
 
         await self._run_caption_memory_update(
             caption_text,
@@ -127,6 +138,7 @@ class PerceptionPipeline:
             caption=caption_text,
             caption_provider=caption_provider,
             caption_model_id=caption_model_id,
+            qa_pairs=qa_pairs,
             metrics=metrics,
             executed_stages=executed_stages,
         )
@@ -295,3 +307,37 @@ class PerceptionPipeline:
         async with stage_timer("scene_graph_memory_update_time", metrics):
             self.memory.update_scene_graph(scene_graph)
         executed_stages.append("update_scene_memory")
+
+    async def _run_qa_generation(
+        self,
+        *,
+        scene_graph: SceneGraph | None,
+        detections: list[InferenceDetectionObject],
+        caption_text: str | None,
+        controls: PipelineControls,
+        metrics: dict[str, float | str],
+        executed_stages: list[str],
+    ) -> list[dict[str, str]]:
+        if not controls.qa_generation:
+            return []
+        if self.qa_service is None:
+            logger.warning(
+                "Pipeline QA generation stage enabled but qa_service is not configured"
+            )
+            return []
+        if scene_graph is None:
+            return []
+
+        try:
+            async with stage_timer("qa_generation_time", metrics):
+                qa_pairs = await self.qa_service.generate(
+                    scene_graph=scene_graph,
+                    detections=detections,
+                    caption_text=caption_text,
+                )
+            if qa_pairs:
+                executed_stages.append("qa_generation")
+            return qa_pairs
+        except Exception as exc:
+            logger.warning("QA generation stage failed, continuing pipeline: %s", exc)
+            return []

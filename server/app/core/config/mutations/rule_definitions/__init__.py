@@ -2,6 +2,9 @@ from app.core.config.mutations.rule_definitions.caption import rules as CaptionR
 from app.core.config.mutations.rule_definitions.chat import rules as ChatRules
 from app.core.config.mutations.rule_definitions.detection import rules as DetectionRules
 from app.core.config.mutations.rule_definitions.pipeline import rules as PipelineRules
+from app.core.config.mutations.rule_definitions.qa_generation import (
+    rules as QAGenerationRules,
+)
 from app.core.config.mutations.rule_definitions.scene_graph import (
     rules as SceneGraphRules,
 )
@@ -17,6 +20,7 @@ __all__ = [
     "ChatRules",
     "DetectionRules",
     "PipelineRules",
+    "QAGenerationRules",
     "SceneGraphRules",
     "StorageRules",
     "TrackingRules",

@@ -33,6 +33,11 @@ def apply_pipeline_runtime_updates(
     pipeline.pipeline_controls = cfg.pipeline_controls
     pipeline.fusion_config = cfg.fusion
     pipeline.vis_config = cfg.visualization
+    if getattr(pipeline, "qa_service", None) is not None:
+        pipeline.qa_service.update_runtime(
+            cfg.chat,
+            pairs_per_update=cfg.qa_generation.pairs_per_update,
+        )
     if hasattr(pipeline, "memory") and pipeline.memory:
         pipeline.memory.set_limits(
             cfg.tracking.memory_max_age_seconds,

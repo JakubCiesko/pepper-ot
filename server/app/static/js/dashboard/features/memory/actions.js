@@ -130,24 +130,23 @@ export function bindMemoryCrud(dom) {
       const previousLabel = dom.memPregenerateQa.textContent;
       try {
         dom.memPregenerateQa.disabled = true;
-        dom.memPregenerateQa.textContent = 'Generating...';
-        showMemoryEditorStatus(dom, 'Pregenerating scene Q/A...');
+        dom.memPregenerateQa.textContent = 'Refreshing...';
+        showMemoryEditorStatus(dom, 'Refreshing scene Q/A...');
         const payload = await fetchPregeneratedQa();
         renderPregeneratedQa(dom, payload);
         showMemoryEditorStatus(
           dom,
-          `Pregenerated ${payload?.pregenerated_qa?.length || 0} scene Q/A pairs`,
+          `Loaded ${payload?.pregenerated_qa?.length || 0} scene Q/A pairs`,
         );
       } catch (err) {
         showMemoryEditorStatus(
           dom,
-          err.message || 'Failed to pregenerate scene Q/A',
+          err.message || 'Failed to load scene Q/A',
           false,
         );
       } finally {
         dom.memPregenerateQa.disabled = false;
-        dom.memPregenerateQa.textContent =
-          previousLabel || 'Pregenerate Scene Q/A';
+        dom.memPregenerateQa.textContent = previousLabel || 'Refresh Scene Q/A';
       }
     });
   }

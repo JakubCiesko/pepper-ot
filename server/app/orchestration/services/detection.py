@@ -118,6 +118,7 @@ class DetectService:
             "image": result.get("image_b64"),
             "objects": result.get("objects", []),
             "scene_graph": result.get("scene_graph", []),
+            "qa_pairs": result.get("qa_pairs", []),
             "caption": result.get("caption"),
             "caption_provider": result.get("caption_provider"),
             "caption_model_id": result.get("caption_model_id"),
@@ -130,6 +131,12 @@ class DetectService:
             await ws_manager.broadcast(payload)
             await self._update_and_persist(payload)
 
+        self._ingest_qa_pairs(
+            result.get("qa_pairs", []),
+            executed_stages=result.get("executed_stages", []),
+            metadata=metadata,
+        )
+
         return DetectionResponse(
             objects=payload["objects"],
             timestamp=time.time(),
@@ -138,6 +145,39 @@ class DetectService:
             caption=payload.get("caption"),
             caption_provider=payload.get("caption_provider"),
             caption_model_id=payload.get("caption_model_id"),
+        )
+
+    def _ingest_qa_pairs(
+        self, qa_pairs: Any, *, executed_stages: Any, metadata: RobotMetadata
+    ):
+        pool = self.state.qa_pool_service
+        if pool is None:
+            return
+        if not isinstance(executed_stages, list):
+            return
+        if not any(
+            stage in {"track_memory", "update_scene_memory", "update_caption_memory"}
+            for stage in executed_stages
+        ):
+            return
+        if not isinstance(qa_pairs, list):
+            return
+        pairs: list[dict[str, str]] = []
+        for item in qa_pairs:
+            if not isinstance(item, dict):
+                continue
+            question = str(item.get("question", "")).strip()
+            answer = str(item.get("answer", "")).strip()
+            if not question or not answer:
+                continue
+            pairs.append({"question": question, "answer": answer})
+        if not pairs:
+            return
+        pool.ingest_generated_pairs(
+            pairs,
+            frame_id=metadata.frame_id if metadata else None,
+            scan_id=metadata.scan_id if metadata else None,
+            source="pipeline_scene_graph",
         )
 
     async def _update_and_persist(self, payload: dict[str, Any]):

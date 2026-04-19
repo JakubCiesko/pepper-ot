@@ -70,6 +70,7 @@ class PregeneratedQARequest(BaseModel):
     input_language: str | None = None
     output_language: str | None = None
     requested_number_of_pairs: int | None = None
+    force_generation: bool = False
 
 
 class PregeneratedQAPair(BaseModel):
@@ -84,3 +85,23 @@ class PregeneratedQAPairs(BaseModel):
 class PregeneratedQAResponse(BaseModel):
     pregenerated_qa: list[PregeneratedQAPair] = Field(default_factory=list)
     metadata: dict[str, Any]
+
+#TODO: send the bare minimum for bigger throughput?
+class PregeneratedQABilingualItem(BaseModel):
+    question_en: str
+    answer_en: str
+    question_cs: str = ""
+    answer_cs: str = ""
+    created_at: float | None = None
+    frame_id: str | None = None
+    scan_id: str | None = None
+    source: str | None = None
+
+
+class PregeneratedQAPoolResponse(BaseModel):
+    items: list[PregeneratedQABilingualItem] = Field(default_factory=list)
+    metadata: dict[str, Any]
+
+
+class PregeneratedQAPoolUpdateRequest(BaseModel):
+    items: list[PregeneratedQABilingualItem] = Field(default_factory=list)

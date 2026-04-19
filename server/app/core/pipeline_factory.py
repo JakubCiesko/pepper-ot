@@ -5,6 +5,7 @@ from app.inference.detection.detectors import DetectionModelType
 from app.inference.detection.service import DetectionService
 from app.inference.memory.scene_memory import SceneMemory
 from app.inference.pipeline import PerceptionPipeline
+from app.inference.qa.service import SceneQAGenerationService
 from app.inference.scene_graph.reltr_backend import RelTRSceneGraphGenerator
 from app.inference.scene_graph.rules_backend import RuleSceneGraphGenerator
 from app.inference.scene_graph.service import SceneGraphService
@@ -79,12 +80,17 @@ def build_perception_pipeline(config: AppConfig) -> PerceptionPipeline:
         rule_backend=rule_backend,
         reltr_backend=reltr_backend,
     )
+    qa_service = SceneQAGenerationService(
+        config.chat,
+        pairs_per_update=config.qa_generation.pairs_per_update
+    )
     return PerceptionPipeline(
         detector=detector,
         memory=memory,
         painter=painter,
         scene_graph_service=scene_graph_service,
         caption_service=caption_service,
+        qa_service=qa_service,
         fusion_config=config.fusion,
         vis_config=config.visualization,
         pipeline_controls=config.pipeline_controls,

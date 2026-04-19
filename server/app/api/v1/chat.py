@@ -12,12 +12,15 @@ from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse
 from app.schemas.chat import PregeneratedQAPair
 from app.schemas.chat import PregeneratedQAPairs
+from app.schemas.chat import PregeneratedQABilingualItem
+from app.schemas.chat import PregeneratedQAPoolResponse
+from app.schemas.chat import PregeneratedQAPoolUpdateRequest
 from app.schemas.chat import PregeneratedQARequest
 from app.schemas.chat import PregeneratedQAResponse
 from fastapi import APIRouter
 from fastapi import Body
 from fastapi import HTTPException
-import asyncio 
+from fastapi import Query
 
 
 logger = logging.getLogger(__name__)
@@ -26,6 +29,82 @@ router = APIRouter()
 
 # used for long conversations for the robot when no chat id given
 DEFAULT_CONVERSATION_ID = "-1"
+
+
+def _memory_service() -> MemoryService:
+    return MemoryService(resolve_runtime_adapter(app_state))
+
+
+def _resolve_output_language(
+    request: PregeneratedQARequest | None = None,
+) -> str:
+    requested = (
+        request.output_language
+        if request is not None and request.output_language is not None
+        else (
+            request.language
+            if request is not None and request.language is not None
+            else (
+                app_state.config.system.get("output_language")
+                if app_state.config is not None
+                and isinstance(app_state.config.system, dict)
+                else "english"
+            )
+        )
+    )
+    normalized = str(requested or "english").strip().lower()
+    if normalized in {"cs", "czech"}:
+        return "czech"
+    return "english"
+
+
+def _qa_pool_required():
+    if app_state.qa_pool_service is None:
+        raise HTTPException(status_code=503, detail="QA pool is not initialized.")
+    return app_state.qa_pool_service
+
+
+async def _generate_pairs_from_memory(number_of_pairs: int) -> list[dict[str, str]]:
+    if app_state.chat_service is None:
+        raise HTTPException(status_code=503, detail="Chat Service is not initialized.")
+    memory_service = _memory_service()
+    total_memory_description = await run_memory_action(
+        lambda: memory_service.build_text_description()
+    )
+    user_prompt = (
+        f"Generate exactly {number_of_pairs} concise question-answer pairs about the current scene.\n"
+        "Return only structured data matching the schema.\n"
+        "Write every question and every answer in English.\n"
+        "Use only facts supported by the provided scene description.\n"
+        "Keep each answer short and concrete.\n\n"
+        "Scene description:\n"
+        f"{total_memory_description}"
+    )
+    structured = await app_state.chat_service.chat_structured(
+        user_prompt,
+        output_schema=PregeneratedQAPairs,
+        conversation_history=None,
+        user_prompt_override=user_prompt,
+    )
+    return [
+        {"question": item.question.strip(), "answer": item.answer.strip()}
+        for item in structured.items
+        if item.question.strip() and item.answer.strip()
+    ]
+
+
+async def _force_generate_qa_pool_if_needed(
+    *,
+    force_generation: bool,
+    number_of_pairs: int,
+) -> int:
+    pool = _qa_pool_required()
+    if not force_generation or pool.size() > 0:
+        return 0
+    generated_pairs = await _generate_pairs_from_memory(number_of_pairs)
+    if generated_pairs:
+        pool.ingest_generated_pairs(generated_pairs, source="forced_memory_snapshot")
+    return len(generated_pairs)
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -338,82 +417,39 @@ async def get_memory_pregenerated_qa(
         request,
     )
 
-    if app_state.chat_service is None:
-        raise HTTPException(status_code=503, detail="Chat Service is not initialized.")
-
-    def _service() -> MemoryService:
-        return MemoryService(resolve_runtime_adapter(app_state))
-
-    memory_service = _service()
-    total_memory_description = await run_memory_action(
-        lambda: memory_service.build_text_description()
-    )
-    logger.info(
-        "PregenerateQA: Total Memory Description requested: %s",
-        total_memory_description,
-    )
-
-    output_language = (
-        request.output_language
-        if request.output_language is not None
-        else (
-            request.language
-            if request.language is not None
-            else (
-                app_state.config.system.get("output_language")
-                if app_state.config is not None
-                and isinstance(app_state.config.system, dict)
-                else None
-            )
+    pool = _qa_pool_required()
+    output_language = _resolve_output_language(request)
+    requested_limit = request.requested_number_of_pairs
+    force_count = (
+        request.requested_number_of_pairs
+        or (
+            app_state.config.qa_generation.pairs_per_update
+            if app_state.config is not None
+            else 2
         )
     )
-
-    number_of_pairs = request.requested_number_of_pairs or 3
-    user_prompt = (
-        f"Generate exactly {number_of_pairs} concise question-answer pairs about the current scene.\n"
-        "Return only structured data matching the schema.\n"
-        f"Write every question and every answer in {output_language}.\n"
-        "Use only facts supported by the provided scene description.\n"
-        "Keep each answer short and concrete.\n\n"
-        "Scene description:\n"
-        f"{total_memory_description}"
+    generated_count = await _force_generate_qa_pool_if_needed(
+        force_generation=bool(request.force_generation),
+        number_of_pairs=max(1, int(force_count)),
     )
-    structured = await app_state.chat_service.chat_structured(
-        user_prompt,
-        output_schema=PregeneratedQAPairs,
-        conversation_history=None,
-        user_prompt_override=user_prompt,
+    snapshot = await pool.snapshot_pairs(
+        language=output_language,
+        limit=requested_limit,
     )
-    async def translate_pair(pair: PregeneratedQAPair) -> PregeneratedQAPair:
-        question, answer = pair.question, pair.answer
-        task1 = enforce_output_language(question, output_language or "english")
-        task2 = enforce_output_language(answer, output_language or "english")
-        translations = await asyncio.gather(task1, task2)
-        question = translations[0] if isinstance(translations[0], str) else translations[0][0]
-        answer = translations[1] if isinstance(translations[1], str) else translations[1][0]
-        return PregeneratedQAPair(question=question, answer=answer)
-
     pregenerated_pairs = [
-        PregeneratedQAPair(
-            question=item.question.strip(),
-            answer=item.answer.strip(),
-        )
-        for item in structured.items
-        if item.question.strip() and item.answer.strip()
+        PregeneratedQAPair(question=item["question"], answer=item["answer"])
+        for item in snapshot
     ]
-    logger.info("PregeneratedQA Pre-Translation: %s", pregenerated_pairs)
-    if output_language is not None and output_language != "default":
-        pregenerated_pairs = await asyncio.gather(*[
-            translate_pair(pair) for pair in pregenerated_pairs
-        ])
-        logger.info("PregeneratedQA Final Output After Translation %s", pregenerated_pairs)
-
     metadata: dict[str, object] = {
-        "model_id": app_state.config.chat.model_id,
-        "provider": app_state.config.chat.provider,
-        "output_language": output_language or "",
-        "requested_pair_count": number_of_pairs,
-        "generated_pair_count": len(pregenerated_pairs),
+        "source": "pool",
+        "model_id": app_state.config.chat.model_id if app_state.config else "",
+        "provider": app_state.config.chat.provider if app_state.config else "",
+        "output_language": output_language,
+        "pool_size": pool.size(),
+        "returned_count": len(pregenerated_pairs),
+        "requested_pair_count": requested_limit,
+        "force_generation": bool(request.force_generation),
+        "generated_pair_count": generated_count,
     }
     logger.info(
         "PregenerateQA: GENERATED_PAIRS=%s METADATA=%s",
@@ -423,4 +459,36 @@ async def get_memory_pregenerated_qa(
     return PregeneratedQAResponse(
         pregenerated_qa=pregenerated_pairs,
         metadata=metadata,
+    )
+
+
+@router.get("/chat/pregenerated_qa_pool", response_model=PregeneratedQAPoolResponse)
+async def get_pregenerated_qa_pool(
+    limit: int | None = Query(None, ge=1, le=5000),
+):
+    pool = _qa_pool_required()
+    items = pool.snapshot_bilingual(limit=limit)
+    payload = [PregeneratedQABilingualItem(**item) for item in items]
+    return PregeneratedQAPoolResponse(
+        items=payload,
+        metadata={
+            "pool_size": pool.size(),
+            "returned_count": len(payload),
+            "limit": limit,
+        },
+    )
+
+
+@router.put("/chat/pregenerated_qa_pool", response_model=PregeneratedQAPoolResponse)
+async def replace_pregenerated_qa_pool(payload: PregeneratedQAPoolUpdateRequest):
+    pool = _qa_pool_required()
+    serialized = [item.model_dump(mode="json") for item in payload.items]
+    pool.replace_items(serialized)
+    items = [PregeneratedQABilingualItem(**item) for item in pool.snapshot_bilingual()]
+    return PregeneratedQAPoolResponse(
+        items=items,
+        metadata={
+            "pool_size": pool.size(),
+            "returned_count": len(items),
+        },
     )

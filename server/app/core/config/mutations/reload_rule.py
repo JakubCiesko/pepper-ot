@@ -45,6 +45,12 @@ def _apply_pipeline_group(ml_state: "AppState", new: AppConfig):
         )
 
 
+def _apply_qa_group(ml_state: "AppState", new: AppConfig):
+    if ml_state.qa_pool_service is not None:
+        ml_state.qa_pool_service.set_max_entries(new.qa_generation.pool_max_entries)
+    _apply_pipeline_group(ml_state, new)
+
+
 def _apply_chat_group(ml_state: "AppState", new: AppConfig):
     if ml_state.chat_service is None:
         return

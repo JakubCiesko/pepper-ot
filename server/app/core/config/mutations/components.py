@@ -13,6 +13,7 @@ RELOAD_RULES: list[ReloadRule] = (
     + RuleDefinitions.WorkerRules
     + RuleDefinitions.TrackingRules
     + RuleDefinitions.ChatRules
+    + RuleDefinitions.QAGenerationRules
     + RuleDefinitions.PipelineRules
 )
 

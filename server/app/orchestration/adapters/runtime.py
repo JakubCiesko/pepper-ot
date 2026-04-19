@@ -48,6 +48,7 @@ class InProcessRuntimeAdapter:
             "image_b64": image_b64,
             "objects": objects,
             "scene_graph": result.scene_graph.as_dict() if result.scene_graph else [],
+            "qa_pairs": result.qa_pairs,
             "caption": result.caption,
             "caption_provider": result.caption_provider,
             "caption_model_id": result.caption_model_id,

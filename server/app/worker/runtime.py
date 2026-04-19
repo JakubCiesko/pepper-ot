@@ -146,6 +146,7 @@ class WorkerRuntime:
                 "image_b64": image_out,
                 "objects": objects,
                 "scene_graph": scene_graph,
+                "qa_pairs": result.qa_pairs,
                 "caption": result.caption,
                 "caption_provider": result.caption_provider,
                 "caption_model_id": result.caption_model_id,

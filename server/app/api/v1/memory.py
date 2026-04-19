@@ -11,6 +11,7 @@ from app.orchestration.services.memory import MemoryService
 from app.schemas.scene import MemorySummary
 from app.schemas.scene import SceneState
 from fastapi import APIRouter
+from fastapi import HTTPException
 from fastapi import Query
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,56 @@ router = APIRouter()
 
 def _service() -> MemoryService:
     return MemoryService(resolve_runtime_adapter(app_state))
+
+
+def _normalize_output_language(value: str | None) -> str:
+    normalized = str(value or "english").strip().lower()
+    if normalized in {"cs", "czech"}:
+        return "czech"
+    return "english"
+
+
+def _qa_pool_required():
+    if app_state.qa_pool_service is None:
+        raise HTTPException(status_code=503, detail="QA pool is not initialized.")
+    return app_state.qa_pool_service
+
+
+async def _force_generate_qa_pool_if_needed(number_of_pairs: int) -> int:
+    pool = _qa_pool_required()
+    if pool.size() > 0:
+        return 0
+    if app_state.chat_service is None:
+        raise HTTPException(status_code=503, detail="Chat Service is not initialized.")
+    memory_service = _service()
+    total_memory_description = await run_memory_action(
+        lambda: memory_service.build_text_description()
+    )
+    user_prompt = (
+        f"Generate exactly {number_of_pairs} concise question-answer pairs about the current scene.\n"
+        "Return only structured data matching the schema.\n"
+        "Write every question and every answer in English.\n"
+        "Use only facts supported by the provided scene description.\n"
+        "Keep each answer short and concrete.\n\n"
+        "Scene description:\n"
+        f"{total_memory_description}"
+    )
+    from app.schemas.chat import PregeneratedQAPairs
+
+    structured = await app_state.chat_service.chat_structured(
+        user_prompt,
+        output_schema=PregeneratedQAPairs,
+        conversation_history=None,
+        user_prompt_override=user_prompt,
+    )
+    generated = [
+        {"question": item.question.strip(), "answer": item.answer.strip()}
+        for item in structured.items
+        if item.question.strip() and item.answer.strip()
+    ]
+    if generated:
+        pool.ingest_generated_pairs(generated, source="forced_memory_snapshot")
+    return len(generated)
 
 
 @router.get("/memory", response_model=SceneState)
@@ -32,6 +83,10 @@ async def get_memory():
 async def get_memory_summary(
     render_limit: int = Query(5, ge=1, le=20),
     lang: str = Query("en", pattern="^(en|english|cs|czech)$"),
+    force_generation: bool = Query(
+        False,
+        description="If true and QA pool is empty, generate QA from memory snapshot",
+    ),
 ):
     service = _service()
     logger.info(
@@ -39,9 +94,23 @@ async def get_memory_summary(
         render_limit,
         lang,
     )
-    return await run_memory_action(
+    summary = await run_memory_action(
         lambda: service.get_memory_summary(render_limit=render_limit, lang=lang)
     )
+    pool = _qa_pool_required()
+    pair_count = (
+        app_state.config.qa_generation.pairs_per_update
+        if app_state.config is not None
+        else 2
+    )
+    if force_generation:
+        await _force_generate_qa_pool_if_needed(max(1, int(pair_count)))
+    qa_lang = _normalize_output_language(lang)
+    summary.pregenerated_qa = await pool.snapshot_pairs(
+        language=qa_lang,
+        limit=None,
+    )
+    return summary
 
 
 @router.get("/memory/object/{object_id}/crop")
@@ -120,6 +189,8 @@ async def reset_memory(
         lambda: service.reset_memory(confirm),
         on_success=service.broadcast_current_state,
     )
+    if app_state.qa_pool_service is not None:
+        app_state.qa_pool_service.clear()
     return {"ok": True}
 
 

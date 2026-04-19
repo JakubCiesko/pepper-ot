@@ -62,10 +62,13 @@ const pipelineDetect = document.getElementById('pipeline-detect');
 const pipelineTrackMemory = document.getElementById('pipeline-track-memory');
 const pipelinePaintSom = document.getElementById('pipeline-paint-som');
 const pipelineSceneGraph = document.getElementById('pipeline-scene-graph');
+const pipelineQaGeneration = document.getElementById('pipeline-qa-generation');
 const pipelineUpdateSceneMemory = document.getElementById(
   'pipeline-update-scene-memory',
 );
 const pipelineSummary = document.getElementById('pipeline-summary');
+const qaPairsPerUpdate = document.getElementById('qa-pairs-per-update');
+const qaPoolMaxEntries = document.getElementById('qa-pool-max-entries');
 const workerEnabled = document.getElementById('worker-enabled');
 const workerHost = document.getElementById('worker-host');
 const workerPort = document.getElementById('worker-port');
@@ -186,6 +189,7 @@ const PIPELINE_PRESETS_FALLBACK = {
     track_memory: true,
     paint_som: true,
     scene_graph: true,
+    qa_generation: false,
     update_scene_memory: true,
   },
   detect_only: {
@@ -194,6 +198,7 @@ const PIPELINE_PRESETS_FALLBACK = {
     track_memory: false,
     paint_som: false,
     scene_graph: false,
+    qa_generation: false,
     update_scene_memory: false,
   },
   caption_only: {
@@ -202,6 +207,7 @@ const PIPELINE_PRESETS_FALLBACK = {
     track_memory: false,
     paint_som: false,
     scene_graph: false,
+    qa_generation: false,
     update_scene_memory: false,
   },
   vlm_only: {
@@ -210,6 +216,7 @@ const PIPELINE_PRESETS_FALLBACK = {
     track_memory: false,
     paint_som: false,
     scene_graph: true,
+    qa_generation: false,
     update_scene_memory: false,
   },
   rules_only: {
@@ -218,6 +225,7 @@ const PIPELINE_PRESETS_FALLBACK = {
     track_memory: true,
     paint_som: false,
     scene_graph: true,
+    qa_generation: false,
     update_scene_memory: true,
   },
   minimal: {
@@ -226,6 +234,7 @@ const PIPELINE_PRESETS_FALLBACK = {
     track_memory: false,
     paint_som: false,
     scene_graph: false,
+    qa_generation: false,
     update_scene_memory: false,
   },
 };
@@ -339,6 +348,7 @@ function applyPipelinePresetSelection(selectedPreset) {
   pipelineTrackMemory.checked = !!presetValues.track_memory;
   pipelinePaintSom.checked = !!presetValues.paint_som;
   pipelineSceneGraph.checked = !!presetValues.scene_graph;
+  pipelineQaGeneration.checked = !!presetValues.qa_generation;
   pipelineUpdateSceneMemory.checked = !!presetValues.update_scene_memory;
 }
 
@@ -350,6 +360,7 @@ function derivePipelinePreset() {
     track_memory: !!pipelineTrackMemory.checked,
     paint_som: !!pipelinePaintSom.checked,
     scene_graph: !!pipelineSceneGraph.checked,
+    qa_generation: !!pipelineQaGeneration.checked,
     update_scene_memory: !!pipelineUpdateSceneMemory.checked,
   };
   const names = Object.keys(map);
@@ -361,6 +372,7 @@ function derivePipelinePreset() {
       !!cfg.track_memory === current.track_memory &&
       !!cfg.paint_som === current.paint_som &&
       !!cfg.scene_graph === current.scene_graph &&
+      !!cfg.qa_generation === current.qa_generation &&
       !!cfg.update_scene_memory === current.update_scene_memory
     ) {
       return name;
@@ -377,9 +389,13 @@ function updatePipelineControlsUi() {
   if (!pipelineSceneGraph.checked || !pipelineTrackMemory.checked) {
     pipelineUpdateSceneMemory.checked = false;
   }
+  if (!pipelineSceneGraph.checked) {
+    pipelineQaGeneration.checked = false;
+  }
 
   pipelineTrackMemory.disabled = !pipelineDetect.checked;
   pipelinePaintSom.disabled = !pipelineDetect.checked;
+  pipelineQaGeneration.disabled = !pipelineSceneGraph.checked;
   pipelineUpdateSceneMemory.disabled =
     !pipelineSceneGraph.checked || !pipelineTrackMemory.checked;
 
@@ -414,6 +430,9 @@ function updatePipelineControlsUi() {
   }
   if (!pipelinePaintSom.checked && pipelineSceneGraph.checked) {
     summary.push('Scene graph uses raw image (no SoM overlay).');
+  }
+  if (pipelineQaGeneration.checked && !pipelineSceneGraph.checked) {
+    summary.push('Invalid: QA generation requires scene_graph=true.');
   }
   pipelineSummary.textContent = summary.length
     ? summary.join(' ')
@@ -588,8 +607,12 @@ async function loadConfig() {
   pipelineTrackMemory.checked = controls.track_memory ?? true;
   pipelinePaintSom.checked = controls.paint_som ?? true;
   pipelineSceneGraph.checked = controls.scene_graph ?? true;
+  pipelineQaGeneration.checked = controls.qa_generation ?? false;
   pipelineUpdateSceneMemory.checked = controls.update_scene_memory ?? true;
   updatePipelineControlsUi();
+  const qaConfig = active.qa_generation || {};
+  qaPairsPerUpdate.value = qaConfig.pairs_per_update ?? 2;
+  qaPoolMaxEntries.value = qaConfig.pool_max_entries ?? 200;
   const worker = active.worker || {};
   workerEnabled.checked = worker.enabled ?? true;
   workerHost.value = worker.host || '127.0.0.1';
@@ -858,6 +881,10 @@ function buildPatch() {
       system_prompt: { text: captionSystem.value },
       user_prompt: { text: captionUser.value },
     },
+    qa_generation: {
+      pairs_per_update: parseInt(qaPairsPerUpdate.value, 10) || 2,
+      pool_max_entries: parseInt(qaPoolMaxEntries.value, 10) || 200,
+    },
     worker: {
       enabled: workerEnabled.checked,
       host: workerHost.value.trim() || '127.0.0.1',
@@ -885,6 +912,7 @@ function buildPatch() {
       track_memory: pipelineTrackMemory.checked,
       paint_som: pipelinePaintSom.checked,
       scene_graph: pipelineSceneGraph.checked,
+      qa_generation: pipelineQaGeneration.checked,
       update_scene_memory: pipelineUpdateSceneMemory.checked,
     },
   };
@@ -1111,6 +1139,7 @@ pipelineDetect.addEventListener('change', updatePipelineControlsUi);
 pipelineTrackMemory.addEventListener('change', updatePipelineControlsUi);
 pipelinePaintSom.addEventListener('change', updatePipelineControlsUi);
 pipelineSceneGraph.addEventListener('change', updatePipelineControlsUi);
+pipelineQaGeneration.addEventListener('change', updatePipelineControlsUi);
 pipelineUpdateSceneMemory.addEventListener('change', updatePipelineControlsUi);
 sggEnableVlm.addEventListener('change', updatePipelineControlsUi);
 sggEnableRules.addEventListener('change', updatePipelineControlsUi);

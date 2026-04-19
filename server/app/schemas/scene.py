@@ -99,4 +99,4 @@ class MemorySummary(BaseModel):
     label_counts: dict[str, int] = Field(default_factory=dict)
     scene_graph: list[SceneGraphRelation] = Field(default_factory=list)
     graph_svg: str | None = None
-    pregenerated_qa: dict[str, str] | None = None   #TODO: add this for fast robot answer or move it to another endpoint!
+    pregenerated_qa: list[dict[str, str]] | None = None

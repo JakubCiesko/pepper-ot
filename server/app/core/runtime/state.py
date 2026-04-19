@@ -13,6 +13,7 @@ from app.inference.pipeline import PerceptionPipeline
 from app.orchestration.services.caption import CaptionService
 from app.orchestration.services.chat import ChatService
 from app.orchestration.services.conversation import ConversationService
+from app.orchestration.services.qa_pool import QAPoolService
 from app.providers.translation.vocabulary import vocabulary_translator
 from app.schemas.config import AppConfig
 
@@ -27,6 +28,7 @@ class AppState:
     chat_service: ChatService | None = None
     conversation_service: ConversationService | None = None
     caption_service: CaptionService | None = None
+    qa_pool_service: QAPoolService | None = None
     initialized: bool = False
     last_state: dict | None = None
     config_version: int = 0
@@ -68,6 +70,7 @@ class AppState:
         await vocabulary_translator.warm_from_config(self.config, base_dir)
         self._initialize_chat_components(base_dir)
         self._initialize_caption_component(base_dir)
+        self._initialize_qa_pool_component()
         await self._finalize_worker_startup()
 
     def _resolve_base_dir(self) -> Path:
@@ -169,6 +172,14 @@ class AppState:
             user_prompt=caption_user_prompt,
             rebuild_client=not self.config.worker.enabled,
         )
+
+    def _initialize_qa_pool_component(self):
+        assert self.config is not None
+        max_entries = self.config.qa_generation.pool_max_entries
+        if self.qa_pool_service is None:
+            self.qa_pool_service = QAPoolService(max_entries=max_entries)
+            return
+        self.qa_pool_service.set_max_entries(max_entries)
 
     async def _finalize_worker_startup(self):
         if (

@@ -10,6 +10,7 @@ import {
   initLivePanel,
 } from './features/live/index.js';
 import { initMemoryPanel } from './features/memory/index.js';
+import { initQAPoolPanel } from './features/qa/index.js';
 import { initSceneGraphPanel } from './features/scene_graph/index.js';
 import { initUiShell } from './features/ui_shell/index.js';
 import './features/config/index.js';
@@ -30,6 +31,7 @@ function handleWsMessage(data) {
 function init() {
   initUiShell();
   initMemoryPanel();
+  initQAPoolPanel();
   initSceneGraphPanel();
   initLivePanel();
   initConversationPanel({ getActiveFrameSnapshot });
