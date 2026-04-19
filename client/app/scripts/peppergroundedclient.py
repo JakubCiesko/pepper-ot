@@ -264,15 +264,15 @@ class PepperGroundedClient(object):
         lang_code = self._runtime_language(lang_code)
         if questions: 
             if lang_code == "cs":
-                text = "Mužeš se zeptat třeba tohle: %s" % questions[0]
+                text = u"Mužeš se zeptat třeba tohle: %s" % questions[0]
             else: 
-                text = "You can ask me like this: %s" % questions[0]
+                text = u"You can ask me like this: %s" % questions[0]
         else: 
             if lang_code == "cs":
-                text = "Zeptej se cokoliv, teď nemám nic přichystané"
+                text = u"Zeptej se cokoliv, teď nemám nic přichystané"
             else: 
-                text = "You can ask anything you like. I have nothing prepared"
-        self.say(text)
+                text = u"You can ask anything you like. I have nothing prepared"
+        self.say(text_utils.clean_text_unicode(text))
         
 
 

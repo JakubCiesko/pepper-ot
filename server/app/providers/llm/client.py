@@ -114,9 +114,10 @@ class LLMClient:
         if response.parsed is None:
             raise ValueError("Structured generation returned no parsed output")
         logger.info(
-            "LLMClient Structured Generation, SYSTEM_PROMPT=[%s], USER_PROMPT=[%s], PARSED_OUTPUT=[%s]",
+            "LLMClient Structured Generation, SYSTEM_PROMPT=[%s], USER_PROMPT=[%s], RAW_OUTPUT=[%s], PARSED_OUTPUT=[%s]",
             system_prompt,
             user_prompt,
+            response.raw,
             response.parsed,
         )
         return response.parsed

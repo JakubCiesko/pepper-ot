@@ -111,7 +111,7 @@ chat:
     #temperature: 0.7
     #max_tokens: 256
   structured_output:
-    mode: "provider_native"
+    mode: "instructor"
     strict: true
   system_prompt:
     path: "prompts/chat_system.txt"

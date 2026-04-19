@@ -58,6 +58,7 @@
     "caption_timeout_seconds": 60,
     "chat_path": "/api/v1/chat",
     "chat_timeout_seconds": 60,
+    "model_facing_language": null,
     "pregenerate_qa_path": "/api/v1/chat/pregenerate_qa",
     "config_patch_path": "/api/v1/config",
     "config_timeout_seconds": 60,

@@ -16,6 +16,7 @@ DEFAULT_CONFIG = {
         "detect_path": "/api/v1/detect",
         "detect_panorama_path": "/api/v1/detect/panorama",
         "chat_path": "/api/v1/chat",
+        "model_facing_language": None,
         "pregenerate_qa_path": "/api/v1/chat/pregenerate_qa",
         "config_patch_path": "/api/v1/config",
         "memory_summary_path": "/api/v1/memory/summary",

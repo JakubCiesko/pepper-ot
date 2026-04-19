@@ -111,6 +111,9 @@ class PepperServerTransport(object):
             payload["mode"] = str(mode)
         if object_label:
             payload["object_label"] = str(object_label)
+        if self.config["server"]["model_facing_language"]:
+            self.logger.info("Will enforce model facing language %s", self.config["server"]["model_facing_language"])
+            payload["model_facing_language"] = self.config["server"]["model_facing_language"]
         data = self._post_json(
             self.config["server"]["chat_path"],
             payload,
@@ -253,7 +256,7 @@ class PepperServerTransport(object):
             self.logger.warning(
                 "Server returned status=%s body=%s",
                 response.status_code,
-                text_utils.clean_text(detail, max_chars=240),
+                text_utils.clean_text_unicode(detail, max_chars=240),
             )
             raise ServerUnavailableError("HTTP %s for %s" % (response.status_code, url))
         try:

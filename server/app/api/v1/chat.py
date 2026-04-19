@@ -106,7 +106,7 @@ async def _force_generate_qa_pool_if_needed(
         pool.ingest_generated_pairs(generated_pairs, source="forced_memory_snapshot")
     return len(generated_pairs)
 
-
+#TODO: need to invert the language so that I can have like MODEL_FACING_LANGUAGE, i have input, output language, lets havemodel_facing_language
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
@@ -159,10 +159,13 @@ async def chat_endpoint(request: ChatRequest):
         )
     )
 
+    model_facing_language = request.model_facing_language or output_language
+
+
     query_original = request.query
     query_translated, query_languages = await enforce_output_language(
         text=query_original,
-        output_language=output_language,
+        output_language=model_facing_language,
         return_languages=True,
     )
     query_language = query_languages[0]
@@ -172,7 +175,7 @@ async def chat_endpoint(request: ChatRequest):
         "text_original": query_original,
         "text_model": query_translated,
         "language_original": query_language,
-        "language_model": output_language,
+        "language_model": model_facing_language,
         "translation_applied": query_language != output_language,
     }
     logger.info(

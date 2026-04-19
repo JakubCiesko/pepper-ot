@@ -21,6 +21,8 @@ class ChatRequest(BaseModel):
     language: str | None = None
     input_language: str | None = None
     output_language: str | None = None
+    # will depracate the input out language and have this:
+    model_facing_language: str | None = None
     mode: ChatMode | None = None
     object_label: str | None = None
     max_instances: int | None = Field(default=None, ge=1)

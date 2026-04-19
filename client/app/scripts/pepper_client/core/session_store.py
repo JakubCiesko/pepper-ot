@@ -121,8 +121,8 @@ class SessionStore(object):
         for item in pairs:
             if not isinstance(item, dict):
                 continue
-            question = str(item.get("question") or "").strip()
-            answer = str(item.get("answer") or "").strip()
+            question = text_utils.clean_text_unicode(item.get("question"))
+            answer = text_utils.clean_text_unicode(item.get("answer"))
             if not question or not answer:
                 continue
             cached_questions.append(question)
