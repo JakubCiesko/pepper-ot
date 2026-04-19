@@ -152,11 +152,14 @@ async def chat_endpoint(request: ChatRequest):
         request.language
         if request.language is not None
         else (
+            request.output_language
+            if request.output_language is not None
+            else (
             app_state.config.system.get("output_language")
             if app_state.config is not None
             and isinstance(app_state.config.system, dict)
             else None
-        )
+        ))
     )
 
     model_facing_language = request.model_facing_language or output_language

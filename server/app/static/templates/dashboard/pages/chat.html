@@ -82,6 +82,31 @@
       Selects chat backend provider. <code>openai_compatible</code> routes to
       OpenAI-style API servers.
     </p>
+    <label class="block text-xlg mt-4">Structured Output Mode</label>
+    <select
+      id="chat-structured-strategy"
+      class="w-full border rounded px-3 py-2 mt-1"
+    >
+      <option value="provider_native">provider_native</option>
+      <option value="parse_output">parse_output</option>
+      <option value="instructor">instructor</option>
+    </select>
+    <p class="text-md panel-muted mt-1">
+      Strategy for structured output parsing in chat generation.
+    </p>
+    <label class="block text-xlg mt-4">Structured Output Strict</label>
+    <select
+      id="chat-structured-strict"
+      class="w-full border rounded px-3 py-2 mt-1"
+    >
+      <option value="true">true</option>
+      <option value="false">false</option>
+    </select>
+    <p class="text-md panel-muted mt-1">
+      If strict is enabled, malformed structured output is treated as an
+      error.
+    </p>
+    <p id="chat-structured-capability" class="text-md panel-muted mt-1"></p>
     <label class="block text-xlg mt-4">LLM Model ID</label>
     <input
       id="chat-model-id"

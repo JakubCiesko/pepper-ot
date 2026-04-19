@@ -151,6 +151,11 @@ const chatObjectSystem = document.getElementById('chat-object-system');
 const chatObjectUser = document.getElementById('chat-object-user');
 const chatDevice = document.getElementById('chat-device');
 const chatProvider = document.getElementById('chat-provider');
+const chatStructuredMode = document.getElementById('chat-structured-strategy');
+const chatStructuredStrict = document.getElementById('chat-structured-strict');
+const chatStructuredCapability = document.getElementById(
+  'chat-structured-capability',
+);
 const chatModelId = document.getElementById('chat-model-id');
 const chatBaseUrl = document.getElementById('chat-base-url');
 const chatApiKeyEnv = document.getElementById('chat-api-key-env');
@@ -578,6 +583,11 @@ async function loadConfig() {
   chatObjectUser.value = resolvedChat.resolved_object_user_prompt || '';
   chatDevice.value = active.chat?.device || '';
   chatProvider.value = active.chat?.provider || 'openai';
+  chatStructuredMode.value =
+    active.chat?.structured_output?.mode || 'parse_output';
+  chatStructuredStrict.value = String(
+    active.chat?.structured_output?.strict ?? true,
+  );
   chatModelId.value = active.chat?.model_id || '';
   chatBaseUrl.value = active.chat?.base_url || '';
   chatApiKeyEnv.value = active.chat?.api_key_env || '';
@@ -715,6 +725,11 @@ async function loadConfig() {
     vlmProvider,
     vlmStructuredMode,
     vlmStructuredCapability,
+  );
+  updateStructuredCapabilityHint(
+    chatProvider,
+    chatStructuredMode,
+    chatStructuredCapability,
   );
   setJsonValidationStatus(
     vlmClientInitKwargs,
@@ -956,6 +971,10 @@ function buildPatch() {
       api_key_env: chatApiKeyEnv.value.trim() || null,
       client_init_kwargs: parsedChatClientInitKwargs,
       call_kwargs: parsedChatCallKwargs,
+      structured_output: {
+        mode: chatStructuredMode.value,
+        strict: chatStructuredStrict.value === 'true',
+      },
       system_prompt: { text: chatSystem.value },
       user_prompt: chatUser.value.trim() ? { text: chatUser.value } : null,
       object_system_prompt: chatObjectSystem.value.trim()
@@ -1162,6 +1181,20 @@ vlmStructuredMode.addEventListener('change', () => {
     vlmProvider,
     vlmStructuredMode,
     vlmStructuredCapability,
+  );
+});
+chatProvider.addEventListener('change', () => {
+  updateStructuredCapabilityHint(
+    chatProvider,
+    chatStructuredMode,
+    chatStructuredCapability,
+  );
+});
+chatStructuredMode.addEventListener('change', () => {
+  updateStructuredCapabilityHint(
+    chatProvider,
+    chatStructuredMode,
+    chatStructuredCapability,
   );
 });
 vlmClientInitKwargs.addEventListener('input', () =>
