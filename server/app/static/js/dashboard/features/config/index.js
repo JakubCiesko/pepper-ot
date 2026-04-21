@@ -505,10 +505,14 @@ function updatePipelineControlsUi() {
     summary.push('Scene graph uses raw image (no SoM overlay).');
   }
   if (pipelineParallelExecution.checked) {
-    summary.push('Pipeline parallelism enabled: caption and detection may overlap.');
+    summary.push(
+      'Pipeline parallelism enabled: caption and detection may overlap.',
+    );
   }
   if (sggParallelExecution.checked && pipelineSceneGraph.checked) {
-    summary.push('SGG parallelism enabled: selected graph backends may overlap.');
+    summary.push(
+      'SGG parallelism enabled: selected graph backends may overlap.',
+    );
   }
   if (pipelineQaGeneration.checked && !pipelineSceneGraph.checked) {
     summary.push('Invalid: QA generation requires scene_graph=true.');
