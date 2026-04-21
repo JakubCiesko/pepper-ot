@@ -31,7 +31,7 @@ my-llama-server.sh
 research/artifacts
 neural_motifs/
 reltr/
-thesis-source/
+#thesis-source/
 node_modules/
 .env
 .vscode/
@@ -40,3 +40,23 @@ package.json
 .codex
 client/html example
 client/vs-code-highlight-qichat
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+*.run.xml
+*.nav
+*.snm
+*.vrb
+*.bcf
+*.xdv
+*.dvi
+*.ps
+*.pdf  

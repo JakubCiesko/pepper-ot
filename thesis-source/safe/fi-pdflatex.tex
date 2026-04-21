@@ -1,0 +1,687 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% I, the copyright holder of this work, release this work into the
+%% public domain. This applies worldwide. In some countries this may
+%% not be legally possible; if so: I grant anyone the right to use
+%% this work for any purpose, without any conditions, unless such
+%% conditions are required by law.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[
+  digital,     %% The `digital` option enables the default options for the
+               %% digital version of a document. Replace with `printed`
+               %% to enable the default options for the printed version
+               %% of a document.
+%%  color,       %% Uncomment these lines (by removing the %% at the
+%%               %% beginning) to use color in the printed version of your
+%%               %% document
+  oneside,     %% The `oneside` option enables one-sided typesetting,
+               %% which is preferred if you are only going to submit a
+               %% digital version of your thesis. Replace with `twoside`
+               %% for double-sided typesetting if you are planning to
+               %% also print your thesis. For double-sided typesetting,
+               %% use at least 120 g/m² paper to prevent show-through.
+  nosansbold,  %% The `nosansbold` option prevents the use of the
+               %% sans-serif type face for bold text. Replace with
+               %% `sansbold` to use sans-serif type face for bold text.
+  nocolorbold, %% The `nocolorbold` option disables the usage of the
+               %% blue color for bold text, instead using black. Replace
+               %% with `colorbold` to use blue for bold text.
+  lof,         %% The `lof` option prints the List of Figures. Replace
+               %% with `nolof` to hide the List of Figures.
+  lot,         %% The `lot` option prints the List of Tables. Replace
+               %% with `nolot` to hide the List of Tables.
+]{fithesis4}
+%% The following section sets up the locales used in the thesis.
+\usepackage[resetfonts]{cmap} %% We need to load the T2A font encoding
+\usepackage[T1,T2A]{fontenc}  %% to use the Cyrillic fonts with Russian texts.
+\usepackage[
+  main=english, %% By using `czech` or `slovak` as the main locale
+                %% instead of `english`, you can typeset the thesis
+                %% in either Czech or Slovak, respectively.
+  english, german, czech, slovak %% The additional keys allow
+]{babel}        %% foreign texts to be typeset as follows:
+%%
+%%   \begin{otherlanguage}{german}  ... \end{otherlanguage}
+%%   \begin{otherlanguage}{czech}   ... \end{otherlanguage}
+%%   \begin{otherlanguage}{slovak}  ... \end{otherlanguage}
+%%
+%%
+%% The following section sets up the metadata of the thesis.
+\thesissetup{
+    date        = \the\year/\the\month/\the\day,
+    university  = mu,
+    faculty     = fi,
+    type        = mgr,
+    department  = Department of Machine Learning and Data Processing,
+    author      = Jakub Čieško,
+    gender      = m,
+    advisor     = {doc. RNDr. Aleš Horák, Ph.D.},
+    title       = {Scene-Aware Dialogue for the Pepper Robot Using Object Tracking and Large Language Models},
+    TeXtitle    = {Scene-Aware Dialogue for the Pepper Robot Using Object Tracking and Large Language Models},
+keywords    = {Social Robotics, Large Language Models, Vision-Language Models, Scene Graphs, Neuro-Symbolic AI, Pepper Robot, Object Tracking, RAG},
+    TeXkeywords = {Social Robotics, Large Language Models, Vision-Language Models, Scene Graphs, Neuro-Symbolic AI, Pepper Robot, Object Tracking, RAG},
+    abstract    = {%
+      The goal of the thesis is to design and implement a dialogue interface system for natural communication with the Pepper robot, based on its visual perception of its surroundings. The student will build upon an existing object detection solution and extend it with multi-frame video object tracking and the construction of a dynamic semantic scene model. The work will include detecting spatial relationships between objects (such as occlusion or relative position) and integrating these findings with the robot's internal modules (specifically ALPeoplePerception). The resulting structured representation of the environment will serve as a dynamic information source for the dialogue manager. The dialogue system will be implemented using Large Language Models (LLMs) and Retrieval-Augmented Generation (RAG) techniques, where the model uses the current scene context to conduct fluid and factually supported conversation about the objects and persons the robot sees in its surroundings.
+
+The final submission will consist of a textual part with overviews of related technologies and approaches and a detailed description of the implementation, evaluation and testing, as well as a working implementation of vision recognition and dialog with the Pepper robot about its surroundings.
+
+    },
+    thanks      = {%
+      These are the acknowledgements for my thesis...
+    },
+    bib         = bibliography.bib,
+    %% Remove the following line to use the JVS 2018 faculty logo.
+    facultyLogo = fithesis-fi,
+}
+\usepackage{makeidx}      %% The `makeidx` package contains
+\makeindex                %% helper commands for index typesetting.
+%% These additional packages are used within the document:
+\usepackage{paralist} %% Compact list environments
+\usepackage{amsmath}  %% Mathematics
+\usepackage{amsthm}
+\usepackage{amsfonts}
+\usepackage{url}      %% Hyperlinks
+\usepackage{markdown} %% Lightweight markup
+\usepackage{listings} %% Source code highlighting
+\lstset{
+  basicstyle      = \ttfamily,
+  identifierstyle = \color{black},
+  keywordstyle    = \color{blue},
+  keywordstyle    = {[2]\color{cyan}},
+  keywordstyle    = {[3]\color{olive}},
+  stringstyle     = \color{teal},
+  commentstyle    = \itshape\color{magenta},
+  breaklines      = true,
+}
+\usepackage{floatrow} %% Putting captions above tables
+\floatsetup[table]{capposition=top}
+\usepackage[babel]{csquotes} %% Context-sensitive quotation marks
+\begin{document}
+%% The \chapter* command can be used to produce unnumbered chapters:
+%%\chapter*{Introduction}
+%% Unlike \chapter, \chapter* does not update the headings and does not
+%% enter the chapter to the table of contents. I we want correct
+%% headings and a table of contents entry, we must add them manually:
+%\markright{\textsc{Introduction}}
+%\addcontentsline{toc}{chapter}{Introduction}
+\chapter{Introduction}
+
+\section{Motivation}
+\begin{itemize}
+    \item Explain why socially assistive and companion robots require grounded interaction, not only generic language generation.
+    \item Motivate Pepper as a realistic but constrained platform: attractive for HRI, but computationally limited and dependent on external processing for modern perception and multimodal reasoning.
+    \item Frame the central gap: Pepper can sense the world through NAOqi subsystems, but those signals alone do not provide a rich, persistent, dialogue-ready semantic model of the scene.
+    \item Motivate why scene-aware dialogue matters more than isolated captioning: the robot should remember objects across frames, reason about relations, and answer follow-up questions about what it currently sees.
+    \item Emphasize the practical motivation behind the client--server design, configurable multimodal providers, and hybrid symbolic plus neural reasoning.
+\end{itemize}
+
+\section{Problem Statement and Objectives}
+\begin{itemize}
+    \item State the main problem precisely: design and implement a dialogue system for Pepper that can converse about its current environment using visual perception, object tracking, scene memory, and large language models.
+    \item State the core system objectives:
+    \begin{itemize}
+        \item remote visual perception through a GPU-capable server;
+        \item persistent object identity through multi-object tracking;
+        \item semantic scene representation through object attributes and relationships;
+        \item fusion of server-side vision with Pepper-native people and social perception;
+        \item grounded dialogue over the current dynamic world state;
+        \item operator-facing configuration and monitoring support;
+        \item an evaluation pipeline for scene graph quality and system behavior.
+    \end{itemize}
+    \item Clarify that the implemented system is broader than a simple captioning pipeline: it includes robot-side capture and metadata collection, server-side orchestration, a hybrid scene graph engine, scene memory, multilingual dialogue handling, and an experiment framework.
+    \item Explicitly avoid overstating unimplemented pieces. For example, describe the current dialogue grounding as retrieval from structured scene memory and recent captions, not as a full vector-database RAG system.
+\end{itemize}
+
+\section{Research Questions}
+\begin{itemize}
+    \item RQ1: How can Pepper's limited onboard capabilities be complemented by a remote multimodal inference server without losing responsiveness and contextual grounding?
+    \item RQ2: How should object detection, persistent tracking, and scene graph generation be combined to create a dialogue-ready dynamic world model?
+    \item RQ3: What is gained by fusing robot-native people and social cues with server-side visual detections?
+    \item RQ4: How well can a hybrid scene graph strategy based on rules, VLM prompting, and optional learned relation prediction support grounded dialogue?
+    \item RQ5: How sensitive is scene graph quality to prompt design, vocabulary size, and provider/model choice?
+\end{itemize}
+
+\section{Main Contributions}
+\begin{itemize}
+    \item A modular Pepper client for image capture, robot-context collection, turn orchestration, speech output, and communication with the server.
+    \item A configurable FastAPI server with two runtime modes: in-process inference and worker-based offloading for heavier GPU workloads.
+    \item A perception pipeline that combines detection, track association, Set-of-Mark visualization, scene graph generation, captioning, and scene-memory updates.
+    \item A Pepper-specific fusion layer that binds server detections to ALPeoplePerception and social metadata, including synthetic person detections when robot-side people sensing has no matching visual box.
+    \item A grounded dialogue layer using structured scene-memory retrieval, recent captions, object-focused querying, and multilingual input/output handling.
+    \item A browser dashboard for live monitoring, memory inspection, and runtime configuration updates.
+    \item A research framework for description generation, vocabulary mining, draft scene graph generation, context-rot experiments, and graph-quality evaluation.
+\end{itemize}
+
+\section{Thesis Structure}
+\begin{itemize}
+    \item Briefly summarize what each chapter contains, following the final structure below.
+    \item Keep this section short in the final thesis, but ensure it mirrors the actual chapter order.
+\end{itemize}
+
+\chapter{Background and Related Work}
+
+\section{Social Robotics and Human-Robot Interaction}
+Social robots operate in shared human environments and are therefore judged by criteria that go beyond raw task completion. In addition to functional competence, users expect legible behavior, timely responses, awareness of nearby people and objects, and interaction that remains intelligible even when perception is imperfect. These requirements make embodiment and situatedness central design constraints rather than cosmetic additions. Recent HRI literature on large language model integration argues that LLMs raise user expectations even further: once a robot speaks fluently, users assume it also understands the physical context, social situation, and consequences of its utterances \cite{kim_understanding_2024, atuhurra_leveraging_2024}.
+
+Pepper is a particularly relevant platform in this context because it is explicitly designed for front-facing interaction, speech, and social presence rather than high-payload manipulation. That design makes it a strong candidate for scene-aware dialogue research, but it also exposes the limits of conventional scripted interaction. A robot that can speak naturally but cannot reliably refer to people, objects, or spatial relations in its immediate surroundings creates a mismatch between conversational fluency and situated understanding. This thesis addresses that mismatch by treating perception-grounded world modeling as a first-class requirement of dialogue rather than as a peripheral sensing add-on.
+
+\subsection{Grounded Interaction in HRI}
+In robotics, grounding denotes the connection between linguistic expressions and the physical entities, relations, and events to which those expressions refer. A purely text-based assistant may answer questions from prior knowledge alone, but a robot embedded in a physical environment must resolve references such as ``the person on my left,'' ``the bottle near the laptop,'' or ``the object you just showed me'' against the current scene. Grounding therefore depends on perceptual access, state maintenance, and the ability to preserve referential continuity over time.
+
+This distinction is particularly important in social HRI because dialogue unfolds under uncertainty and in the presence of changing scenes. The robot must manage deictic language, partial occlusion, and conversational references to previously observed objects while remaining responsive. Grassi et al.\ present a close system-level precedent by combining dense captioning with large language models to support visually grounded Pepper interactions \cite{grassi_grounding_2024}. Their work demonstrates that Pepper can sustain vision-based conversation when scene information is converted into textual descriptions. However, the representation remains largely caption-centric. The present thesis extends this direction toward persistent object identities, structured scene memory, explicit inter-object relations, and configurable scene graph generation, which together support more stable reference resolution and richer scene-aware dialogue.
+
+\subsection{Pepper Robot and the NAOqi Ecosystem}
+Pepper provides a mature interaction platform with integrated cameras, microphones, loudspeakers, a tablet, and a broad set of NAOqi services. The software stack is historically rooted in the NAOqi Python SDK, which in the relevant deployment line remains tied to Python 2.7 and robot-specific middleware constraints \cite{softbank_python_sdk_2026}. NAOqi also exposes speech and multimodal interaction services such as robot-native speech recognition and tablet output, both of which remain practically useful in deployed interaction pipelines \cite{softbank_alspeechrecognition_2026, softbank_peppers_tablet_2026}. These platform characteristics strongly shape the architecture of any modern Pepper system: the robot is well suited to embodied interaction, but contemporary vision and language models generally need to run off-board.
+
+This trade-off is well documented in prior Pepper vision systems. Reyes et al.\ already showed that near real-time object recognition required auxiliary hardware because Pepper's onboard computer was insufficient for contemporary deep neural inference \cite{reyes_near_2018}. More recent Pepper systems that integrate LLMs, retrieval, or modern computer vision continue to rely on split architectures in which perception and reasoning are externalized while robot-native services remain responsible for sensing access, speech, and embodied delivery \cite{brad_retrieval-augmented_2025}. The architecture implemented in this thesis follows the same general engineering pattern, but with a stronger emphasis on structured world modeling, person-aware fusion, and scene-grounded response generation.
+
+\section{Dialogue Systems for Robots}
+Classical dialogue systems typically separate natural language understanding, dialogue management, and language generation into distinct components. This modular view remains useful because it clarifies where state is maintained and how interaction policy is chosen \cite{chen_survey_2017, bocklisch_rasa_2017}. In robotics, however, dialogue management cannot be reduced to intent-slot filling alone. The system must also consider perception delays, uncertainty in speech recognition, turn-taking under embodiment, and grounding to the current physical scene. Rule-based managers offer control and predictability, but they become brittle when users move beyond predefined flows or refer to novel objects and relations.
+
+LLM-based dialogue broadens linguistic coverage and improves robustness to paraphrase, underspecification, and unanticipated questions. The cost is that fluent responses may outstrip the reliability of the underlying world model. In HRI, this is not a minor defect: users can interpret verbal confidence as situated competence, which amplifies the risks of hallucination, overclaiming, or socially inappropriate behavior \cite{kim_understanding_2024, atuhurra_leveraging_2024}. For this reason, the present thesis does not treat the LLM as a free-form conversational oracle. Instead, it positions the model as a language generation layer operating over explicit scene state, recent perception summaries, and tracked conversational history.
+
+\subsection{Conversation Memory and Context Injection}
+A useful distinction in grounded dialogue is the one between conversational memory and world-state memory. Conversational memory stores prior utterances, clarifications, and interaction goals. World-state memory stores what the robot currently believes about objects, people, attributes, and spatial relations. These two forms of memory overlap during dialogue, but they serve different roles: the first preserves discourse continuity, while the second preserves referential continuity.
+
+Retrieval-Augmented Generation provides the standard conceptual framework for enriching language model outputs with external information \cite{lewis_retrieval-augmented_2020}. More recent work on tool use and self-correction strengthens the broader point that LLM reliability improves when the model can draw on external state and feedback rather than relying exclusively on parametric memory \cite{schick_toolformer_2023, gou_critic_2023}. The system implemented in this thesis should therefore be understood as a lightweight structured-grounding pipeline rather than a full document-centric RAG system. Instead of retrieving arbitrary text passages from a large corpus, it injects structured scene memory, recent captions, and object-specific evidence into prompts. This design is more directly aligned with embodied reference resolution and with the low-latency demands of robot interaction.
+
+\subsection{Multilingual Dialogue}
+Multilingual interaction is a practical concern in social robotics because the deployment language, the robot's built-in speech capabilities, and the preferred language of external language models do not necessarily coincide. Pepper's native speech stack supports several predefined languages, but this does not remove the broader system-level challenge of keeping perception prompts, dialogue state, and robot output mutually consistent across languages \cite{softbank_alspeechrecognition_2026}. In practice, many modern systems resolve this mismatch through translation-mediated pipelines in which one language is used internally for prompt construction while user-facing input and output may be localized. This approach increases deployment flexibility, but it can also introduce semantic drift, especially for spatial relations, object names, and socially marked expressions. The multilingual layer in this thesis is therefore treated as an engineering feature built on top of grounded scene context rather than as an independent dialogue objective.
+
+\section{Visual Perception for Social Robots}
+Scene-aware dialogue requires more from perception than isolated frame-level labels. The robot must identify objects, preserve their identities across frames, maintain awareness of nearby people, and estimate relations that are useful for language generation, such as left-of, near, in-front-of, or occluding. In social robotics, these capabilities must also remain responsive enough to support turn-based interaction. A detector that is accurate but too slow, or a tracker that frequently changes identities, directly harms dialogue quality because the robot can no longer refer consistently to the scene.
+
+These requirements motivate a perception stack that balances speed, configurability, and semantic richness. The implemented system therefore combines configurable detection backends, appearance-aware identity maintenance, Pepper-native person cues, and downstream scene graph generation. This combination reflects a broader robotics trend described in recent spatial perception literature: useful robot representations emerge when metric sensing, semantic labeling, and persistent structured state are connected rather than treated as separate subsystems \cite{mascaro_scene_2025, hughes_foundations_2024}.
+
+\subsection{Object Detection}
+Object detection remains the entry point for most scene-aware pipelines. One-stage convolutional detectors such as the YOLO family are widely used in robotics because of their favorable speed-accuracy trade-off, while transformer-based detectors increasingly narrow or surpass that trade-off by removing hand-crafted post-processing and improving end-to-end reasoning. RT-DETR is particularly relevant here because it shows that detector-transformer architectures can compete in real-time settings rather than remaining restricted to offline accuracy benchmarks \cite{zhao_detrs_2024}.
+
+For a dialogue system, however, raw speed is not the only design axis. Closed-vocabulary detectors are efficient when the object categories are known in advance, but they limit the robot's ability to discuss rare or newly introduced objects. Open-vocabulary detectors address this limitation by accepting text-conditioned queries or broader label spaces. OWL-ViT is a canonical reference for open-vocabulary detection with vision transformers, while Grounding DINO further strengthens open-set grounding through language-conditioned detection \cite{minderer_simple_2022, liu_grounding_2024}. These models are particularly relevant to the thesis because they support a future-facing interpretation of scene-aware dialogue: the robot should not be limited to a single fixed object inventory when users can ask about arbitrary visible entities.
+
+\subsection{Multi-Object Tracking and Re-Identification}
+Tracking converts frame-wise detections into temporally persistent entities. For robot dialogue this is essential because conversation often refers not only to what is visible now, but also to what was visible a moment ago. If object identities are unstable, the robot cannot reliably answer follow-up questions such as ``what is next to the mug now?'' or ``is that the same person as before?'' Persistent tracking is therefore not merely a vision convenience; it is part of the referential substrate of the dialogue system.
+
+SORT established a pragmatic tracking-by-detection baseline using Kalman filtering and Hungarian assignment, demonstrating that simple online association can be highly effective when detections are strong \cite{bewley_simple_2016}. Deep SORT extends this line by adding an appearance metric, making identity maintenance more robust under occlusion and re-entry \cite{wojke_simple_2017}. ByteTrack shows a later and stronger trend in modern MOT by associating both high-score and low-score detections to improve robustness \cite{zhang_bytetrack_2022}. The implementation in this thesis is conceptually closer to Deep SORT than to a full ByteTrack reproduction: it combines appearance embeddings and geometric consistency to maintain object identities and dormant tracks, because that design directly supports stable conversational references without requiring a heavier motion-centric stack.
+
+\section{Semantic Scene Understanding}
+Scene graphs provide a compact intermediate representation in which objects, attributes, and pairwise relations are made explicit. Rather than passing the raw image or an unstructured caption directly to the dialogue model, a scene graph exposes the parts of the scene that are most useful for grounded reasoning: which entities exist, which properties they have, and how they are related. Foundational work by Johnson et al.\ helped establish scene graphs as a structured semantic representation for visual reasoning and retrieval \cite{johnson_image_2015}. Later surveys show how this representation evolved into a major paradigm for scene understanding and downstream reasoning tasks \cite{zhu_scene_2022, agarwal_visual_2020}.
+
+For robotics, the appeal of scene graphs is not only representational elegance. They provide an explicit bridge between perception and language. Attributes and relations can be inspected, validated, edited, and summarized; they can also be used to explain why the system responded in a certain way. This interpretability is especially important in a social robot that must discuss spatial relations with users while remaining configurable and debuggable by developers and operators.
+
+\subsection{Scene Graph Generation}
+Scene graph generation can be approached in several ways. Learned pipelines infer relationships directly from image features; rule-based pipelines derive relations from geometry, labels, or metadata; and recent multimodal approaches ask VLMs to produce relations from images, detections, or marked regions. The current literature increasingly treats these approaches as complementary rather than mutually exclusive \cite{zhu_scene_2022}. In the context of this thesis, that observation is important because no single method adequately covers the combined requirements of real-time performance, controllability, and semantic richness.
+
+RelTR is a useful reference for learned relation prediction because it frames scene graph generation as direct set prediction with transformer-based subject-predicate-object decoding \cite{cong_reltr_2023}. At the same time, recent prompt-based work shows that large multimodal models can be steered toward more precise grounding when object regions are explicitly marked. Set-of-Mark prompting is especially relevant here because it transforms visual regions into explicit, referable symbols inside the prompt, which aligns closely with the thesis system's marked-object prompting path \cite{yang_set-of-mark_2023}. If mask-based or marked-region prompting is discussed in more detail, Segment Anything provides useful background on the broader segmentation infrastructure that enables promptable region-centric processing \cite{kirillov_segment_2023}. Together, these works motivate the hybrid design adopted in the thesis: fast rules for stable geometry, optional learned relation modules for structured prediction, and VLM prompting for semantically richer or harder-to-code relations.
+
+\subsection{Neuro-Symbolic and Hybrid Reasoning}
+Neuro-symbolic reasoning in this thesis refers to the combination of learned perceptual components with explicit structured state and symbolic relation logic. The key idea is not to replace learned models with handcrafted rules, but to place them inside an architecture in which intermediate state remains inspectable and actionable. This perspective is well aligned with robotics research on structured spatial representations. Dynamic scene graph work demonstrates how objects, humans, places, and higher-level topology can be combined into a representation that supports robot reasoning and action \cite{rosinol_3d_2020}. Hydra and subsequent work on the foundations of spatial perception argue even more strongly that hierarchical, persistent, multi-level representations are central to scalable robot understanding \cite{hughes_hydra_2022, hughes_foundations_2024, mascaro_scene_2025}.
+
+This literature supports the design decision taken in the thesis. Purely end-to-end multimodal generation is attractive for coverage, but it weakens controllability and makes system behavior harder to inspect. Purely symbolic rules are transparent, but quickly become semantically shallow. A hybrid design allows the system to use geometric rules where they are reliable, VLMs where richer semantics are needed, and optional learned relation predictors where direct scene graph inference is beneficial. The resulting architecture is therefore neuro-symbolic in a pragmatic engineering sense: learned modules supply perception and semantic generalization, while symbolic structures preserve continuity, interpretability, and runtime configurability.
+
+\section{Large Multimodal Models for Grounded Dialogue}
+Large multimodal models extend language generation by conditioning on visual inputs, but their utility in robotics depends on more than benchmark accuracy. The central question is whether they can connect language to physically situated state in a way that remains useful for embodied systems. PaLM-E is one of the most influential references in this regard because it explicitly frames multimodal language modeling as embodied reasoning over sensor inputs and robot state \cite{driess_palm-e_2023}. Kosmos-2 extends this direction with stronger grounding to explicit visual entities, while InstructBLIP and LLaVA show how instruction tuning can make visual question answering and multimodal dialogue more general-purpose and accessible \cite{peng_kosmos-2_2023, dai_instructblip_2023, liu_visual_2023}.
+
+These models are highly relevant to the thesis, but they are not adopted uncritically. Their strengths lie in flexible interpretation, open-ended explanation, and richer semantic judgment than handcrafted rules can typically provide. Their weaknesses include hallucination, sensitivity to prompt phrasing, and limited guarantees about structured consistency. For this reason, the system developed in this thesis uses multimodal models selectively: they support captioning, vision-grounded question answering, and relation enrichment, while the core dialogue context is still anchored in explicit scene memory. This arrangement preserves the expressive advantages of VLMs without surrendering the system's internal state representation to opaque end-to-end generation.
+
+\section{Evaluation of Grounded Multimodal Systems}
+Evaluating a grounded robot dialogue system requires analysis at multiple levels. Perception quality matters because missed detections and identity switches propagate into the dialogue layer. Scene graph quality matters because relation errors directly affect grounded language generation. Finally, end-to-end interaction quality matters because users experience the system as a whole rather than as isolated components. Existing HRI literature on LLM-enabled robots emphasizes that technical correctness and user perception cannot be collapsed into a single score \cite{kim_understanding_2024}. Likewise, Grassi et al.\ show that even when grounded conversation is feasible, latency and user experience remain central evaluation concerns in Pepper-based systems \cite{grassi_grounding_2024}.
+
+From the scene graph perspective, the literature provides several useful metric families, including triplet-level correctness, relation-level correctness, and object-attribute evaluation \cite{zhu_scene_2022}. These metrics are especially relevant to the research pipeline implemented for this thesis, which evaluates strict triplets, binary relation structure, attribute quality, generation bias, and sensitivity to prompt context. At the system level, however, offline graph metrics are not sufficient on their own. A robot may obtain acceptable relation scores while still failing conversationally because of latency, mistracked entities, or poor reference selection. The evaluation strategy adopted in this thesis therefore combines component-level analysis with end-to-end grounded interaction assessment.
+
+\chapter{Requirements, Constraints, and Design Principles}
+
+\section{Use Cases and Interaction Scenarios}
+\begin{itemize}
+    \item Define the concrete user-facing interaction modes implemented by the system: \texttt{look}, \texttt{scan}, \texttt{ask}, \texttt{refreshAndAsk}, and conversation reset.
+    \item Describe typical scenarios such as single-frame captioning, multi-frame scan summaries, object-oriented follow-up questions, and direct vision chat over an uploaded image.
+    \item State which scenarios are evaluated offline and which are evaluated in embodied robot interaction.
+\end{itemize}
+
+\section{Functional Requirements}
+\begin{itemize}
+    \item Remote image processing from Pepper.
+    \item Configurable object detection backends.
+    \item Persistent object identities across frames.
+    \item Scene graph generation with attributes and relations.
+    \item Integration of Pepper-native people and social perception into the world model.
+    \item Grounded dialogue based on current scene memory and recent conversation history.
+    \item Multilingual output support.
+    \item Runtime configuration, monitoring, and memory inspection through a dashboard.
+    \item Offline experimental tooling for prompt, vocabulary, and graph-quality studies.
+\end{itemize}
+
+\section{Non-Functional Requirements and Constraints}
+\begin{itemize}
+    \item Pepper-side hardware and software limitations.
+    \item Network dependence and the need for graceful degradation.
+    \item Latency constraints for interactive dialogue.
+    \item Modularity and provider interchangeability.
+    \item Traceability of intermediate states for debugging and evaluation.
+    \item Safety and robustness under partial sensor failure, provider failure, or malformed structured outputs.
+\end{itemize}
+
+\section{Design Principles}
+\begin{itemize}
+    \item Separate robot-side sensing and interaction from server-side heavy inference.
+    \item Keep state explicit and inspectable through a structured scene memory.
+    \item Prefer configurable components over hard-coded pipelines.
+    \item Support both fast approximate reasoning and slower richer reasoning.
+    \item Reuse production components inside the research pipeline where possible.
+\end{itemize}
+
+\section{System Boundaries}
+\begin{itemize}
+    \item Clarify what is in scope: perception, memory, grounded dialogue, runtime configuration, and evaluation tooling.
+    \item Clarify what is not fully implemented or not central: full autonomous action planning, navigation, long-term vector memory, and broad manipulation-oriented robot control.
+\end{itemize}
+
+\chapter{System Architecture}
+
+\section{End-to-End Processing Pipeline}
+\begin{itemize}
+    \item Present the complete data flow from Pepper image capture to spoken answer.
+    \item Include the main stages: capture, metadata collection, HTTP request, server-side inference, memory update, dialogue generation, and robot speech output.
+    \item Add a figure with the full end-to-end architecture.
+\end{itemize}
+
+\section{Deployment Topology}
+\begin{itemize}
+    \item Describe the three main runtime domains: Pepper client, FastAPI orchestration server, and optional worker process.
+    \item Explain when inference runs in-process and when it is delegated to the worker runtime.
+    \item Discuss external providers, local GPU models, and optional tunnel exposure for remote access.
+\end{itemize}
+
+\section{Communication Interfaces and Data Contracts}
+\begin{itemize}
+    \item Describe the REST endpoints for captioning, detection, chat, vision chat, configuration, worker control, and memory access.
+    \item Explain the robot metadata payload and why it is essential for person fusion and geometric reasoning.
+    \item Describe the WebSocket channel used by the dashboard for live updates.
+\end{itemize}
+
+\section{Runtime Configuration and Reconfiguration}
+\begin{itemize}
+    \item Describe the YAML plus Pydantic configuration model.
+    \item Explain the difference between hot updates and hard reloads.
+    \item Discuss configurable backends, prompts, ontology sources, worker settings, tracking settings, and pipeline presets.
+\end{itemize}
+
+\section{Observability, Persistence, and Operator Control}
+\begin{itemize}
+    \item Describe the dashboard as a practical engineering component, not only a debugging aid.
+    \item Cover live image display, scene graph view, conversation view, memory view, and configuration editing.
+    \item Discuss optional persistence of the last state and image.
+\end{itemize}
+
+\chapter{Pepper-Side Client Implementation}
+
+\section{NAOqi Application Structure}
+\begin{itemize}
+    \item Introduce the Pepper client service and its lifecycle.
+    \item Describe how the application initializes adapters, loads configuration, and exposes robot methods such as \texttt{look}, \texttt{scan}, \texttt{ask}, and \texttt{resetConversation}.
+    \item Mention the practical consequence of the client being implemented in Python 2 within the robot ecosystem.
+\end{itemize}
+
+\section{Turn Management and Interaction Logic}
+\begin{itemize}
+    \item Describe the \texttt{TurnManager} as the coordination layer for user-visible interaction.
+    \item Explain busy-state protection, acknowledgement speech, thread-based turn execution, and fallback behavior under failure.
+    \item Describe each turn type separately:
+    \begin{itemize}
+        \item \texttt{look}: capture one frame, request a caption, optionally trigger background detection;
+        \item \texttt{scan}: move the head over predefined yaw angles, process multiple frames, optionally summarize the scan through chat;
+        \item \texttt{ask}: optionally refresh visual context, then run grounded chat;
+        \item \texttt{refreshAndAsk}: force a visual refresh before answering.
+    \end{itemize}
+\end{itemize}
+
+\section{Visual Acquisition}
+\begin{itemize}
+    \item Describe the camera adapter built on ALVideoDevice.
+    \item Explain frame capture, JPEG encoding, field-of-view retrieval, and timing metadata.
+    \item Mention the fake-camera path used for testing and simulation.
+\end{itemize}
+
+\section{Robot Context Collection}
+\begin{itemize}
+    \item Explain the role of the \texttt{RobotContextCollector}.
+    \item Describe how pose, people perception, face detection, social signals, and sonar measurements are collected.
+    \item Cover the specific robot-side sources:
+    \begin{itemize}
+        \item people IDs, yaw, pitch, and distance from ALPeoplePerception;
+        \item face labels and confidence from ALFaceDetection;
+        \item gaze, engagement, waving, sitting, age, gender, smile, and expression cues from NAOqi social modules;
+        \item left and right sonar measurements.
+    \end{itemize}
+\end{itemize}
+
+\section{Metadata Construction and Session State}
+\begin{itemize}
+    \item Describe the metadata payload sent together with each image.
+    \item Explain frame IDs, scan IDs, capture mode, camera geometry, and attached people/social information.
+    \item Describe the local session store: chat ID, last caption, last detection timestamp, selected output language, and server base URL.
+\end{itemize}
+
+\section{Robot-Side Transport, Speech, and Tablet Output}
+\begin{itemize}
+    \item Describe the HTTP transport layer and its request types for caption, detect, chat, conversation reset, and config patching.
+    \item Explain timeout and malformed-response handling.
+    \item Describe speech synthesis and animated speech fallback.
+    \item Describe the tablet adapter used to display the server dashboard on Pepper.
+\end{itemize}
+
+\section{Client-Side Limitations and Trade-Offs}
+\begin{itemize}
+    \item Discuss Python 2 compatibility, request blocking, network dependence, and limited local reasoning.
+    \item Explain why the client focuses on sensing, metadata packaging, and interaction orchestration rather than heavy intelligence.
+\end{itemize}
+
+\chapter{Server-Side Perception, Scene Modeling, and Runtime Infrastructure}
+
+\section{FastAPI Application and Service Composition}
+\begin{itemize}
+    \item Describe the server startup process, application state, and service initialization.
+    \item Explain how configuration loading leads to either an in-process perception pipeline or worker-backed runtime.
+    \item Present the main route groups: detection, captioning, chat, vision chat, memory, config, worker, and dashboard.
+\end{itemize}
+
+\section{Detection Subsystem}
+\begin{itemize}
+    \item Describe the detection service abstraction and the supported backends: YOLO, RT-DETR, RF-DETR, and OWL-V2.
+    \item Explain ontology handling for open-vocabulary detection.
+    \item Discuss thresholding, device selection, and detector interchangeability.
+\end{itemize}
+
+\section{Persistent Tracking and Identity Maintenance}
+\begin{itemize}
+    \item Describe the role of \texttt{SceneMemory} in maintaining object continuity across frames.
+    \item Explain appearance embedding extraction, crop preparation, and use of a visual encoder for re-identification.
+    \item Explain the Hungarian matching procedure and the weighted combination of appearance and geometry.
+    \item Cover unmatched-track aging, dormant-track removal, and object hit statistics.
+\end{itemize}
+
+\section{Pepper-Specific Fusion with Robot-Native People Perception}
+\begin{itemize}
+    \item Explain why server-side visual detections alone are insufficient for socially grounded interaction.
+    \item Describe geometric projection from robot person angles into image coordinates.
+    \item Explain the matching between Pepper people and server person detections using angular similarity, previous bindings, tracker stability, and distance-size consistency.
+    \item Describe the generation of synthetic person detections when Pepper reports a person but no visual bounding box matches.
+    \item Explain how social attributes such as waving, sitting, looking at the robot, engagement zone, age, gender, smile, and expressions are merged into object state.
+\end{itemize}
+
+\section{Set-of-Mark Rendering}
+\begin{itemize}
+    \item Describe why Set-of-Mark visualization is used for VLM grounding.
+    \item Explain bounding boxes, labels, optional masks, optional polygons, and style scaling.
+    \item Mention the available mask backends and the role of the overlay in the scene graph prompt pipeline.
+\end{itemize}
+
+\section{Scene Graph Generation}
+\begin{itemize}
+    \item Present the scene graph service as a strategy layer with four modes: rules, VLM, RelTR, and hybrid.
+    \item Explain the rule-based backend:
+    \begin{itemize}
+        \item configurable predicates;
+        \item spatial, directional, overlap, containment, and label-pair rules;
+        \item automatic color-attribute extraction.
+    \end{itemize}
+    \item Explain the VLM backend:
+    \begin{itemize}
+        \item prompt construction from predicates and captions;
+        \item structured output parsing and repair;
+        \item filtering of hallucinated relations against current detections.
+    \end{itemize}
+    \item Explain the optional RelTR backend and why it is treated as a complementary relation source.
+    \item Explain the hybrid mode as a union of complementary evidence sources.
+\end{itemize}
+
+\section{Scene Memory as a Dynamic World Model}
+\begin{itemize}
+    \item Describe the internal state representation: tracked objects, relationships, captions, Pepper-person bindings, and timestamps.
+    \item Explain object fields that matter for dialogue: label, attributes, status, hits, frame IDs, scan IDs, estimated bearing, Pepper person ID, and robot distance.
+    \item Explain relationship accumulation, unary-attribute handling, and caption insertion.
+    \item Cover memory pruning, TTLs, and configurable object, relation, and caption limits.
+\end{itemize}
+
+\section{Captioning and Auxiliary Vision Services}
+\begin{itemize}
+    \item Describe the captioning subsystem and its role in fast single-frame scene summarization.
+    \item Explain that the caption endpoint can launch detection asynchronously so that later dialogue is grounded in updated memory.
+    \item Describe the separate \texttt{vision\_chat} endpoint for direct image-plus-question multimodal interaction.
+\end{itemize}
+
+\section{Worker Runtime and Runtime Switching}
+\begin{itemize}
+    \item Describe the worker manager, internal worker API, and lazy startup behavior.
+    \item Explain why the worker mode exists: isolate heavy inference, manage warmup, and keep the web process lighter.
+    \item Cover health checks, restart logic, circuit breaker behavior, and hot runtime updates.
+\end{itemize}
+
+\section{Dashboard and Runtime Administration}
+\begin{itemize}
+    \item Describe the dashboard pages and their practical roles.
+    \item Explain live WebSocket updates for detections, captions, memory, and chat messages.
+    \item Cover operator-editable settings: detector backend, thresholds, scene graph mode, VLM prompts, worker controls, memory limits, chat/caption providers, and pipeline presets.
+\end{itemize}
+
+\chapter{Grounded Dialogue Layer}
+
+\section{Conversation State Management}
+\begin{itemize}
+    \item Describe the conversation service and its bounded conversation history.
+    \item Explain storage of original text, model text, detected language, output language, and translation status.
+    \item Explain why conversation state is separate from scene memory.
+\end{itemize}
+
+\section{Prompt Composition from Scene Memory}
+\begin{itemize}
+    \item Describe how the chat service serializes the current world state into textual context.
+    \item Explain object ordering by salience, with emphasis on socially relevant people.
+    \item Describe the use of latest caption and recent captions as additional grounding context.
+    \item Explain how the current implementation realizes grounded retrieval by rendering structured memory into prompts.
+\end{itemize}
+
+\section{General Scene-Aware Chat}
+\begin{itemize}
+    \item Describe the normal chat endpoint for open questions about the current scene.
+    \item Explain language normalization, history inclusion, prompt rendering, and provider-agnostic text generation.
+    \item Discuss expected question types and answer scope.
+\end{itemize}
+
+\section{Object-Focused Dialogue}
+\begin{itemize}
+    \item Present the object-chat mode as one of the strongest concrete contributions of the current implementation.
+    \item Explain object matching by label, ranking by salience, and extraction of per-object attributes and relations.
+    \item Describe the crop-caption fallback used when an object has weak structured memory but a tracked crop is available.
+    \item Explain how matched object IDs are returned as traceability metadata.
+\end{itemize}
+
+\section{Direct Vision Chat}
+\begin{itemize}
+    \item Describe the route that bypasses scene-memory grounding and sends an image directly to a multimodal model together with a question.
+    \item Explain how this mode complements the memory-grounded chat mode and when it is useful.
+    \item Discuss its trade-off: richer direct visual reasoning but weaker persistent identity tracking.
+\end{itemize}
+
+\section{Multilingual Handling}
+\begin{itemize}
+    \item Explain the translation layer and the use of canonical model-facing language when needed.
+    \item Describe the current English/Czech output modes and how translation is applied to both user input and model response.
+    \item Discuss translation-related failure modes and semantic drift.
+\end{itemize}
+
+\section{Failure Handling and Practical Limitations}
+\begin{itemize}
+    \item Describe response fallback behavior under timeouts, malformed outputs, unavailable services, or missing visual context.
+    \item Discuss remaining limits of prompt-only grounding, short conversation memory, and scene-memory incompleteness.
+    \item Explicitly identify which limitations belong to the current implementation and which are reserved for future work.
+\end{itemize}
+
+\chapter{Experimental Framework and Evaluation Methodology}
+
+\section{Role of the \texttt{research} Package}
+\begin{itemize}
+    \item Explain that the repository contains both production code and research tooling.
+    \item Clearly separate the newer structured experiment pipeline from older exploratory scripts and notebooks.
+    \item State which parts directly support the thesis evaluation.
+\end{itemize}
+
+\section{Structured Experiment Pipeline}
+\begin{itemize}
+    \item Present the newer \texttt{research.experiments} pipeline as the primary evaluation framework.
+    \item Describe its phases in execution order:
+    \begin{itemize}
+        \item image description generation;
+        \item vocabulary mining;
+        \item draft scene graph generation;
+        \item context-rot experiments;
+        \item scene graph evaluation.
+    \end{itemize}
+    \item Explain the purpose of run metadata, stage metrics, and artifact saving.
+\end{itemize}
+
+\section{Reuse of Production Components in Experiments}
+\begin{itemize}
+    \item Describe the research adapters that import and reuse production detection, caption, LLM, and VLM code.
+    \item Explain why this is important scientifically: the offline experiments should evaluate the same or very similar components as the deployed system.
+\end{itemize}
+
+\section{Description Generation and Vocabulary Mining}
+\begin{itemize}
+    \item Describe the description phase: detect objects, then generate detailed captions focused on those detections.
+    \item Describe the vocabulary phase: extract candidate predicates and attributes per image, then consolidate them into a final vocabulary.
+    \item Explain why vocabulary design is a key variable for scene graph quality and dialogue usefulness.
+\end{itemize}
+
+\section{Draft Scene Graph Generation}
+\begin{itemize}
+    \item Describe the construction of SoM-marked images for offline scene-graph prompting.
+    \item Explain prompt rendering from detected objects, vocabulary, and captions.
+    \item Describe the use of structured output schemas for draft graph generation.
+\end{itemize}
+
+\section{Context-Rot and Sensitivity Experiments}
+\begin{itemize}
+    \item Explain the idea behind context-rot: reducing available vocabulary and measuring degradation in graph output.
+    \item Describe how vocabulary slices are built and evaluated.
+    \item Explain how prompt sensitivity is later summarized across runs.
+\end{itemize}
+
+\section{Scene Graph Evaluation Metrics}
+\begin{itemize}
+    \item Define the core metrics implemented by the code:
+    \begin{itemize}
+        \item strict triplet precision, recall, and F1;
+        \item binary relation triplet metrics;
+        \item unary attribute metrics;
+        \item relation-pair metrics;
+        \item predicate-only metrics;
+        \item overgeneration and undergeneration rates;
+        \item optional normalized graph edit distance.
+    \end{itemize}
+    \item Explain micro-averaging and per-predicate summaries.
+    \item Describe image-potency statistics and why they help characterize scene complexity.
+\end{itemize}
+
+\section{System-Level Evaluation Protocol}
+\begin{itemize}
+    \item Define what should be evaluated on the deployed system itself:
+    \begin{itemize}
+        \item latency of captioning, detection, memory update, scene graph generation, and end-to-end chat;
+        \item stability of tracked identities across frames and scans;
+        \item usefulness of Pepper social fusion for person-centered dialogue;
+        \item qualitative quality of grounded robot responses in interactive scenarios.
+    \end{itemize}
+    \item Explain how pipeline stage timings exposed by the server can be used for runtime profiling.
+\end{itemize}
+
+\section{Legacy Exploratory and Training Pipelines}
+\begin{itemize}
+    \item Describe the older exploratory workflows, but keep them clearly secondary to the main evaluation story.
+    \item Mention:
+    \begin{itemize}
+        \item automated SoM scene-graph dataset generation with Grounding DINO and an LLM labeler;
+        \item knowledge distillation for detector training data;
+        \item detector training for RT-DETR or YOLO;
+        \item LoRA-based VLM fine-tuning with Unsloth.
+    \end{itemize}
+    \item Explain whether these are reported as completed experiments, supporting tooling, or future-ready extensions.
+\end{itemize}
+
+\chapter{Results, Discussion, and Limitations}
+
+\section{Perception and Scene-Memory Results}
+\begin{itemize}
+    \item Report detector behavior, tracking behavior, and Pepper-fusion behavior.
+    \item Discuss what types of errors dominate: missed detections, identity fragmentation, false relations, or noisy social attributes.
+    \item Show examples where scene memory improves follow-up interaction.
+\end{itemize}
+
+\section{Scene Graph Quality Results}
+\begin{itemize}
+    \item Report the graph metrics defined in the previous chapter.
+    \item Compare different prompting setups, model providers, vocabularies, or graph-generation modes if these experiments are executed.
+    \item Discuss the balance between richer semantics and hallucination risk.
+\end{itemize}
+
+\section{Dialogue and Interaction Results}
+\begin{itemize}
+    \item Present representative interaction transcripts for \texttt{look}, \texttt{scan}, general chat, object chat, and vision chat.
+    \item Analyze whether answers remain grounded in the scene and whether the robot maintains object continuity across follow-up questions.
+    \item Discuss multilingual behavior and user-facing latency.
+\end{itemize}
+
+\section{Ablations and Sensitivity Findings}
+\begin{itemize}
+    \item Interpret vocabulary-size sensitivity, prompt sensitivity, and any comparisons between rule-based and multimodal graph generation.
+    \item Discuss which system parts most strongly affect downstream dialogue quality.
+\end{itemize}
+
+\section{Architectural Discussion}
+\begin{itemize}
+    \item Reflect on the main architectural choices:
+    \begin{itemize}
+        \item remote inference versus onboard intelligence;
+        \item in-process versus worker runtime;
+        \item explicit scene memory versus implicit conversational context;
+        \item hybrid graph generation versus a single-model solution.
+    \end{itemize}
+    \item Explain what worked well and what remains engineering debt.
+\end{itemize}
+
+\section{Limitations}
+\begin{itemize}
+    \item Current reliance on external compute and network connectivity.
+    \item Limited long-term memory and lack of a richer knowledge layer beyond current scene state and short conversation history.
+    \item Dependence on prompt quality and provider reliability.
+    \item Incomplete evaluation of some exploratory training paths if they remain unfinished.
+    \item Potential mismatch between offline graph metrics and perceived dialogue quality in real HRI.
+\end{itemize}
+
+\chapter{Conclusion}
+
+\section{Summary of the Thesis}
+\begin{itemize}
+    \item Recap the problem, the implemented system, and the main findings.
+    \item Summarize how the thesis connects Pepper sensing, server-side perception, dynamic scene memory, and grounded dialogue.
+\end{itemize}
+
+\section{Main Contributions Revisited}
+\begin{itemize}
+    \item Restate the final contributions in concise, evidence-backed form.
+    \item Make sure this section reflects what was actually implemented and evaluated, not only initial intentions.
+\end{itemize}
+
+\section{Future Work}
+\begin{itemize}
+    \item Stronger long-term memory and user modeling.
+    \item Better open-vocabulary perception and relation modeling.
+    \item More principled multimodal grounding and uncertainty estimation.
+    \item Additional user studies and broader HRI evaluation.
+    \item Tighter integration with other Pepper behaviors and action-capable planners.
+\end{itemize}
+
+%% Temporary drafting state: print the full bibliography while shaping the related-work chapter.
+\nocite{*}
+\printbibliography[heading=bibintoc]
+
+\end{document}
