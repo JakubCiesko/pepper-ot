@@ -334,19 +334,19 @@ class SoMPainter:
         area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
         union = area_a + area_b - inter
         return inter / union if union > 0.0 else 0.0
-    #TODO: implement batching for smaller GPU load 
     def sam_bboxes_to_masks(
         self,
         image: Image.Image | NDArray,
         bboxes: NDArray,
         threshold: float = 0.5,
         mask_threshold: float = 0.5,
-        batch_size: int = 4,
     ) -> NDArray | None:
         """
         Convert bounding boxes to object masks using SAM3 box prompts.
+        Uses fixed prompt batching (size=4) to reduce peak GPU memory.
         Returns bool masks of shape (n, H, W), or None on failure (so caller can fallback).
         """
+        SAM_BOX_BATCH_SIZE = 4
         if bboxes is None:
             return None
         if len(bboxes) == 0:
@@ -393,70 +393,76 @@ class SoMPainter:
             if not clipped_boxes:
                 return np.empty((0, img_h, img_w), dtype=bool)
 
-            box_labels = [[1 for _ in clipped_boxes]]
-            inputs = self.processor(
-                images=pil_img,
-                input_boxes=[clipped_boxes],
-                input_boxes_labels=box_labels,
-                return_tensors="pt",
-            )
-            inputs = inputs.to(self.device)
-
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-
-            target_sizes = inputs.get("original_sizes")
-            if target_sizes is None:
-                target_sizes = [[img_h, img_w]]
-            else:
-                target_sizes = target_sizes.tolist()
-
-            results = self.processor.post_process_instance_segmentation(
-                outputs,
-                threshold=threshold,
-                mask_threshold=mask_threshold,
-                target_sizes=target_sizes,
-            )
-            result = results[0] if results else {}
-            masks_pred = result.get("masks")
-            boxes_pred = result.get("boxes")
-
             out = np.zeros((len(clipped_boxes), img_h, img_w), dtype=bool)
-            if masks_pred is None or boxes_pred is None:
-                return out
+            total_boxes = len(clipped_boxes)
+            for start in range(0, total_boxes, SAM_BOX_BATCH_SIZE):
+                end = min(start + SAM_BOX_BATCH_SIZE, total_boxes)
+                batch_boxes = clipped_boxes[start:end]
+                box_labels = [[1 for _ in batch_boxes]]
 
-            if hasattr(masks_pred, "detach"):
-                masks_np = masks_pred.detach().cpu().numpy()
-            else:
-                masks_np = np.asarray(masks_pred)
-            if masks_np.ndim == 2:
-                masks_np = masks_np[None, ...]
-            masks_np = masks_np.astype(bool)
+                inputs = self.processor(
+                    images=pil_img,
+                    input_boxes=[batch_boxes],
+                    input_boxes_labels=box_labels,
+                    return_tensors="pt",
+                )
+                inputs = inputs.to(self.device)
 
-            if hasattr(boxes_pred, "detach"):
-                boxes_np = boxes_pred.detach().cpu().numpy()
-            else:
-                boxes_np = np.asarray(boxes_pred)
-            boxes_np = np.asarray(boxes_np, dtype=np.float32).reshape(-1, 4)
+                with torch.no_grad():
+                    outputs = self.model(**inputs)
 
-            # Assign one best SAM mask per requested box by IoU.
-            for i, in_box in enumerate(clipped_boxes):
-                if len(boxes_np) == 0 or len(masks_np) == 0:
-                    break
-                best_idx = -1
-                best_iou = 0.0
-                in_box_np = np.asarray(in_box, dtype=np.float32)
-                for j, pred_box in enumerate(boxes_np):
-                    iou = self._bbox_iou(in_box_np, pred_box)
-                    if iou > best_iou:
-                        best_iou = iou
-                        best_idx = j
-                if best_idx >= 0 and best_iou >= 0.05:
-                    out[i] = masks_np[best_idx]
+                target_sizes = inputs.get("original_sizes")
+                if target_sizes is None:
+                    target_sizes = [[img_h, img_w]]
                 else:
-                    # Conservative fallback: keep bbox rectangle for this item.
-                    x1, y1, x2, y2 = map(int, in_box)
-                    out[i, y1:y2, x1:x2] = True
+                    target_sizes = target_sizes.tolist()
+
+                results = self.processor.post_process_instance_segmentation(
+                    outputs,
+                    threshold=threshold,
+                    mask_threshold=mask_threshold,
+                    target_sizes=target_sizes,
+                )
+                result = results[0] if results else {}
+                masks_pred = result.get("masks")
+                boxes_pred = result.get("boxes")
+
+                if masks_pred is None or boxes_pred is None:
+                    continue
+
+                if hasattr(masks_pred, "detach"):
+                    masks_np = masks_pred.detach().cpu().numpy()
+                else:
+                    masks_np = np.asarray(masks_pred)
+                if masks_np.ndim == 2:
+                    masks_np = masks_np[None, ...]
+                masks_np = masks_np.astype(bool)
+
+                if hasattr(boxes_pred, "detach"):
+                    boxes_np = boxes_pred.detach().cpu().numpy()
+                else:
+                    boxes_np = np.asarray(boxes_pred)
+                boxes_np = np.asarray(boxes_np, dtype=np.float32).reshape(-1, 4)
+
+                # Assign one best SAM mask per requested box by IoU.
+                for local_idx, in_box in enumerate(batch_boxes):
+                    global_idx = start + local_idx
+                    if len(boxes_np) == 0 or len(masks_np) == 0:
+                        break
+                    best_idx = -1
+                    best_iou = 0.0
+                    in_box_np = np.asarray(in_box, dtype=np.float32)
+                    for j, pred_box in enumerate(boxes_np):
+                        iou = self._bbox_iou(in_box_np, pred_box)
+                        if iou > best_iou:
+                            best_iou = iou
+                            best_idx = j
+                    if best_idx >= 0 and best_iou >= 0.05:
+                        out[global_idx] = masks_np[best_idx]
+                    else:
+                        # Conservative fallback: keep bbox rectangle for this item.
+                        x1, y1, x2, y2 = map(int, in_box)
+                        out[global_idx, y1:y2, x1:x2] = True
             return out
         except Exception as exc:
             logger.warning(
