@@ -3,11 +3,6 @@ class PepperClientError(Exception):
     pass
 
 
-#REMOVAL unsuds
-class BusyError(PepperClientError):
-    pass
-
-
 class CameraCaptureError(PepperClientError):
     pass
 
@@ -26,11 +21,6 @@ class MalformedResponseError(PepperClientError):
 
 class SpeechError(PepperClientError):
     pass
-
-
-class ConfigUpdateError(PepperClientError):
-    pass
-
 
 _MESSAGES = {
     "busy": {

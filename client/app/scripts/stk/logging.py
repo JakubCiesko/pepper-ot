@@ -58,17 +58,3 @@ def get_logger(session, app_id):
     except Exception:
         pass
     return SafeLogger(base_logger)
-
-
-#REMOVAL unsued
-def log_exceptions(func):
-
-    @functools.wraps(func)
-    def wrapped(self, *args, **kwargs):
-        try:
-            return func(self, *args, **kwargs)
-        except Exception:
-            self.logger.error(traceback.format_exc())
-            raise
-
-    return wrapped

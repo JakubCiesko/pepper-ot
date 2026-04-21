@@ -234,15 +234,6 @@ class PepperServerTransport(object):
             headers={"Content-Type": "application/json"},
         )
 
-    def _patch_json(self, path, payload, timeout_seconds):
-        return self._request(
-            method="patch",
-            path=path,
-            timeout_seconds=timeout_seconds,
-            data=json.dumps(payload),
-            headers={"Content-Type": "application/json"},
-        )
-
     def _request(self, method, path, timeout_seconds, **kwargs):
         url = "%s%s" % (self.base_url, path)
         self.logger.info("HTTP %s %s", method.upper(), url)

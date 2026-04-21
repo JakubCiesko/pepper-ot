@@ -93,22 +93,6 @@ class UltralyticsDetector(BaseDetector):
         self.model.eval()
 
     def predict(self, image: Image.Image) -> list[InferenceDetectionObject]:
-        # results = self.model.predict(image, device=self.device, verbose=False)
-        #
-        # detections = [
-        #     InferenceDetectionObject(
-        #         class_id=int(cls),
-        #         object_id=i,
-        #         label=self.model.names[int(cls)],
-        #         confidence=float(conf),
-        #         bbox=[float(x) for x in box],
-        #     )
-        #     for r in results
-        #     for i, (box, cls, conf) in enumerate(
-        #         zip(r.boxes.xyxy, r.boxes.cls, r.boxes.conf, strict=True)
-        #     )
-        # ]
-        # return list(filter(lambda det: det.confidence >= self.threshold, detections))
         return self.predict_batch([image])[0]
 
     def predict_batch(
@@ -274,56 +258,6 @@ class Owlv2Detector(BaseDetector):
     def predict(
         self, image: Image.Image, ontology: list[str] | None = None
     ) -> list[InferenceDetectionObject]:
-        #     """
-        #     Run OWL-ViT inference on an image using the cached or updated ontology.
-        #
-        #     Args:
-        #         image (PIL.Image.Image): Input image.
-        #         ontology (list[str] | None): Optional ontology override for this prediction.
-        #
-        #     Returns:
-        #         list[InferenceDetectionObject]: List of detected objects with labels, confidence, and bounding boxes.
-        #     """
-        #     # custom ontology
-        #     if ontology is not None:
-        #         self.set_ontology(ontology)
-        #
-        #     if self._text_inputs is None:
-        #         # if ontology is None, it will just use cococlass...
-        #         self.set_ontology(ontology)
-        #
-        #     image_inputs = self.processor(images=image, return_tensors="pt").to(self.device)
-        #     with torch.no_grad():
-        #         outputs = self.model(**image_inputs, **self._text_inputs)
-        #
-        #     target_sizes = [(image.height, image.width)]
-        #     text_labels = [self._ontology]
-        #
-        #     results = self.processor.post_process_grounded_object_detection(
-        #         outputs=outputs,
-        #         target_sizes=target_sizes,
-        #         threshold=self.threshold,
-        #         text_labels=text_labels,
-        #     )
-        #     detections = [
-        #         InferenceDetectionObject(
-        #             class_id=text_labels[0].index(text_label),
-        #             object_id=i,
-        #             label=text_label,
-        #             confidence=float(score),
-        #             bbox=list(map(float, box)),
-        #         )
-        #         for result in results
-        #         for i, (box, score, text_label) in enumerate(
-        #             zip(
-        #                 result["boxes"],
-        #                 result["scores"],
-        #                 result["text_labels"],
-        #                 strict=True,
-        #             )
-        #         )
-        #     ]
-        #     return detections
         return self.predict_batch([image], ontology=ontology)[0]
 
     def predict_batch(
