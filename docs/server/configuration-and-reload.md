@@ -80,11 +80,14 @@ Scene graph config is backend-compositional. There is no current `scene_graph.mo
 
 Subsections:
 
+- `scene_graph.parallel_execution`: run enabled scene graph backends concurrently, then merge in deterministic backend order.
 - `scene_graph.vlm`: VLM backend config, prompts, ontology, structured output, schema style, local VLM hints, and `enabled` flag.
 - `scene_graph.rules`: deterministic rule config and `enabled` flag.
 - `scene_graph.reltr`: RelTR checkpoint/device/threshold/topk/IoU matching and `enabled` flag.
 
 When `pipeline_controls.scene_graph=true`, at least one backend must be enabled. If rules or RelTR are enabled, detection must also be enabled because they need tracked object IDs and bboxes.
+
+`scene_graph.parallel_execution` is hot-reloadable. It is off by default because concurrent local graph backends can increase GPU memory pressure.
 
 ### `qa_generation`
 
@@ -197,6 +200,7 @@ Controls frame-stage execution.
 Fields:
 
 - `preset`: `full`, `detect_only`, `caption_only`, `vlm_only`, `rules_only`, `minimal`, or `custom`.
+- `parallel_execution`: overlap independent early pipeline stages, currently caption and detection.
 - `caption`
 - `detect`
 - `track_memory`
@@ -214,6 +218,8 @@ Validation rules:
 - `update_scene_memory` requires `track_memory`.
 - `scene_graph=true` requires at least one enabled backend.
 - rules/RelTR scene graph backends require `detect=true` when scene graph stage runs.
+
+`pipeline_controls.parallel_execution` is hot-reloadable through the normal pipeline controls hot update path. It is off by default because overlap is workload-dependent and can increase GPU pressure with local models.
 
 ## Prompt Sources
 

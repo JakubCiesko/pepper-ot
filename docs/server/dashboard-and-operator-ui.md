@@ -141,6 +141,7 @@ Template: `pages/scene.html`
 Controls:
 
 - SGG backend checkboxes: VLM, Rules, RelTR
+- Scene graph backend parallelism checkbox
 - VLM system/user prompts
 - VLM provider/model/base URL/API key/device
 - VLM structured output mode/strict/schema
@@ -155,6 +156,9 @@ Backend checkboxes map to:
 - `scene_graph.vlm.enabled`
 - `scene_graph.rules.enabled`
 - `scene_graph.reltr.enabled`
+- `scene_graph.parallel_execution`
+
+The parallelism checkbox starts enabled graph backends concurrently and merges their outputs deterministically. It should be treated as a latency/VRAM tradeoff knob.
 
 ## Runtime Page
 
@@ -164,6 +168,7 @@ Controls:
 
 - pipeline preset
 - individual pipeline stage checkboxes
+- pipeline parallelism checkbox
 - worker enabled
 - worker host/port
 - idle/startup/request/shutdown timeouts
@@ -173,6 +178,8 @@ Controls:
 - auto warmup
 
 Pipeline controls include QA generation as a first-class stage.
+
+The pipeline parallelism checkbox maps to `pipeline_controls.parallel_execution`. It overlaps caption and detection where safe, while tracking, SoM painting, scene graph generation, QA generation, and memory updates remain ordered.
 
 ## Memory Settings Page
 

@@ -114,6 +114,15 @@ RelTR config:
 - `topk`
 - `iou_match_threshold`
 
+### `SceneGraphConfig`
+
+Composes the scene graph backends:
+
+- `parallel_execution`
+- `vlm`
+- `rules`
+- `reltr`
+
 ### `QAGenerationConfig`
 
 - `pairs_per_update`
@@ -124,6 +133,7 @@ RelTR config:
 Stage toggles and presets:
 
 - `preset`
+- `parallel_execution`
 - `caption`
 - `detect`
 - `track_memory`

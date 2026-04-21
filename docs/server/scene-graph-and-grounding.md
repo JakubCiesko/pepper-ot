@@ -24,6 +24,13 @@ There is no single `scene_graph.mode` field in the current code. Scene graph gen
 
 `SceneGraphService.generate` runs every enabled backend and merges the results.
 
+Backend execution can be sequential or parallel:
+
+- `scene_graph.parallel_execution=false`: enabled backends run in deterministic order.
+- `scene_graph.parallel_execution=true`: enabled backends run concurrently and are merged afterward in deterministic order.
+
+The default is `false` to avoid unexpected GPU pressure when multiple local graph backends are enabled.
+
 ## SceneGraph Data Structure
 
 File: `server/app/inference/types.py`
@@ -55,6 +62,16 @@ Flow:
 8. Return final graph.
 
 The merge strategy is effectively union plus deduplication.
+
+When `scene_graph.parallel_execution=true`, the service uses `generate_parallel` instead of `generate_sequential`:
+
+- rules backend is offloaded to a thread
+- RelTR backend is offloaded to a thread through `generate_sync`
+- VLM backend runs as an async task
+- output merge order remains `rules`, then `reltr`, then `vlm`
+- robot-data enhancement still runs once after backend merge
+
+This is most useful when RelTR can overlap with a remote VLM call. If RelTR and VLM are both local GPU workloads, parallel execution can increase VRAM pressure and may be slower or less stable.
 
 ## Rule Backend
 
@@ -99,6 +116,13 @@ RelTR flow:
 8. For attributeable Visual Genome predicates, convert some unmatched subject/object predictions into unary attributes.
 9. Drop invalid/unmatched relations.
 10. Return a `SceneGraph` with label and no-label edges.
+
+The backend exposes two generation paths:
+
+- `generate_sync(...)`: synchronous implementation used when scene graph parallelism offloads RelTR to a worker thread.
+- `generate(...)`: async compatibility wrapper that calls `generate_sync(...)` through `asyncio.to_thread`.
+
+RelTR model execution is guarded by an internal lock so one `RelTRSceneGraphGenerator` instance does not run multiple model calls concurrently.
 
 Important config:
 

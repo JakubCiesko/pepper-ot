@@ -40,9 +40,18 @@ Fields:
 - `caption_model_id`: caption model id.
 - `qa_pairs`: generated English Q/A pairs from scene graph facts.
 
-## Current Stage Order
+## Execution Modes
 
-`PerceptionPipeline.process(image, robot_metadata)` currently runs stages in this order when enabled by `pipeline_controls`:
+`PerceptionPipeline.process(image, robot_metadata)` is the public entrypoint. It dispatches to one of two execution modes:
+
+- `process_sequentially(...)` when `pipeline_controls.parallel_execution=false`
+- `process_in_parallel(...)` when `pipeline_controls.parallel_execution=true`
+
+The default is sequential execution. Parallel execution is optional because its benefit depends on the configured models and hardware.
+
+### Sequential Stage Order
+
+Sequential mode runs stages in this order when enabled by `pipeline_controls`:
 
 1. Caption
 2. Detection
@@ -55,6 +64,23 @@ Fields:
 9. Total metrics finalization
 
 The actual executed stage names are appended to `PipelineResult.executed_stages` and returned to API/dashboard payloads.
+
+### Parallel Pipeline Mode
+
+When `pipeline_controls.parallel_execution=true`, only the safe independent early stages overlap:
+
+1. Caption task starts.
+2. Detection task starts.
+3. Detection is awaited first because tracking depends on detections.
+4. Tracking and SoM painting run in order.
+5. Caption is awaited before scene graph generation so graph backends can still receive caption context.
+6. Scene graph generation, QA generation, and memory updates remain ordered.
+
+Detection is synchronous in `DetectionService`, so the parallel path runs detector inference through `asyncio.to_thread`. Access to the detector is protected by a lock to avoid simultaneous calls into the same detector model instance across requests. The caption and detection branches receive copied PIL images so they do not read the same image object concurrently.
+
+The `executed_stages` list remains deterministic. It records logical pipeline order rather than task completion order.
+
+Use this mode when captioning is remote/API-backed or otherwise independent from the detector. Be careful when both caption and detection use local GPU models because overlap can increase VRAM pressure.
 
 ## Stage: Caption
 
@@ -168,6 +194,24 @@ Metric key: `scene_graph_generation_time`.
 
 Executed stage: `scene_graph`.
 
+Scene graph backend execution has its own independent parallel flag: `scene_graph.parallel_execution`.
+
+When `scene_graph.parallel_execution=false`, `SceneGraphService.generate_sequential` runs enabled graph backends in fixed order:
+
+1. rules
+2. RelTR
+3. VLM
+
+When `scene_graph.parallel_execution=true`, `SceneGraphService.generate_parallel` starts every enabled backend concurrently:
+
+- Rules runs in a thread because it is synchronous CPU/image work.
+- RelTR runs in a thread through `RelTRSceneGraphGenerator.generate_sync`.
+- VLM runs as an async task.
+
+Results are still merged deterministically in `rules`, `reltr`, `vlm` order. Robot-derived memory attributes are injected only after the merged graph exists.
+
+RelTR model execution is protected by a lock, so the same RelTR model instance is not used concurrently by multiple RelTR calls. This still allows RelTR to overlap with remote VLM calls. If the VLM backend is also local GPU-backed, enabling scene graph parallelism can increase GPU memory pressure.
+
 ## Stage: QA Generation
 
 Files:
@@ -218,6 +262,12 @@ Executed stage: `update_scene_memory`.
 
 `PipelineControls` is defined in `server/app/schemas/config.py`.
 
+Important fields:
+
+- `parallel_execution`: overlaps caption and detection where safe.
+- `caption`, `detect`, `track_memory`, `paint_som`, `scene_graph`, `qa_generation`, `update_scene_memory`: individual stage toggles.
+- `preset`: convenience profile for stage toggles.
+
 Important dependencies:
 
 - `track_memory` requires `detect`.
@@ -242,7 +292,10 @@ Common metric keys:
 - `qa_generation_time`
 - `caption_memory_update_time`
 - `scene_graph_memory_update_time`
-- `total_time`
+- `total_processing`: sum of individual `*_time` stage timings.
+- `wall_processing_time`: actual end-to-end wall-clock time for the pipeline call.
+
+In parallel modes, `total_processing` can be larger than actual elapsed time because overlapping stage durations are still summed independently. Use `wall_processing_time` when comparing latency.
 
 ## Where To Change Pipeline Behavior
 
