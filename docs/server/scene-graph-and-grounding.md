@@ -1,196 +1,216 @@
 # Scene Graph and Grounding
 
-## Files Covered
+Scene graph generation turns tracked detections into semantic triples and object attributes. It can combine deterministic rules, RelTR predictions, VLM output over a Set-of-Mark image, and robot-derived memory attributes.
 
-- `app/inference/scene_graph/service.py`
-- `app/inference/scene_graph/rules_backend.py`
-- `app/inference/scene_graph/vlm_backend.py`
-- `app/inference/scene_graph/reltr_backend.py`
-- `app/inference/scene_graph/reltr_predictor.py`
-- `app/inference/scene_graph/som.py`
-- `app/schemas/scene.py`
-- `server/ontology/scene_generation_ontology.yaml`
-- `server/prompts/vlm_*.txt`
+## Main Files
 
-## Purpose
+- `server/app/inference/scene_graph/service.py`
+- `server/app/inference/scene_graph/rules_backend.py`
+- `server/app/inference/scene_graph/reltr_backend.py`
+- `server/app/inference/scene_graph/reltr_predictor.py`
+- `server/app/inference/scene_graph/vlm_backend.py`
+- `server/app/inference/scene_graph/som.py`
+- `server/app/inference/types.py` (`SceneGraph`, `SceneGraphEdge`)
+- `server/app/schemas/scene.py` (`SceneGraphRelation`, structured VLM schemas)
+- `server/app/schemas/config.py` (`SceneGraphConfig`)
 
-Scene graph generation converts detected/tracked objects into explicit relations and attributes that are better suited for grounded dialogue than raw detections alone.
+## Current Scene Graph Model
 
-The code supports four modes:
-- `rules`
-- `vlm`
-- `reltr`
-- `hybrid`
+There is no single `scene_graph.mode` field in the current code. Scene graph generation is controlled by independent backend flags:
 
-## `SceneGraphService`
+- `scene_graph.rules.enabled`
+- `scene_graph.reltr.enabled`
+- `scene_graph.vlm.enabled`
 
-This is the dispatcher.
+`SceneGraphService.generate` runs every enabled backend and merges the results.
 
-```mermaid
-flowchart LR
-    DET[Tracked detections] --> MODE{scene_graph mode}
-    IMG[Raw image or SoM image] --> MODE
-    CAP[Optional caption] --> MODE
-    MODE -->|rules| RULES[RuleSceneGraphGenerator]
-    MODE -->|vlm| VLM[VLMSceneGraphGenerator]
-    MODE -->|reltr| RELTR[RelTRSceneGraphGenerator]
-    MODE -->|hybrid| MERGE[VLM plus RULES plus RELTR]
-    RULES --> ENH[Robot data enhancement]
-    VLM --> ENH
-    RELTR --> ENH
-    MERGE --> ENH
-    ENH --> OUT[SceneGraph]
-```
+## SceneGraph Data Structure
 
-### Inputs
+File: `server/app/inference/types.py`
 
-- detections with stable `object_id`
-- optional SoM image
-- optional raw image
-- optional caption text
-- optional current `SceneState`
+`SceneGraph` stores two edge lists:
 
-### Mode behavior
+- `edges`: label-bearing references such as `person_1 holding cat_2`.
+- `no_label_edges`: id-only references such as `1 holding 2`.
 
-- `rules`: only rule backend
-- `reltr`: only RelTR backend
-- `vlm`: only VLM backend
-- `hybrid`: VLM + rules + RelTR, then merged
+The id-only edge list is preferred for memory updates because object labels can change or be translated.
 
-### Robot enhancement step
+`SceneGraph.from_list(data)` accepts dicts with `sub`, `rel`, and `obj`, builds label edges as provided, and derives no-label edges by extracting trailing numeric ids.
 
-After backend generation, `enhance_scene_graph_with_robot_data()` adds self-attribute style edges derived from current memory object attributes.
+`SceneGraph.__add__` merges edge lists and raw outputs. `SceneGraph.__post_init__` deduplicates edges.
 
-That means scene graph output can include robot/social metadata already attached to tracked objects, not only visual relations.
+## Service Merge Flow
 
-## Rule backend
+File: `server/app/inference/scene_graph/service.py`
 
-Implemented in `rules_backend.py`.
+Flow:
 
-### Input requirements
+1. Select VLM image: `som_image` if available, else raw image.
+2. Log enabled backends.
+3. Start with empty `SceneGraph`.
+4. If rules enabled, add rules graph.
+5. If RelTR enabled, await and add RelTR graph.
+6. If VLM enabled and an image exists, await and add VLM graph.
+7. Enhance merged graph with robot-data attributes from current scene memory.
+8. Return final graph.
 
-- detections must already have `object_id`
-- optional raw image can be supplied for color inference
+The merge strategy is effectively union plus deduplication.
 
-### Rule types supported
+## Rule Backend
 
-- spatial
-- directional
-- overlap
-- containment
-- label_pair
+File: `server/app/inference/scene_graph/rules_backend.py`
 
-### Helper geometry functions
+The rules backend is deterministic. It uses tracked detections with object IDs and configured rules.
 
-- bbox center
-- IoU
-- inside ratio
-- threshold range check
+Supported rule types:
 
-### Color inference
+- `spatial` / `space`: center distance range.
+- `directional` / `direction`: x/y center delta thresholds.
+- `overlap`: bbox IoU range.
+- `containment` / `contain`: inside-ratio range.
+- `label_pair`: relation exists when label constraints pass.
 
-The rule backend also derives color-like self-attributes from crops using palette extraction and HSV bucket mapping.
+Rule constraints can filter by:
 
-Examples of attribute outputs:
-- `is_red`
-- `is_blue`
-- `is_white`
-- `is_gray`
-- `is_brown`
+- `subject_labels`
+- `object_labels`
+- `labels_any`
 
-This is an important detail: the rules backend is not only geometric. It also enriches object attributes from crop appearance.
+The rules backend also extracts coarse color attributes from image crops using `fast_colorthief`. Very small boxes are skipped to avoid unreliable color inference.
 
-## VLM backend
+Rules produce both label and no-label edges.
 
-Implemented in `vlm_backend.py`.
-
-Responsibilities:
-- render prompt with ontology and object references
-- call VLM client
-- request structured output if configured
-- parse into scene graph form
-
-Configuration inputs:
-- provider/model/base_url/api key env
-- system/user prompt text or paths
-- ontology predicates/objects
-- structured output mode and strictness
-- local VLM hint strategy
-
-## RelTR backend
+## RelTR Backend
 
 Files:
-- `reltr_backend.py`
-- `reltr_predictor.py`
 
-Responsibilities:
-- load RelTR checkpoint
-- run relation transformer prediction
-- match predicted boxes to tracked detections using IoU threshold
-- emit graph edges keyed by tracked object IDs
+- `server/app/inference/scene_graph/reltr_backend.py`
+- `server/app/inference/scene_graph/reltr_predictor.py`
 
-Key config fields:
-- enabled
-- checkpoint path
-- device
-- score threshold
-- top-k
-- IoU match threshold
+RelTR flow:
 
-## SoM painter
+1. Ensure RelTR backend enabled.
+2. Ensure image and checkpoint exist.
+3. Build RelTR model lazily if needed.
+4. Save current image to a temporary file under server state.
+5. Run `predict_image` with configured threshold/topk/device.
+6. Map RelTR predicted boxes back to current server detections by IoU.
+7. Keep binary relations when subject and object map to two different tracked detections.
+8. For attributeable Visual Genome predicates, convert some unmatched subject/object predictions into unary attributes.
+9. Drop invalid/unmatched relations.
+10. Return a `SceneGraph` with label and no-label edges.
 
-Implemented in `som.py`.
+Important config:
 
-Purpose:
-- render Set-of-Mark overlays so VLMs can refer to marked object regions explicitly
+- `scene_graph.reltr.checkpoint_path`
+- `scene_graph.reltr.device`
+- `scene_graph.reltr.threshold`
+- `scene_graph.reltr.topk`
+- `scene_graph.reltr.iou_match_threshold`
 
-Inputs typically include:
-- image array
-- detection list
-- visualization toggles such as bbox/polygon/labels/mask
+The attributeable predicate list is defined in `reltr_predictor.py` as `VG_REL_CLASSES_ATTRIBUTEABLE`.
 
-This module is especially important when debugging VLM grounding quality. If grounding is weak, inspect the painted image before changing prompts.
+## VLM Backend
 
-## Graph Data Model
+File: `server/app/inference/scene_graph/vlm_backend.py`
 
-Core classes in `inference/types.py` and `schemas/scene.py`:
-- `SceneGraphEdge`
-- `SceneGraph`
-- `SceneGraphRelation`
-- `SceneGraphStructuredResponse`
-- `Relationship`
+VLM generation uses the configured `BaseVLMClient` and prompt templates.
 
-## Merge Semantics in Hybrid Mode
+Flow:
 
-Hybrid mode literally merges graph outputs from multiple backends.
+1. Serialize input image to JPEG bytes.
+2. Render system prompt with `PromptRenderContext`.
+3. Render user prompt or build default allowed-predicate prompt.
+4. Choose output schema:
+   - `SceneGraphStructuredResponse` when `structured_schema=scene_graph`.
+   - `list[SceneGraphRelation]` when `structured_schema=relationship_list`.
+5. Call VLM client with optional structured output schema.
+6. Parse structured result, JSON raw text, or JSON block extracted from raw text.
+7. If parsing fails, ask the VLM to repair JSON without resending the image.
+8. Build `SceneGraph` from relation dicts.
+9. Filter hallucinated relations against current detections and IDs.
 
-This gives coverage but also means duplicate or conflicting relations are possible unless later logic collapses them.
+Filtering keeps only relations whose normalized subject/object IDs appear in current detections. It also rebuilds label references using detection labels.
 
-If you observe noisy graph output, inspect merge behavior and downstream memory deduplication, not just individual backend quality.
+## SoM Rendering
 
-## Rule/VLM/RelTR Relationship
+File: `server/app/inference/scene_graph/som.py`
 
-```mermaid
-flowchart TD
-    R1[Rules backend] --> H[Hybrid graph]
-    V1[VLM backend] --> H
-    T1[RelTR backend] --> H
-    H --> M[Memory relation merge]
-    H --> D[Dashboard graph render]
-    H --> C[Dialogue grounding context]
+SoM means Set-of-Mark. It overlays detection IDs, boxes, masks, polygons, and labels onto the image. The VLM backend can use this marked image so it references object IDs visible in the scene.
+
+Config fields under `visualization` control rendering:
+
+- `show_bbox`
+- `show_mask`
+- `show_polygon`
+- `show_labels`
+- `line_thickness`
+- `mask_opacity`
+- `color_lookup`
+- `mask_backend`
+- `device`
+
+Color lookup modes:
+
+- `index`: color by detection order.
+- `class`: color by object class/label.
+- `track`: color by persistent track id.
+
+## Mask Backends
+
+### GrabCut
+
+GrabCut is the lightweight fallback mask backend. It uses bbox initialization and OpenCV GrabCut to estimate object masks.
+
+### SAM
+
+SAM backend lazily loads `facebook/sam3` through Hugging Face Transformers. If loading or inference fails, the code falls back to GrabCut behavior.
+
+`sam_bboxes_to_masks` clips boxes to image bounds and now processes prompt boxes in fixed batches of 4. This is intentionally local to the function and not exposed in config. The output shape remains `(N, H, W)` bool masks. Each requested bbox gets the best predicted SAM mask by IoU; if no adequate predicted mask exists, the bbox rectangle is used as conservative fallback for that item.
+
+## Robot-Data Enhancement
+
+File: `server/app/inference/scene_graph/service.py`
+
+After backend merge, `enhance_scene_graph_with_robot_data` adds unary edges for attributes already stored on current memory objects. This is how robot-derived attributes like `is_waving`, `is_sitting`, `is_near`, or `is_looking_at_robot` can enter the current graph.
+
+It only considers objects whose ids are present in current detections. It creates label edges of the form:
+
+```text
+<object_label>_<object_id> <attribute> <object_label>_<object_id>
 ```
 
-## Safe Tweak Points
+Then it converts those into a `SceneGraph` and merges it with the backend graph.
 
-- rule thresholds
-- ontology predicates and object vocabulary
-- VLM prompts
-- structured output mode
-- RelTR threshold/top-k/IoU mapping
-- SoM overlay style
+## Memory Update Semantics
 
-## Risky Tweak Points
+File: `server/app/inference/memory/state_store/relations.py`
 
-- relation label naming conventions
-- tracked ID to relation mapping
-- graph serialization contract expected by memory and dashboard
+When scene graph memory update runs:
+
+- unary no-label edge `id rel id` becomes object attribute `rel`
+- binary no-label edge `sub rel obj` becomes or refreshes a `Relationship`
+
+This means relation correctness depends on `no_label_edges` carrying stable numeric IDs.
+
+## Structured Output
+
+VLM structured output mode is configured under `scene_graph.vlm.structured_output`.
+
+Supported modes are provider-dependent:
+
+- `provider_native`
+- `parse_output`
+- `instructor`
+
+Provider capability behavior is documented in `providers-model-clients.md`.
+
+## Where To Change Things
+
+- Add a new SGG backend: add backend class, config schema section, pipeline factory construction, `SceneGraphService.generate` branch, dashboard controls, config reload rules.
+- Change graph merge semantics: `SceneGraph.__add__` or `SceneGraphService.generate`.
+- Change VLM filtering: `VLMSceneGraphGenerator.filter_hallucinated_relations`.
+- Change rule vocabulary or rule types: `rules_backend.py` and `SGGRule` config.
+- Change RelTR mapping/unary conversion: `reltr_backend.py`.
+- Change SoM visual style or masks: `som.py` and visualization config/dashboard.
+- Change robot attributes injected into graph: memory social extraction and `enhance_scene_graph_with_robot_data`.

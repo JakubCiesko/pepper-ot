@@ -36,6 +36,7 @@ extra_javascript:
 
 nav:
   - Home: index.md
+  - System Description: system_description.md
   - Server:
       - Overview: server/index.md
       - Architecture:
@@ -61,3 +62,20 @@ nav:
       - Support:
           - Assets, Tests, and Support Files: server/assets-tests-and-support-files.md
           - File Inventory: server/file-inventory.md
+  - Robot Client:
+      - Overview: robot-client/index.md
+      - Architecture:
+          - System Overview: robot-client/architecture-overview.md
+          - Runtime Service and Turns: robot-client/runtime-service-and-turns.md
+          - Session State and Dynamic Concepts: robot-client/session-state-and-dynamic-concepts.md
+      - Configuration and Server:
+          - Configuration: robot-client/configuration.md
+          - Server Communication: robot-client/server-communication.md
+      - Robot Interaction:
+          - Perception and Metadata: robot-client/perception-and-metadata.md
+          - Dialog and Speech: robot-client/dialog-and-speech.md
+          - Tablet Memory UI: robot-client/tablet-memory-ui.md
+      - Support:
+          - Packaging, Deployment, and Development: robot-client/packaging-deployment-and-development.md
+          - Troubleshooting and Extension Guide: robot-client/troubleshooting-and-extension-guide.md
+          - File Inventory: robot-client/file-inventory.md

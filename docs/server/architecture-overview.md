@@ -1,268 +1,205 @@
-# Architecture Overview
+# Server Architecture Overview
 
-## Purpose
+The server is a FastAPI application with three major responsibilities:
 
-The server is the perception, memory, scene-graph, dialogue, and operator-control side of the Pepper system. It accepts camera images and robot metadata, runs configurable perception and grounding stages, stores dynamic scene state, serves dialogue and caption requests, optionally delegates heavy work to a separate worker process, and exposes a dashboard for runtime inspection and control.
+1. Run perception over robot or dashboard-uploaded images.
+2. Maintain a persistent scene memory that can be queried by chat, dashboard, and robot clients.
+3. Expose runtime controls through API and dashboard without requiring code changes for common model/pipeline tuning.
 
-## High-Level Components
+The entrypoint is `server/app/main.py`. It creates the FastAPI app, mounts `/static`, includes `/api/v1` routes, includes the dashboard router, and initializes global `app_state` during lifespan startup.
 
-```mermaid
-flowchart LR
-    Pepper[Pepper client image and robot metadata] --> API[FastAPI public API]
-    API --> ORCH[Orchestration layer and runtime adapter]
-    ORCH -->|in-process| PIPE[Perception pipeline]
-    ORCH -->|worker mode| WM[WorkerManager]
-    WM --> WORKER[Worker process internal routes and runtime]
-    PIPE --> MEM[SceneMemory]
-    PIPE --> SGG[SceneGraphService]
-    PIPE --> CAP[Caption service]
-    WORKER --> MEM
-    WORKER --> SGG
-    WORKER --> CAP
-    MEM --> CHAT[ChatService]
-    API --> DASH[Dashboard routes]
-    DASH --> WS[WebSocket broadcast]
-    WS --> DASH
-    PIPE --> WS
-    WORKER --> WS
-```
+## Top-Level Runtime Pieces
 
-### 1. Public HTTP/API layer
+### FastAPI App
 
 Files:
-- `app/main.py`
-- `app/api/v1/*.py`
-- `app/dashboard.py`
 
-Responsibilities:
-- Starts FastAPI.
-- Mounts static files.
-- Exposes public routes under `/api/v1`.
-- Exposes dashboard routes and websocket broadcast channel.
+- `server/app/main.py`
+- `server/app/api/v1/router.py`
+- `server/app/dashboard.py`
 
-### 2. Runtime state and dependency assembly
+`main.py` configures logging, loads `AppState`, optionally starts ngrok, and shuts down the worker manager on server shutdown. Public APIs are mounted under `/api/v1`. The dashboard is mounted at `/dashboard` and uses `/dashboard/events` WebSocket.
 
-Files:
-- `app/core/runtime/state.py`
-- `app/core/pipeline_factory.py`
-- `app/core/config/*`
-- `app/core/infra/*`
+### AppState
 
-Responsibilities:
-- Owns the active config.
-- Builds pipeline, services, memory, providers, and worker manager.
-- Applies config changes.
-- Stores latest published state for dashboard replay.
+File: `server/app/core/runtime/state.py`
 
-### 3. Orchestration layer
+`AppState` owns the process-level runtime objects:
 
-Files:
-- `app/orchestration/services/*`
-- `app/orchestration/adapters/runtime.py`
+- active `AppConfig`
+- config version
+- optional in-process `PerceptionPipeline`
+- optional `WorkerManager`
+- `ChatService`
+- `ConversationService`
+- `CaptionService`
+- `QAPoolService`
+- last persisted state payload
 
-Responsibilities:
-- Translates API inputs into runtime actions.
-- Chooses in-process vs worker-backed execution.
-- Maintains conversation state.
-- Broadcasts state changes to dashboard clients.
+This is the dependency root for API service classes. API handlers instantiate lightweight orchestration services and pass `app_state` into them.
 
-### 4. Inference layer
+### Runtime Adapter Layer
 
-Files:
-- `app/inference/*`
+File: `server/app/orchestration/adapters/runtime.py`
 
-Responsibilities:
-- Detection
-- Captioning
-- Tracking and ReID
-- Dynamic scene memory
-- Scene graph generation
-- Set-of-Mark overlay creation
-- Per-frame metrics and stage execution accounting
+API services do not call the pipeline directly. They call a runtime adapter:
 
-### 5. Provider/client layer
+- `InProcessRuntimeAdapter` runs `PerceptionPipeline` directly in the API process.
+- `WorkerRuntimeAdapter` forwards requests to the worker process through `WorkerManager`.
+- `WorkerInternalRuntimeAdapter` exposes the same memory/runtime shape inside the worker process.
+
+This abstraction lets memory, detect, caption, and chat code stay mostly the same whether worker mode is enabled.
+
+### Worker Process
 
 Files:
-- `app/providers/*`
 
-Responsibilities:
-- Normalize access to OpenAI, Gemini, local HF, and related model runtimes.
-- Handle structured output parsing.
-- Handle translation.
-- Resolve provider-specific init and call kwargs.
+- `server/app/core/runtime/worker_client/manager.py`
+- `server/app/core/runtime/worker_client/manager_process.py`
+- `server/app/core/runtime/worker_client/manager_monitor.py`
+- `server/app/core/runtime/worker_client/manager_rpc.py`
+- `server/app/worker/main.py`
+- `server/app/worker/runtime.py`
+- `server/app/worker/routes.py`
 
-### 6. Worker runtime
+Worker mode starts a separate FastAPI app serving `/internal/*` routes. Heavy GPU objects live in the worker process. The API process sends image bytes and metadata over internal HTTP. The worker supports health/status, warmup, hot config update, hard config reload through restart, detect, caption, vision chat, memory state access, crops, and memory CRUD.
+
+## Request Flow: Detect
+
+Primary files:
+
+- `server/app/api/v1/detect.py`
+- `server/app/orchestration/services/detection.py`
+- `server/app/orchestration/adapters/runtime.py`
+- `server/app/inference/pipeline.py`
+
+Flow:
+
+1. The public `/api/v1/detect` route accepts multipart `file`, `metadata`, `publish`, and `resize_image` fields.
+2. Image bytes may be resized by `api/v1/image_utils.py` before inference.
+3. If metadata is present, `DetectService.parse_metadata` validates `RobotMetadata`, normalizes angle units, and falls back to safe defaults when metadata is absent.
+4. `DetectService.process` resolves the runtime adapter.
+5. The adapter either runs `PerceptionPipeline.process` locally or calls `WorkerManager.detect`.
+6. The returned runtime payload is normalized into `DetectionResponse`, WebSocket payload, memory payload, and QA pool ingestion.
+7. If `publish=true`, dashboard clients receive a `detection` event and then memory state is available for the dashboard memory panel.
+8. If `storage.persist_last_state=true`, last-state persistence code saves the latest payload.
+
+## Request Flow: Panorama Detect
+
+File: `server/app/api/v1/detect.py`
+
+`POST /api/v1/detect/panorama` accepts multiple image files and a list of metadata JSON strings.
+
+There are two modes:
+
+- `stick_together=true`: images are stitched horizontally, metadata is merged using `RobotMetadata.merge_robot_metadata_for_panorama`, and one detect pipeline is run on the panorama.
+- `stick_together=false`: each image is processed separately and the endpoint returns a combined object list. This mode is useful when you want per-frame geometry and do not want panorama stitching artifacts.
+
+Metadata merging assumes images are ordered left-to-right in the same order as files. It sums horizontal FOVs, averages vertical FOVs, shifts Pepper person yaw values into the panorama coordinate frame, and carries social metadata forward.
+
+## Request Flow: Caption
 
 Files:
-- `app/core/runtime/worker_client/*`
-- `app/worker/*`
 
-Responsibilities:
-- Spawn and monitor a separate inference process.
-- Proxy requests from the main FastAPI app to the worker.
-- Allow hot config push and hard rebuild behavior.
-- Support idle shutdown and restart logic.
+- `server/app/api/v1/caption.py`
+- `server/app/orchestration/services/caption.py`
+- `server/app/providers/caption/client.py`
 
-### 7. Operator UI
+`POST /api/v1/caption` returns a fast caption. It can also trigger a full detect pipeline in the background with `run_detect=true`. That background detect path is intentionally the same `DetectService.process` path used by `/detect`, so memory, scene graph, and QA generation can still happen when configured.
+
+## Request Flow: Chat
 
 Files:
-- `app/static/templates/*`
-- `app/static/js/dashboard/*`
-- `app/dashboard.py`
 
-Responsibilities:
-- Inspect latest frame and memory.
-- Edit config.
-- Inspect scene graph.
-- Send chat messages.
-- Control worker lifecycle.
+- `server/app/api/v1/chat.py`
+- `server/app/orchestration/services/chat.py`
+- `server/app/orchestration/services/conversation.py`
+- `server/app/providers/translation/google_trans.py`
 
-## Main End-to-End Flows
+`POST /api/v1/chat` is the main text chat route. It supports `mode=general` and `mode=object`. The endpoint:
 
-## A. Detection flow
+1. Resolves output language from request fields or `config.system.output_language`.
+2. Resolves model-facing language from request or output language.
+3. Enforces the user query into model-facing language.
+4. Stores the original and model-facing user text in `ConversationService`.
+5. Builds model-facing history from previous model-facing messages.
+6. Calls `ChatService.chat` or `ChatService.object_chat`.
+7. Enforces the assistant response into the requested output language.
+8. Stores original/model-facing assistant text.
+9. Broadcasts the message to dashboard clients.
 
-```mermaid
-sequenceDiagram
-    participant C as Client Pepper
-    participant R as api v1 detect
-    participant D as DetectService
-    participant A as RuntimeAdapter
-    participant P as PerceptionPipeline or Worker runtime
-    participant M as SceneMemory
-    participant W as WebSocket clients dashboard
+The design preserves original text for UI/debugging and model-facing text for consistent prompt history.
 
-    C->>R: POST image + metadata
-    R->>D: parse request
-    D->>A: resolve runtime mode
-    A->>P: detect(image, metadata)
-    P->>M: update tracks / memory
-    P-->>A: detections + graph + caption + metrics
-    A-->>D: normalized result
-    D->>W: broadcast detection payload (optional)
-    D-->>C: DetectionResponse
-```
+## Request Flow: Vision Chat
 
-1. Client POSTs image and metadata to `/api/v1/detect`.
-2. `DetectService` parses image + robot metadata.
-3. Runtime adapter chooses in-process or worker execution.
-4. `PerceptionPipeline.process()` runs enabled stages.
-5. Result is normalized into API payload form.
-6. If `publish=true`, websocket broadcast occurs and latest state may be persisted.
+Files:
 
-## B. General chat flow
+- `server/app/api/v1/vision_chat.py`
+- `server/app/orchestration/adapters/runtime.py`
+- `server/app/worker/runtime.py`
 
-1. Client POSTs to `/api/v1/chat`.
-2. Conversation is created or resumed.
-3. Input text may be translated to the configured output/model language.
-4. `ChatService` composes prompt from scene memory, captions, and conversation history.
-5. LLM provider generates answer.
-6. Output may be translated back.
-7. Conversation state is stored and broadcast.
+`POST /api/v1/vision_chat` accepts an image and a text query. It shares `ConversationService` history semantics with text chat, but the underlying answer comes from the scene-graph VLM backend client rather than the text-only chat LLM. The route keeps the current VLM prompt behavior separate from the normal text chat system prompt.
 
-## C. Object chat flow
+## Scene Memory
 
-1. Request uses `mode=object` and includes `object_label`.
-2. `ChatService.object_chat()` resolves matching tracked objects from scene memory.
-3. If structured facts are weak, crop-based caption fallback may be used.
-4. Object-focused context is added to the prompt.
-5. Response returns matched object IDs in metadata.
+Core files:
 
-## D. Vision chat flow
+- `server/app/inference/memory/scene_memory.py`
+- `server/app/inference/memory/state_store/store.py`
+- `server/app/inference/memory/state_store/*.py`
+- `server/app/orchestration/services/memory.py`
 
-1. Client POSTs image + query to `/api/v1/vision_chat`.
-2. Conversation history is optionally prepended.
-3. Runtime adapter routes the image directly to the VLM path.
-4. VLM answers directly from image input, bypassing scene-memory-driven grounding.
+Scene memory stores:
 
-## System Boundary Diagram
+- active and dormant tracks
+- object state records
+- relationship state records
+- caption state records
+- Pepper-person to server-object bindings
+- last crop bytes per tracked object
 
-```mermaid
-flowchart TB
-    subgraph Main[Main FastAPI process]
-        API2[API routes]
-        CFG[Config manager]
-        AST[AppState]
-        DAS[Dashboard and websocket]
-        OR2[Runtime adapters]
-    end
+Memory is updated by the pipeline after tracking and scene graph generation. It can also be manually edited through memory CRUD API endpoints.
 
-    subgraph Worker[Optional worker process]
-        WR[Worker routes]
-        WRT[WorkerRuntime]
-        WP[Perception pipeline]
-    end
+## Scene Graph
 
-    subgraph Models[Providers and models]
-        LLM[LLM providers]
-        VLM[VLM providers]
-        CAP2[Caption providers]
-    end
+Core files:
 
-    API2 --> OR2
-    CFG --> AST
-    AST --> OR2
-    OR2 -->|direct| WP
-    OR2 -->|proxy| WR
-    WR --> WRT --> WP
-    WP --> LLM
-    WP --> VLM
-    WP --> CAP2
-    API2 --> DAS
-    WP --> DAS
-```
+- `server/app/inference/scene_graph/service.py`
+- `server/app/inference/scene_graph/rules_backend.py`
+- `server/app/inference/scene_graph/reltr_backend.py`
+- `server/app/inference/scene_graph/vlm_backend.py`
+- `server/app/inference/scene_graph/som.py`
 
-## E. Config flow
+Scene graph generation is backend-compositional. Any combination of `rules`, `reltr`, and `vlm` can run for a frame. Their `SceneGraph` objects are added together and deduplicated. After backend merge, robot-derived object attributes stored in scene memory are injected into the graph for current objects.
 
-1. Dashboard or API client calls `/api/v1/config` or `/api/v1/config` PATCH.
-2. Patch is validated against `AppConfig`.
-3. Diff is computed by reload rules.
-4. Hot changes are applied in place where supported.
-5. Hard changes rebuild pipeline and/or worker runtime.
+## QA Generation
 
-## Process Boundaries
+Files:
 
-### In-process mode
+- `server/app/inference/qa/service.py`
+- `server/app/orchestration/services/qa_pool.py`
+- `server/app/api/v1/chat.py`
+- `server/app/api/v1/memory.py`
 
-- All inference objects live inside the main FastAPI process.
-- Lowest operational complexity.
-- Highest memory pressure in the main server.
-- Used when `worker.enabled = false` or no worker manager is available.
+QA generation is a pipeline stage after scene graph generation. It generates English factual question-answer pairs from graph triples and caption context. `DetectService` ingests generated pairs into `QAPoolService`, which stores bilingual items and lazily translates Czech text. The pool is exposed through chat QA endpoints and memory summaries.
 
-### Worker mode
+## Dashboard
 
-- Main API process stays comparatively thin.
-- Heavy inference runs inside worker process.
-- Main process proxies detection, vision chat, and memory mutations via HTTP/RPC-like calls.
-- Better isolation for GPU-heavy stages.
+Files:
 
-## State Ownership
+- `server/app/static/templates/dashboard.html`
+- `server/app/static/templates/dashboard/pages/*.html`
+- `server/app/static/js/dashboard/app.js`
+- `server/app/static/js/dashboard/features/*`
 
-- Global app lifecycle state: `AppState`
-- Latest dashboard replay payload: `AppState.last_state`
-- Dynamic world model: `SceneMemory` -> `SceneMemoryStore`
-- Conversation history: `ConversationService`
-- Persisted config: `server/config.yaml`
-- Optional persisted latest state: `server/state/last_state.json` and sibling `.jpg`
+The dashboard is a modular operator UI. It receives WebSocket events for live frames, memory changes, and chat messages. It also patches config through `/api/v1/config`, edits memory through memory CRUD APIs, displays QA pool JSON, and shows memory graph SVG summaries.
 
-## Important Couplings
+## Configuration Philosophy
 
-- `ChatService` depends on `SceneMemory` structure and recent captions.
-- `PerceptionPipeline` depends on pipeline controls from config.
-- `SceneGraphService` depends on detection IDs being stable enough for relation grounding.
-- `WorkerRuntime` and main process share the same config schema.
-- Dashboard config UI is tightly coupled to field names in `AppConfig` and `/api/v1/config` payload shape.
+The config system intentionally separates:
 
-## Safe Tweak Zones
+- model/backend changes that require hard reload or worker restart
+- runtime knobs that can be hot-applied to existing services
+- per-call request overrides such as caption prompt or chat language
 
-- Prompt text and ontology files under `server/prompts` and `server/ontology`
-- Detection thresholds and provider configs in `config.yaml`
-- Rule-based SGG rules in `scene_graph.rules.rule_list`
-- Pipeline stage toggles in `pipeline_controls`
-- Worker lifecycle timing in `worker.*`
-
-## High-Risk Tweak Zones
-
-- Changing `SceneState`, `TrackedObjectState`, or related schemas
-- Changing object ID semantics in tracking/memory
-- Changing config field names without updating dashboard JS and reload rules
-- Changing worker request/response contracts without updating both main and worker sides
+The source of truth is `server/config.yaml`, validated by `server/app/schemas/config.py`. Runtime patch logic lives under `server/app/core/config` and `server/app/core/config/mutations`.

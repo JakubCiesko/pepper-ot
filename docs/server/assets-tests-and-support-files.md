@@ -1,125 +1,161 @@
 # Assets, Tests, and Support Files
 
-## Files Covered
+This document explains non-core-code server files: config, prompts, ontology, translation lexicons, static assets, runtime state, and tests/support files.
 
-- `server/prompts/*`
-- `server/ontology/*`
-- `server/state/*`
-- `server/tests/*`
-- `server/mock/*`
-- `server/start_server.sh`
-- `server/download_models.sh`
-- `server/requirements.txt`
-- `server/setup.py`
-- `server/detection_models/*`
-- `server/rf-detr-*.pth`
-- `server/plans/*`
+## Root Server Files
 
-## Prompt Assets
+### `server/config.yaml`
 
-### Chat prompts
+Default runtime config loaded by `AppConfig.load`. It is also the file saved by `/api/v1/config/save` and reloaded by `/api/v1/config/reload`.
 
-- `prompts/chat_system.txt`
-- `prompts/chat_object_user.txt`
-- `prompts/chat_context.txt`
+When adding config fields, update:
 
-Used by:
-- `ChatService`
-- dashboard config editing
-- object-focused prompt construction
+- `server/app/schemas/config.py`
+- `server/config.yaml`
+- config reload rules
+- dashboard template/JS if operator-facing
+- docs in this directory
 
-### VLM prompts
+### `server/app/main.py`
 
-- `prompts/vlm_system.txt`
-- `prompts/vlm_system_complex.txt`
-- `prompts/vlm_user.txt`
+FastAPI entrypoint. Mounts static files, API, and dashboard.
 
-Used by:
-- scene graph VLM backend
-- direct VLM prompting paths
+## Prompts
 
-## Ontology Files
+Prompt sources can be inline in YAML or stored under allowed prompt roots. The config manager validates uploaded prompt paths for safety.
 
-### `ontology/object_detection.yaml`
+Prompt fields currently exist for:
 
-Purpose:
-- label vocabulary for detection backends that support ontology/open-vocabulary behavior
+- scene graph VLM system/user prompt
+- chat general system/user prompt
+- object chat system/user prompt
+- caption system/user prompt
 
-### `ontology/scene_generation_ontology.yaml`
+Prompt rendering uses `server/app/core/prompting/renderer.py`. It is simple placeholder replacement, not Jinja.
 
-Purpose:
-- predicate and object vocabulary for scene graph generation prompts
+Common placeholders:
 
-## Persisted State Files
+- `{context}`
+- `{caption}`
+- `{captions_recent}`
+- `{caption_recent}`
+- `{predicates}`
+- `{query}`
+- `{history}`
+- object-chat placeholders such as `{object_context}` and `{matched_ids}`
 
-### `state/last_state.json`
-- latest persisted dashboard/live payload when storage is enabled
+## Ontology
 
-### `state/last_state.jpg`
-- latest persisted rendered image when `storage.store_image = true`
+Detection and VLM scene graph can use ontology terms from config or files.
 
-These files are runtime artifacts, not source of truth.
+Detection ontology:
+
+- inline `detection.ontology`
+- or `detection.ontology_path`
+
+VLM scene graph ontology:
+
+- `scene_graph.vlm.ontology.predicates`
+- `scene_graph.vlm.ontology.objects`
+- optional ontology path
+
+The vocabulary translator warms Czech display translations from these terms.
+
+## Translation Lexicons
+
+Files:
+
+- `server/app/providers/translation/lexicons/labels_cs.json`
+- `server/app/providers/translation/lexicons/attributes_cs.json`
+- `server/app/providers/translation/lexicons/relations_cs.json`
+- `server/app/providers/translation/lexicons_user/labels_cs.user.json`
+- `server/app/providers/translation/lexicons_user/attributes_cs.user.json`
+- `server/app/providers/translation/lexicons_user/relations_cs.user.json`
+
+Static lexicons are shipped defaults. User lexicons are editable through dashboard and override static entries.
+
+`VocabularyTranslationService` creates missing user lexicon files if needed and atomically writes updates.
+
+## Static Dashboard Assets
+
+Files:
+
+- `server/app/static/templates/dashboard.html`
+- `server/app/static/templates/dashboard/pages/*.html`
+- `server/app/static/js/dashboard/**/*.js`
+- `server/app/static/css/style.css`
+- `server/app/static/pepper_icon.png`
+
+The dashboard is served from `/dashboard` and static assets from `/static`.
+
+JavaScript is modular ES modules under `static/js/dashboard`. The root module is `dashboard/app.js`.
+
+## Runtime State Files
+
+Runtime-generated files may live under `server/state` depending on config and backend behavior.
+
+Examples:
+
+- persisted last-state JSON
+- persisted last image when `storage.store_image=true`
+- temporary RelTR input images during RelTR prediction
+
+Do not treat `state` files as source-of-truth database storage. Scene memory and QA pool are in memory unless explicitly persisted by last-state support.
+
+## Model Files
+
+Detector and RelTR checkpoints may be referenced by config:
+
+- `detection.weights_path`
+- `scene_graph.reltr.checkpoint_path`
+
+The exact location is deployment-specific. Model registry code may download or load backend-specific weights.
 
 ## Tests
 
-### Contract/config tests
+Server tests live under `server/tests` when present. Use tests to verify:
 
-- `tests/test_config_validation.py`
-- `tests/test_worker_config_validation.py`
-- `tests/test_llm_contracts.py`
-- `tests/test_worker_contracts.py`
-- `tests/test_model_io_common.py`
+- endpoint contracts
+- config validation and reload behavior
+- detection pipeline branches
+- memory CRUD
+- chat language behavior
+- scene graph parsing/filtering
+- QA pool behavior
 
-### Runtime/integration tests
+Run typical server tests with:
 
-- `tests/test_pipeline_controls.py`
-- `tests/test_chat_language_flow.py`
-- `tests/test_clients_integration.py`
+```bash
+pytest server/tests -q
+```
 
-### Utilities
+## Local Development Checks
 
-- `tests/send_data.py`
+Useful checks:
 
-The test suite is useful documentation in its own right. If you change contracts or config behavior, update these tests immediately.
+```bash
+python3 -m py_compile $(find server/app -name '*.py' | sort)
+```
 
-## Mock and helper scripts
+```bash
+node --check server/app/static/js/dashboard/features/config/index.js
+```
 
-### `mock/detect.py`
-- lightweight fake detection support / debugging helper
+For all dashboard JS:
 
-### `start_server.sh`
-- convenience launcher for local server startup
+```bash
+for f in $(find server/app/static/js/dashboard -name '*.js' | sort); do node --check "$f" || exit 1; done
+```
 
-### `download_models.sh`
-- helper script for fetching model weights
+## Safe Path Validation
 
-## Packaging and dependencies
+`config_manager._validate_paths` restricts uploaded YAML prompt and ontology paths. Prompt paths must stay under prompt roots; ontology paths must stay under ontology roots. Absolute paths and `..` traversal are rejected.
 
-### `requirements.txt`
-- runtime Python dependencies
+## Documentation Updates
 
-### `setup.py`
-- packaging metadata / install helper
+When changing support files:
 
-## Model Weight Files
-
-Examples currently present:
-- `detection_models/reltr.pth`
-- `detection_models/rtdetr-x.pt`
-- `detection_models/yolo11x.pt`
-- `rf-detr-large-2026.pth`
-- `rf-detr-medium.pth`
-
-These are runtime assets, not code. Their presence affects available backends and startup assumptions.
-
-## Planning Material
-
-`server/plans/` contains historical planning notes, refactor plans, and cached external docs.
-
-Useful for context:
-- feature plans
-- worker/process refactor notes
-- GPU improvement notes
-- cached Aldebaran docs under `plans/docs`
-
-Not part of live runtime, but often useful when understanding why code ended up in its current shape.
+- If config shape changes, update `configuration-and-reload.md`.
+- If dashboard assets change, update `dashboard-and-operator-ui.md`.
+- If prompts/ontology behavior changes, update this file and provider/pipeline docs.
+- If tests are added for a subsystem, mention them in the subsystem doc if they define expected behavior.

@@ -1,315 +1,435 @@
-# File Inventory
+# Server File Inventory
 
-This is a grouped inventory of the current `server/` tree with practical descriptions.
+This is a locator guide for `server/app`. It is intentionally redundant with the subsystem docs so contributors can find code quickly by file name.
 
-## Source Code: Backend Python
+## Entrypoints and Routing
 
-### `app/main.py`
-- FastAPI bootstrap, lifespan, logging, ngrok, static mount, router registration.
+### `server/app/main.py`
 
-### `app/dashboard.py`
-- Dashboard routes and websocket endpoint.
+FastAPI application entrypoint. Configures logging, initializes `app_state`, optionally starts ngrok, mounts `/static`, includes `/api/v1` router, and includes dashboard routes.
 
-## `app/api/v1`
+### `server/app/dashboard.py`
 
-- `__init__.py`: package marker.
-- `router.py`: combines route modules into API router.
-- `detect.py`: detect and panorama-detect public endpoints.
-- `caption.py`: direct caption endpoint.
-- `chat.py`: grounded chat endpoints and conversation endpoints.
-- `vision_chat.py`: direct image+question VLM chat endpoint.
-- `config.py`: config/state read-write endpoints.
-- `memory.py`: memory CRUD/read endpoints.
-- `memory_route_utils.py`: shared memory route execution helper.
-- `worker.py`: worker status/warmup/stop endpoints.
-- `image_utils.py`: image resize/debug/panorama helpers.
+Dashboard backend routes: render dashboard, manage dashboard WebSocket, list detection models, and broadcast manual chat messages.
 
-## `app/core`
+### `server/app/api/v1/router.py`
 
-- `__init__.py`: package marker.
-- `pipeline_factory.py`: build perception pipeline and dependencies.
+Aggregates all public API routers under `/api/v1`.
 
-### `app/core/config`
+### `server/app/api/v1/__init__.py`
 
-- `__init__.py`: package marker.
-- `config_manager.py`: load/dump/patch/resolve config and apply hot changes.
+Exports API router.
 
-### `app/core/config/mutations`
+## Public API Routes
 
-- `__init__.py`: exports grouped rule definitions.
-- `components.py`: collects all reload rules and computes diffs.
-- `reload_rule.py`: reload rule dataclasses and apply-hot groups.
-- `runtime.py`: in-place pipeline/chat/caption/scene-graph runtime update helpers.
+### `server/app/api/v1/detect.py`
 
-### `app/core/config/mutations/rule_definitions`
+Public detection endpoints. Handles multipart image upload, metadata JSON form fields, image resizing, panorama stitching/non-stitch flow, metadata patching after resize, and calls `DetectService`.
 
-- `__init__.py`: grouped exports.
-- `detection.py`: detection config reload rules.
-- `caption.py`: caption config reload rules.
-- `chat.py`: chat config reload rules.
-- `pipeline.py`: pipeline control reload rules.
-- `scene_graph.py`: scene-graph reload rules.
-- `storage.py`: storage reload rules.
-- `tracking.py`: tracking/memory reload rules.
-- `visualization.py`: visualization reload rules.
-- `worker.py`: worker reload rules.
+### `server/app/api/v1/caption.py`
 
-### `app/core/infra`
+Public caption endpoint. Handles image upload, optional metadata, prompt override, optional background detect, publish flag, language, and resize flag.
 
-- `__init__.py`: package marker.
-- `storage.py`: latest-state JSON/JPG persistence helpers.
-- `ws_manager.py`: websocket connection manager and broadcaster.
+### `server/app/api/v1/chat.py`
 
-### `app/core/prompting`
+Text chat and QA routes. Implements general/object chat dispatch, language enforcement, conversation storage, QA pool read/force-generation, QA pool get/replace, and dashboard chat broadcasts.
 
-- `__init__.py`: package marker.
-- `renderer.py`: prompt template rendering using context/caption fields.
+### `server/app/api/v1/vision_chat.py`
 
-### `app/core/runtime`
+Vision chat route. Accepts image plus query, shares conversation service/history with text chat, and calls VLM image backend through runtime adapter.
 
-- `__init__.py`: package marker.
-- `state.py`: global application runtime container.
+### `server/app/api/v1/memory.py`
 
-### `app/core/runtime/worker_client`
+Public memory routes. Exposes full memory, memory summary/SVG/QA, object crops, object/relation listing, memory reset/upsert, object CRUD, and relation CRUD.
 
-- `__init__.py`: package marker.
-- `errors.py`: worker-specific error types.
-- `manager.py`: top-level worker manager.
-- `manager_monitor.py`: monitoring/idle/restart logic mixin.
-- `manager_process.py`: subprocess lifecycle mixin.
-- `manager_rpc.py`: HTTP/RPC transport mixin.
-- `rpc.py`: worker request/response schemas.
-- `types.py`: worker state enums and snapshots.
+### `server/app/api/v1/memory_route_utils.py`
 
-## `app/orchestration`
+Converts memory service domain errors into FastAPI HTTP exceptions and optionally runs success callbacks.
 
-- `__init__.py`: package marker.
+### `server/app/api/v1/config.py`
 
-### `app/orchestration/adapters`
+Public config endpoints. Returns active/saved/resolved config and contracts, applies patches, saves/reloads/uploads/downloads YAML, and handles translation patch payloads.
 
-- `__init__.py`: package marker.
-- `runtime.py`: runtime adapter abstraction for in-process vs worker execution.
+### `server/app/api/v1/state.py`
 
-### `app/orchestration/services`
+Returns latest dashboard state payload, including persisted state loaded at startup if configured.
 
-- `__init__.py`: package marker.
-- `detection.py`: detection request orchestration and persistence.
-- `chat.py`: grounded dialogue composition and object chat.
-- `caption.py`: caption orchestration wrapper.
-- `conversation.py`: conversation state/history service.
-- `memory.py`: memory service and request models for CRUD operations.
+### `server/app/api/v1/worker.py`
 
-## `app/inference`
+Worker control endpoints for status, warmup, and stop.
 
-- `__init__.py`: package marker.
-- `pipeline.py`: central multi-stage perception pipeline.
-- `types.py`: internal inference data types.
+### `server/app/api/v1/image_utils.py`
 
-### `app/inference/caption`
+Image helper functions for resolution checking/resizing used by detect/caption endpoints.
 
-- `__init__.py`: package marker.
-- `service.py`: caption inference service wrapper and result object.
+## Schemas
 
-### `app/inference/detection`
+### `server/app/schemas/config.py`
 
-- `__init__.py`: package marker.
-- `detectors.py`: detector backends.
-- `model_registry.py`: backend/model registry.
-- `service.py`: detection service wrapper.
+Top-level config models: detection, tracking, fusion, scene graph, QA generation, chat, caption, visualization, storage, worker, pipeline controls, prompt sources, ontology sources, and config validation.
 
-### `app/inference/tracking`
+### `server/app/schemas/detect.py`
 
-- `__init__.py`: package marker.
-- `associator.py`: track-detection matching logic.
-- `embeddings.py`: ReID feature extraction and crop extraction.
+Detection API response/request form schemas.
 
-### `app/inference/memory`
+### `server/app/schemas/robot.py`
 
-- `__init__.py`: package marker.
-- `scene_memory.py`: high-level memory facade.
-- `chat_memory_proxy.py`: worker-safe / empty chat-memory helpers.
+Robot metadata schemas for Pepper pose, camera FOV, geometric people, social people, and panorama metadata merging.
 
-#### `app/inference/memory/state_store`
+### `server/app/schemas/scene.py`
 
-- `__init__.py`: package marker and exports.
-- `store.py`: main memory state container and Pepper binding logic.
-- `objects.py`: object-state mutation helpers.
-- `relations.py`: relation-state mutation helpers.
-- `tracks.py`: track lifecycle helpers.
-- `social.py`: Pepper social/person enrichment helpers.
-- `geometry.py`: geometry and robot-relative helper logic.
+Scene/memory schemas: tracked object state, relationship, caption state, scene state, scene graph structured response, memory summary.
 
-### `app/inference/scene_graph`
+### `server/app/schemas/chat.py`
 
-- `__init__.py`: package marker.
-- `service.py`: scene graph backend dispatch and merge.
-- `rules_backend.py`: rule and color-based scene graph generation.
-- `vlm_backend.py`: VLM-based scene graph generation.
-- `reltr_backend.py`: RelTR adapter layer.
-- `reltr_predictor.py`: RelTR model load/inference utilities.
-- `som.py`: Set-of-Mark painter.
+Chat modes, chat request/response, vision chat form/request schemas, pregenerated QA request/response, bilingual QA pool schemas.
 
-## `app/providers`
+## Core Runtime and Config
 
-- `__init__.py`: package marker.
+### `server/app/core/runtime/state.py`
 
-### `app/providers/common`
+Global `AppState` and initialization/config application logic. Owns config, pipeline, worker manager, chat/caption/conversation services, QA pool service, last state, and config version.
 
-- `__init__.py`: package marker.
-- `io.py`: structured output parsing and extraction helpers.
-- `runtime_setup.py`: API-key/client-kwargs helpers.
-- `utils.py`: capability matrix and kwargs validation.
+### `server/app/core/pipeline_factory.py`
 
-### `app/providers/llm`
+Builds `PerceptionPipeline` and all inference-stage dependencies from `AppConfig`.
 
-- `__init__.py`: package marker.
-- `base.py`: base text provider contracts.
-- `client.py`: unified LLM client facade.
-- `openai_llm.py`: OpenAI-compatible text provider.
-- `gemini_llm.py`: Gemini text provider.
-- `hf_llm.py`: local HF text provider.
+### `server/app/core/infra/ws_manager.py`
 
-### `app/providers/vlm`
+Dashboard WebSocket connection manager and broadcast helper.
 
-- `__init__.py`: package marker.
-- `base.py`: VLM base interface.
-- `factory.py`: VLM provider factory.
-- `openai_vlm.py`: OpenAI VLM provider.
-- `gemini_vlm.py`: Gemini VLM provider.
-- `local_hf_vlm.py`: local HF VLM and 4-bit variants.
+### `server/app/core/infra/storage.py`
 
-### `app/providers/caption`
+Last-state JSON/image load/save helpers.
 
-- `__init__.py`: package marker.
-- `client.py`: caption client facade and BLIP implementation.
+### `server/app/core/prompting/renderer.py`
 
-### `app/providers/translation`
+Simple prompt placeholder replacement with `PromptRenderContext`.
 
-- `__init__.py`: package marker.
-- `google_trans.py`: translation and output-language enforcement.
+### `server/app/core/config/config_manager.py`
 
-## `app/schemas`
+Loads/dumps/resolves config, returns dashboard behavior contracts, deep-merges patches, validates uploaded YAML paths, computes config diffs, and applies hot config changes.
 
-- `__init__.py`: package marker.
-- `config.py`: main config schema tree.
-- `detect.py`: detection response/form models.
-- `caption.py`: caption response/form models.
-- `chat.py`: chat request/response and chat mode enum.
-- `vision_chat.py`: vision chat request/response models.
-- `robot.py`: Pepper metadata models.
-- `scene.py`: object/relation/caption/scene state models.
+### `server/app/core/config/mutations/components.py`
 
-## `app/worker`
+Assembles all reload rules, verifies uniqueness, computes hot/hard diff, applies hot handlers, and pushes hot config to worker.
 
-- `__init__.py`: package marker.
-- `main.py`: worker FastAPI app bootstrap.
-- `routes.py`: internal worker router builder.
-- `runtime.py`: worker-local runtime service container.
+### `server/app/core/config/mutations/reload_rule.py`
 
-## Source Code: Frontend
+Defines `ReloadRule`, `ConfigDiff`, and hot handler groups for pipeline, QA, chat, and caption runtime updates.
 
-### `app/static/templates`
+### `server/app/core/config/mutations/runtime.py`
 
-- `dashboard.html`: dashboard shell.
-- `dashboard/pages/live.html`: live processing view.
-- `dashboard/pages/chat.html`: chat panel.
-- `dashboard/pages/detection.html`: detection config/view page.
-- `dashboard/pages/runtime.html`: runtime/worker page.
-- `dashboard/pages/scene.html`: scene graph page.
-- `dashboard/pages/som.html`: SoM-related page.
-- `dashboard/pages/storage.html`: storage page.
-- `dashboard/pages/memory-settings.html`: memory settings/editing page.
-- `dashboard/pages/caption.html`: caption config/page.
+Mutates live runtime objects on hot config update: detector, pipeline controls, fusion, visualization, QA service, memory settings, scene graph backends.
 
-### `app/static/js/dashboard/core`
+### `server/app/core/config/mutations/rule_definitions/*.py`
 
-- `http.js`: JSON request helpers.
-- `notifications.js`: small status/toast messages.
-- `ws.js`: websocket setup helper.
+Reload rule lists per config section: detection, caption, chat, pipeline, QA generation, scene graph, storage, tracking, visualization, worker.
 
-### `app/static/js/dashboard/features/config`
+## Worker Client and Worker Process
 
-- `index.js`: giant config editor module mirroring `AppConfig`.
+### `server/app/core/runtime/worker_client/manager.py`
 
-### `app/static/js/dashboard/features/live`
+Main worker manager class combining process, monitor, and RPC mixins. Provides status, config update, hot config push, hard reload, warmup, detect, and status calls.
 
-- `index.js`: live frame carousel, metrics, and scene summary UI.
+### `server/app/core/runtime/worker_client/manager_process.py`
 
-### `app/static/js/dashboard/features/conversation`
+Starts/stops child worker uvicorn process, forwards stdout/stderr, waits for health, posts config reload, handles graceful/forced shutdown.
 
-- `index.js`: text chat + vision chat UI logic.
+### `server/app/core/runtime/worker_client/manager_monitor.py`
 
-### `app/static/js/dashboard/features/memory`
+Worker monitor loop, lazy-start waiting, idle shutdown, crash detection, startup queue limit, and circuit breaker checks.
 
-- `index.js`: memory feature bootstrap.
-- `actions.js`: refresh and CRUD binding.
-- `api.js`: memory API calls.
-- `dom_refs.js`: DOM lookup helpers.
-- `parsers.js`: small parse helpers for editor inputs.
-- `render.js`: memory UI rendering functions.
+### `server/app/core/runtime/worker_client/manager_rpc.py`
 
-### `app/static/js/dashboard/features/scene_graph`
+Internal HTTP request helpers for worker RPC.
 
-- `index.js`: graph visualization and panel init.
+### `server/app/core/runtime/worker_client/rpc.py`
 
-### `app/static/js/dashboard/features/ui_shell`
+Pydantic request/response models crossing the API-process to worker-process boundary.
 
-- `index.js`: UI shell bootstrap.
-- `navigation.js`: page navigation.
-- `tabs.js`: tab group setup.
-- `sidebar.js`: sidebar open/close behavior.
-- `theme.js`: theme toggle behavior.
+### `server/app/core/runtime/worker_client/types.py`
 
-### `app/static/js/dashboard/app.js`
+Worker state enums, restart/stop reasons, and status snapshot model.
 
-- top-level dashboard JS entrypoint and websocket dispatcher.
+### `server/app/core/runtime/worker_client/errors.py`
 
-## Config, Assets, and Data
+Worker-specific exception types.
 
-- `config.yaml`: main runtime configuration.
-- `ontology/object_detection.yaml`: detection ontology.
-- `ontology/scene_generation_ontology.yaml`: scene-graph ontology.
-- `prompts/chat_context.txt`: chat context prompt asset.
-- `prompts/chat_object_user.txt`: object chat prompt asset.
-- `prompts/chat_system.txt`: chat system prompt.
-- `prompts/vlm_system.txt`: simple VLM system prompt.
-- `prompts/vlm_system_complex.txt`: richer VLM system prompt.
-- `prompts/vlm_user.txt`: VLM user prompt.
-- `state/last_state.json`: optional persisted latest state.
-- `state/last_state.jpg`: optional persisted latest rendered image.
-- `app/static/css/style.css`: dashboard stylesheet.
-- `app/static/pepper_icon.png`: dashboard/static image asset.
+### `server/app/worker/main.py`
 
-## Tests and Dev Helpers
+Worker FastAPI entrypoint.
 
-- `tests/test_chat_language_flow.py`: translation/chat flow behavior.
-- `tests/test_clients_integration.py`: provider/runtime integration checks.
-- `tests/test_config_validation.py`: config schema validation.
-- `tests/test_llm_contracts.py`: text provider contract checks.
-- `tests/test_model_io_common.py`: structured IO helper checks.
-- `tests/test_pipeline_controls.py`: pipeline control semantics.
-- `tests/test_worker_config_validation.py`: worker config validation.
-- `tests/test_worker_contracts.py`: worker interface contract checks.
-- `tests/send_data.py`: manual request helper.
-- `mock/detect.py`: mock detection helper.
-- `start_server.sh`: local startup script.
-- `download_models.sh`: model download helper.
-- `requirements.txt`: Python dependency list.
-- `setup.py`: packaging/install helper.
+### `server/app/worker/routes.py`
 
-## Runtime Assets and Non-Code Files
+Internal `/internal/*` routes for health, status, config, warmup, detect, caption, vision chat, shutdown, and memory CRUD mirrors.
 
-- `detection_models/*.pt` and `*.pth`: detector and scene graph model weights.
-- `rf-detr-*.pth`: RF-DETR checkpoints.
-- `plans/*.md`: historical implementation notes.
-- `plans/docs/*.html`: cached external documentation.
+### `server/app/worker/runtime.py`
 
-## Noise / Non-runtime Files
+Worker-local runtime. Lazily builds pipeline and caption client, runs detect/caption/vision_chat, exposes memory state/CRUD/crops, and returns worker status.
 
-These exist in the tree but are not core runtime code:
-- `.idea/*`
-- `.claude/*`
-- `__pycache__/*`
-- compiled `.pyc` files
+## Orchestration Services and Adapters
 
-They do not need behavior changes unless your tooling/editor workflow depends on them.
+### `server/app/orchestration/adapters/runtime.py`
+
+In-process, worker, and worker-internal runtime adapters. Normalizes pipeline/worker outputs for API services and provides memory/crop/CRUD operations.
+
+### `server/app/orchestration/services/detection.py`
+
+API-level detect orchestration. Parses metadata, calls runtime adapter, builds response/publish payload, persists state, broadcasts dashboard event, and ingests pipeline QA pairs into QA pool.
+
+### `server/app/orchestration/services/caption.py`
+
+API-level caption orchestration. Handles caption clients, worker caption calls, language enforcement, and optional background detect.
+
+### `server/app/orchestration/services/chat.py`
+
+Grounded chat service. Builds scene context, prompt history, general chat prompts, object-chat narrow context, object salience, crop fallback descriptions, and structured chat calls.
+
+### `server/app/orchestration/services/conversation.py`
+
+In-memory conversation store with original/model-facing text fields and bounded history.
+
+### `server/app/orchestration/services/memory.py`
+
+API-level memory service. Wraps runtime adapter for full memory, summaries, crops, list/filter, reset, upsert, object CRUD, relation CRUD, and memory broadcasts.
+
+### `server/app/orchestration/services/memory_graph_render.py`
+
+Builds memory summaries, graph SVG, crop node rendering, object/attribute/relation display, and text descriptions for QA fallback generation.
+
+### `server/app/orchestration/services/qa_pool.py`
+
+Thread-safe in-memory bilingual QA pool with dedup, cap, snapshot, replace-all, lazy Czech translation, and source metadata.
+
+## Inference Pipeline and Types
+
+### `server/app/inference/pipeline.py`
+
+Main `PerceptionPipeline` stage order and timing. Runs caption, detection, tracking, SoM, scene graph, QA generation, caption memory update, scene graph memory update.
+
+### `server/app/inference/types.py`
+
+Internal inference dataclasses and Pydantic objects: detection object, tracked object, scene graph edge, scene graph, pipeline result. Also contains old removal-marked classes kept in code but not central to current flow.
+
+## Detection Inference
+
+### `server/app/inference/detection/service.py`
+
+Low-level detection service. Owns detector backend, threshold, NMS settings, ontology/device, `detect`, `detect_batch`, NMS helpers.
+
+### `server/app/inference/detection/detectors.py`
+
+Backend wrapper classes for Ultralytics, RF-DETR, and OWLv2.
+
+### `server/app/inference/detection/model_registry.py`
+
+Model construction/download registry for detector backends.
+
+## Tracking and Memory Inference
+
+### `server/app/inference/tracking/embeddings.py`
+
+Feature extractor for detection crops and normalized embeddings. Returns crop JPEG bytes for track last-crop storage.
+
+### `server/app/inference/tracking/associator.py`
+
+Matches detections to active tracks using visual and geometric scoring.
+
+### `server/app/inference/memory/scene_memory.py`
+
+High-level memory update lifecycle and tracking/fusion orchestration.
+
+### `server/app/inference/memory/chat_memory_proxy.py`
+
+Memory proxy used by chat service in worker mode plus empty fallback memory.
+
+### `server/app/inference/memory/state_store/store.py`
+
+Main in-memory state store combining tracks, objects, relations, geometry, and social mixins. Owns Pepper bindings and frame binding maps.
+
+### `server/app/inference/memory/state_store/tracks.py`
+
+Track creation, aging, pruning, snapshot, and reset logic.
+
+### `server/app/inference/memory/state_store/objects.py`
+
+Object insert/patch/delete and update-from-detections logic.
+
+### `server/app/inference/memory/state_store/relations.py`
+
+Relation insert/patch/delete and scene graph memory update logic.
+
+### `server/app/inference/memory/state_store/geometry.py`
+
+Pixel-angle projection, angular similarity, Pepper person candidate selection/scoring, assignment, and synthetic person geometry helpers.
+
+### `server/app/inference/memory/state_store/social.py`
+
+Social metadata to attributes conversion and social attribute merging.
+
+## Caption and QA Inference
+
+### `server/app/inference/caption/service.py`
+
+Pure inference caption service used inside `PerceptionPipeline`. No API/dashboard side effects.
+
+### `server/app/inference/qa/service.py`
+
+Pipeline QA generation stage. Generates English graph-grounded Q/A pairs from current scene graph, detections, and caption using structured chat LLM output.
+
+## Scene Graph Inference
+
+### `server/app/inference/scene_graph/service.py`
+
+Composes enabled scene graph backends, merges/deduplicates graphs, and injects robot-derived memory attributes.
+
+### `server/app/inference/scene_graph/rules_backend.py`
+
+Deterministic geometry/rule/color scene graph backend.
+
+### `server/app/inference/scene_graph/reltr_backend.py`
+
+RelTR scene graph backend. Runs RelTR, maps predicted boxes to tracked detections by IoU, converts some predictions into binary relations or unary attributes.
+
+### `server/app/inference/scene_graph/reltr_predictor.py`
+
+RelTR model wrapper and Visual Genome class/relation vocabularies.
+
+### `server/app/inference/scene_graph/vlm_backend.py`
+
+VLM scene graph backend. Renders prompts, calls VLM client with structured schema, parses/repairs JSON, filters hallucinated ids.
+
+### `server/app/inference/scene_graph/som.py`
+
+Set-of-Mark rendering and mask generation. Supports boxes, labels, masks, polygons, GrabCut, and SAM3 box-prompt masks batched in chunks of 4.
+
+## Providers
+
+### `server/app/providers/llm/client.py`
+
+Provider-agnostic LLM client used by chat and QA generation.
+
+### `server/app/providers/llm/base.py`
+
+Base text provider interface and `LLMResponse`.
+
+### `server/app/providers/llm/openai_llm.py`
+
+OpenAI/OpenAI-compatible text provider with provider-native, instructor, and parse-output structured paths.
+
+### `server/app/providers/llm/gemini_llm.py`
+
+Gemini text provider with JSON schema/mime structured output behavior.
+
+### `server/app/providers/llm/hf_llm.py`
+
+Local Hugging Face causal LM provider.
+
+### `server/app/providers/vlm/base.py`
+
+Base VLM interface.
+
+### `server/app/providers/vlm/factory.py`
+
+Builds VLM clients from config.
+
+### `server/app/providers/vlm/openai_vlm.py`
+
+OpenAI/OpenAI-compatible image client with Responses API, chat completions, instructor, and parse-output paths.
+
+### `server/app/providers/vlm/gemini_vlm.py`
+
+Gemini image client.
+
+### `server/app/providers/vlm/local_hf_vlm.py`
+
+Local Hugging Face image-text model client.
+
+### `server/app/providers/caption/client.py`
+
+Caption client selection. Special BLIP local client plus VLM fallback.
+
+### `server/app/providers/common/io.py`
+
+Structured output parsing, JSON block extraction, schema validation, mode resolution, OpenAI response text extraction.
+
+### `server/app/providers/common/runtime_setup.py`
+
+Provider credential/client-kwargs setup for OpenAI and Gemini clients.
+
+### `server/app/providers/common/utils.py`
+
+Provider capability matrix and call kwarg normalization.
+
+### `server/app/providers/translation/google_trans.py`
+
+Free-text language detection, translation, and output-language enforcement.
+
+### `server/app/providers/translation/vocabulary.py`
+
+Token-level vocabulary translation service for labels/attributes/relations and dashboard-editable Czech lexicons.
+
+## Static Dashboard Files
+
+### `server/app/static/templates/dashboard.html`
+
+Root dashboard template composing page partials and JS modules.
+
+### `server/app/static/templates/dashboard/pages/*.html`
+
+Dashboard page partials for live, detection, SoM, scene graph, runtime, memory settings, chat, caption, QA pregeneration, translations, and storage.
+
+### `server/app/static/js/dashboard/app.js`
+
+Dashboard frontend bootstrap and WebSocket event dispatch.
+
+### `server/app/static/js/dashboard/core/*.js`
+
+Small shared frontend utilities for HTTP, notifications, and WebSocket creation.
+
+### `server/app/static/js/dashboard/features/config/index.js`
+
+Central config UI load/save/patch module.
+
+### `server/app/static/js/dashboard/features/live/index.js`
+
+Live frame rendering, detection upload, metrics, carousel, caption/graph summaries.
+
+### `server/app/static/js/dashboard/features/memory/*.js`
+
+Memory panel API/actions/parsing/rendering.
+
+### `server/app/static/js/dashboard/features/conversation/index.js`
+
+Dashboard text/vision chat panel.
+
+### `server/app/static/js/dashboard/features/scene_graph/index.js`
+
+Client-side scene graph visualization helpers.
+
+### `server/app/static/js/dashboard/features/qa/index.js`
+
+QA pool dashboard editor.
+
+### `server/app/static/js/dashboard/features/ui_shell/*.js`
+
+Sidebar, tabs, theme, and navigation.
+
+## Other Support Files
+
+### `server/app/static/css/style.css`
+
+Dashboard styling.
+
+### `server/app/static/pepper_icon.png`
+
+Dashboard icon asset.
+
+### `server/app/providers/translation/lexicons/*.json`
+
+Static Czech vocabulary defaults.
+
+### `server/app/providers/translation/lexicons_user/*.json`
+
+User-editable Czech vocabulary maps written by dashboard/config translation patching.

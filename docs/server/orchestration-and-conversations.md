@@ -1,232 +1,275 @@
 # Orchestration and Conversations
 
-## Files Covered
+The orchestration layer sits between FastAPI route handlers and low-level inference/runtime components. It keeps API handlers thin and centralizes cross-cutting concerns such as publishing, storage, language enforcement, conversation history, and QA pool ingestion.
 
-- `app/orchestration/services/detection.py`
-- `app/orchestration/services/chat.py`
-- `app/orchestration/services/caption.py`
-- `app/orchestration/services/conversation.py`
-- `app/orchestration/services/memory.py`
-- `app/orchestration/adapters/runtime.py`
+## Main Files
 
-## Role of the Orchestration Layer
+API routes:
 
-The orchestration layer sits between HTTP routes and low-level inference/provider code.
+- `server/app/api/v1/chat.py`
+- `server/app/api/v1/vision_chat.py`
+- `server/app/api/v1/caption.py`
+- `server/app/api/v1/detect.py`
+- `server/app/api/v1/memory.py`
 
-Its job is to:
-- normalize external inputs
-- manage conversation state
-- choose in-process vs worker execution path
-- format runtime payloads for websocket/dashboard use
-- expose memory-editing operations through a stable service surface
+Services:
 
-## `DetectService`
+- `server/app/orchestration/services/chat.py`
+- `server/app/orchestration/services/conversation.py`
+- `server/app/orchestration/services/caption.py`
+- `server/app/orchestration/services/detection.py`
+- `server/app/orchestration/services/memory.py`
+- `server/app/orchestration/services/memory_graph_render.py`
+- `server/app/orchestration/services/qa_pool.py`
 
-Main responsibilities:
-- parse uploaded image bytes into PIL image
-- parse Pepper metadata JSON into `RobotMetadata`
-- normalize camera FOV units if degrees are accidentally supplied
-- call `resolve_runtime_adapter(state)`
-- turn runtime result into `DetectionResponse`
-- publish websocket messages when requested
-- persist latest state/image when configured
+Runtime adapters:
 
-### Metadata parsing details
+- `server/app/orchestration/adapters/runtime.py`
 
-`parse_metadata()`:
-- returns minimal metadata if none provided
-- parses `people` into `PersonMetadata`
-- parses `social_people` into `SocialPersonMetadata`
-- normalizes `camera_hfov` and `camera_vfov`
+## Runtime Adapters
 
-### Persistence side effects
+`orchestration/adapters/runtime.py` hides in-process versus worker execution.
 
-When publishing and storage persistence are enabled:
-- latest payload is stored in `AppState.last_state`
-- JSON state may be written to configured path
-- image may be stored separately as JPG when `storage.store_image = true`
+Adapters provide methods such as:
 
-## `ChatService`
+- `detect(image_bytes, robot_metadata)`
+- `caption(image_bytes, prompt_override)`
+- `vision_chat(image_bytes, user_prompt, system_prompt)`
+- `scene_state()`
+- `get_track_crop(object_id)`
+- memory CRUD methods
 
-This is the main grounded text-generation coordinator.
+This lets services and routes use one interface regardless of runtime mode.
 
-### Constructor inputs
+## DetectService
 
-- `ChatConfig`
-- `SceneMemory`
-- resolved system prompt text
-- optional object-specific user prompt template
+File: `server/app/orchestration/services/detection.py`
 
-### Internal capabilities
+This is API-level detection orchestration, not the low-level detector model service.
 
-- fetch current `SceneState`
-- fetch recent captions
-- fetch latest caption
-- fetch track crops for object fallback captioning
-- compute object salience ordering
-- build scene-context string
-- render prompt templates via `PromptRenderContext`
+Responsibilities:
 
-### `compose_prompt(base)`
+- Parse and normalize robot metadata JSON.
+- Normalize angle units when metadata appears to be degrees.
+- Fill default robot metadata when absent.
+- Resolve runtime adapter.
+- Call detect runtime.
+- Convert runtime payload into `DetectionResponse`.
+- Build dashboard WebSocket payload.
+- Ingest pipeline-generated QA pairs into `QAPoolService`.
+- Persist last state when configured.
+- Publish dashboard events when requested.
 
-Builds prompt text by injecting:
-- structured object/relation context
+QA ingestion happens only for memory-updating detect flows. It checks executed stages such as tracking and memory updates before adding pairs to the pool.
+
+## CaptionService
+
+File: `server/app/orchestration/services/caption.py`
+
+This service handles the public caption endpoint behavior.
+
+Responsibilities:
+
+- Lazily create or update `CaptionClient`.
+- Resolve caption user prompt from override, config prompt, mode, and max word cap.
+- Run caption locally or through worker internal caption route.
+- Enforce requested output language or `system.output_language` fallback.
+- Optionally start background full detect pipeline when `run_detect=true`.
+
+The background detect path uses `DetectService.process`, so it can update memory and QA pool like a normal detect request.
+
+## ChatService
+
+File: `server/app/orchestration/services/chat.py`
+
+`ChatService` owns text-only grounded LLM behavior.
+
+It stores:
+
+- `LLMClient`
+- memory adapter/proxy
+- general system prompt
+- general user prompt template
+- object-specific system prompt
+- object-specific user prompt template
+
+### Scene Context
+
+General chat builds scene context from memory:
+
+- objects grouped by label and id
+- attributes per object
+- relationships
 - latest caption
 - recent captions
 
-### `chat()`
+System prompt templates support placeholders such as:
 
-Use case:
-- general grounded conversation
+- `{context}`
+- `{caption}`
+- `{captions_recent}`
+- `{caption_recent}`
+- `{predicates}`
 
-Behavior:
-- composes system prompt and user query with scene context
-- prepends conversation history if present
-- calls `LLMClient.generate_text()`
+General user prompt template supports placeholders such as:
 
-### `object_chat()`
+- `{query}`
+- `{history}`
+- `{context}`
+- `{caption}`
+- `{captions_recent}`
 
-Use case:
-- answer about a specific object label
+### Object Chat
 
-Behavior:
-- resolves object label against current scene memory
-- prefers exact label match, then looser containment match
-- sorts candidates by salience
-- optionally limits instances
-- for low-fact objects, can caption stored crops as fallback evidence
-- builds object-focused prompt context
-- returns:
-  - answer text
-  - source object IDs
-  - crop fallback used IDs
-  - resolved object label
+`object_chat` narrows the context to instances matching `object_label`.
 
-### Salience logic
+Matching supports exact and loose labels. The service sorts matching objects by salience. Salience currently boosts people/animals/robot/cats/dogs, waving, looking at robot, sitting, engagement zone, closeness, hit count, and recency.
 
-Socially salient entities are preferred when choosing which objects matter most.
+For each matched object it gathers:
 
-The scoring system boosts, among other things:
-- people/humans/animals/robots by label class
-- waving
-- looking at robot
-- sitting
-- higher engagement zone salience
-- closer robot distance
+- object id
+- label
+- bbox
+- hits
+- attributes
+- robot distance and engagement fields
+- incoming/outgoing relationships
+- crop fallback descriptions when configured and needed
 
-This is one of the key tweak points for making dialogue feel more socially aware.
+Object prompt templates support placeholders such as:
 
-## General Chat Request Flow
+- `{query}`
+- `{object_label}`
+- `{resolved_label}`
+- `{matched_ids}`
+- `{matched_count}`
+- `{history}`
+- `{object_context}`
+- `{scene_context}`
 
-```mermaid
-sequenceDiagram
-    participant U as User client
-    participant API as api v1 chat
-    participant CS as ConversationService
-    participant TS as TranslationService
-    participant CH as ChatService
-    participant MEM as SceneMemory
-    participant LLM as LLMClient
-    participant WS as WebSocket clients
+`max_instances` and `max_crop_fallbacks` can be `None` for no limit.
 
-    U->>API: POST /chat
-    API->>CS: ensure conversation
-    API->>TS: normalize input language
-    API->>CS: store user message
-    API->>WS: broadcast user message
-    API->>CS: build prompt history
-    API->>CH: chat() or object_chat()
-    CH->>MEM: read scene state + captions + crops
-    CH->>LLM: generate grounded answer
-    LLM-->>CH: model response
-    API->>TS: enforce output language
-    API->>CS: store assistant message
-    API->>WS: broadcast assistant message
-    API-->>U: ChatResponse
-```
+### Structured Chat
 
-## Object Chat Focus Path
+`chat_structured` calls `LLMClient.generate_structured` with a supplied Pydantic schema. It is used by forced QA generation fallback endpoints.
 
-```mermaid
-flowchart TD
-    Q[Requested object label] --> MATCH[Resolve matching objects from SceneMemory]
-    MATCH --> SAL[Sort by social and object salience]
-    SAL --> FACTS{Enough structured facts}
-    FACTS -->|yes| PROMPT[Build object focused prompt]
-    FACTS -->|no| CROP[Fetch stored crop]
-    CROP --> CAP[Caption crop fallback]
-    CAP --> PROMPT
-    PROMPT --> LLM2[LLMClient generate_text]
-    LLM2 --> RESP[Answer plus matched ids and fallback ids]
-```
+## ConversationService
 
-## `CaptionService`
+File: `server/app/orchestration/services/conversation.py`
 
-Purpose:
-- lightweight caption orchestration wrapper over caption provider client
+Conversation state is process-memory. It stores messages per chat id.
 
-Responsibilities:
-- handle runtime prompt resolution
-- expose captioning behavior to pipeline and chat crop fallback
-- update runtime without always rebuilding client
+Each message stores:
 
-## `ConversationService`
+- `id`
+- `role`
+- `text_original`
+- `text_model`
+- `language_original`
+- `language_model`
+- `translation_applied`
+- `timestamp`
+- `metadata`
 
-Purpose:
-- maintain chat sessions and message history
+Important methods:
 
-Responsibilities typically include:
-- ensure conversation exists
-- add message
-- list conversations
-- get conversation by id
-- reset/delete conversation
-- return prompt history in model-facing `(role, text)` format
-- serialize messages and conversations for UI/API
+- `add_message`
+- `history`
+- `prompt_history_model`
+- `list_conversations`
+- `reset`
+- `delete`
 
-The API layer depends on this service for both `/chat` and `/vision_chat`.
+`prompt_history_model` builds model-facing history and can exclude the latest user message because the current query is passed separately.
 
-## `MemoryService`
+Default conversation id is `-1` when the client/robot does not provide a chat id.
 
-Purpose:
-- higher-level validation and mutation wrapper over runtime memory adapter
+## Text Chat Endpoint
 
-Operations:
-- get full memory
-- list objects with filters
-- list relations with filters
-- merge external scene state
-- reset memory
-- create/update/delete objects
-- create/update/delete relations
-- broadcast current state after successful mutation
+File: `server/app/api/v1/chat.py`
 
-This is the correct service layer if you want to add audit logging, stricter validation, or authorization around memory editing.
+`POST /api/v1/chat` supports `ChatMode.GENERAL` and `ChatMode.OBJECT`. `RELATION` and `ATTRIBUTE` enum values exist as placeholders but currently fall through to general behavior.
 
-## Runtime Adapter Interface
+Language flow:
 
-### In-process adapter
+1. Output language is resolved from `output_language`, `language`, or config `system.output_language`.
+2. Model-facing language is resolved from `model_facing_language` or output language.
+3. User query is enforced into model-facing language.
+4. Original and model-facing user text are stored.
+5. Model-facing history is built.
+6. Chat service runs selected mode.
+7. Assistant output is enforced into output language.
+8. Original/model-facing assistant text is stored.
+9. Dashboard chat event is broadcast.
 
-Calls directly into:
-- `PerceptionPipeline`
-- `SceneMemory`
-- VLM backend for direct vision chat
+This design lets the admin decide whether the model should receive Czech or English by config/request. The server does not assume every model processes English best.
 
-### Worker adapter
+## Vision Chat Endpoint
 
-Calls over HTTP to internal worker routes for:
-- detect
-- vision chat
-- memory operations
+File: `server/app/api/v1/vision_chat.py`
 
-### Why this abstraction matters
+Vision chat is multipart image plus query. It uses the same conversation storage pattern as text chat but calls the VLM image backend through runtime adapter.
 
-Route handlers and services should not care where heavy inference runs. If you add a new runtime mode, extend the adapter interface rather than branching route logic everywhere.
+It keeps current-frame image context and text history. It does not currently rewrite the VLM system prompt beyond the route-specific behavior already implemented.
 
-## Best Tweak Points
+## QA Pool Service
 
-- change context composition: `ChatService._build_context_string()`
-- change salience selection: `ChatService._object_salience_key()`
-- change crop fallback policy: `ChatService.object_chat()`
-- change detection publish behavior: `DetectService.process()` and `_update_and_persist()`
-- change memory validation/edit semantics: `MemoryService`
+File: `server/app/orchestration/services/qa_pool.py`
+
+`QAPoolService` stores bilingual generated Q/A items in process memory.
+
+Features:
+
+- thread-safe `RLock`
+- max entry cap
+- dedup by normalized English question
+- replacement/move-to-newest for duplicates
+- source/frame/scan metadata
+- English canonical storage
+- Czech lazy translation and caching
+- full snapshot for dashboard JSON editing
+- replace-all update for dashboard saving
+- clear on memory reset
+
+The pool is not persisted across server restarts.
+
+## QA Routes
+
+File: `server/app/api/v1/chat.py`
+
+Routes:
+
+- `POST /api/v1/chat/pregenerate_qa`
+- `GET /api/v1/chat/pregenerated_qa_pool`
+- `PUT /api/v1/chat/pregenerated_qa_pool`
+
+`POST /chat/pregenerate_qa` primarily reads the pool. If the pool is empty and `force_generation=true`, it can generate pairs from current memory text description and insert them.
+
+`GET /chat/pregenerated_qa_pool` returns bilingual full pool items for dashboard editing.
+
+`PUT /chat/pregenerated_qa_pool` replaces pool content with user-provided bilingual items.
+
+## Memory Summary QA
+
+File: `server/app/api/v1/memory.py`
+
+`GET /api/v1/memory/summary` attaches `pregenerated_qa` from the QA pool in requested language. With `force_generation=true`, it can force generation only when the pool is empty.
+
+## Dashboard Broadcasts
+
+Services use `ws_manager.broadcast` to send:
+
+- detection events
+- memory events
+- chat message events
+
+The dashboard frontend modules subscribe through `/dashboard/events` and update live panels.
+
+## Where To Change Things
+
+- Change chat language behavior: `api/v1/chat.py`, `providers/translation/google_trans.py`, `ConversationService` metadata.
+- Add a chat mode: `ChatMode`, `ChatRequest`, route `match`, and methods in `ChatService`.
+- Change object-chat context: `ChatService.object_chat`.
+- Change caption background detect: `CaptionService.caption_with_optional_detect`.
+- Change QA pool semantics: `QAPoolService`, chat QA routes, memory summary route.
+- Change publish payload: `DetectService.process`, dashboard live/memory JS.

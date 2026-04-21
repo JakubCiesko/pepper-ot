@@ -1,37 +1,114 @@
-# Scene Memory and State Model
+# Scene Memory and State
 
-## Files Covered
+Scene memory is the persistent in-memory world model for the robot. It stores objects, relationships, captions, track embeddings/crops, Pepper person bindings, and metadata-derived attributes.
 
-- `app/inference/memory/scene_memory.py`
-- `app/inference/memory/chat_memory_proxy.py`
-- `app/inference/memory/state_store/store.py`
-- `app/inference/memory/state_store/objects.py`
-- `app/inference/memory/state_store/relations.py`
-- `app/inference/memory/state_store/tracks.py`
-- `app/inference/memory/state_store/social.py`
-- `app/inference/memory/state_store/geometry.py`
-- `app/schemas/scene.py`
+## Main Files
 
-## Purpose
+Memory runtime:
 
-Scene memory is the dynamic world model used for grounding. It stores tracked objects, relations, captions, and Pepper-specific person bindings across frames.
+- `server/app/inference/memory/scene_memory.py`
+- `server/app/inference/memory/state_store/store.py`
+- `server/app/inference/memory/state_store/tracks.py`
+- `server/app/inference/memory/state_store/objects.py`
+- `server/app/inference/memory/state_store/relations.py`
+- `server/app/inference/memory/state_store/geometry.py`
+- `server/app/inference/memory/state_store/social.py`
 
-Without this layer, the system would only have frame-local detections and would lose referential continuity.
+API/service layer:
 
-## Public Surface: `SceneMemory`
+- `server/app/api/v1/memory.py`
+- `server/app/api/v1/memory_route_utils.py`
+- `server/app/orchestration/services/memory.py`
+- `server/app/orchestration/services/memory_graph_render.py`
 
-### Construction knobs
+Schemas:
 
-- `memory_max_age_seconds`
-- `memory_max_objects`
-- `memory_max_relations`
-- `memory_max_captions`
-- `caption_max_age_seconds`
-- `max_dormant_frames`
-- association config
-- feature extraction config
+- `server/app/schemas/scene.py`
 
-### Main methods
+## Stored State Types
+
+### `TrackedObjectState`
+
+Persistent object record exposed through memory APIs.
+
+Fields include:
+
+- `id`
+- `label`
+- `status`
+- `source`
+- `attributes`
+- `pepper_person_id`
+- `robot_distance`
+- `robot_engagement_zone`
+- `robot_last_seen_ts`
+- `bearing_yaw`
+- `bearing_pitch`
+- `frame_id`
+- `scan_id`
+- `first_seen`
+- `last_seen`
+- `hits`
+- `bbox`
+
+### `Relationship`
+
+Persistent binary relation record.
+
+Fields:
+
+- `subject_id`
+- `predicate`
+- `object_id`
+- `first_seen`
+- `last_seen`
+- `count`
+
+### `SceneCaptionState`
+
+Persistent caption record.
+
+Fields:
+
+- `id`
+- `text`
+- `provider`
+- `model_id`
+- `source`
+- `frame_id`
+- `scan_id`
+- `first_seen`
+- `last_seen`
+- `count`
+
+### `SceneState`
+
+Snapshot containing lists of objects, relationships, captions, and timestamp.
+
+### `MemorySummary`
+
+Dashboard/robot-facing summary containing:
+
+- `timestamp`
+- `labels`
+- `label_counts`
+- `scene_graph` list of `SceneGraphRelation`
+- `graph_svg`
+- `pregenerated_qa`
+
+## SceneMemory
+
+File: `server/app/inference/memory/scene_memory.py`
+
+`SceneMemory` is the high-level lifecycle manager. It owns:
+
+- `SceneMemoryStore`
+- `FeatureExtractor`
+- `Associator`
+- lock for thread-safe updates
+- max dormant frame setting
+
+Main methods:
 
 - `update(image, detections, robot_metadata, fusion_config)`
 - `prune_memory()`
@@ -40,118 +117,177 @@ Without this layer, the system would only have frame-local detections and would 
 - `set_association_config(...)`
 - `set_feature_extraction_config(...)`
 - `reset()`
-- `update_scene_graph(scene_graph)`
-- `upsert_caption(caption)`
-- `recent_captions(limit)`
-- `scene_state()`
-- `upsert_scene_state(state)`
-- manual object/relation CRUD helpers
 
-## Internal Store: `SceneMemoryStore`
+The update method returns fused detections so downstream pipeline stages see any Pepper-induced synthetic people.
 
-This is the actual state container.
+## SceneMemoryStore
 
-It owns:
-- `tracks`
+File: `server/app/inference/memory/state_store/store.py`
+
+The store combines mixins for tracks, geometry, social attributes, object CRUD, and relation CRUD.
+
+Internal state:
+
+- `tracks: dict[int, TrackedObject]`
 - `next_id`
 - `objects_state`
 - `relations_state`
 - `captions_state`
 - `pepper_person_bindings`
+- `_frame_server_to_pepper`
+- `_pending_synthetic_pepper_by_detection`
 
-### Important derived payload
+The store is intentionally in-memory. Worker mode means this memory lives in the worker process.
 
-`scene_state()` returns `SceneState` with:
-- list of objects
-- list of relationships
-- list of captions
-- timestamp
+## Object Memory Update
 
-## Object State
+`update_objects_from_detections` creates or updates `TrackedObjectState` for every detection with an object id.
 
-`TrackedObjectState` is the main persistent object representation.
+It updates bbox, label, bearing, frame id, scan id, last seen, and hit count. Person-like labels can receive Pepper/social fields if a Pepper binding exists.
 
-Typical object fields include:
-- `id`
-- `label`
-- `bbox`
-- `attributes`
-- `status`
-- `source`
-- `first_seen`
-- `last_seen`
-- `hits`
-- Pepper-relative metadata such as engagement and bearing
+Person-like labels currently include:
 
-## Relation State
+- `person`
+- `man`
+- `woman`
+- `human`
+- `animal`
+- `child`
+- `robot`
+- `dog`
+- `cat`
 
-Relations are stored keyed by:
-- `(subject_id, predicate, object_id)`
+## Relationship Memory Update
 
-Each relation tracks:
-- predicate
-- first/last seen
-- count
+`update_scene_graph(scene_graph)` reads `scene_graph.no_label_edges`.
 
-This makes repeated relation observation explicit instead of replacing history blindly.
+Rules:
 
-## Caption State
+- If `sub == obj`, append `rel` to that object's attributes if absent.
+- If `sub != obj`, create or refresh a relationship key `(sub, rel, obj)`.
+- Existing relationships increment `count` and refresh `last_seen`.
 
-Captions are stored separately from object memory.
+This is why current scene graph backends must produce correct numeric IDs.
 
-This is important because:
-- captions are free-text scene summaries
-- they support chat grounding
-- they have separate retention limits from objects/relations
+## Caption Memory Update
 
-## Manual Memory Upserts
+Pipeline caption-memory update inserts or refreshes `SceneCaptionState`. Caption memory supports latest caption and recent caption context for chat prompts and memory summaries.
 
-`upsert_scene_state()` merges external state into current memory.
+Captions are pruned separately from objects/relations using `caption_max_age_seconds` and `memory_max_captions`.
 
-Use this when:
-- importing annotations
-- manually seeding memory
-- replaying experimental state
+## Pruning
 
-Be careful:
-- IDs are preserved
-- `next_id` is advanced to avoid collision
+File: `state_store/tracks.py`
 
-## Pruning Semantics
+`prune_memory()` removes:
 
-Memory pruning enforces:
-- time-to-live
-- max object count
-- max relation count
-- max caption count
+- objects older than `memory_max_age_seconds`
+- oldest objects over `memory_max_objects`
+- relations older than cutoff
+- relations attached to removed objects
+- oldest relations over `memory_max_relations`
+- tracks older than cutoff
+- tracks not present in object state
+- oldest tracks over max object count
+- Pepper bindings pointing to removed objects
+- captions older than `caption_max_age_seconds`
+- oldest captions over `memory_max_captions`
 
-Pruning is triggered not only during updates but also when reading scene state, so stale memory can disappear even without new frames.
+## MemoryService
 
-## Track Crops
+File: `server/app/orchestration/services/memory.py`
 
-Crops stored alongside tracks are reused by object chat as fallback evidence.
+`MemoryService` wraps a runtime adapter and provides API-facing operations:
 
-This is a valuable feature because it lets the system describe under-specified objects even when they have little structured state.
+- get full memory
+- get memory summary
+- get object crop
+- list objects
+- list relations
+- upsert full `SceneState`
+- reset memory
+- create/update/delete objects
+- create/update/delete relations
+- broadcast current memory state
 
-## Chat Memory Proxy
+It converts domain errors to HTTP errors through `memory_route_utils.run_memory_action`.
 
-`chat_memory_proxy.py` provides worker-safe memory access abstractions such as:
-- empty/no-op memory shim
-- worker-backed memory proxy behavior
+## Memory Summary and Graph SVG
 
-Use this area if you need to decouple chat and memory more aggressively.
+File: `server/app/orchestration/services/memory_graph_render.py`
 
-## Safe Tweak Points
+`MemoryGraphRenderService` builds compact summaries for the dashboard and robot tablet.
 
-- memory TTLs and counts
-- caption retention policy
-- association weights
-- object attribute merge policy
-- Pepper binding aging policy
+It produces:
 
-## Risky Tweak Points
+- label list
+- label counts
+- scene graph relation list
+- SVG memory graph
+- text description used for forced QA generation fallback
 
-- `SceneState` schema fields
-- relation key identity semantics
-- `next_id` handling
-- crop storage format
+It can render object crops as nodes when crop bytes are available. It caps rendered objects by `MAX_RENDER_OBJECTS` and by the `render_limit` query parameter.
+
+For Czech display, `MemoryService.get_memory_summary` asks `vocabulary_translator` for object label, object attribute, and relation label overrides before rendering.
+
+## Object Crops
+
+Track crops are stored in `TrackedObject.last_crop`. Crop retrieval path:
+
+1. `GET /api/v1/memory/object/{object_id}/crop`
+2. `MemoryService.get_object_crop`
+3. runtime adapter `get_track_crop`
+4. in-process or worker memory track lookup
+5. base64 encoded image bytes in response
+
+Crops are used by memory graph rendering and can be used by object-chat fallback.
+
+## Full Memory API
+
+Public endpoints are documented in `api-reference.md`. The key memory routes are:
+
+- `GET /api/v1/memory`
+- `GET /api/v1/memory/summary`
+- `GET /api/v1/memory/object/{object_id}/crop`
+- `GET /api/v1/memory/objects`
+- `GET /api/v1/memory/relations`
+- `POST /api/v1/memory/upsert`
+- `POST /api/v1/memory/reset`
+- object CRUD routes
+- relation CRUD routes
+
+## Memory Reset
+
+`POST /api/v1/memory/reset?confirm=true` clears runtime memory. The public API route also clears the process-level QA pool after successful memory reset.
+
+Without `confirm=true`, reset is rejected with a validation error.
+
+## Manual CRUD
+
+Manual object/relation CRUD lets the dashboard or tools edit memory directly.
+
+Object create/update validation includes:
+
+- bbox must have four values
+- `last_seen` cannot be earlier than `first_seen`
+- update payload cannot be empty
+
+Relation create/update validation includes:
+
+- referenced object IDs must exist in store
+- duplicate relationship keys are rejected
+- `last_seen` cannot be earlier than `first_seen`
+- update payload cannot be empty
+
+## Worker Mode Memory
+
+In worker mode, memory lives in `WorkerRuntime.pipeline.memory`. Public API memory routes call `WorkerRuntimeAdapter`, which forwards to internal worker routes. Dashboard code does not need to know whether memory is local or in worker.
+
+## Where To Change Things
+
+- Add object fields: `schemas/scene.py`, state store update/patch logic, memory renderer, dashboard memory UI.
+- Add relation fields: `schemas/scene.py`, relation store CRUD, renderer/dashboard.
+- Change pruning: `state_store/tracks.py`.
+- Change memory summary SVG: `orchestration/services/memory_graph_render.py`.
+- Change memory translation display: `providers/translation/vocabulary.py` and `MemoryService.get_memory_summary`.
+- Change crop retrieval: `TrackedObject`, `SceneMemory`, runtime adapters, worker runtime/routes, memory API.

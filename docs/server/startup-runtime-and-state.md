@@ -1,154 +1,135 @@
-# Startup, Runtime, and State
+# Startup, Runtime, and Shared State
 
-## Files Covered
+This document explains how the FastAPI server starts, how global runtime state is initialized, and how in-process versus worker runtime mode is selected.
 
-- `app/main.py`
-- `app/core/runtime/state.py`
-- `app/core/pipeline_factory.py`
-- `app/core/infra/storage.py`
-- `app/core/infra/ws_manager.py`
-- `app/dashboard.py`
-- `app/orchestration/adapters/runtime.py`
+## Entry Point
 
-## `app/main.py`
+File: `server/app/main.py`
 
-### `ServerSettings`
+Startup sequence:
 
-Environment-backed settings:
-- `BASE_URL`: defaults to `http://localhost:8000`
-- `USE_NGROK`: parsed from env var `USE_NGROK == "True"`
+1. Configure colorized logging with `setup_logging()`.
+2. Create `FastAPI(title="Pepper Object Detection Server")`.
+3. Mount static assets at `/static` from `app/static`.
+4. Include public API router under `/api/v1`.
+5. Include dashboard router under `/dashboard`.
+6. During lifespan startup call `await app_state.initialize("./config.yaml")`.
+7. If `USE_NGROK=True`, create an ngrok tunnel and update `SERVER_SETTINGS.BASE_URL`.
+8. During lifespan shutdown, close the worker manager if present and kill ngrok tunnels if enabled.
 
-### Startup flow
+## AppState
 
-- Logging is configured through `setup_logging()` using `colorlog`.
-- Global `app_state.initialize("./config.yaml")` runs in FastAPI lifespan startup.
-- If `USE_NGROK` is enabled, ngrok tunnel is opened and `BASE_URL` is updated.
-- Static files are mounted at `/static` from `app/static`.
-- API router is mounted at `/api/v1`.
-- Dashboard router is mounted without extra prefix.
+File: `server/app/core/runtime/state.py`
 
-### Shutdown flow
+`AppState` is a dataclass used as the process-level dependency root. It contains:
 
-- Worker manager is closed if it exists.
-- Ngrok is killed if enabled.
+- `config`: current `AppConfig`.
+- `pipeline`: in-process `PerceptionPipeline`, or `None` in worker mode.
+- `worker_manager`: `WorkerManager` responsible for child worker process lifecycle.
+- `chat_service`: process-level `ChatService` configured from `config.chat`.
+- `conversation_service`: in-memory conversation store used by `/chat` and `/vision_chat`.
+- `caption_service`: API-level caption orchestration service.
+- `qa_pool_service`: bilingual process-memory pool of generated scene Q/A pairs.
+- `initialized`: startup guard.
+- `last_state`: optional persisted latest dashboard state loaded on startup.
+- `config_version`: monotonically increasing runtime config version.
 
-## `app/core/runtime/state.py`
+`AppState.initialize()` loads config, optionally restores persisted last state, then delegates to `apply_config()`.
 
-This file is the real application container.
+## Config Application
 
-`AppState` owns at least these runtime concerns:
-- active `AppConfig`
-- config version counter
-- perception pipeline
-- chat service
-- caption service
-- conversation service
-- worker manager
-- last published dashboard state
+`AppState.apply_config(config)` does the following:
 
-### Why `AppState` matters
+1. Stores the new config and increments `config_version`.
+2. Ensures a `WorkerManager` exists and starts its monitor loop.
+3. Applies runtime mode:
+   - if `config.worker.enabled=true`, skip in-process pipeline build, hard-reload worker manager, and keep `pipeline=None`.
+   - if `config.worker.enabled=false`, build an in-process `PerceptionPipeline` and stop the worker monitor/process.
+4. Warms vocabulary translations from config ontology and rule terms.
+5. Initializes or updates `ChatService` and `ConversationService`.
+6. Initializes or updates `CaptionService`.
+7. Initializes or updates `QAPoolService` max size.
+8. Optionally warm-starts worker if `worker.auto_warmup_on_startup=true`.
 
-Every route ultimately depends on `app_state`. If you are changing initialization behavior, switching providers, or reworking runtime boundaries, this is one of the first files to inspect.
+## Runtime Mode Selection
 
-### Typical responsibilities
+### In-Process Mode
 
-- initialize runtime from config
-- rebuild runtime on hard config changes
-- hold references to assembled services
-- choose whether worker mode is active
+In-process mode is active when `config.worker.enabled=false`.
 
-## `app/core/pipeline_factory.py`
+`AppState.pipeline` is a real `PerceptionPipeline` built by `server/app/core/pipeline_factory.py`. API requests run model inference in the same process as FastAPI.
 
-This is the dependency assembly point for perception.
+Use in-process mode when debugging code paths or avoiding child-process orchestration. It is less useful for VRAM lifecycle control because heavy model objects remain in the API process.
 
-It builds and wires together:
-- detector
-- scene memory
-- SoM painter
-- scene graph service
-- caption service
-- `PerceptionPipeline`
+### Worker Mode
 
-If you want to swap a detector, change feature extraction defaults, alter scene graph backend creation, or add a new pipeline dependency, this is the safest construction point.
+Worker mode is active when `config.worker.enabled=true`.
 
-## Runtime adapter selection
+`AppState.pipeline=None`. Heavy inference runs in a child FastAPI process started by `WorkerManager`. API code accesses it through `WorkerRuntimeAdapter` and internal HTTP routes under `/internal/*`.
 
-Implemented in `app/orchestration/adapters/runtime.py`.
+Worker mode is useful because:
 
-### Adapters
+- GPU-heavy models live in a separable process.
+- Worker can idle-shutdown to release VRAM.
+- Hard config changes can restart only the worker process.
+- API process remains responsive while worker lifecycle changes.
 
-- `InProcessRuntimeAdapter`
-- `WorkerRuntimeAdapter`
-- `WorkerInternalRuntimeAdapter`
+## Service Initialization Details
 
-### Selection rule
+### Chat Components
 
-`resolve_runtime_adapter(state)` uses worker mode when all of these are true:
-- config exists
-- `config.worker.enabled == true`
-- `state.worker_manager is not None`
+`_initialize_chat_components(base_dir)` resolves prompt sources from config:
 
-Otherwise it uses in-process execution.
+- `chat.system_prompt`
+- `chat.user_prompt`
+- `chat.object_system_prompt`
+- `chat.object_user_prompt`
 
-### Why this matters
+It builds the chat memory adapter:
 
-Most API and memory services deliberately target the adapter interface, not the raw pipeline. That keeps route logic mostly independent from process placement.
+- in-process pipeline memory when `pipeline` exists
+- `WorkerChatMemoryProxy` when worker mode is enabled
+- `EmptyChatMemory` fallback otherwise
 
-## Websocket manager
+Then it creates `ChatService`. `ConversationService(max_messages=10)` is created once and kept across config hot updates.
 
-Implemented in `app/core/infra/ws_manager.py`.
+### Caption Component
 
-### Responsibility
+`_initialize_caption_component(base_dir)` resolves caption prompts and creates or updates `CaptionService`. In worker mode, it does not rebuild local caption clients unnecessarily; the worker handles its own caption client.
 
-- hold active websocket connections
-- broadcast live detection/chat/memory updates to dashboard clients
+### QA Pool Component
 
-### Broadcast message types used in practice
+`_initialize_qa_pool_component()` creates `QAPoolService(max_entries=config.qa_generation.pool_max_entries)` or updates the existing max size. The pool is process-memory only. It is cleared by memory reset routes.
 
-- `detection`
-- `chat_message`
-- memory update payloads emitted by memory service
-- dashboard-specific status messages
+## Last-State Persistence
 
-If live UI seems stale while HTTP routes still work, inspect websocket manager usage and broadcasting call sites first.
+Files:
 
-## Last-state persistence
+- `server/app/core/infra/storage.py`
+- `server/app/core/runtime/state.py`
+- `server/app/orchestration/services/detection.py`
 
-Implemented in `app/core/infra/storage.py`.
+If `storage.persist_last_state=true`, startup tries to read `storage.last_state_path`. The load helper also resolves an external `image_path` into base64 image data when possible.
 
-### Functions
+During detect publishing, the detection orchestration layer can persist the latest state payload. If `storage.store_image=true`, image content is saved separately and the JSON references it.
 
-- `load_last_state(path)`
-- `save_last_state(path, payload)`
-- `save_last_image(path, image_b64)`
-- async wrappers for the same
+## WebSocket Manager
 
-### Behavior
+File: `server/app/core/infra/ws_manager.py`
 
-If storage persistence is enabled, the latest published detection payload is saved to disk. The image may be stripped from JSON and stored alongside as a `.jpg`, depending on config.
+`ConnectionManager` tracks dashboard WebSocket connections and broadcasts JSON messages. It removes dead connections opportunistically when sends fail.
 
-## Dashboard bootstrap
+Events currently include:
 
-Implemented in `app/dashboard.py`.
+- `detection`: latest detection/pipeline result payload.
+- `memory`: current memory state payload.
+- `chat_message`: canonical user/assistant conversation message.
 
-### Routes/handlers
+## Important Runtime Invariants
 
-- `dashboard(request)` returns main HTML shell
-- `dashboard_ws(websocket)` exposes websocket channel
-- `list_models()` exposes model listing helper endpoint
-- `dashboard_chat_message(payload)` provides dashboard-side message route
-
-This file is small but important: it is the bridge between backend runtime events and the operator UI.
-
-## Safe Changes
-
-- logging configuration
-- ngrok enable/disable behavior
-- storage persistence path logic
-- runtime adapter routing policy
-
-## Risky Changes
-
-- mutating `AppState` responsibilities without updating route consumers
-- changing what detection payload shape is stored as `last_state`
-- changing websocket message format without updating dashboard JS
+- `AppState.config_version` increments on full config application and hot patch application.
+- In worker mode, `AppState.pipeline` should be `None`; code that needs memory should use a runtime adapter or chat memory proxy.
+- `ConversationService` is process memory and is not persisted across server restarts.
+- `QAPoolService` is process memory and is not persisted across server restarts.
+- Worker internal memory is the source of truth in worker mode.
+- Dashboard memory and chat displays are eventually consistent through WebSocket events and API refreshes.

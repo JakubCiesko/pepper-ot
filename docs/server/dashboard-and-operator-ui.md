@@ -1,162 +1,316 @@
 # Dashboard and Operator UI
 
-## Files Covered
+The dashboard is a server-hosted operator UI for monitoring live perception, editing config, inspecting memory, chatting, editing QA pool entries, and tuning runtime settings.
 
-- `app/dashboard.py`
-- `app/static/templates/dashboard.html`
-- `app/static/templates/dashboard/pages/*.html`
-- `app/static/js/dashboard/app.js`
-- `app/static/js/dashboard/core/*.js`
-- `app/static/js/dashboard/features/config/index.js`
-- `app/static/js/dashboard/features/live/index.js`
-- `app/static/js/dashboard/features/conversation/index.js`
-- `app/static/js/dashboard/features/memory/*.js`
-- `app/static/js/dashboard/features/scene_graph/index.js`
-- `app/static/js/dashboard/features/ui_shell/*.js`
+## Main Files
 
-## Purpose
+Backend:
 
-The dashboard is the operator-facing surface for observing and controlling the running system.
+- `server/app/dashboard.py`
+- `server/app/core/infra/ws_manager.py`
 
-It is not just a demo page. It is a real runtime control plane for:
-- config edits
-- worker control
-- live frame review
-- chat
-- memory editing
-- scene graph inspection
+Templates:
 
-## Backend glue: `app/dashboard.py`
+- `server/app/static/templates/dashboard.html`
+- `server/app/static/templates/dashboard/pages/live.html`
+- `server/app/static/templates/dashboard/pages/detection.html`
+- `server/app/static/templates/dashboard/pages/som.html`
+- `server/app/static/templates/dashboard/pages/scene.html`
+- `server/app/static/templates/dashboard/pages/runtime.html`
+- `server/app/static/templates/dashboard/pages/memory-settings.html`
+- `server/app/static/templates/dashboard/pages/chat.html`
+- `server/app/static/templates/dashboard/pages/caption.html`
+- `server/app/static/templates/dashboard/pages/qa-pregeneration.html`
+- `server/app/static/templates/dashboard/pages/translations.html`
+- `server/app/static/templates/dashboard/pages/storage.html`
 
-Exposes:
-- dashboard HTML route
-- dashboard websocket route
-- model listing endpoint
-- dashboard chat message endpoint
+JavaScript:
 
-## Frontend app bootstrap
+- `server/app/static/js/dashboard/app.js`
+- `server/app/static/js/dashboard/core/http.js`
+- `server/app/static/js/dashboard/core/notifications.js`
+- `server/app/static/js/dashboard/core/ws.js`
+- `server/app/static/js/dashboard/features/config/index.js`
+- `server/app/static/js/dashboard/features/live/index.js`
+- `server/app/static/js/dashboard/features/memory/*`
+- `server/app/static/js/dashboard/features/conversation/index.js`
+- `server/app/static/js/dashboard/features/scene_graph/index.js`
+- `server/app/static/js/dashboard/features/qa/index.js`
+- `server/app/static/js/dashboard/features/ui_shell/*`
 
-Implemented in `static/js/dashboard/app.js`.
+Styles/assets:
 
-Main jobs:
-- initialize feature modules
-- create dashboard websocket
-- dispatch websocket messages to feature handlers
+- `server/app/static/css/style.css`
+- `server/app/static/pepper_icon.png`
 
-## Core frontend utilities
+## Backend Routes
 
-### `core/http.js`
-- safe JSON parsing
-- JSON request helper
+File: `server/app/dashboard.py`
 
-### `core/notifications.js`
-- transient status messages to user
+Routes:
 
-### `core/ws.js`
-- dashboard websocket creation and reconnect behavior
+- `GET /dashboard`: renders `dashboard.html`.
+- `WebSocket /dashboard/events`: websocket for live events.
+- `GET /dashboard/config/get_models`: returns detection backend enum values.
+- `POST /dashboard/chat_message`: manually broadcasts a chat message event.
 
-## Feature: Config editor
+## WebSocket Events
 
-Implemented in `features/config/index.js`.
+`ws_manager.broadcast` sends JSON text to all active dashboard clients.
 
-This is the largest frontend module because it mirrors a large portion of `AppConfig`.
+Common event types:
 
-### Responsibilities
+- `detection`: latest detect/pipeline payload.
+- `memory`: current scene memory payload.
+- `chat_message`: conversation message.
 
-- load active/saved config from backend
-- populate form controls
-- build JSON patch payloads
-- validate JSON-like kwargs textareas
-- apply/save/reload/upload/download config
-- show hot-reload vs hard-reload warnings
-- surface pipeline presets and derived summaries
-- expose worker settings, scene graph settings, provider settings, tracking settings, visualization settings, and storage settings
+The frontend dispatches events from `dashboard/app.js` to feature modules.
 
-### Important coupling
+## Dashboard Layout
 
-Field IDs in the DOM must match config serialization assumptions in this file. If you rename config fields or schema structure, update this module.
+`dashboard.html` composes all page partials and loads dashboard JS modules. The UI shell modules handle sidebar, tabs, theme, and navigation.
 
-## Feature: Live panel
+Pages are hidden/shown as panels rather than separate routes.
 
-Implemented in `features/live/index.js`.
+## Live Page
 
-Responsibilities:
-- render latest processed frame
-- maintain a recent frame carousel
-- render detection list
-- render metrics
-- render compact scene graph summaries
-- load last persisted state on page init
+Template: `pages/live.html`
 
-## Feature: Conversation panel
+JS: `features/live/index.js`
 
-Implemented in `features/conversation/index.js`.
+The Live page displays:
 
-Responsibilities:
-- send general chat requests
-- send vision chat requests
-- maintain active chat id
-- append/replace conversation history in UI
-- handle websocket chat updates
+- architecture/system explanation
+- latest processed image
+- detections summary
+- metrics
+- captions
+- scene graph carousel
+- memory panel integration
+- uploaded-image processing controls
 
-## Feature: Memory panel
+It can upload an image to `/api/v1/detect` and maintains a carousel of recent frames.
 
-Files:
-- `features/memory/index.js`
-- `features/memory/actions.js`
-- `features/memory/api.js`
-- `features/memory/dom_refs.js`
-- `features/memory/parsers.js`
-- `features/memory/render.js`
+## Detection Page
 
-Responsibilities:
-- fetch current memory
-- render object and relation lists
-- fill editors for manual CRUD operations
-- parse bbox/attribute forms
-- submit memory mutation requests
+Template: `pages/detection.html`
 
-## Feature: Scene graph panel
+JS: `features/config/index.js`
 
-Implemented in `features/scene_graph/index.js`.
+Controls:
 
-Responsibilities:
-- convert graph and memory into visualization elements
-- initialize Cytoscape-like graph panel if present
-- color-code labels/types
+- detector backend
+- detector device
+- confidence threshold slider/input
+- NMS enabled checkbox
+- NMS type select
+- NMS IoU threshold slider/input
+- object ontology textarea
+- robot fusion numeric settings
 
-## UI shell utilities
+The NMS controls map to:
 
-Files:
-- `features/ui_shell/index.js`
-- `navigation.js`
-- `tabs.js`
-- `sidebar.js`
-- `theme.js`
+- `detection.run_nms_post_filter`
+- `detection.nms_type`
+- `detection.nms_iou_threshold`
 
-Responsibilities:
-- page navigation
-- grouped tabs
-- sidebar behavior
-- theme toggle
+The robot fusion controls map to `fusion.*` fields.
 
-## Websocket message consumers
+## SoM Page
 
-The dashboard reacts to runtime messages such as:
-- detection payloads
-- chat message payloads
-- memory updates
+Template: `pages/som.html`
 
-If the dashboard looks stale but API calls still work, inspect the websocket dispatch chain from backend broadcast to `app.js` to feature-specific handler.
+Controls visualization:
 
-## Best Tweak Points
+- bbox
+- mask
+- polygon
+- labels
+- line thickness
+- mask opacity
+- color lookup
+- mask backend
+- mask backend device
 
-- improving operator ergonomics in config editor
-- adding new runtime metrics to live panel
-- adding visualization filters to memory/scene graph panels
+These map to `visualization.*` config.
 
-## Risky Tweak Points
+## Scene Graph Page
 
-- changing payload shapes without updating feature handlers
-- changing DOM IDs without updating `config/index.js`
-- adding fields to config without exposing sensible defaults in UI
+Template: `pages/scene.html`
+
+Controls:
+
+- SGG backend checkboxes: VLM, Rules, RelTR
+- VLM system/user prompts
+- VLM provider/model/base URL/API key/device
+- VLM structured output mode/strict/schema
+- local VLM hints
+- VLM client/call kwargs
+- predicate ontology
+- rules JSON array
+- RelTR checkpoint/device/threshold/topk/IoU match threshold
+
+Backend checkboxes map to:
+
+- `scene_graph.vlm.enabled`
+- `scene_graph.rules.enabled`
+- `scene_graph.reltr.enabled`
+
+## Runtime Page
+
+Template: `pages/runtime.html`
+
+Controls:
+
+- pipeline preset
+- individual pipeline stage checkboxes
+- worker enabled
+- worker host/port
+- idle/startup/request/shutdown timeouts
+- startup queue
+- healthcheck interval
+- restart circuit-breaker settings
+- auto warmup
+
+Pipeline controls include QA generation as a first-class stage.
+
+## Memory Settings Page
+
+Template: `pages/memory-settings.html`
+
+Controls:
+
+- max dormant frames
+- association visual/geometry weights and match threshold
+- feature extraction model/device/target size/resampling
+- max memory age
+- max objects
+- max relations
+- max captions
+- caption max age
+
+These map to `tracking.*` config.
+
+## Chat Page
+
+Template: `pages/chat.html`
+
+Controls:
+
+- general system prompt
+- general user prompt template
+- object system prompt
+- object user prompt template
+- chat device/provider/model/base URL/API key
+- chat structured output mode and strict flag
+- chat client init kwargs
+- chat call kwargs
+
+The conversation panel also supports text chat and vision chat from the dashboard using current active frame snapshots.
+
+## Caption Page
+
+Template: `pages/caption.html`
+
+Controls:
+
+- caption system/user prompts
+- caption mode
+- max words
+- provider/device/model/base URL/API key
+- client init kwargs
+- call kwargs
+
+## QA Pregeneration Page
+
+Template: `pages/qa-pregeneration.html`
+
+JS: `features/qa/index.js`
+
+Displays and edits the bilingual QA pool.
+
+Controls:
+
+- auto pairs per frame (`qa_generation.pairs_per_update`)
+- pool max entries (`qa_generation.pool_max_entries`)
+- refresh pool
+- save pool JSON
+- reset editor
+- force generate if empty
+
+The JSON editor expects items with:
+
+- `question_en`
+- `answer_en`
+- `question_cs`
+- `answer_cs`
+
+It uses:
+
+- `GET /api/v1/chat/pregenerated_qa_pool`
+- `PUT /api/v1/chat/pregenerated_qa_pool`
+- `POST /api/v1/chat/pregenerate_qa`
+
+## Translations Page
+
+Template: `pages/translations.html`
+
+Lets the operator edit user vocabulary translation maps for Czech:
+
+- labels
+- attributes
+- relations
+
+These are persisted in `providers/translation/lexicons_user` by the vocabulary translation service.
+
+## Storage Page
+
+Template: `pages/storage.html`
+
+Controls:
+
+- persist last state
+- store image in last state
+- last state path
+
+## Config JS
+
+File: `server/app/static/js/dashboard/features/config/index.js`
+
+This is the central config UI module. It:
+
+- fetches `/api/v1/config`
+- populates all config controls
+- validates JSON textareas
+- syncs sliders and numeric inputs
+- derives pipeline preset state
+- displays structured-output capability hints
+- builds PATCH payloads
+- applies/saves/reloads/downloads/uploads config
+
+If a new config field is added and needs dashboard control, this is usually where load/save wiring goes.
+
+## Memory UI JS
+
+Files under `features/memory/` handle memory panel DOM references, parsers, API calls, render functions, and actions. They display memory object/relationship/caption state and memory graph summaries.
+
+## Conversation JS
+
+File: `features/conversation/index.js`
+
+Supports dashboard chat panel:
+
+- text route `/api/v1/chat`
+- vision route `/api/v1/vision_chat`
+- loading latest conversation
+- new conversation reset
+- WebSocket chat message updates
+
+## Where To Change Things
+
+- Add a dashboard page: template partial, sidebar/tab registration, JS module import/init.
+- Add a config control: template element, DOM ref in config JS, populate/load logic, buildPatch logic, event handling.
+- Change live detection rendering: `features/live/index.js`.
+- Change memory rendering: `features/memory/render.js` and related modules.
+- Change QA pool editor: `features/qa/index.js` and `qa-pregeneration.html`.
+- Change websocket event handling: `dashboard/app.js` and `core/ws.js`.

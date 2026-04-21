@@ -1,114 +1,72 @@
-# Server Documentation Index
+# Pepper Server Documentation
 
-This directory documents the current `server/` codebase as it exists now.
+This directory documents the current server implementation under `server/app`. It is meant as a navigation and maintenance guide for people changing the perception pipeline, dashboard, worker runtime, memory system, chat endpoints, or provider integrations.
 
-The goal of this docs set is not to restate file names. It is to explain how the server actually works, where state lives, how requests move through the stack, what can be changed hot vs hard, which models are involved, and where to tweak behavior safely.
+The server is a FastAPI application that receives images and robot metadata, runs a configurable perception pipeline, stores scene memory, generates grounded scene graphs and Q/A pairs, serves a dashboard, and exposes robot-facing chat and memory APIs.
 
-## What This Docs Set Covers
+Robot-side client documentation lives in [`../robot-client/index.md`](../robot-client/index.md). Use it together with these server docs when changing QiChat grammar, Pepper metadata payloads, tablet memory display, or robot-facing API contracts.
 
-- FastAPI bootstrap, lifespan, state initialization, ngrok, static mounts
-- Runtime state and dependency assembly
-- Configuration schema, `config.yaml`, mutation rules, hot reload vs hard reload
-- Public API routes under `/api/v1`
-- Orchestration services and runtime adapters
-- Inference pipeline stages and execution controls
-- Detection backends, tracking, ReID, Pepper fusion, and SoM rendering
-- Scene memory, scene graph generation, and grounded dialogue context
-- LLM/VLM/caption/translation providers
-- External worker process management and internal worker runtime
-- Dashboard frontend modules, websocket updates, and operator controls
-- Prompts, ontologies, persisted state, tests, scripts, and support assets
-- An exhaustive grouped file inventory for the server tree
+## Start Here
 
-## Recommended Reading Paths
+Read these documents in this order if you are new to the server:
 
-### If you want the big picture first
+1. [`architecture-overview.md`](architecture-overview.md) explains the full system shape and request flow.
+2. [`startup-runtime-and-state.md`](startup-runtime-and-state.md) explains `AppState`, startup, worker mode, shared services, and persisted state.
+3. [`configuration-and-reload.md`](configuration-and-reload.md) explains `config.yaml`, Pydantic config models, dashboard config patches, hot reload, and hard reload.
+4. [`inference-pipeline.md`](inference-pipeline.md) explains the actual frame pipeline stage by stage.
+5. [`detection-tracking-and-fusion.md`](detection-tracking-and-fusion.md) explains object detection, NMS, embeddings, persistent IDs, crops, and Pepper metadata fusion.
+6. [`scene-graph-and-grounding.md`](scene-graph-and-grounding.md) explains SoM rendering, rules, RelTR, VLM scene graph generation, graph merge, and robot-data enhancement.
+7. [`scene-memory-and-state.md`](scene-memory-and-state.md) explains persistent scene memory, object/relationship/caption storage, memory graph SVG, crops, pruning, and manual CRUD.
+8. [`orchestration-and-conversations.md`](orchestration-and-conversations.md) explains API-level services, chat modes, language enforcement, conversation history, object chat, vision chat, caption orchestration, and QA pool behavior.
+9. [`providers-model-clients.md`](providers-model-clients.md) explains OpenAI/Gemini/OpenAI-compatible/local-HF text and vision clients, structured output, caption clients, and translation providers.
+10. [`worker-runtime-and-process-management.md`](worker-runtime-and-process-management.md) explains the worker process, internal RPC API, warmup, idle shutdown, hot config pushes, and memory proxying.
+11. [`dashboard-and-operator-ui.md`](dashboard-and-operator-ui.md) explains the dashboard templates and JavaScript feature modules.
+12. [`api-reference.md`](api-reference.md) lists the public API routes, internal worker routes, request shapes, and response behavior.
+13. [`data-models-and-contracts.md`](data-models-and-contracts.md) maps schemas and internal dataclasses to their usage.
+14. [`file-inventory.md`](file-inventory.md) is a file-by-file locator for server code.
+15. [`assets-tests-and-support-files.md`](assets-tests-and-support-files.md) documents prompts, ontology, lexicons, state, static assets, and test/support folders.
 
-1. [architecture-overview.md](./architecture-overview.md)
-2. [startup-runtime-and-state.md](./startup-runtime-and-state.md)
-3. [configuration-and-reload.md](./configuration-and-reload.md)
-4. [api-reference.md](./api-reference.md)
-5. [inference-pipeline.md](./inference-pipeline.md)
+## Current Core Flow
 
-### If you want to change model behavior
+The main image-processing path is:
 
-1. [configuration-and-reload.md](./configuration-and-reload.md)
-2. [providers-model-clients.md](./providers-model-clients.md)
-3. [detection-tracking-and-fusion.md](./detection-tracking-and-fusion.md)
-4. [scene-graph-and-grounding.md](./scene-graph-and-grounding.md)
+1. `POST /api/v1/detect` or `POST /api/v1/detect/panorama` receives image bytes and optional `RobotMetadata` JSON.
+2. `app.api.v1.detect` normalizes multipart fields, optionally resizes image bytes, and calls `orchestration.services.detection.DetectService`.
+3. `DetectService` selects either the in-process runtime adapter or worker runtime adapter.
+4. Runtime executes `inference.pipeline.PerceptionPipeline.process`.
+5. The pipeline can run captioning, detection, tracking/memory association, SoM drawing, scene graph generation, QA generation, caption-memory update, and scene-graph-memory update depending on `pipeline_controls`.
+6. A `PipelineResult` is returned and converted into API/dashboard payloads.
+7. Scene memory stores persistent objects, relationships, captions, robot/social metadata attributes, and last crops.
+8. Scene graph Q/A pairs generated by the pipeline are ingested into the process-level `QAPoolService`.
+9. Dashboard WebSocket clients receive live detection and memory events if `publish=true`.
 
-### If you want to change dialogue behavior
+## Important Current Design Facts
 
-1. [orchestration-and-conversations.md](./orchestration-and-conversations.md)
-2. [scene-memory-and-state.md](./scene-memory-and-state.md)
-3. [providers-model-clients.md](./providers-model-clients.md)
-4. [api-reference.md](./api-reference.md)
+- The scene graph system no longer uses one `scene_graph.mode` string. It uses independent backend toggles: `scene_graph.rules.enabled`, `scene_graph.reltr.enabled`, and `scene_graph.vlm.enabled`.
+- Scene graph outputs are merged by `SceneGraph.__add__`, which deduplicates edges in `SceneGraph.__post_init__`.
+- `pipeline_controls.qa_generation` is a first-class runtime stage and requires `scene_graph=true`.
+- The QA pool is process memory, not database storage. It is cleared on memory reset and can be viewed/edited through API and dashboard.
+- Detection has optional post-filter NMS controlled by `detection.run_nms_post_filter`, `detection.nms_iou_threshold`, and `detection.nms_type`.
+- SoM mask generation supports `grabcut` and `sam`. SAM prompt boxes are internally batched in fixed chunks of 4 inside `som.py` to reduce peak prompt memory.
+- Worker mode is the default intended GPU-heavy mode. The API process orchestrates and delegates detect/memory work to a child FastAPI worker.
+- Chat language is controlled by request fields and dashboard `system.output_language`; the server stores both original and model-facing conversation text.
+- Memory summaries can return translated labels/attributes/relations for Czech display using the vocabulary translator lexicons.
 
-### If you want to change worker/process behavior
+## Where To Change Common Features
 
-1. [worker-runtime-and-process-management.md](./worker-runtime-and-process-management.md)
-2. [startup-runtime-and-state.md](./startup-runtime-and-state.md)
-3. [configuration-and-reload.md](./configuration-and-reload.md)
+- Add/change detect endpoint behavior: `server/app/api/v1/detect.py` and `server/app/orchestration/services/detection.py`.
+- Add detector config fields: `server/app/schemas/config.py`, `server/config.yaml`, config reload rule definitions, dashboard detection template, dashboard config JS.
+- Change model pipeline order: `server/app/inference/pipeline.py`.
+- Change tracking or identity behavior: `server/app/inference/memory/scene_memory.py`, `server/app/inference/tracking/*`, and `server/app/inference/memory/state_store/*`.
+- Change robot metadata fusion: `server/app/inference/memory/state_store/geometry.py`, `social.py`, `objects.py`, and `store.py`.
+- Change SoM overlays or mask backends: `server/app/inference/scene_graph/som.py`.
+- Change scene graph logic: `server/app/inference/scene_graph/service.py`, `rules_backend.py`, `reltr_backend.py`, `vlm_backend.py`.
+- Change chat behavior: `server/app/api/v1/chat.py`, `server/app/orchestration/services/chat.py`, `conversation.py`.
+- Change object-chat crop fallback: `server/app/orchestration/services/chat.py` and memory crop plumbing.
+- Change QA generation/pool behavior: `server/app/inference/qa/service.py`, `server/app/orchestration/services/qa_pool.py`, `server/app/api/v1/chat.py`, `server/app/api/v1/memory.py`.
+- Change worker lifecycle: `server/app/core/runtime/worker_client/*`, `server/app/worker/runtime.py`, `server/app/worker/routes.py`.
+- Change dashboard UI: `server/app/static/templates/dashboard/pages/*.html` and `server/app/static/js/dashboard/features/*`.
 
-### If you want to change the dashboard/operator surface
+## Documentation Maintenance Rule
 
-1. [dashboard-and-operator-ui.md](./dashboard-and-operator-ui.md)
-2. [api-reference.md](./api-reference.md)
-3. [configuration-and-reload.md](./configuration-and-reload.md)
-
-## Document Map
-
-- [architecture-overview.md](./architecture-overview.md)
-  - End-to-end system shape, request flow, and subsystem boundaries.
-- [startup-runtime-and-state.md](./startup-runtime-and-state.md)
-  - `main.py`, `AppState`, pipeline assembly, storage, websocket manager, runtime adapter selection.
-- [configuration-and-reload.md](./configuration-and-reload.md)
-  - `config.yaml`, `schemas/config.py`, config manager, reload rules, mutation groups, runtime update rules.
-- [api-reference.md](./api-reference.md)
-  - Public HTTP routes, request/response models, side effects, publish/broadcast behavior.
-- [orchestration-and-conversations.md](./orchestration-and-conversations.md)
-  - Chat orchestration, caption orchestration, detection orchestration, memory service, conversation service.
-- [inference-pipeline.md](./inference-pipeline.md)
-  - `PerceptionPipeline`, stage ordering, execution metrics, stage enable/disable semantics.
-- [detection-tracking-and-fusion.md](./detection-tracking-and-fusion.md)
-  - Detector registry, detector implementations, associator, embedding extraction, Pepper-specific person fusion.
-- [scene-memory-and-state.md](./scene-memory-and-state.md)
-  - `SceneMemory`, state store mixins, object/relation/caption state, manual memory editing semantics.
-- [scene-graph-and-grounding.md](./scene-graph-and-grounding.md)
-  - Rule SGG, VLM SGG, RelTR path, SoM painter, robot metadata augmentation.
-- [providers-model-clients.md](./providers-model-clients.md)
-  - LLM/VLM/caption/translation client stack, structured output handling, provider-specific concerns.
-- [data-models-and-contracts.md](./data-models-and-contracts.md)
-  - Shared Pydantic models, inference data types, and worker contracts.
-- [worker-runtime-and-process-management.md](./worker-runtime-and-process-management.md)
-  - Worker manager, RPC schema, worker app, worker runtime, internal routes, idle shutdown and restart behavior.
-- [dashboard-and-operator-ui.md](./dashboard-and-operator-ui.md)
-  - Dashboard HTML/JS module layout, websocket message consumption, config editor, live view, scene graph panel.
-- [assets-tests-and-support-files.md](./assets-tests-and-support-files.md)
-  - Prompts, ontologies, persisted state, scripts, model weights, mocks, tests.
-- [file-inventory.md](./file-inventory.md)
-  - Exhaustive grouped inventory of the server tree with one-line file roles.
-
-## Core Source Roots
-
-- `server/app/api/v1`: public HTTP surface
-- `server/app/core`: bootstrap, config mutation, runtime state, infra helpers
-- `server/app/orchestration`: service layer and runtime adapters
-- `server/app/inference`: detection, tracking, memory, scene graph, pipeline
-- `server/app/providers`: model/provider abstraction layer
-- `server/app/schemas`: shared Pydantic request/response/config/state models
-- `server/app/worker`: separate worker process runtime
-- `server/app/static`: dashboard UI
-- `server/tests`: regression and contract tests
-
-## Fast Orientation Cheat Sheet
-
-- The single global runtime container is `app.core.runtime.state.app_state`.
-- The server can run inference in-process or via `WorkerManager` + `server/app/worker`.
-- The main detection route is `/api/v1/detect`.
-- The main chat route is `/api/v1/chat`.
-- The main operator surface is `/dashboard` plus `/dashboard/ws`.
-- The config source of truth is `server/config.yaml` validated by `server/app/schemas/config.py`.
-- The central perception execution entry point is `app.inference.pipeline.PerceptionPipeline.process()`.
-- Persistent conversational grounding depends on `app.inference.memory.scene_memory.SceneMemory`.
-- Scene graph generation is selected by `scene_graph.mode` and delegated through `SceneGraphService`.
+When changing a subsystem, update both its dedicated document and [`file-inventory.md`](file-inventory.md). The inventory is intentionally redundant because it lets contributors find code quickly even when they do not yet know the architecture.

@@ -1,277 +1,349 @@
 # API Reference
 
-## Files Covered
+This document lists current public API routes, dashboard routes, and internal worker routes. Public API routes are mounted under `/api/v1`.
 
-- `app/api/v1/router.py`
-- `app/api/v1/detect.py`
-- `app/api/v1/caption.py`
-- `app/api/v1/chat.py`
-- `app/api/v1/vision_chat.py`
-- `app/api/v1/config.py`
-- `app/api/v1/memory.py`
-- `app/api/v1/worker.py`
-- `app/api/v1/image_utils.py`
-- `app/api/v1/memory_route_utils.py`
-
-All public routes live under `/api/v1`.
-
-## Detection Routes
+## Detection
 
 ### `POST /api/v1/detect`
 
-Defined in `detect.py`.
+File: `server/app/api/v1/detect.py`
 
-Purpose:
-- Main image processing entry point.
+Multipart form fields:
 
-Inputs:
-- image upload
-- robot metadata JSON
-- publish flag
-- debug/panorama-related form flags depending on client use
+- `file`: required image upload.
+- `metadata`: optional JSON string matching `RobotMetadata`.
+- `publish`: bool, default `true`.
+- `resize_image`: bool, default `true`.
 
 Behavior:
-- Parses robot metadata into `RobotMetadata`.
-- Routes to in-process or worker runtime.
-- Returns normalized detection objects and optional caption.
-- When publishing, broadcasts websocket payload and may persist last state.
 
-Response model:
-- `DetectionResponse`
+- Reads image bytes.
+- Optionally resizes image.
+- Parses/normalizes robot metadata.
+- Runs `DetectService.process`.
+- Publishes dashboard event when `publish=true`.
+- Returns `DetectionResponse`.
+
+Response fields:
+
+- `id`
+- `objects`
+- `timestamp`
+- `image_width`
+- `image_height`
+- `caption`
+- `caption_provider`
+- `caption_model_id`
 
 ### `POST /api/v1/detect/panorama`
 
-Purpose:
-- Build panorama from multiple frames and run detect flow on the stitched result.
+Multipart form fields:
 
-Depends on:
-- `image_utils.create_panorama()`
+- `files`: list of image uploads.
+- `metadata`: optional list of JSON strings.
+- `publish`: bool, default `true`.
+- `resize_image`: bool, default `true`.
+- `stick_together`: bool, default `true`.
 
-## Caption Route
+Behavior:
+
+- `stick_together=true`: stitch images horizontally, merge metadata, run one detect pipeline.
+- `stick_together=false`: process images independently and combine object lists in response.
+
+Use this route for robot scan sweeps.
+
+## Caption
 
 ### `POST /api/v1/caption`
 
-Purpose:
-- Caption image independently of the full detection pipeline.
+File: `server/app/api/v1/caption.py`
 
-Response model:
-- `CaptionResponse`
+Multipart form fields:
 
-Use this when testing caption quality or prompt changes without invoking the full pipeline.
+- `file`: required image upload.
+- `metadata`: optional JSON string.
+- `prompt`: optional prompt override.
+- `run_detect`: bool, default `true`.
+- `publish`: bool.
+- `language`: optional output language.
+- `resize_image`: bool.
 
-## Chat Routes
+Behavior:
+
+- Returns a fast caption.
+- Enforces output language when requested/configured.
+- If `run_detect=true`, starts a background full detect pipeline using the same detect orchestration path.
+
+Response includes caption text, provider, model id, whether detect was started, detect request id, and timestamp.
+
+## Text Chat
 
 ### `POST /api/v1/chat`
 
-Purpose:
-- Main grounded text chat endpoint.
+File: `server/app/api/v1/chat.py`
 
-Request model:
-- `ChatRequest`
+JSON body: `ChatRequest`.
 
-Important request fields:
+Important fields:
+
 - `query`
 - `chat_id`
+- `conversation_id`
 - `language`
-- `mode`
+- `input_language`
+- `output_language`
+- `model_facing_language`
+- `mode`: `general` or `object`
 - `object_label`
 - `max_instances`
 - `max_crop_fallbacks`
 
-Modes:
-- `general`
-- `object`
-
 Behavior:
-- Ensures a conversation exists.
-- Translates input to configured output/model language when needed.
-- Stores user message.
-- Broadcasts user message to websocket subscribers.
-- Builds conversation history for model prompting.
-- Calls either `ChatService.chat()` or `ChatService.object_chat()`.
-- Translates output back if needed.
-- Stores assistant message and broadcasts it.
-- Returns `ChatResponse` with extra metadata.
 
-Metadata includes:
-- provider/model info
-- input/output language info
-- requested/resolved object label
-- matched object IDs and counts
-- crop fallback usage
+- Resolves output/model-facing language.
+- Stores original/model-facing conversation messages.
+- Builds model-facing history.
+- Runs general chat or object chat.
+- Enforces assistant output language.
+- Broadcasts dashboard chat message.
+
+Response: `ChatResponse` with response text, chat id, conversation id, metadata, timestamp.
 
 ### `GET /api/v1/chat/conversations`
 
-Purpose:
-- List recent conversation sessions.
+Query:
+
+- `limit`: max conversations to list.
+
+Returns conversation summaries from process memory.
 
 ### `GET /api/v1/chat/conversations/{chat_id}`
 
-Purpose:
-- Return serialized conversation content.
+Returns messages for a chat id.
 
 ### `POST /api/v1/chat/conversations/{chat_id}/reset`
 
-Purpose:
-- Reset a single conversation.
+Clears a conversation but keeps the id usable.
 
 ### `DELETE /api/v1/chat/conversations/{chat_id}`
 
-Purpose:
-- Delete a conversation entirely.
+Deletes a conversation from process memory.
 
-## Vision Chat Route
+## QA Pool
+
+### `POST /api/v1/chat/pregenerate_qa`
+
+JSON body: `PregeneratedQARequest`.
+
+Fields:
+
+- `language`
+- `input_language`
+- `output_language`
+- `requested_number_of_pairs`
+- `force_generation`
+
+Behavior:
+
+- Reads current QA pool.
+- Returns pairs in requested language.
+- If pool is empty and `force_generation=true`, generates pairs from current memory text description and inserts them.
+
+Response: `PregeneratedQAResponse` with `pregenerated_qa` list and metadata.
+
+### `GET /api/v1/chat/pregenerated_qa_pool`
+
+Returns full bilingual QA pool items for dashboard editing.
+
+### `PUT /api/v1/chat/pregenerated_qa_pool`
+
+JSON body: `PregeneratedQAPoolUpdateRequest`.
+
+Replaces QA pool with bilingual items.
+
+## Vision Chat
 
 ### `POST /api/v1/vision_chat`
 
-Purpose:
-- Direct VLM chat on image input, separate from scene-memory-grounded chat.
+File: `server/app/api/v1/vision_chat.py`
 
-Request model:
-- `VisionChatFormRequest`
+Multipart form:
 
-Key form fields:
-- image file
-- `query`
-- `chat_id`
-- `language`
-- `system_prompt`
-- `resize_image`
+- `file`: required image upload.
+- form fields from `VisionChatFormRequest`, including query/chat/language fields.
 
 Behavior:
-- Maintains conversation state like text chat.
-- Optionally resizes image before VLM call.
-- Builds history-aware prompt.
-- Routes directly to runtime adapter `vision_chat()`.
-- Stores assistant response in conversation history.
 
-Response model:
-- `VisionChatResponse`
+- Uses conversation history and current image.
+- Calls VLM image backend via runtime adapter.
+- Stores original/model-facing messages.
+- Enforces output language.
 
-## Config Routes
-
-### `GET /api/v1/config`
-
-Returns:
-- active config
-- saved config
-- resolved active config
-- behavior contracts and hard reload field list
-
-### `GET /api/v1/state`
-
-Returns latest dashboard/live payload snapshot.
-
-### `PATCH /api/v1/config`
-
-Purpose:
-- Apply partial config patch.
-
-Behavior:
-- Merge patch into current config.
-- Compute diff.
-- If hard changes exist, rebuild runtime via `app_state.apply_config()`.
-- Otherwise apply hot changes in place.
-
-### `POST /api/v1/config/save`
-
-Purpose:
-- Atomically write current runtime config to disk.
-
-### `POST /api/v1/config/reload`
-
-Purpose:
-- Reload config from disk and rebuild runtime.
-
-### `POST /api/v1/config/upload`
-
-Purpose:
-- Replace runtime config from uploaded YAML.
-
-### `GET /api/v1/config/download`
-
-Query param:
-- `source=saved` to download saved file instead of active runtime state.
-
-## Memory Routes
+## Memory
 
 ### `GET /api/v1/memory`
-- full `SceneState`
+
+Returns full `SceneState`.
+
+### `GET /api/v1/memory/summary`
+
+Query:
+
+- `render_limit`: default 5, limited by renderer cap.
+- `lang`: `en`, `english`, `cs`, or `czech`.
+- `force_generation`: bool, default false.
+
+Returns `MemorySummary` including labels, counts, scene graph, SVG, and pregenerated QA.
+
+If `force_generation=true`, the route generates QA only if the QA pool is empty.
+
+### `GET /api/v1/memory/object/{object_id}/crop`
+
+Returns base64 last crop for a tracked object, or `null` image if absent.
 
 ### `GET /api/v1/memory/objects`
-Filters:
+
+Query:
+
 - `label`
 - `min_hits`
 - `skip`
 - `limit`
-- `sort_by = last_seen | first_seen | hits`
+- `sort_by`: `last_seen`, `first_seen`, or `hits`
+
+Returns object page and timestamp.
 
 ### `GET /api/v1/memory/relations`
-Filters:
-- subject/object IDs
-- subject/object labels
-- predicate
-- pagination
+
+Query filters:
+
+- `subject_id`
+- `subject_label`
+- `predicate`
+- `object_id`
+- `object_label`
+- `skip`
+- `limit`
+
+Returns relationship page and timestamp.
 
 ### `POST /api/v1/memory/upsert`
-- merge external `SceneState` into memory
 
-### `POST /api/v1/memory/reset`
-- requires `confirm=true`
+Body: `SceneState`.
 
-### `POST /api/v1/memory/object`
-- create tracked object manually
+Merges objects, relationships, and captions into memory.
 
-### `PATCH /api/v1/memory/object/{object_id}`
-- patch tracked object fields
+### `POST /api/v1/memory/reset?confirm=true`
 
-### `DELETE /api/v1/memory/object/{object_id}`
-- optional cascade relation deletion
+Clears scene memory and QA pool. Without `confirm=true`, returns validation error.
 
-### `POST /api/v1/memory/relation`
-- create relation manually
+### Object CRUD
 
-### `PATCH /api/v1/memory/relation`
-- patch relation metadata
+- `POST /api/v1/memory/object`
+- `PATCH /api/v1/memory/object/{object_id}`
+- `DELETE /api/v1/memory/object/{object_id}` with `cascade_relations=true|false`
 
-### `DELETE /api/v1/memory/relation`
-- delete by `(subject_id, predicate, object_id)`
+### Relation CRUD
 
-All memory mutations route through `run_memory_action()` so errors become HTTP-safe and successful changes trigger dashboard broadcasts.
+- `POST /api/v1/memory/relation`
+- `PATCH /api/v1/memory/relation`
+- `DELETE /api/v1/memory/relation?subject_id=...&predicate=...&object_id=...`
 
-## Worker Routes
+## Config
+
+### `GET /api/v1/config`
+
+Returns:
+
+- active config
+- saved config
+- active resolved config
+- translation maps
+- behavior contracts
+
+### `PATCH /api/v1/config`
+
+Body: partial config patch.
+
+Deep-merges, validates, applies hot or hard reload behavior, and returns diff info. Also supports translation patch payloads.
+
+### `POST /api/v1/config/save`
+
+Writes active config to YAML.
+
+### `POST /api/v1/config/reload`
+
+Reloads YAML from disk and applies it.
+
+### `POST /api/v1/config/upload`
+
+Uploads YAML, validates path safety, and applies it.
+
+### `GET /api/v1/config/download`
+
+Downloads active or saved YAML.
+
+## State
+
+### `GET /api/v1/state`
+
+Returns current last state used by dashboard live panel. This may include persisted state loaded at startup and/or last published detection state.
+
+## Worker Control
 
 ### `GET /api/v1/worker/status`
-- current worker status snapshot
+
+Returns worker manager status.
 
 ### `POST /api/v1/worker/warmup`
-- force worker startup and warmup
+
+Starts/warmups worker pipeline.
 
 ### `POST /api/v1/worker/stop`
-- stop worker process
 
-## Utility Helpers
+Stops worker process.
 
-### `image_utils.py`
+## Dashboard Routes
 
-Contains helpers for:
-- saving debug images
-- resizing uploaded images
-- building panorama images
+### `GET /dashboard`
 
-### `memory_route_utils.py`
+Renders dashboard HTML.
 
-Provides common wrapper for memory operations so route handlers stay thin and broadcast behavior stays consistent.
+### `WebSocket /dashboard/events`
 
-## When to Change API Layer vs Lower Layers
+Live dashboard event stream.
 
-Change route files when:
-- input form/query shape changes
-- endpoint semantics change
-- auth/validation/error mapping changes
+### `GET /dashboard/config/get_models`
 
-Change orchestration/inference when:
-- model behavior changes
-- memory semantics change
-- runtime selection changes
-- broadcast payload content changes
+Returns detection backend enum values.
+
+### `POST /dashboard/chat_message`
+
+Broadcasts a chat message event to dashboard clients.
+
+## Internal Worker Routes
+
+Internal routes are mounted by `server/app/worker/routes.py` in the child worker process.
+
+Routes:
+
+- `GET /internal/health`
+- `GET /internal/status`
+- `POST /internal/config/reload`
+- `POST /internal/config/hot_update`
+- `POST /internal/warmup`
+- `POST /internal/detect`
+- `POST /internal/caption`
+- `POST /internal/vision_chat`
+- `POST /internal/shutdown`
+- `GET /internal/memory`
+- `GET /internal/memory/summary`
+- `GET /internal/memory/object/{object_id}/crop`
+- `GET /internal/memory/objects`
+- `GET /internal/memory/relations`
+- `POST /internal/memory/upsert`
+- `POST /internal/memory/reset`
+- object CRUD mirror routes
+- relation CRUD mirror routes
+
+These routes are only for API-process to worker-process communication.

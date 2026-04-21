@@ -1,222 +1,247 @@
 # Worker Runtime and Process Management
 
-## Files Covered
+Worker mode isolates heavy inference in a child FastAPI process. The public API process remains the orchestrator, dashboard server, config manager, and chat/conversation owner.
 
-- `app/core/runtime/worker_client/manager.py`
-- `app/core/runtime/worker_client/manager_process.py`
-- `app/core/runtime/worker_client/manager_rpc.py`
-- `app/core/runtime/worker_client/manager_monitor.py`
-- `app/core/runtime/worker_client/rpc.py`
-- `app/core/runtime/worker_client/types.py`
-- `app/core/runtime/worker_client/errors.py`
-- `app/worker/main.py`
-- `app/worker/routes.py`
-- `app/worker/runtime.py`
-- `app/api/v1/worker.py`
+## Main Files
+
+Worker client in API process:
+
+- `server/app/core/runtime/worker_client/manager.py`
+- `server/app/core/runtime/worker_client/manager_process.py`
+- `server/app/core/runtime/worker_client/manager_monitor.py`
+- `server/app/core/runtime/worker_client/manager_rpc.py`
+- `server/app/core/runtime/worker_client/rpc.py`
+- `server/app/core/runtime/worker_client/types.py`
+- `server/app/core/runtime/worker_client/errors.py`
+
+Worker process:
+
+- `server/app/worker/main.py`
+- `server/app/worker/runtime.py`
+- `server/app/worker/routes.py`
+
+Runtime adapter:
+
+- `server/app/orchestration/adapters/runtime.py`
 
 ## Why Worker Mode Exists
 
-Worker mode isolates heavy inference from the main FastAPI process.
+Worker mode exists to keep GPU-heavy model objects out of the API process. Benefits:
 
-Benefits:
-- lower memory pressure in API process
-- clearer process isolation for GPU-bound work
-- ability to idle-kill and restart worker
-- safer runtime rebuilds
+- child process can be killed to release VRAM
+- hard model/provider changes restart only the worker
+- API process can keep dashboard/config/chat alive
+- worker can lazy-start and idle-stop
+- internal API gives clear process boundary for detect/memory operations
 
-Trade-offs:
-- more moving parts
-- network/RPC overhead even on localhost
-- more contracts to keep in sync
+## WorkerManager
 
-## Main-Side Worker Manager
+File: `server/app/core/runtime/worker_client/manager.py`
 
-`WorkerManager` mixes in:
-- `WorkerMonitorMixin`
-- `WorkerProcessMixin`
-- `WorkerRPCMixin`
+`WorkerManager` combines three mixins:
 
-```mermaid
-flowchart LR
-    API[Main API process] --> MAN[WorkerManager]
-    MAN --> PROC[spawn stop restart subprocess]
-    MAN --> RPC[HTTP RPC to worker]
-    RPC --> WR[Worker routes]
-    WR --> RT[WorkerRuntime]
-    RT --> PIPE[Perception pipeline]
-```
+- `WorkerProcessMixin`: start/stop child process.
+- `WorkerMonitorMixin`: lazy start, idle shutdown, circuit breaker, monitor loop.
+- `WorkerRPCMixin`: internal HTTP helper.
 
-### State tracked by manager
+State fields include:
 
-- worker state enum
+- worker state
 - subprocess handle
-- startup event / lifecycle lock
+- lifecycle lock
+- startup event/waiter count
 - inflight request count
 - last active timestamp
-- start time
-- restart timestamps and counters
-- idle kill count
-- crash count
-- circuit breaker open-until timestamp
-- last error string
+- restart counters
+- idle kill/crash counters
+- circuit breaker timestamp
 - config version
+- HTTPX async client
 
-### Core methods
+## Worker States
 
-- `update_config()`
-- `apply_hot_config()`
-- `hard_reload()`
-- `warmup()`
-- `detect()`
-- `get_worker_status()`
+File: `server/app/core/runtime/worker_client/types.py`
 
-## Worker lifecycle concepts
+States:
 
-### Enabled flag
+- `STOPPED`
+- `STARTING`
+- `READY`
+- `BUSY`
+- `STOPPING`
+- `FAILED`
 
-Worker mode is only used when config says enabled and manager exists.
+Restart reasons:
 
-### Warmup
+- `LAZY_START`
+- `CONFIG_RELOAD`
+- `MANUAL_WARMUP`
 
-`warmup()` ensures process startup and triggers worker-side preload path.
+Stop reasons:
 
-### Hot config push
+- `IDLE`
+- `MANUAL`
+- `SHUTDOWN`
+- `CONFIG_RELOAD`
+- `FAILURE`
 
-`apply_hot_config()` pushes config to worker without full restart where possible.
+## Startup Flow
 
-### Hard reload
+`WorkerManager.ensure_started(reason)`:
 
-`hard_reload()` updates config version and stops the worker so it can restart cleanly.
+1. Rejects if worker mode disabled.
+2. Checks circuit breaker.
+3. If worker already ready/busy, returns.
+4. If worker is starting, waits on startup event subject to queue limit and startup timeout.
+5. Otherwise acquires lifecycle lock and starts worker.
 
-### Idle kill
+`_start_worker(reason)`:
 
-Monitor logic can shut down the worker after configured inactivity.
+1. Sets state `STARTING`.
+2. Applies restart-window/circuit-breaker accounting.
+3. Starts `python -m uvicorn app.worker.main:app --host ... --port ...` with cwd at server root.
+4. Creates stdout/stderr forwarding tasks.
+5. Waits for `/internal/health`.
+6. Posts `/internal/config/reload` with full config and config version.
+7. Optionally posts `/internal/warmup`.
+8. Sets state `READY`.
 
-### Circuit breaker
+## Shutdown Flow
 
-Repeated failures can open a cooldown window before restart attempts continue.
+`_stop_unlocked(reason)`:
 
-## Worker State Transitions
+1. If already stopped, cleans stream tasks and exits.
+2. Sets `STOPPING`.
+3. Attempts graceful `/internal/shutdown`.
+4. Waits up to `shutdown_grace_seconds`.
+5. Terminates or kills if needed.
+6. Cancels stream forwarders.
+7. Clears process handle and sets `STOPPED`.
 
-```mermaid
-stateDiagram-v2
-    [*] --> STOPPED
-    STOPPED --> STARTING: ensure_started or warmup
-    STARTING --> READY: pipeline ready
-    READY --> BUSY: detect vision_chat or memory op
-    BUSY --> READY: request finished
-    STARTING --> FAILED: startup error
-    READY --> STOPPED: idle kill stop or hard reload
-    BUSY --> STOPPED: forced stop
-    FAILED --> STARTING: restart attempt
-    FAILED --> STOPPED: breaker open / max attempts reached
-```
+## Monitor Loop
 
-## RPC and payload contracts
+File: `manager_monitor.py`
 
-`rpc.py` defines structured request/response payloads such as:
-- `WorkerRPCRequest`
-- `WorkerRPCResponse`
-- `DetectRPCRequest`
-- `DetectRPCResponse`
-- `WorkerConfigRPCRequest`
-- `WorkerStatusResponse`
+The monitor loop periodically:
 
-If you change worker response shape, update both sides.
+- detects worker crashes
+- updates failure counters
+- stops idle ready worker after `idle_timeout_seconds`
+- obeys `idle_check_interval_seconds`
 
-## Worker status enums
+The circuit breaker opens when restarts exceed `restart_max_attempts` within `restart_window_seconds`, and remains open for `circuit_breaker_cooldown_seconds`.
 
-Defined in `types.py`:
-- `WorkerState`
-- `RestartReason`
-- `StopReason`
-- `WorkerStatusSnapshot`
+## Internal RPC Types
 
-These are used both operationally and for dashboard display.
+File: `server/app/core/runtime/worker_client/rpc.py`
 
-## Worker runtime
+Important models:
 
-`WorkerRuntime` is the worker-local service container.
+- `DetectRPCRequest`: request id, config version, base64 image, optional robot metadata.
+- `DetectRPCResponse`: ok flag, image output, objects, scene graph, QA pairs, caption metadata, memory, metrics, executed stages, image dimensions.
+- `WorkerConfigRPCRequest`: full config dict.
+- `WorkerStatusResponse`: state, pid, uptime, inflight count, counters, last error.
 
-## Main <-> Worker Detect Exchange
+## Public Worker Control API
 
-```mermaid
-sequenceDiagram
-    participant API as Main process
-    participant WM as WorkerManager
-    participant WR as Worker route
-    participant RT as WorkerRuntime
-    participant PP as Pipeline
+File: `server/app/api/v1/worker.py`
 
-    API->>WM: detect(image_bytes, metadata)
-    WM->>WR: POST internal detect
-    WR->>RT: detect(image_b64, metadata)
-    RT->>PP: process(image, metadata)
-    PP-->>RT: PipelineResult
-    RT-->>WR: normalized worker payload
-    WR-->>WM: DetectRPCResponse
-    WM-->>API: result dict
-```
+Routes:
 
-### Owned state
+- `GET /api/v1/worker/status`
+- `POST /api/v1/worker/warmup`
+- `POST /api/v1/worker/stop`
 
-- active config
-- perception pipeline
+These act on `AppState.worker_manager`.
+
+## Internal Worker Routes
+
+File: `server/app/worker/routes.py`
+
+Routes:
+
+- `GET /internal/health`
+- `GET /internal/status`
+- `POST /internal/config/reload`
+- `POST /internal/config/hot_update`
+- `POST /internal/warmup`
+- `POST /internal/detect`
+- `POST /internal/caption`
+- `POST /internal/vision_chat`
+- `POST /internal/shutdown`
+- memory mirror routes under `/internal/memory...`
+
+These routes are not meant for external clients. They are the private API between API process and worker process.
+
+## WorkerRuntime
+
+File: `server/app/worker/runtime.py`
+
+`WorkerRuntime` owns the worker-local runtime:
+
+- `config`
+- `pipeline`
+- worker state
+- startup/last-active/inflight/error/config version
+- lock
 - caption client and prompts
-- worker state enum
-- inflight count
-- activity timestamps
-- config version
-- last error
 
-### Main capabilities
+Important methods:
 
-- `apply_config()`
+- `apply_config(cfg, version, rebuild=True)`
 - `ensure_pipeline()`
 - `warmup()`
-- `ensure_caption_client()`
-- `update_caption_runtime()`
-- `detect()`
-- `caption()`
-- `vision_chat()`
-- scene memory CRUD methods
-- `get_track_crop()`
+- `detect(image_b64, robot_metadata)`
+- `caption(image_b64, prompt_override)`
+- `vision_chat(image_b64, user_prompt, system_prompt)`
+- memory state/CRUD/crop methods
 - `status()`
 
-### Important nuance
+The worker builds its pipeline lazily on first warmup/detect/memory operation.
 
-`vision_chat()` on the worker currently uses the scene-graph VLM backend client, but falls back to chat system prompt text if custom system prompt is not supplied.
+## Hot Config in Worker Mode
 
-## Worker app and routes
+Public config PATCH calls `WorkerManager.apply_hot_config(new_config, version)`. If worker is running, manager posts `/internal/config/hot_update`.
 
-### `app/worker/main.py`
-- starts worker FastAPI app
-- owns worker lifespan
+The worker route:
 
-### `app/worker/routes.py`
-- builds internal-only router used by manager adapter
-- exposes detect, warmup, status, config update, memory operations, and vision chat
+1. Validates config dict into `AppConfig`.
+2. Calls `runtime.apply_config(cfg, version, rebuild=False)`.
+3. Applies pipeline runtime updates if pipeline exists.
+4. Applies scene graph runtime updates if pipeline exists.
+5. Updates caption runtime if caption client exists.
 
-## Public worker routes
+Hard config changes cause worker stop through `WorkerManager.hard_reload`. The next request or warmup starts a fresh worker with full config.
 
-Exposed by main API process via `app/api/v1/worker.py`:
-- `/worker/status`
-- `/worker/warmup`
-- `/worker/stop`
+## Memory in Worker Mode
 
-These are operator-facing wrappers over manager behavior.
+When worker mode is enabled, the authoritative `SceneMemory` is inside `WorkerRuntime.pipeline.memory`.
 
-## Safe Tweak Points
+Public memory routes use `MemoryService(WorkerRuntimeAdapter)`, which forwards memory calls through `WorkerManager.request(...)` to internal worker routes.
 
-- idle timeout values
-- request timeout values
-- restart backoff values
-- warmup policy
-- status reporting fields
+`ChatService` receives `WorkerChatMemoryProxy`, so text chat can still build context from worker memory.
 
-## Risky Tweak Points
+## Detect in Worker Mode
 
-- worker request/response schema
-- endpoint paths between manager and worker
-- config version handling
-- state transition logic for READY/BUSY/FAILED/STOPPED
+Public detect path:
+
+1. `DetectService.process` calls `WorkerRuntimeAdapter.detect`.
+2. Adapter calls `WorkerManager.detect`.
+3. Manager posts `/internal/detect` with base64 image and metadata.
+4. Worker decodes image, runs `pipeline.process`, encodes SoM output image, returns objects/graph/QA/caption/memory/metrics/stages.
+5. API process ingests QA pairs into its own `QAPoolService` and publishes dashboard events.
+
+## Common Failure Modes
+
+- Worker disabled but adapter requested: `WorkerUnavailableError`.
+- Too many requests waiting during startup: `WorkerQueueFullError`.
+- Startup health timeout: `WorkerStartupTimeoutError`.
+- Restart thrashing: `WorkerCircuitOpenError`.
+- Invalid worker response shape: `WorkerProtocolError`.
+
+## Where To Change Things
+
+- Change worker lifecycle behavior: `manager_process.py` and `manager_monitor.py`.
+- Change internal request protocol: `worker_client/rpc.py`, `WorkerManager`, `worker/routes.py`, `worker/runtime.py`.
+- Add pipeline output crossing worker boundary: `PipelineResult`, `WorkerRuntime.detect`, `DetectRPCResponse`, `WorkerManager.detect`, runtime adapter normalization, detection orchestration payload.
+- Add memory operation in worker mode: public memory route/service, runtime adapter method, internal worker route, `WorkerRuntime` method.

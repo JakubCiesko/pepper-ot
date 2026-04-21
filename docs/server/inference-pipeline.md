@@ -1,194 +1,253 @@
 # Inference Pipeline
 
-## Files Covered
+The frame pipeline is implemented by `server/app/inference/pipeline.py` and constructed by `server/app/core/pipeline_factory.py`.
 
-- `app/inference/pipeline.py`
-- `app/inference/types.py`
-- `app/core/pipeline_factory.py`
+It takes a PIL RGB image plus optional `RobotMetadata` and returns a `PipelineResult` containing detections, SoM image, scene graph, caption, generated QA pairs, metrics, and executed stage names.
 
-## Central Entry Point
+## Construction
 
-The core runtime entry is `PerceptionPipeline.process(image, robot_metadata)`.
+File: `server/app/core/pipeline_factory.py`
 
-This is the single source of truth for per-frame processing order.
+`build_perception_pipeline(config)` builds:
 
-## Pipeline Constructor Dependencies
+- `DetectionService` from `inference/detection/service.py`.
+- `SceneMemory` from `inference/memory/scene_memory.py`.
+- `SoMPainter` from `inference/scene_graph/som.py`.
+- `VLMSceneGraphGenerator` from `inference/scene_graph/vlm_backend.py`.
+- `RuleSceneGraphGenerator` from `inference/scene_graph/rules_backend.py`.
+- `RelTRSceneGraphGenerator` from `inference/scene_graph/reltr_backend.py`.
+- `SceneGraphService` from `inference/scene_graph/service.py`.
+- `CaptionInferenceService` from `inference/caption/service.py`.
+- `SceneQAGenerationService` from `inference/qa/service.py`.
+- `PerceptionPipeline` with pipeline controls, visualization config, and fusion config.
 
-`PerceptionPipeline` is assembled with:
-- detector
-- memory
-- SoM painter
-- scene graph service
-- optional caption service
-- fusion config
-- visualization config
-- pipeline controls
+Prompt sources and ontologies are resolved relative to the config file directory.
 
-This means the pipeline object is not just a detector wrapper. It is the coordinator for nearly every perception-side subsystem.
+## PipelineResult
 
-## Stage Order
+Defined in `server/app/inference/types.py`.
 
-The current order is:
+Fields:
 
-1. caption
-2. detection
-3. tracking + memory update
-4. SoM rendering
-5. scene graph generation
-6. caption memory update
-7. scene graph memory update
-8. metric aggregation
+- `raw_image`: original PIL image passed into the pipeline.
+- `som_image`: NumPy array or PIL image with Set-of-Mark overlay, or `None`.
+- `detections`: list of `InferenceDetectionObject` with persistent `object_id` when tracking is enabled.
+- `scene_graph`: `SceneGraph` or `None`.
+- `metrics`: timing dictionary.
+- `executed_stages`: list of stage names executed for this frame.
+- `caption`: caption text, if caption stage ran.
+- `caption_provider`: caption provider name.
+- `caption_model_id`: caption model id.
+- `qa_pairs`: generated English Q/A pairs from scene graph facts.
 
-This order matters.
+## Current Stage Order
 
-```mermaid
-flowchart LR
-    IN[Input image and RobotMetadata] --> CAP[Caption stage]
-    CAP --> DET[Detection stage]
-    DET --> TRK[Tracking and memory update]
-    TRK --> SOM[SoM overlay]
-    SOM --> SGG[Scene graph generation]
-    SGG --> CM[Caption memory update]
-    CM --> GM[Scene graph memory update]
-    GM --> OUT[PipelineResult and metrics]
-```
+`PerceptionPipeline.process(image, robot_metadata)` currently runs stages in this order when enabled by `pipeline_controls`:
 
-### Why caption runs first
+1. Caption
+2. Detection
+3. Tracking and memory association
+4. SoM painting
+5. Scene graph generation
+6. QA generation
+7. Caption memory update
+8. Scene graph memory update
+9. Total metrics finalization
 
-Caption can be used as auxiliary context for scene graph generation.
+The actual executed stage names are appended to `PipelineResult.executed_stages` and returned to API/dashboard payloads.
 
-### Why tracking runs before scene graph
+## Stage: Caption
 
-Stable `object_id` assignment is needed before structured relations are useful.
+Files:
 
-### Why memory update happens before scene graph-memory update
+- `server/app/inference/caption/service.py`
+- `server/app/providers/caption/client.py`
 
-The graph should enrich an already stabilized object memory, not create identity semantics on its own.
+If `pipeline_controls.caption=true`, the pipeline captions the image first. The caption can be used by scene graph generation and is later persisted into memory by caption-memory update.
 
-## Execution Controls
+Caption inference uses `CaptionInferenceService.caption_image`. It uses the configured `CaptionClient`, which chooses either BLIP-specific local captioning or a VLM provider.
 
-Controlled by `PipelineControls`.
+Metric key: `caption_time`.
 
-Flags:
-- `caption`
-- `detect`
-- `track_memory`
-- `paint_som`
-- `scene_graph`
-- `update_scene_memory`
+Executed stage: `caption`.
 
-Preset names:
-- `full`
-- `detect_only`
-- `caption_only`
-- `vlm_only`
-- `rules_only`
-- `minimal`
-- `custom`
+## Stage: Detection
 
-### Important stage dependencies
+Files:
 
-Some stages are logically dependent on others even if toggles exist separately. Validation enforces several of those constraints at config level.
+- `server/app/inference/detection/service.py`
+- `server/app/inference/detection/detectors.py`
+- `server/app/inference/detection/model_registry.py`
+
+If `pipeline_controls.detect=true`, the detector runs on the image.
+
+Detection service applies:
+
+1. Backend model prediction.
+2. Confidence threshold at backend/model layer where supported.
+3. Optional post-filter NMS using `run_nms_post_filter`, `nms_iou_threshold`, and `nms_type`.
+
+Metric key: `detection_time`.
+
+Executed stage: `detect`.
+
+If detection is disabled, downstream stages that require detections should also be disabled by config validation.
+
+## Stage: Tracking and Memory Association
+
+Files:
+
+- `server/app/inference/memory/scene_memory.py`
+- `server/app/inference/tracking/embeddings.py`
+- `server/app/inference/tracking/associator.py`
+- `server/app/inference/memory/state_store/*`
+
+If `pipeline_controls.track_memory=true`, the current detections are associated with persistent memory tracks.
+
+The tracking stage:
+
+1. Extracts ReID embeddings and crop bytes.
+2. Matches detections against active tracks using weighted appearance/geometry association.
+3. Updates matched tracks and assigns persistent object IDs.
+4. Ages unmatched tracks.
+5. Creates tracks for unmatched detections.
+6. Fuses Pepper robot people metadata with detected people.
+7. Creates synthetic Pepper-person tracks when the robot reports a person missed by the visual detector.
+8. Updates object states and robot/social attributes.
+9. Prunes stale memory.
+
+Metric key: `memory_update_time`.
+
+Executed stage: `track_memory`.
+
+If tracking is disabled but detection runs, the pipeline assigns sequential frame-local object IDs starting from 1. These IDs are not persistent across frames.
+
+## Stage: SoM Painting
+
+File: `server/app/inference/scene_graph/som.py`
+
+If `pipeline_controls.paint_som=true`, detections are rendered onto the image as Set-of-Mark overlays.
+
+Visualization config controls:
+
+- boxes
+- masks
+- polygons
+- labels
+- line thickness
+- mask opacity
+- color lookup by index/class/track
+- mask backend: `grabcut` or `sam`
+
+SAM mask prompt boxes are internally processed in fixed chunks of 4 inside `sam_bboxes_to_masks` to reduce prompt memory pressure. SAM can fall back to GrabCut if unavailable or failing.
+
+Metric key: `som_image_paint_time`.
+
+Executed stage: `paint_som`.
+
+## Stage: Scene Graph Generation
+
+Files:
+
+- `server/app/inference/scene_graph/service.py`
+- `server/app/inference/scene_graph/rules_backend.py`
+- `server/app/inference/scene_graph/reltr_backend.py`
+- `server/app/inference/scene_graph/vlm_backend.py`
+
+If `pipeline_controls.scene_graph=true`, the pipeline calls `SceneGraphService.generate`.
+
+Enabled backends are selected independently:
+
+- rules backend when `scene_graph.rules.enabled=true`
+- RelTR backend when `scene_graph.reltr.enabled=true`
+- VLM backend when `scene_graph.vlm.enabled=true`
+
+All enabled backend outputs are merged with `SceneGraph.__add__`, which deduplicates edges. After merging, `SceneGraphService.enhance_scene_graph_with_robot_data` adds current-object memory attributes derived from Pepper/social metadata.
+
+Metric key: `scene_graph_generation_time`.
+
+Executed stage: `scene_graph`.
+
+## Stage: QA Generation
+
+Files:
+
+- `server/app/inference/qa/service.py`
+- `server/app/orchestration/services/qa_pool.py`
+- `server/app/orchestration/services/detection.py`
+
+If `pipeline_controls.qa_generation=true`, the pipeline generates graph-grounded English Q/A pairs after scene graph generation.
+
+The QA stage:
+
+1. Converts current detections and graph triples into text.
+2. Calls `LLMClient.generate_structured` using `_GeneratedQAPairs` schema.
+3. Normalizes non-empty question/answer pairs.
+4. Deduplicates by lowercase question.
+5. Returns up to `qa_generation.pairs_per_update` pairs.
+
+Metric key: `qa_generation_time`.
+
+Executed stage: `qa_generation`.
+
+The pipeline itself only returns pairs. `DetectService` ingests them into the process-level `QAPoolService` when the detect flow actually updates memory.
+
+## Stage: Caption Memory Update
+
+If a caption was produced, it is stored as a `SceneCaptionState` in scene memory. Captions are keyed by frame or generated id, carry provider/model/source/frame/scan metadata, and are pruned by caption age and caption cap.
+
+Metric key: `caption_memory_update_time`.
+
+Executed stage: `update_caption_memory`.
+
+## Stage: Scene Graph Memory Update
+
+If `pipeline_controls.update_scene_memory=true`, the current scene graph updates memory relationships and object attributes.
+
+Rules:
+
+- unary graph edge where `sub == obj` becomes an object attribute
+- binary graph edge becomes a `Relationship(subject_id, predicate, object_id)`
+- existing relationships increment `count` and refresh `last_seen`
+
+Metric key: `scene_graph_memory_update_time`.
+
+Executed stage: `update_scene_memory`.
+
+## Pipeline Controls and Validation
+
+`PipelineControls` is defined in `server/app/schemas/config.py`.
+
+Important dependencies:
+
+- `track_memory` requires `detect`.
+- `paint_som` requires `detect`.
+- `qa_generation` requires `scene_graph`.
+- `update_scene_memory` requires `scene_graph` and `track_memory`.
+- scene graph with rules/RelTR requires detection.
+
+Use dashboard Runtime Orchestration controls or config YAML to enable/disable stages.
 
 ## Metrics
 
-Each timed stage writes to the `metrics` dictionary using `stage_timer()`.
+Each stage writes timing metrics in seconds. API/dashboard payloads include `metrics` and `executed_stages`, making it possible to see exactly which stages ran for a frame.
 
-Examples:
+Common metric keys:
+
 - `caption_time`
 - `detection_time`
 - `memory_update_time`
 - `som_image_paint_time`
 - `scene_graph_generation_time`
+- `qa_generation_time`
 - `caption_memory_update_time`
 - `scene_graph_memory_update_time`
-- `total_processing`
+- `total_time`
 
-These metrics are surfaced to dashboard/live consumers and are useful when deciding whether a change belongs in hot path or offline research code.
+## Where To Change Pipeline Behavior
 
-## Return Type
-
-`PipelineResult` carries:
-- raw image
-- SoM image
-- tracked detections
-- scene graph
-- caption text
-- caption provider/model metadata
-- stage metrics
-- executed stage list
-
-## Failure Policy
-
-### Caption stage
-
-Caption failures are tolerated. The pipeline logs a warning and continues.
-
-### Detection stage
-
-Detection is central. If disabled, later detection-dependent stages either no-op or receive empty detections.
-
-### SoM stage
-
-If SoM is disabled or unavailable, raw image fallback is used for downstream VLM path.
-
-## Internal Helper Stages
-
-```mermaid
-flowchart TD
-    START[process] --> Q1{caption enabled}
-    Q1 -->|yes| RC[_run_caption]
-    Q1 -->|no| DET2
-    RC --> DET2[_run_detection]
-    DET2 --> Q2{track memory enabled}
-    Q2 -->|yes| RT[_run_tracking]
-    Q2 -->|no| SEQ[assign sequential ids]
-    RT --> SOM2[_render_som_overlay]
-    SEQ --> SOM2
-    SOM2 --> SG2[_run_scene_graph]
-    SG2 --> CM2[_run_caption_memory_update]
-    CM2 --> GM2[_update_scene_memory_from_graph]
-    GM2 --> DONE[return PipelineResult]
-```
-
-### `_run_caption()`
-- runs only if caption control is enabled and caption service exists
-
-### `_run_detection()`
-- calls detector and appends `detect` stage
-
-### `_run_tracking()`
-- if memory tracking disabled, assigns sequential IDs locally
-- otherwise calls `SceneMemory.update()`
-
-### `_render_som_overlay()`
-- requires both `paint_som` and `detect`
-- uses visualization config flags for bbox/mask/polygon/labels
-
-### `_run_scene_graph()`
-- sends detections plus SoM/raw image and optional caption to `SceneGraphService`
-
-### `_run_caption_memory_update()`
-- inserts caption into scene memory as `SceneCaptionState`
-- uses UUID frame-level caption IDs
-
-### `_update_scene_memory_from_graph()`
-- merges graph relations/attributes into memory when enabled
-
-## Where to Change Behavior
-
-Change pipeline order when:
-- you are changing fundamental semantics of grounding
-
-Change stage internals when:
-- you are improving one subsystem only
-
-Change `PipelineControls` when:
-- you need a new preset or runtime execution mode
-
-## Common Pitfalls
-
-- expecting object IDs to be persistent when `track_memory = false`
-- forgetting SoM requires detection output
-- forgetting scene-memory update requires scene graph and tracking
-- assuming caption exists in all runs
+- Add a new stage: `server/app/inference/pipeline.py`, `PipelineResult`, `PipelineControls`, dashboard runtime controls, config reload rules, worker RPC response if data must cross process boundary.
+- Change stage order: `PerceptionPipeline.process`.
+- Change stage config validation: `AppConfig.validate_pipeline_controls`.
+- Change stage construction: `server/app/core/pipeline_factory.py`.
+- Expose new output to API/dashboard: `orchestration/adapters/runtime.py`, `worker/runtime.py`, `worker_client/rpc.py`, `orchestration/services/detection.py`, dashboard live JS.

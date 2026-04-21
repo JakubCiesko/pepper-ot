@@ -1,335 +1,311 @@
-# Configuration and Reload Semantics
+# Configuration and Reload
 
-## Files Covered
+Configuration is controlled by `server/config.yaml`, represented by Pydantic models in `server/app/schemas/config.py`, exposed through `/api/v1/config`, and hot/hard reloaded through `server/app/core/config`.
+
+## Config Source of Truth
+
+Primary files:
 
 - `server/config.yaml`
-- `app/schemas/config.py`
-- `app/core/config/config_manager.py`
-- `app/core/config/mutations/components.py`
-- `app/core/config/mutations/runtime.py`
-- `app/core/config/mutations/reload_rule.py`
-- `app/core/config/mutations/rule_definitions/*.py`
+- `server/app/schemas/config.py`
+- `server/app/core/config/config_manager.py`
+- `server/app/core/config/mutations/*`
+- `server/app/api/v1/config.py`
+- `server/app/static/js/dashboard/features/config/index.js`
 
-## Source of Truth
+`AppConfig.load(path)` reads YAML, validates it, stores `_config_path`, and returns an `AppConfig` instance.
 
-Runtime configuration starts from `server/config.yaml` and is validated by `AppConfig` in `app/schemas/config.py`.
-
-The code supports two update styles:
-- hot updates: mutate running components in place
-- hard reloads: require rebuild of pipeline and/or worker process state
-
-## Top-Level Config Sections
+## Main Config Sections
 
 ### `system`
 
-Current use:
-- language/output language related behavior
+A plain dict used for system-wide simple values. The important current key is:
+
+- `output_language`: dashboard/robot configured output language. Chat and caption code use this as fallback when request language fields are absent.
 
 ### `detection`
 
-Fields:
-- `backend`: `yolo | rt_detr | rf_detr | owl_v2`
-- `weights_path`
-- `confidence_threshold`
-- `device`
-- `ontology`
-- `ontology_path`
+Model and post-processing config for object detection.
 
-Current `config.yaml` defaults:
-- backend: `rf_detr`
-- threshold: `0.60`
-- device: `cuda`
-- ontology loaded from `ontology/object_detection.yaml`
+Fields:
+
+- `backend`: one of `yolo`, `rt_detr`, `rf_detr`, `owl_v2`.
+- `weights_path`: optional backend-specific model path.
+- `confidence_threshold`: detection confidence cutoff.
+- `run_nms_post_filter`: whether to apply post-detection NMS.
+- `nms_iou_threshold`: IoU threshold for NMS, `0.0` to `1.0`.
+- `nms_type`: `per_class` or `general`.
+- `device`: backend device string such as `cuda`, `cuda:0`, or `cpu`.
+- `ontology`: inline object labels for open-vocabulary backends.
+- `ontology_path`: path to YAML ontology file under allowed ontology roots.
+
+Hot fields include threshold, NMS settings, ontology, and ontology path. Backend, weights, and device are hard reload fields.
 
 ### `tracking`
 
+Scene memory and ReID tracking config.
+
 Fields:
-- `max_dormant_frames`
-- `memory_max_age_seconds`
-- `memory_max_objects`
-- `memory_max_relations`
-- `memory_max_captions`
-- `caption_max_age_seconds`
-- `association.visual_weight`
-- `association.geometry_weight`
-- `association.match_threshold`
-- `feature_extraction.reid_model`
-- `feature_extraction.device`
-- `feature_extraction.target_size`
-- `feature_extraction.resampling_method`
+
+- `max_dormant_frames`: frames a track may be unmatched before being dropped.
+- `memory_max_age_seconds`: object/relation TTL.
+- `memory_max_objects`: object and track cap.
+- `memory_max_relations`: relation cap.
+- `memory_max_captions`: caption cap.
+- `caption_max_age_seconds`: caption TTL.
+- `association.visual_weight`, `geometry_weight`, `match_threshold`: association scoring weights.
+- `feature_extraction.reid_model`, `device`, `target_size`, `resampling_method`: embedding crop model settings.
+
+Feature extractor model/device are hard reload fields. Target size, resampling, association, and memory limits are hot fields.
+
+### `fusion`
+
+Pepper robot person metadata fusion config.
+
+Fields:
+
+- `person_bbox_match_threshold_px`: pixel margin for projected Pepper person to detection bbox matching.
+- `estimated_person_bbox_base_px`: base synthetic person bbox size before distance scaling.
+- `estimated_person_bbox_min_px`: lower synthetic bbox clamp.
+- `estimated_person_bbox_max_px`: upper synthetic bbox clamp.
+- `angular_yaw_threshold_rad`: yaw candidate threshold.
+- `angular_pitch_threshold_rad`: pitch candidate threshold.
+- `matched_person_min_confidence`: confidence floor for matched detections.
+- `synthetic_person_confidence`: confidence for Pepper-induced synthetic detections.
+- `pepper_binding_max_misses`: allowed misses before Pepper ID binding ages out.
 
 ### `scene_graph`
 
-Fields:
-- `mode`: `vlm | rules | hybrid | reltr`
-- `vlm.*`
-- `rules.*`
-- `reltr.*`
+Scene graph config is backend-compositional. There is no current `scene_graph.mode` string.
 
-Current `config.yaml` highlights:
-- mode: `hybrid`
-- VLM provider: `gemini`
-- VLM model: `gemini-2.5-flash-lite`
-- rules enabled: true
-- reltr enabled: true
+Subsections:
+
+- `scene_graph.vlm`: VLM backend config, prompts, ontology, structured output, schema style, local VLM hints, and `enabled` flag.
+- `scene_graph.rules`: deterministic rule config and `enabled` flag.
+- `scene_graph.reltr`: RelTR checkpoint/device/threshold/topk/IoU matching and `enabled` flag.
+
+When `pipeline_controls.scene_graph=true`, at least one backend must be enabled. If rules or RelTR are enabled, detection must also be enabled because they need tracked object IDs and bboxes.
+
+### `qa_generation`
+
+Config for the automatic scene-graph QA stage and pool.
+
+Fields:
+
+- `pairs_per_update`: number of pairs requested per frame/update.
+- `pool_max_entries`: max bilingual entries retained in `QAPoolService`.
+
+Changing this is hot. It updates the QA stage runtime and the process-level QA pool max entries.
 
 ### `chat`
 
-Fields:
-- provider/model/runtime kwargs
-- structured output strategy
+Text LLM config and prompt templates.
+
+Fields inherited from `LLMConfig`:
+
+- `provider`
+- `model_id`
+- `device`
+- `base_url`
+- `api_key_env`
+- `timeout_seconds`
+- `client_init_kwargs`
+- `call_kwargs`
+- `structured_output.mode`
+- `structured_output.strict`
+
+Prompt fields:
+
 - `system_prompt`
+- `user_prompt`
+- `object_system_prompt`
 - `object_user_prompt`
 
-Current config uses Gemini by default.
+Provider/model/base URL/API key/init kwargs are hard reload fields. Device/call kwargs/structured output/prompts are hot fields for `ChatService`.
 
 ### `caption`
 
-Fields:
-- provider/model/runtime kwargs
-- `mode`: `unconditional | prompted`
-- `max_words`
+Caption provider config.
+
+Extra fields:
+
+- `mode`: `prompted` or `unconditional`.
+- `max_words`: optional prompt suffix limit.
 - `system_prompt`
 - `user_prompt`
 
-Current config uses local BLIP captioning.
+Provider/model/base URL/API key/device/client init kwargs are hard reload fields. Call kwargs, structured output, mode, max words, and prompts are hot fields.
 
 ### `visualization`
 
+SoM overlay and mask backend config.
+
 Fields:
-- bbox/mask/polygon/labels toggles
-- line thickness
-- mask opacity
-- color lookup mode
-- mask backend
-- visualization device
+
+- `show_bbox`
+- `show_mask`
+- `show_polygon`
+- `show_labels`
+- `line_thickness`
+- `mask_opacity`
+- `color_lookup`: `index`, `class`, or `track`.
+- `mask_backend`: `grabcut` or `sam`.
+- `device`: SAM backend device.
+
+Changing mask backend/device is hard reload. Most overlay settings are hot.
 
 ### `storage`
 
+Last-state persistence config.
+
 Fields:
+
 - `persist_last_state`
 - `last_state_path`
 - `store_image`
 
-### `fusion`
-
-Pepper-specific human fusion behavior:
-- bbox match threshold
-- estimated bbox sizing
-- angular thresholds
-- synthetic confidence values
-- Pepper binding miss threshold
+These are hot config fields.
 
 ### `worker`
 
-Fields:
-- host/port
-- startup/request/shutdown timing
-- idle kill timing
-- healthcheck timing
-- restart policy
-- circuit breaker cooldown
-- auto warmup toggle
+Worker process lifecycle config.
+
+Important fields:
+
+- `enabled`
+- `host`
+- `port`
+- `idle_timeout_seconds`
+- `idle_check_interval_seconds`
+- `startup_timeout_seconds`
+- `request_timeout_seconds`
+- `shutdown_grace_seconds`
+- `max_startup_queue`
+- `healthcheck_interval_seconds`
+- `restart_max_attempts`
+- `restart_window_seconds`
+- `restart_backoff_seconds`
+- `circuit_breaker_cooldown_seconds`
+- `auto_warmup_on_startup`
+
+Enabling/disabling worker or changing host/port/startup/restart settings is hard. Idle and request timeouts are hot.
 
 ### `pipeline_controls`
 
+Controls frame-stage execution.
+
 Fields:
-- `preset`
+
+- `preset`: `full`, `detect_only`, `caption_only`, `vlm_only`, `rules_only`, `minimal`, or `custom`.
 - `caption`
 - `detect`
 - `track_memory`
 - `paint_som`
 - `scene_graph`
+- `qa_generation`
 - `update_scene_memory`
 
-Preset map is implemented in `PipelineControls.preset_map()`.
+Validation rules:
 
-## Validation Rules Worth Knowing
+- `track_memory` requires `detect`.
+- `paint_som` requires `detect`.
+- `update_scene_memory` requires `scene_graph`.
+- `qa_generation` requires `scene_graph`.
+- `update_scene_memory` requires `track_memory`.
+- `scene_graph=true` requires at least one enabled backend.
+- rules/RelTR scene graph backends require `detect=true` when scene graph stage runs.
 
-From `AppConfig.validate_pipeline_controls()`:
-- `track_memory` requires `detect=true`
-- `paint_som` requires `detect=true`
-- `update_scene_memory` requires `scene_graph=true`
-- `update_scene_memory` requires `track_memory=true`
-- `scene_graph.mode=rules` requires detection if scene graph stage is enabled
-- `scene_graph.mode=reltr` requires detection if scene graph stage is enabled
+## Prompt Sources
 
-From `PromptSource`:
-- exactly one of `text` or `path` must be set
+`PromptSource` allows either inline `text` or a relative `path`. Exactly one must be set. The config manager validates uploaded prompt paths to keep them under safe roots.
 
-From `WorkerRuntimeConfig`:
-- restart backoff values must all be `> 0`
+At runtime, prompt sources are resolved by:
 
-## Config Manager
+- `config_manager.resolve_config()` for dashboard display.
+- `AppState._initialize_chat_components()`.
+- `AppState._initialize_caption_component()`.
+- `pipeline_factory.build_perception_pipeline()`.
+- hot reload helpers in `core/config/mutations/runtime.py`.
 
-`app/core/config/config_manager.py` handles:
-- locating config file
-- loading config
-- serializing config to dict/YAML
-- resolving prompt text and ontology content for display
-- behavior contract reporting
-- deep merge patching
-- uploaded YAML parsing
-- config diffing
-- path safety validation
-- hot config application wrapper
+## Ontology Sources
 
-## Hot vs Hard Reload
+`DetectionConfig.resolve_ontology(base_dir)` resolves detection object labels from inline `ontology` or `ontology_path`.
 
-The mutation system is declarative.
+`OntologySource.resolve(base_dir)` resolves VLM predicates and optional object vocabulary from inline config and optional file path.
 
-### Rule registry
+## Config API
 
-`components.py` combines rule lists from:
-- detection
-- caption
-- scene graph
-- visualization
-- storage
-- worker
-- tracking
-- chat
+File: `server/app/api/v1/config.py`
+
+Endpoints:
+
+- `GET /api/v1/config`: returns active config, saved config, resolved prompt/ontology config, translations, and behavior contracts.
+- `PATCH /api/v1/config`: deep-merges a patch into active config, validates it, applies hot/hard semantics, and returns diff information.
+- `POST /api/v1/config/save`: writes active config to YAML.
+- `POST /api/v1/config/reload`: reloads saved YAML from disk and applies it.
+- `POST /api/v1/config/upload`: validates uploaded YAML and applies it.
+- `GET /api/v1/config/download`: downloads active or saved YAML.
+
+The PATCH route also handles translation dictionary updates through the vocabulary translator.
+
+## Reload Rule System
+
+Files:
+
+- `server/app/core/config/mutations/components.py`
+- `server/app/core/config/mutations/reload_rule.py`
+- `server/app/core/config/mutations/runtime.py`
+- `server/app/core/config/mutations/rule_definitions/*.py`
+
+Every reloadable field is represented by a `ReloadRule`:
+
+- `path`: dotted config field name.
+- `getter`: function used to compare old/new values.
+- `mode`: `hot` or `hard`.
+- `apply_hot`: optional handler to mutate runtime objects.
+
+`components.diff_config(old, new)` returns a `ConfigDiff(hot=[...], hard=[...])`.
+
+`components.apply_hot_changes(app_state, old, new)`:
+
+1. Computes diff.
+2. Stores new config into `AppState`.
+3. Increments config version.
+4. Calls each unique hot apply handler once.
+5. Pushes hot config to worker if worker manager exists.
+
+## Hot Runtime Application
+
+`core/config/mutations/runtime.py` mutates live pipeline components:
+
+- detector threshold, NMS settings, device, ontology
 - pipeline controls
+- fusion config
+- visualization config
+- QA service LLM config and pair count
+- memory limits, max dormant frames, association, feature extraction settings
+- scene graph VLM runtime, rules config, RelTR runtime
 
-### Hot update application groups
+Hot updates are best-effort runtime mutations. Hard fields require worker restart or pipeline rebuild because existing model/provider objects cannot be safely mutated.
 
-In `reload_rule.py`:
-- `_apply_pipeline_group()` updates pipeline detector threshold/device/ontology, memory limits, association settings, pipeline controls, fusion config, visualization config, and scene graph runtime settings.
-- `_apply_chat_group()` updates chat system prompt and text provider runtime.
-- `_apply_caption_group()` updates caption prompts and caption provider runtime.
+## Dashboard Config UI
 
-## Important Rule Outcomes
+Files:
 
-### Detection
+- `server/app/static/templates/dashboard/pages/*.html`
+- `server/app/static/js/dashboard/features/config/index.js`
 
-Hard:
-- backend
-- weights path
-- device
+The dashboard reads config from `GET /api/v1/config`, populates controls, builds PATCH payloads, and calls config endpoints. It also displays structured-output capability hints from `behavior_contracts()`.
 
-Hot:
-- threshold
-- ontology
-- ontology path
+Current dashboard config pages cover:
 
-### Chat
-
-Hard:
-- provider
-- model id
-- base url
-- timeout
-- api key env
-- client init kwargs
-
-Hot:
-- device
-- call kwargs
-- structured output
-- system prompt
-
-### Caption
-
-Hard:
-- provider
-- model id
-- base url
-- timeout
-- api key env
-- client init kwargs
-- device
-
-Hot:
-- call kwargs
-- structured output
-- mode
-- max words
-- prompts
-
-### Scene graph
-
-Hard:
-- VLM provider/model/base_url/api key/device/client init kwargs
-- `scene_graph.mode`
-- RelTR checkpoint path
-- RelTR device
-
-Hot:
-- VLM call kwargs
-- structured output
-- structured schema
-- local VLM hints
-- prompts
-- ontology
-- rules config
-- RelTR enabled/threshold/topk/iou threshold
-
-### Tracking
-
-Hard:
-- feature extraction model
-- feature extraction device
-
-Hot:
-- feature extraction target size
-- feature extraction resampling
-- dormant frame count
-- association config
-- memory limits
-- caption memory limits
-
-### Visualization
-
-Hard:
-- mask backend
-- visualization device
-
-Hot:
-- full visualization object otherwise
-
-### Storage
-
-Hot:
-- persist toggle
-- last state path
-- store image toggle
-
-### Worker
-
-Hard:
-- enable/host/port
-- startup/shutdown queue/health/restart/circuit-breaker parameters
-
-Hot:
-- idle timeout
-- idle check interval
-- request timeout
-
-## Practical Tweak Guidance
-
-### Safe hot tweaks during live runs
-
-- detection threshold
-- ontology list/path
-- scene graph rules
-- pipeline preset or stage toggles
-- memory limits
-- prompt text
-- model call kwargs
-
-### Tweaks that will rebuild or restart major components
-
-- switching provider family
-- switching model id
-- switching detector backend
-- switching VLM mode
-- changing worker host/port/startup policy
-- changing ReID model
-
-## Common Failure Modes
-
-- prompt source sets both `text` and `path`
-- pipeline controls violate dependencies
-- dashboard sends JSON text fields that parse incorrectly
-- hot change expected, but rule is actually marked hard
-- relative paths break when config path base dir is not what you expect
+- detection and robot fusion
+- SoM visualization
+- scene graph backends/rules/RelTR/VLM
+- runtime pipeline and worker controls
+- memory/tracking controls
+- chat and object-chat prompts/provider/structured output
+- caption provider/prompts
+- QA generation pair/pool settings
+- vocabulary translations
+- storage
