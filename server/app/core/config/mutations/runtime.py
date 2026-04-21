@@ -57,6 +57,7 @@ def apply_pipeline_runtime_updates(
 def apply_scene_graph_runtime_updates(
     scene_graph_service: Any, cfg: AppConfig, base_dir: Path | None
 ):
+    scene_graph_service.parallel_execution = cfg.scene_graph.parallel_execution
     vlm_backend = scene_graph_service.vlm_backend
     system_prompt = resolve_prompt_text(
         cfg.scene_graph.vlm.system_prompt,

@@ -25,6 +25,15 @@
         color rules. RelTR uses transformer-based SGG with IoU matching to
         tracked detections.
       </p>
+      <label class="flex items-center gap-2 text-md mt-4">
+        <input id="sgg-parallel-execution" type="checkbox" />
+        Run Scene Graph Backends In Parallel
+      </label>
+      <p class="text-md panel-muted mt-1">
+        Runs enabled Rules, RelTR, and VLM backends concurrently, then merges
+        their outputs in deterministic order. This can reduce latency but may
+        increase GPU pressure when multiple local GPU backends are enabled.
+      </p>
     </div>
     <label class="block text-md">System Prompt</label>
     <p class="text-md panel-muted mt-1">

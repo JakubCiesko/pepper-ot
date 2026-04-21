@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
+import asyncio
 import logging
+import threading
 import time
 from typing import Any
 from uuid import uuid4
@@ -23,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def stage_timer(step_name: str, metrics: dict[str, float]):
+async def stage_timer(step_name: str, metrics: dict[str, float | str]):
     t0 = time.perf_counter()
     yield
     t1 = time.perf_counter()
@@ -31,7 +33,7 @@ async def stage_timer(step_name: str, metrics: dict[str, float]):
     metrics[step_name] = duration
     logger.info("%s took %f seconds", step_name, duration)
 
-#TODO: add sequential_run flag, some of the stages can be run in parallel really
+
 class PerceptionPipeline:
     def __init__(
         self,
@@ -54,11 +56,20 @@ class PerceptionPipeline:
         self.fusion_config = fusion_config
         self.vis_config = vis_config
         self.pipeline_controls = pipeline_controls
+        self._detector_lock = threading.Lock()
 
     # SINGLE SOURCE OF TRUTH
     async def process(
         self, image: Image.Image, robot_metadata: RobotMetadata | None = None
     ) -> PipelineResult:
+        if self.pipeline_controls.parallel_execution:
+            return await self.process_in_parallel(image, robot_metadata)
+        return await self.process_sequentially(image, robot_metadata)
+
+    async def process_sequentially(
+        self, image: Image.Image, robot_metadata: RobotMetadata | None = None
+    ) -> PipelineResult:
+        wall_start = time.perf_counter()
         controls = self.pipeline_controls
         metrics: dict[str, float | str] = {}
         caption_text: str | None = None
@@ -123,12 +134,7 @@ class PerceptionPipeline:
             scene_graph, controls, metrics, executed_stages
         )
 
-        total = sum(
-            float(value)
-            for key, value in metrics.items()
-            if key.endswith("_time") and isinstance(value, (int, float))
-        )
-        metrics["total_processing"] = total
+        self._finalize_metrics(metrics, wall_start)
 
         return PipelineResult(
             raw_image=image,
@@ -143,6 +149,153 @@ class PerceptionPipeline:
             executed_stages=executed_stages,
         )
 
+    async def process_in_parallel(
+        self, image: Image.Image, robot_metadata: RobotMetadata | None = None
+    ) -> PipelineResult:
+        wall_start = time.perf_counter()
+        controls = self.pipeline_controls
+        metrics: dict[str, float | str] = {}
+        logger.info(
+            "Processing image with robot metadata=%s parallel_execution=true",
+            robot_metadata,
+        )
+
+        caption_image = (
+            self._copy_image_for_parallel(image) if controls.caption else image
+        )
+        detection_image = (
+            self._copy_image_for_parallel(image) if controls.detect else image
+        )
+        caption_task = asyncio.create_task(
+            self._run_caption_stage(caption_image, controls, metrics)
+        )
+        detection_task = asyncio.create_task(
+            self._run_detection_stage(
+                detection_image, controls, metrics, offload_to_thread=True
+            )
+        )
+
+        try:
+            detection_executed, raw_detections = await detection_task
+            post_detection_stages: list[str] = []
+            tracked_detections = await self._run_tracking(
+                image,
+                raw_detections,
+                robot_metadata,
+                controls,
+                metrics,
+                post_detection_stages,
+            )
+            som_image = await self._render_som_overlay(
+                image, tracked_detections, controls, metrics, post_detection_stages
+            )
+            if som_image is None:
+                logger.info("SoM image is None, fallback to som_image=image")
+                som_image = image
+
+            caption_executed, caption_text, caption_provider, caption_model_id = (
+                await caption_task
+            )
+        except Exception:
+            if not caption_task.done():
+                caption_task.cancel()
+            raise
+        executed_stages: list[str] = []
+        if caption_executed:
+            executed_stages.append("caption")
+        if detection_executed:
+            executed_stages.append("detect")
+        executed_stages.extend(post_detection_stages)
+
+        scene_state = self.memory.scene_state() if self.memory else None
+        scene_graph = await self._run_scene_graph(
+            image,
+            som_image,
+            tracked_detections,
+            controls,
+            metrics,
+            executed_stages,
+            caption_text,
+            scene_state=scene_state,
+        )
+        qa_pairs = await self._run_qa_generation(
+            scene_graph=scene_graph,
+            detections=tracked_detections,
+            caption_text=caption_text,
+            controls=controls,
+            metrics=metrics,
+            executed_stages=executed_stages,
+        )
+
+        await self._run_caption_memory_update(
+            caption_text,
+            caption_provider,
+            caption_model_id,
+            robot_metadata,
+            metrics,
+            executed_stages,
+        )
+
+        await self._update_scene_memory_from_graph(
+            scene_graph, controls, metrics, executed_stages
+        )
+        self._finalize_metrics(metrics, wall_start)
+
+        return PipelineResult(
+            raw_image=image,
+            som_image=som_image,
+            detections=tracked_detections,
+            scene_graph=scene_graph,
+            caption=caption_text,
+            caption_provider=caption_provider,
+            caption_model_id=caption_model_id,
+            qa_pairs=qa_pairs,
+            metrics=metrics,
+            executed_stages=executed_stages,
+        )
+
+    @staticmethod
+    def _copy_image_for_parallel(image: Image.Image) -> Image.Image:
+        return image.copy() if isinstance(image, Image.Image) else image
+
+    def _detect_threadsafe(
+        self, image: Image.Image
+    ) -> list[InferenceDetectionObject]:
+        with self._detector_lock:
+            return self.detector.detect(image)
+
+    @staticmethod
+    def _finalize_metrics(metrics: dict[str, float | str], wall_start: float) -> None:
+        total = sum(
+            float(value)
+            for key, value in metrics.items()
+            if key.endswith("_time") and isinstance(value, (int, float))
+        )
+        metrics["total_processing"] = total
+        metrics["wall_processing_time"] = time.perf_counter() - wall_start
+
+    async def _run_caption_stage(
+        self,
+        image: Image.Image,
+        controls: PipelineControls,
+        metrics: dict[str, float | str],
+    ) -> tuple[bool, str | None, str | None, str | None]:
+        if not controls.caption:
+            return False, None, None, None
+        if self.caption_service is None:
+            logger.warning(
+                "Pipeline caption stage enabled but caption_service is not configured"
+            )
+            return False, None, None, None
+
+        try:
+            async with stage_timer("caption_time", metrics):
+                result = await self.caption_service.caption_image(image)
+            return True, result.text, result.provider, result.model_id
+        except Exception as exc:
+            logger.warning("Caption stage failed, continuing pipeline: %s", exc)
+            return False, None, None, None
+
     async def _run_caption(
         self,
         image: Image.Image,
@@ -150,22 +303,12 @@ class PerceptionPipeline:
         metrics: dict[str, float | str],
         executed_stages: list[str],
     ) -> tuple[str | None, str | None, str | None]:
-        if not controls.caption:
-            return None, None, None
-        if self.caption_service is None:
-            logger.warning(
-                "Pipeline caption stage enabled but caption_service is not configured"
-            )
-            return None, None, None
-
-        try:
-            async with stage_timer("caption_time", metrics):
-                result = await self.caption_service.caption_image(image)
+        executed, text, provider, model_id = await self._run_caption_stage(
+            image, controls, metrics
+        )
+        if executed:
             executed_stages.append("caption")
-            return result.text, result.provider, result.model_id
-        except Exception as exc:
-            logger.warning("Caption stage failed, continuing pipeline: %s", exc)
-            return None, None, None
+        return text, provider, model_id
 
     async def _run_caption_memory_update(
         self,
@@ -207,14 +350,31 @@ class PerceptionPipeline:
         metrics: dict[str, float | str],
         executed_stages: list[str],
     ) -> list[InferenceDetectionObject]:
+        executed, detections = await self._run_detection_stage(
+            image, controls, metrics, offload_to_thread=False
+        )
+        if executed:
+            executed_stages.append("detect")
+        return detections
+
+    async def _run_detection_stage(
+        self,
+        image: Image.Image,
+        controls: PipelineControls,
+        metrics: dict[str, float | str],
+        *,
+        offload_to_thread: bool,
+    ) -> tuple[bool, list[InferenceDetectionObject]]:
         if not controls.detect:
-            return []
+            return False, []
 
         async with stage_timer("detection_time", metrics):
-            detections = self.detector.detect(image)
-        executed_stages.append("detect")
+            if offload_to_thread:
+                detections = await asyncio.to_thread(self._detect_threadsafe, image)
+            else:
+                detections = self.detector.detect(image)
         logger.info("Detected %d detections", len(detections))
-        return detections
+        return True, detections
 
     async def _run_tracking(
         self,

@@ -28,6 +28,7 @@ tracking:
     resampling_method: "BICUBIC"
 
 scene_graph:
+  parallel_execution: false
   vlm:
     enabled: true
     provider: "gemini"
@@ -192,6 +193,7 @@ worker:
 
 pipeline_controls:
   preset: "full"
+  parallel_execution: false
   caption: true
   detect: true
   track_memory: true

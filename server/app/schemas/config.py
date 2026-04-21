@@ -241,6 +241,7 @@ class SGGRelTRConfig(BaseModel):
 
 
 class SceneGraphConfig(BaseModel):
+    parallel_execution: bool = False
     vlm: SceneGraphVLMConfig
     rules: SGGRulesConfig = Field(default_factory=SGGRulesConfig)
     reltr: SGGRelTRConfig = Field(default_factory=SGGRelTRConfig)
@@ -301,6 +302,7 @@ class PipelineControls(BaseModel):
     scene_graph: bool = True
     qa_generation: bool = False
     update_scene_memory: bool = True
+    parallel_execution: bool = False
 
     @staticmethod
     def preset_map() -> dict[str, dict[str, bool]]:

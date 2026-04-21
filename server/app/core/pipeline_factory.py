@@ -82,6 +82,7 @@ def build_perception_pipeline(config: AppConfig) -> PerceptionPipeline:
         vlm_backend=vlm_backend,
         rule_backend=rule_backend,
         reltr_backend=reltr_backend,
+        parallel_execution=config.scene_graph.parallel_execution,
     )
     qa_service = SceneQAGenerationService(
         config.chat,

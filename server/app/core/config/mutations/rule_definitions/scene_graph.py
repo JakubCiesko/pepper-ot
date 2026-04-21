@@ -5,6 +5,12 @@ from app.core.config.mutations.reload_rule import _apply_pipeline_group
 
 rules = [
     ReloadRule(
+        "scene_graph.parallel_execution",
+        attrgetter("scene_graph.parallel_execution"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
         "scene_graph.vlm.provider", attrgetter("scene_graph.vlm.provider"), "hard"
     ),
     ReloadRule(

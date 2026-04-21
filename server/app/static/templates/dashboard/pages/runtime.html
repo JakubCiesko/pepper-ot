@@ -53,6 +53,17 @@
         >
       </div>
       <p id="pipeline-summary" class="text-md panel-muted mt-2"></p>
+      <div class="mt-4 border-t panel-border pt-4">
+        <label class="flex items-center gap-2 text-md">
+          <input id="pipeline-parallel-execution" type="checkbox" />
+          Run Pipeline Stages In Parallel
+        </label>
+        <p class="text-md panel-muted mt-1">
+          Overlaps independent early stages, currently caption and detection.
+          Useful when captioning is API-backed or CPU-light. May increase GPU
+          pressure when both stages use local GPU models.
+        </p>
+      </div>
     </div>
 
     <div class="mt-8 border-t panel-border pt-6">

@@ -53,6 +53,7 @@ const vlmCallKwargsStatus = document.getElementById('vlm-call-kwargs-status');
 const sggEnableVlm = document.getElementById('sgg-enable-vlm');
 const sggEnableRules = document.getElementById('sgg-enable-rules');
 const sggEnableReltr = document.getElementById('sgg-enable-reltr');
+const sggParallelExecution = document.getElementById('sgg-parallel-execution');
 const sggRulesJson = document.getElementById('sgg-rules-json');
 const reltrCheckpointPath = document.getElementById('reltr-checkpoint-path');
 const reltrDevice = document.getElementById('reltr-device');
@@ -63,6 +64,9 @@ const reltrIouMatchThreshold = document.getElementById(
 );
 
 const pipelinePreset = document.getElementById('pipeline-preset');
+const pipelineParallelExecution = document.getElementById(
+  'pipeline-parallel-execution',
+);
 const pipelineCaption = document.getElementById('pipeline-caption');
 const pipelineDetect = document.getElementById('pipeline-detect');
 const pipelineTrackMemory = document.getElementById('pipeline-track-memory');
@@ -500,6 +504,12 @@ function updatePipelineControlsUi() {
   if (!pipelinePaintSom.checked && pipelineSceneGraph.checked) {
     summary.push('Scene graph uses raw image (no SoM overlay).');
   }
+  if (pipelineParallelExecution.checked) {
+    summary.push('Pipeline parallelism enabled: caption and detection may overlap.');
+  }
+  if (sggParallelExecution.checked && pipelineSceneGraph.checked) {
+    summary.push('SGG parallelism enabled: selected graph backends may overlap.');
+  }
   if (pipelineQaGeneration.checked && !pipelineSceneGraph.checked) {
     summary.push('Invalid: QA generation requires scene_graph=true.');
   }
@@ -666,6 +676,8 @@ async function loadConfig() {
   sggEnableVlm.checked = active.scene_graph?.vlm?.enabled ?? true;
   sggEnableRules.checked = active.scene_graph?.rules?.enabled ?? true;
   sggEnableReltr.checked = active.scene_graph?.reltr?.enabled ?? false;
+  sggParallelExecution.checked =
+    active.scene_graph?.parallel_execution ?? false;
   sggRulesJson.value = JSON.stringify(
     active.scene_graph?.rules?.rule_list || [],
     null,
@@ -680,6 +692,7 @@ async function loadConfig() {
 
   const controls = active.pipeline_controls || {};
   pipelinePreset.value = controls.preset || 'full';
+  pipelineParallelExecution.checked = controls.parallel_execution ?? false;
   pipelineCaption.checked = controls.caption ?? true;
   pipelineDetect.checked = controls.detect ?? true;
   pipelineTrackMemory.checked = controls.track_memory ?? true;
@@ -957,6 +970,7 @@ function buildPatch() {
       ),
     },
     scene_graph: {
+      parallel_execution: sggParallelExecution.checked,
       vlm: {
         enabled: sggEnableVlm.checked,
         provider: vlmProvider.value,
@@ -1056,6 +1070,7 @@ function buildPatch() {
     },
     pipeline_controls: {
       preset: pipelinePreset.value,
+      parallel_execution: pipelineParallelExecution.checked,
       caption: pipelineCaption.checked,
       detect: pipelineDetect.checked,
       track_memory: pipelineTrackMemory.checked,
@@ -1319,9 +1334,11 @@ pipelinePaintSom.addEventListener('change', updatePipelineControlsUi);
 pipelineSceneGraph.addEventListener('change', updatePipelineControlsUi);
 pipelineQaGeneration.addEventListener('change', updatePipelineControlsUi);
 pipelineUpdateSceneMemory.addEventListener('change', updatePipelineControlsUi);
+pipelineParallelExecution.addEventListener('change', updatePipelineControlsUi);
 sggEnableVlm.addEventListener('change', updatePipelineControlsUi);
 sggEnableRules.addEventListener('change', updatePipelineControlsUi);
 sggEnableReltr.addEventListener('change', updatePipelineControlsUi);
+sggParallelExecution.addEventListener('change', updatePipelineControlsUi);
 
 applyBtn.addEventListener('click', applyConfig);
 saveBtn.addEventListener('click', saveConfig);

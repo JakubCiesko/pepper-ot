@@ -1,6 +1,8 @@
+import asyncio
 import logging
 from pathlib import Path
 import re
+import threading
 import tempfile
 from typing import Any
 
@@ -34,6 +36,7 @@ class RelTRSceneGraphGenerator:
         self.model = RelTRModel(
             self.repo_root, self.checkpoint_path, self.config.device
         )
+        self._model_lock = threading.Lock()
 
     def update_runtime(self, config: SGGRelTRConfig):
         self.config = config
@@ -206,6 +209,11 @@ class RelTRSceneGraphGenerator:
     async def generate(
         self, image: Image.Image | None, detections: list[InferenceDetectionObject]
     ) -> SceneGraph:
+        return await asyncio.to_thread(self.generate_sync, image, detections)
+
+    def generate_sync(
+        self, image: Image.Image | None, detections: list[InferenceDetectionObject]
+    ) -> SceneGraph:
         if not self.config.enabled:
             return SceneGraph()
         if image is None:
@@ -214,14 +222,6 @@ class RelTRSceneGraphGenerator:
         if not self.config.checkpoint_path:
             logger.warning("RelTR enabled but checkpoint_path is not configured")
             return SceneGraph()
-        if self.model.model is None:
-            logger.warning(
-                "RelTR enabled but model is not yet configured, building model from scratch, device=%s, checkpoint path=%s",
-                self.model._device,
-                self.model.checkpoint_path,
-            )
-            self.model.build_model()
-
         det_with_ids = [d for d in detections if d.object_id is not None]
         if not det_with_ids:
             logger.info(
@@ -229,7 +229,15 @@ class RelTRSceneGraphGenerator:
             )
             return SceneGraph()
 
-        reltr_output = self._run_reltr(image)
+        with self._model_lock:
+            if self.model.model is None:
+                logger.warning(
+                    "RelTR enabled but model is not yet configured, building model from scratch, device=%s, checkpoint path=%s",
+                    self.model._device,
+                    self.model.checkpoint_path,
+                )
+                self.model.build_model()
+            reltr_output = self._run_reltr(image)
         return self._process_reltr_output(reltr_output, det_with_ids)
 
     def _run_reltr(self, image: Image.Image) -> dict[str, Any]:
