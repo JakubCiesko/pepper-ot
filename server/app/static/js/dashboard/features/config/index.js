@@ -4,6 +4,12 @@ const slider = document.getElementById('threshold-slider');
 const input = document.getElementById('threshold-input');
 const backendSelect = document.getElementById('backend-select');
 const detectionDevice = document.getElementById('detection-device');
+const runNmsPostFilter = document.getElementById('run-nms-post-filter');
+const nmsType = document.getElementById('nms-type');
+const nmsIouThresholdSlider = document.getElementById(
+  'nms-iou-threshold-slider',
+);
+const nmsIouThresholdInput = document.getElementById('nms-iou-threshold-input');
 const outputLanguageSelect = document.getElementById('output-language-select');
 
 const visBbox = document.getElementById('vis-bbox');
@@ -277,6 +283,21 @@ function setThreshold(value) {
   input.value = value;
 }
 
+function setNmsIouThreshold(value) {
+  nmsIouThresholdSlider.value = value;
+  nmsIouThresholdInput.value = value;
+}
+
+function updateNmsControlsUi() {
+  const enabled = !!runNmsPostFilter.checked;
+  nmsType.disabled = !enabled;
+  nmsIouThresholdSlider.disabled = !enabled;
+  nmsIouThresholdInput.disabled = !enabled;
+  nmsType.classList.toggle('opacity-60', !enabled);
+  nmsIouThresholdSlider.classList.toggle('opacity-60', !enabled);
+  nmsIouThresholdInput.classList.toggle('opacity-60', !enabled);
+}
+
 function parseLines(text) {
   return text
     .split('\n')
@@ -519,6 +540,10 @@ async function loadConfig() {
   setThreshold(active.detection.confidence_threshold ?? 0.5);
   backendSelect.value = active.detection.backend || 'rt_detr';
   detectionDevice.value = active.detection.device || 'cuda';
+  runNmsPostFilter.checked = !!active.detection.run_nms_post_filter;
+  nmsType.value = active.detection.nms_type || 'per_class';
+  setNmsIouThreshold(active.detection.nms_iou_threshold ?? 0.5);
+  updateNmsControlsUi();
   outputLanguageSelect.value = active.system.output_language || 'default';
 
   visBbox.checked = !!active.visualization.show_bbox;
@@ -851,6 +876,12 @@ function buildPatch() {
     detection: {
       backend: backendSelect.value,
       confidence_threshold: parseFloat(input.value),
+      run_nms_post_filter: runNmsPostFilter.checked,
+      nms_iou_threshold: Math.min(
+        1,
+        parseNonNegativeNumberValue(nmsIouThresholdInput.value, 0.5),
+      ),
+      nms_type: nmsType.value,
       device: detectionDevice.value.trim() || 'cuda',
       ontology: parseOntologyList(vlmObjects.value),
     },
@@ -1168,6 +1199,21 @@ input.addEventListener('change', () => {
   input.value = val.toFixed(2);
   slider.value = val.toFixed(2);
 });
+
+nmsIouThresholdSlider.addEventListener('input', () => {
+  nmsIouThresholdInput.value = nmsIouThresholdSlider.value;
+});
+
+nmsIouThresholdInput.addEventListener('change', () => {
+  let val = parseFloat(nmsIouThresholdInput.value);
+  if (Number.isNaN(val)) val = 0;
+  if (val < 0) val = 0;
+  if (val > 1) val = 1;
+  nmsIouThresholdInput.value = val.toFixed(2);
+  nmsIouThresholdSlider.value = val.toFixed(2);
+});
+
+runNmsPostFilter.addEventListener('change', updateNmsControlsUi);
 
 vlmProvider.addEventListener('change', () => {
   updateStructuredCapabilityHint(

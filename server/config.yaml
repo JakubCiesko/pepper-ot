@@ -5,6 +5,9 @@ detection:
   backend: "rf_detr"
   weights_path: null
   confidence_threshold: 0.60
+  run_nms_post_filter: false
+  nms_iou_threshold: 0.50
+  nms_type: "per_class"
   device: "cuda"
   ontology: null
   ontology_path: "ontology/object_detection.yaml"
@@ -111,7 +114,7 @@ chat:
     #temperature: 0.7
     #max_tokens: 256
   structured_output:
-    mode: "instructor"
+    mode: "provider_native"
     strict: true
   system_prompt:
     path: "prompts/chat_system.txt"

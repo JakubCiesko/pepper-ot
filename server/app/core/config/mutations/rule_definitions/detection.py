@@ -13,6 +13,24 @@ rules = [
         _apply_pipeline_group,
     ),
     ReloadRule(
+        "detection.run_nms_post_filter",
+        attrgetter("detection.run_nms_post_filter"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "detection.nms_iou_threshold",
+        attrgetter("detection.nms_iou_threshold"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "detection.nms_type",
+        attrgetter("detection.nms_type"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
         "detection.device",
         attrgetter("detection.device"),
         "hard",

@@ -334,13 +334,14 @@ class SoMPainter:
         area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
         union = area_a + area_b - inter
         return inter / union if union > 0.0 else 0.0
-
+    #TODO: implement batching for smaller GPU load 
     def sam_bboxes_to_masks(
         self,
         image: Image.Image | NDArray,
         bboxes: NDArray,
         threshold: float = 0.5,
         mask_threshold: float = 0.5,
+        batch_size: int = 4,
     ) -> NDArray | None:
         """
         Convert bounding boxes to object masks using SAM3 box prompts.

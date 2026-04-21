@@ -24,6 +24,9 @@ def apply_pipeline_runtime_updates(
     pipeline: Any, cfg: AppConfig, base_dir: Path | None
 ):
     pipeline.detector.threshold = cfg.detection.confidence_threshold
+    pipeline.detector.run_nms_post_filter = cfg.detection.run_nms_post_filter
+    pipeline.detector.nms_iou_threshold = cfg.detection.nms_iou_threshold
+    pipeline.detector.nms_type = cfg.detection.nms_type
     pipeline.detector.device = cfg.detection.device
     pipeline.detector.ontology = (
         cfg.detection.resolve_ontology(base_dir)

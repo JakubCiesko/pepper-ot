@@ -28,6 +28,9 @@ def build_perception_pipeline(config: AppConfig) -> PerceptionPipeline:
         model_path=model_path,
         device=config.detection.device,
         threshold=config.detection.confidence_threshold,
+        run_nms_post_filter=config.detection.run_nms_post_filter,
+        nms_iou_threshold=config.detection.nms_iou_threshold,
+        nms_type=config.detection.nms_type,
         ontology=config.detection.resolve_ontology(base_dir),
     )
 

@@ -46,6 +46,53 @@
       Filters low-confidence detections before tracking and scene-graph steps.
     </p>
 
+    <label class="flex items-center gap-2 text-xlg mt-4">
+      <input id="run-nms-post-filter" type="checkbox" class="h-4 w-4" />
+      Run NMS After Detection
+    </label>
+    <p class="text-md panel-muted mt-1">
+      Applies Non-Maximum Suppression on detector outputs after confidence
+      filtering. Useful when low confidence threshold produces duplicate
+      overlapping boxes.
+    </p>
+
+    <label class="block text-xlg mt-4">NMS Type</label>
+    <select
+      id="nms-type"
+      class="w-full border rounded px-3 py-2 mt-1"
+    >
+      <option value="per_class">per_class</option>
+      <option value="general">general</option>
+    </select>
+    <p class="text-md panel-muted mt-1">
+      <code>per_class</code> suppresses overlaps within each class.
+      <code>general</code> suppresses overlaps across all classes.
+    </p>
+
+    <label class="block text-xlg mt-4">NMS IoU Threshold</label>
+    <div class="flex items-center gap-3 mt-2">
+      <input
+        type="range"
+        id="nms-iou-threshold-slider"
+        min="0"
+        max="1"
+        step="0.01"
+        class="flex-1"
+      />
+      <input
+        type="number"
+        id="nms-iou-threshold-input"
+        min="0"
+        max="1"
+        step="0.01"
+        class="w-20 border rounded px-2 py-1"
+      />
+    </div>
+    <p class="text-md panel-muted mt-1">
+      Controls how aggressively overlapping detections are merged. Lower values
+      are stricter. Tune together with confidence threshold.
+    </p>
+
     <label class="block text-xlg mt-6">Object Ontology</label>
     <p class="text-md panel-muted mt-1">
       Ontology of objects for open-vocabulary detection. Enter as

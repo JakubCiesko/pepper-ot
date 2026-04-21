@@ -13,6 +13,9 @@ class DetectionConfig(BaseModel):
     backend: Literal["yolo", "rt_detr", "rf_detr", "owl_v2"]
     weights_path: str | None = None
     confidence_threshold: float = 0.5
+    run_nms_post_filter: bool = False
+    nms_iou_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    nms_type: Literal["general", "per_class"] = "per_class"
     device: None | str = None
     ontology: list[str] | None = None
     ontology_path: Path | None = None
