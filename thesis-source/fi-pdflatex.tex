@@ -204,7 +204,10 @@ Chapter~5 describes the Pepper-side interaction layer, while Chapter~6 focuses o
 Chapter~8 presents the experimental methodology for evaluating scene graph quality and system behavior. Chapter~9 discusses the results, limitations, and trade-offs. Chapter~10 concludes the thesis and outlines directions for potential future work.
 
 REWRITETHIS:\@The appendices provide additional technical details, including prompts, structured output schemas, API definitions, configuration examples, interaction transcripts, and supplementary experimental material.
+
 \chapter{Background and Related Work}
+toto mozno vymazem
+tu chcem asi keywords explained 
 
 \section{Social Robotics and Human-Robot Interaction}
 Social robots operate in shared human environments and are therefore judged by criteria that go beyond raw task completion. In addition to functional competence, users expect legible behavior, timely responses, awareness of nearby people and objects, and interaction that remains intelligible even when perception is imperfect. These requirements make embodiment and situatedness central design constraints rather than cosmetic additions. Recent HRI literature on large language model integration argues that LLMs raise user expectations even further: once a robot speaks fluently, users assume it also understands the physical context, social situation, and consequences of its utterances \cite{kim_understanding_2024, atuhurra_leveraging_2024}.
@@ -274,7 +277,7 @@ Evaluating a grounded robot dialogue system requires analysis at multiple levels
 
 From the scene graph perspective, the literature provides several useful metric families, including triplet-level correctness, relation-level correctness, and object-attribute evaluation \cite{zhu_scene_2022}. These metrics are especially relevant to the research pipeline implemented for this thesis, which evaluates strict triplets, binary relation structure, attribute quality, generation bias, and sensitivity to prompt context. At the system level, however, offline graph metrics are not sufficient on their own. A robot may obtain acceptable relation scores while still failing conversationally because of latency, mistracked entities, or poor reference selection. The evaluation strategy adopted in this thesis therefore combines component-level analysis with end-to-end grounded interaction assessment.
 
-\chapter{Requirements, Constraints, and Design Principles}
+\chapter{System Architecture and Design}
 
 \section{Use Cases and Interaction Scenarios}
 \begin{itemize}
@@ -321,7 +324,6 @@ From the scene graph perspective, the literature provides several useful metric 
     \item Clarify what is not fully implemented or not central: full autonomous action planning, navigation, long-term vector memory, and broad manipulation-oriented robot control.
 \end{itemize}
 
-\chapter{System Architecture}
 
 \section{End-to-End Processing Pipeline}
 \begin{itemize}
@@ -358,7 +360,7 @@ From the scene graph perspective, the literature provides several useful metric 
     \item Discuss optional persistence of the last state and image.
 \end{itemize}
 
-\chapter{Pepper-Side Client Implementation}
+
 
 \section{NAOqi Application Structure}
 \begin{itemize}
@@ -421,95 +423,7 @@ From the scene graph perspective, the literature provides several useful metric 
     \item Explain why the client focuses on sensing, metadata packaging, and interaction orchestration rather than heavy intelligence.
 \end{itemize}
 
-\chapter{Server-Side Perception, Scene Modeling, and Runtime Infrastructure}
-
-\section{FastAPI Application and Service Composition}
-\begin{itemize}
-    \item Describe the server startup process, application state, and service initialization.
-    \item Explain how configuration loading leads to either an in-process perception pipeline or worker-backed runtime.
-    \item Present the main route groups: detection, captioning, chat, vision chat, memory, config, worker, and dashboard.
-\end{itemize}
-
-\section{Detection Subsystem}
-\begin{itemize}
-    \item Describe the detection service abstraction and the supported backends: YOLO, RT-DETR, RF-DETR, and OWL-V2.
-    \item Explain ontology handling for open-vocabulary detection.
-    \item Discuss thresholding, device selection, and detector interchangeability.
-\end{itemize}
-
-\section{Persistent Tracking and Identity Maintenance}
-\begin{itemize}
-    \item Describe the role of \texttt{SceneMemory} in maintaining object continuity across frames.
-    \item Explain appearance embedding extraction, crop preparation, and use of a visual encoder for re-identification.
-    \item Explain the Hungarian matching procedure and the weighted combination of appearance and geometry.
-    \item Cover unmatched-track aging, dormant-track removal, and object hit statistics.
-\end{itemize}
-
-\section{Pepper-Specific Fusion with Robot-Native People Perception}
-\begin{itemize}
-    \item Explain why server-side visual detections alone are insufficient for socially grounded interaction.
-    \item Describe geometric projection from robot person angles into image coordinates.
-    \item Explain the matching between Pepper people and server person detections using angular similarity, previous bindings, tracker stability, and distance-size consistency.
-    \item Describe the generation of synthetic person detections when Pepper reports a person but no visual bounding box matches.
-    \item Explain how social attributes such as waving, sitting, looking at the robot, engagement zone, age, gender, smile, and expressions are merged into object state.
-\end{itemize}
-
-\section{Set-of-Mark Rendering}
-\begin{itemize}
-    \item Describe why Set-of-Mark visualization is used for VLM grounding.
-    \item Explain bounding boxes, labels, optional masks, optional polygons, and style scaling.
-    \item Mention the available mask backends and the role of the overlay in the scene graph prompt pipeline.
-\end{itemize}
-
-\section{Scene Graph Generation}
-\begin{itemize}
-    \item Present the scene graph service as a strategy layer with four modes: rules, VLM, RelTR, and hybrid.
-    \item Explain the rule-based backend:
-    \begin{itemize}
-        \item configurable predicates;
-        \item spatial, directional, overlap, containment, and label-pair rules;
-        \item automatic color-attribute extraction.
-    \end{itemize}
-    \item Explain the VLM backend:
-    \begin{itemize}
-        \item prompt construction from predicates and captions;
-        \item structured output parsing and repair;
-        \item filtering of hallucinated relations against current detections.
-    \end{itemize}
-    \item Explain the optional RelTR backend and why it is treated as a complementary relation source.
-    \item Explain the hybrid mode as a union of complementary evidence sources.
-\end{itemize}
-
-\section{Scene Memory as a Dynamic World Model}
-\begin{itemize}
-    \item Describe the internal state representation: tracked objects, relationships, captions, Pepper-person bindings, and timestamps.
-    \item Explain object fields that matter for dialogue: label, attributes, status, hits, frame IDs, scan IDs, estimated bearing, Pepper person ID, and robot distance.
-    \item Explain relationship accumulation, unary-attribute handling, and caption insertion.
-    \item Cover memory pruning, TTLs, and configurable object, relation, and caption limits.
-\end{itemize}
-
-\section{Captioning and Auxiliary Vision Services}
-\begin{itemize}
-    \item Describe the captioning subsystem and its role in fast single-frame scene summarization.
-    \item Explain that the caption endpoint can launch detection asynchronously so that later dialogue is grounded in updated memory.
-    \item Describe the separate \texttt{vision\_chat} endpoint for direct image-plus-question multimodal interaction.
-\end{itemize}
-
-\section{Worker Runtime and Runtime Switching}
-\begin{itemize}
-    \item Describe the worker manager, internal worker API, and lazy startup behavior.
-    \item Explain why the worker mode exists: isolate heavy inference, manage warmup, and keep the web process lighter.
-    \item Cover health checks, restart logic, circuit breaker behavior, and hot runtime updates.
-\end{itemize}
-
-\section{Dashboard and Runtime Administration}
-\begin{itemize}
-    \item Describe the dashboard pages and their practical roles.
-    \item Explain live WebSocket updates for detections, captions, memory, and chat messages.
-    \item Cover operator-editable settings: detector backend, thresholds, scene graph mode, VLM prompts, worker controls, memory limits, chat/caption providers, and pipeline presets.
-\end{itemize}
-
-\chapter{Grounded Dialogue Layer}
+\chapter{Server-Side Integration}
 
 \section{Conversation State Management}
 \begin{itemize}
@@ -562,7 +476,6 @@ From the scene graph perspective, the literature provides several useful metric 
     \item Explicitly identify which limitations belong to the current implementation and which are reserved for future work.
 \end{itemize}
 
-\chapter{Experimental Framework and Evaluation Methodology}
 
 \section{Role of the \texttt{research} Package}
 \begin{itemize}
@@ -653,7 +566,95 @@ From the scene graph perspective, the literature provides several useful metric 
     \item Explain whether these are reported as completed experiments, supporting tooling, or future-ready extensions.
 \end{itemize}
 
-\chapter{Results, Discussion, and Limitations}
+\chapter{Robot-Side Integration}
+
+\section{FastAPI Application and Service Composition}
+\begin{itemize}
+    \item Describe the server startup process, application state, and service initialization.
+    \item Explain how configuration loading leads to either an in-process perception pipeline or worker-backed runtime.
+    \item Present the main route groups: detection, captioning, chat, vision chat, memory, config, worker, and dashboard.
+\end{itemize}
+
+\section{Detection Subsystem}
+\begin{itemize}
+    \item Describe the detection service abstraction and the supported backends: YOLO, RT-DETR, RF-DETR, and OWL-V2.
+    \item Explain ontology handling for open-vocabulary detection.
+    \item Discuss thresholding, device selection, and detector interchangeability.
+\end{itemize}
+
+\section{Persistent Tracking and Identity Maintenance}
+\begin{itemize}
+    \item Describe the role of \texttt{SceneMemory} in maintaining object continuity across frames.
+    \item Explain appearance embedding extraction, crop preparation, and use of a visual encoder for re-identification.
+    \item Explain the Hungarian matching procedure and the weighted combination of appearance and geometry.
+    \item Cover unmatched-track aging, dormant-track removal, and object hit statistics.
+\end{itemize}
+
+\section{Pepper-Specific Fusion with Robot-Native People Perception}
+\begin{itemize}
+    \item Explain why server-side visual detections alone are insufficient for socially grounded interaction.
+    \item Describe geometric projection from robot person angles into image coordinates.
+    \item Explain the matching between Pepper people and server person detections using angular similarity, previous bindings, tracker stability, and distance-size consistency.
+    \item Describe the generation of synthetic person detections when Pepper reports a person but no visual bounding box matches.
+    \item Explain how social attributes such as waving, sitting, looking at the robot, engagement zone, age, gender, smile, and expressions are merged into object state.
+\end{itemize}
+
+\section{Set-of-Mark Rendering}
+\begin{itemize}
+    \item Describe why Set-of-Mark visualization is used for VLM grounding.
+    \item Explain bounding boxes, labels, optional masks, optional polygons, and style scaling.
+    \item Mention the available mask backends and the role of the overlay in the scene graph prompt pipeline.
+\end{itemize}
+
+\section{Scene Graph Generation}
+\begin{itemize}
+    \item Present the scene graph service as a strategy layer with four modes: rules, VLM, RelTR, and hybrid.
+    \item Explain the rule-based backend:
+    \begin{itemize}
+        \item configurable predicates;
+        \item spatial, directional, overlap, containment, and label-pair rules;
+        \item automatic color-attribute extraction.
+    \end{itemize}
+    \item Explain the VLM backend:
+    \begin{itemize}
+        \item prompt construction from predicates and captions;
+        \item structured output parsing and repair;
+        \item filtering of hallucinated relations against current detections.
+    \end{itemize}
+    \item Explain the optional RelTR backend and why it is treated as a complementary relation source.
+    \item Explain the hybrid mode as a union of complementary evidence sources.
+\end{itemize}
+
+\section{Scene Memory as a Dynamic World Model}
+\begin{itemize}
+    \item Describe the internal state representation: tracked objects, relationships, captions, Pepper-person bindings, and timestamps.
+    \item Explain object fields that matter for dialogue: label, attributes, status, hits, frame IDs, scan IDs, estimated bearing, Pepper person ID, and robot distance.
+    \item Explain relationship accumulation, unary-attribute handling, and caption insertion.
+    \item Cover memory pruning, TTLs, and configurable object, relation, and caption limits.
+\end{itemize}
+
+\section{Captioning and Auxiliary Vision Services}
+\begin{itemize}
+    \item Describe the captioning subsystem and its role in fast single-frame scene summarization.
+    \item Explain that the caption endpoint can launch detection asynchronously so that later dialogue is grounded in updated memory.
+    \item Describe the separate \texttt{vision\_chat} endpoint for direct image-plus-question multimodal interaction.
+\end{itemize}
+
+\section{Worker Runtime and Runtime Switching}
+\begin{itemize}
+    \item Describe the worker manager, internal worker API, and lazy startup behavior.
+    \item Explain why the worker mode exists: isolate heavy inference, manage warmup, and keep the web process lighter.
+    \item Cover health checks, restart logic, circuit breaker behavior, and hot runtime updates.
+\end{itemize}
+
+\section{Dashboard and Runtime Administration}
+\begin{itemize}
+    \item Describe the dashboard pages and their practical roles.
+    \item Explain live WebSocket updates for detections, captions, memory, and chat messages.
+    \item Cover operator-editable settings: detector backend, thresholds, scene graph mode, VLM prompts, worker controls, memory limits, chat/caption providers, and pipeline presets.
+\end{itemize}
+
+\chapter{Experimental Methodology}
 
 \section{Perception and Scene-Memory Results}
 \begin{itemize}
@@ -703,7 +704,7 @@ From the scene graph perspective, the literature provides several useful metric 
     \item Potential mismatch between offline graph metrics and perceived dialogue quality in real HRI.
 \end{itemize}
 
-\chapter{Conclusion}
+\chapter{Results, Discussion, and Conclusion}
 
 \section{Summary of the Thesis}
 \begin{itemize}
