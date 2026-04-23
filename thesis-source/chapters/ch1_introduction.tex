@@ -26,63 +26,43 @@ For the Pepper robot, these requirements are accompanied by an additional practi
 The motivation of this thesis is then to move beyond isolated perception or language components toward a unified system for scene-aware dialogue. In this thesis, scene-aware dialogue denotes the ability of a robot to perceive its environment, identify and track relevant entities, represent their attributes and relationships, maintain this information over time, and use it as a basis for coherent grounded conversation. By integrating modern computer vision, structured scene representations, persistent memory, and conversational models within a distributed client-server architecture, the thesis aims to advance social robots toward more context-aware, reliable, and meaningful interaction in real-world environments.
 
 \section{Problem Statement and Objectives}
-The motivation outlined in the previous section identified a central gap in contemporary human-robot interaction: conversational ability has advanced rapidly, yet robust interaction still requires explicit connection to perception, memory, and situational context. This thesis addresses that gap through the design of a unified scene-aware interaction framework for the Pepper robot.
+Having outlined the fundamental limitation of non-grounded human-robot interaction, it becomes necessary to move toward systems that explicitly integrate perception, memory, and language. Thus, the central problem addressed in this thesis is how to enable the Pepper robot to perceive its surroundings, represent them in a structured and persistent form, and use this representation as the basis for coherent scene-aware dialogue with the user.
 
-More specifically, the central problem is how to enable Pepper to perceive its surroundings, transform perceptual observations into a structured and persistent internal representation, and use this evolving world model as the basis for coherent dialogue with the user. In practical terms, this requires the robot to maintain awareness of relevant objects and people, preserve identity across observations, incorporate robot-native sensing signals, and support context-sensitive follow-up questions grounded in both the current scene and recent interaction history.
+In this context, scene-aware dialogue is defined as the robot's ability to identify relevant objects and people, track them across observations, represent their attributes and relationships, integrate robot-native perception signals, and use this evolving state to answer questions in a consistent manner. Crucially, this involves dynamically switching between Cache-Augmented Generation (CAG) for holistic scene awareness and structured subgraph Retrieval-Augmented Generation (RAG) for highly specific, object, attribute or relationship focused queries.
 
-Addressing this problem is then not only a matter of dialogue generation, but it also requires solving a broader systems challenge of connecting heterogeneous components, namely the robot sensors, external (multimodal) models, scene memory, and language generation, into a responsive and reliable architecture suitable for real-world interaction.
-
-To address these requirements, the thesis defines the following objectives:
+To address this problem, the thesis defines the following core scientific and technical objectives:
 
 \begin{itemize}
-    \item Design a distributed system architecture that enables the use of modern perception and language models despite the computational limitations of the robot platform.
-    
-    \item Develop a perception pipeline that preserves object identity over time.
-    
-    \item Construct a structured scene representation that captures entities, their attributes, and their relationships.
-    
-    \item Integrate server-side perception with robot-native sensing (e.g., NAOqi APIs), particularly for human-related and social signals.
-    
-    \item Enable grounded dialogue based on current and recent scene state, including support for multi-turn interaction and multilingual communication in Czech and English.
-    
-    \item Provide tools for monitoring, configuration, and evaluation, including assessment of scene representation quality and overall system behavior.
+    \item Design a distributed edge-cloud system architecture that overcomes the computational limitations of the robot platform while maintaining interactive latency.
+    \item Develop an appearance-based Re-Identification (Re-ID) perception pipeline capable of preserving object identity across the discontinuous, low-framerate visual scans typical of humanoid robots.
+    \item Construct a structured, queryable representation of the scene (a Scene Graph) that robustly captures objects, attributes, and spatial relationships.
+    \item Enable factually grounded dialogue generation that intelligently leverages the Scene Graph as context, supporting both broad scene summarization and targeted subgraph retrieval.
+    \item Evaluate the sensitivity, robustness, and latency of the entire perception-to-language pipeline, particularly concerning vocabulary size, prompt formatting constraints, and scene graph generation methods.
 \end{itemize}
 
-The proposed solution does not however exist in isolation. It builds on several strands of prior work. 
-The general idea of grounding dialogue in visual scene understanding is inspired by the system introduced by Grassi et al.~\cite{grassi_grounding_2024}. The use of external computation to overcome Pepper's hardware limitations follows established approaches based on edge or remote processing~\cite{reyes_near_2018, trinquet_future_2025, brad_retrieval-augmented_2025}. Additional design choices draw on a broader body of related research, which is discussed in detail in the corresponding chapters of this thesis.
+The overall concept of grounding dialogue in visual scene understanding is inspired by the system proposed by Grassi et al.~\cite{grassi_grounding_2024}. The use of external computation to overcome Pepper's hardware limitations follows established approaches based on edge or remote processing~\cite{reyes_near_2018, trinquet_future_2025, brad_retrieval-augmented_2025}. Additional design choices draw on a broader body of related research, which is discussed in detail in the corresponding chapters of this thesis.
 
 \section{Research Questions (MAYBE REDUNDANT SECTION, ALREDY PRESENT IN OBJECTIVES?)}
-(MAYBE REDUNDANT SECTION, ALREDY PRESENT IN OBJECTIVES? I just wanted research questions in the thesis.)
-The problem formulation leads to these five research questions. 
+The problem formulation leads to these four primary research questions:
 \begin{enumerate}
-    \item \textbf{System architecture:} How can Pepper's limited onboard capabilities be extended through a remote multimodal inference server while preserving responsiveness and maintaining grounded interaction?
-
-    \item \textbf{Scene representation:} How should object detection, persistent tracking, and scene graph generation be combined to form a dynamic world model suitable for dialogue?
-
-    \item \textbf{Multimodal fusion:} What benefits, if any, arise from integrating Pepper-native people perception and social cues with server-side visual detections?
-
-    \item \textbf{Scene graph methods:} To what extent can a hybrid scene graph approach, combining rule-based reasoning, vision-language model prompting, and learned relation prediction, support grounded dialogue?
-
-    \item \textbf{Robustness:} How sensitive is scene graph quality to factors such as prompt design, vocabulary size, and model or provider choice?
+    \item \textbf{Grounded Dialogue Architecture:} How can structured scene memory (utilized via Cache-Augmented and structured Retrieval-Augmented Generation) effectively bridge the gap between low-level visual perception and fluent, grounded LLM dialogue on a computationally constrained robot?
+    \item \textbf{Persistent Identity under Embodied Constraints:} To what extent can appearance-based Re-Identification (Re-ID) maintain object permanence during the discrete, discontinuous visual scans typical of embodied humanoid observation?
+    \item \textbf{Scene Graph Methodologies:} How does a hybrid neuro-symbolic approach (combining geometric rules and multimodal Set-of-Mark prompting) compare to purely learned models in generating accurate and usable scene graphs for HRI?
+    \item \textbf{System Robustness and Sensitivity:} How sensitive is the quality of the generated scene graph---and consequently the grounded dialogue---to constraints such as vocabulary size, VLM formatting restrictions, and context rot over time?
 \end{enumerate}
 
+
 \section{Main Contributions}
-This thesis tries to make several contributions at the intersection of social robotics, multimodal AI, and grounded human-robot interaction.
+The primary contribution of this thesis is the design and implementation of a scene-aware dialogue system for the Pepper robot that integrates embodied interaction with server-side multimodal inference and explicit scene memory. This encompasses several specific methodological and technical contributions:
 
-The primary contribution of this thesis is the design and implementation of a scene-aware dialogue system for the Pepper robot that integrates embodied interaction with server-side multimodal inference and explicit scene memory.
+\begin{itemize}
+    \item \textbf{A Low-Framerate Re-Identification Pipeline:} The development of an appearance-based Re-Identification tracking pipeline designed specifically to overcome the spatial discontinuity of discrete, low-framerate embodied robot scans, fusing these detections with robot-native social perception.
+    \item \textbf{A Hybrid Neuro-Symbolic Scene Graph Architecture:} The design of a hybrid scene representation that combines deterministic geometric rules with Vision-Language Model (VLM) Set-of-Mark prompting, reducing LLM hallucination while maintaining rigid spatial accuracy.
+    \item \textbf{A Dual-Mode Grounded Dialogue Layer:} The implementation of a dialogue manager that dynamically switches between Cache-Augmented Generation (CAG) for global scene awareness and structured subgraph Retrieval-Augmented Generation (RAG) for highly specific, object-focused queries.
+    \item \textbf{An Open-Source Evaluation Framework for Embodied AI:} The creation of a reproducible evaluation pipeline that isolates the performance of Scene Graph Generation (SGG) metrics from end-to-end conversational latency and HRI quality, alongside supporting infrastructure for system inspection.
+\end{itemize}
 
-A second contribution is the development of a configurable server platform based on FastAPI that supports multimodal inference, runtime configuration, and persistent scene state management. The platform enables multiple interaction modes, including captioning, object detection, scene graph generation, and memory-grounded dialogue, while remaining adaptable to different models, providers, and deployment settings. It further incorporates an optional RPC-based worker architecture that isolates GPU workloads and enables efficient allocation, restart, and release of VRAM resources.
-
-A further contribution is the design of a unified perception pipeline that combines object detection, persistent tracking, Set-of-Marks prompting for hybrid scene graph generation, captioning, and memory updates within a single processing flow. As part of this pipeline, a Pepper-specific fusion layer aligns server-side detections with robot-native sensing, particularly for human-related and social signals.
-
-Moreover, this thesis also contributes a dialogue layer that leverages structured scene memory and recent perceptual context to support grounded interaction through retrieval-augmented generation (RAG). This layer enables general scene-aware dialogue, object-focused queries, attribute-focused queries, relationship-focused queries, cached pregenerated question-answer pairs, and multilingual interaction in Czech and English.
-
-Another contribution is the supporting infrastructure for inspection, operation, and evaluation of the system. This includes a browser-based dashboard for live monitoring, configuration, memory inspection, and system control, together with an experimental framework for scene description generation, vocabulary construction, scene graph analysis, and comparative evaluation.
-
-On the robot side, the thesis develops a modular Pepper client responsible for image acquisition, robot-context collection using NAOqi APIs, interaction orchestration, speech output, tablet interaction, and communication with the external server. The client bridges Pepper's native capabilities, such as QiChat grammar, with modern external AI services while preserving an interactive user experience.
-
-Taken together, these contributions establish both a functional Pepper-based prototype and a reusable platform for studying grounded dialogue in environments.
-
+Taken together, these contributions establish both a functional Pepper-based prototype and a reusable platform for studying grounded dialogue over dynamic visual environments.
 \section{Thesis Structure}
 
 The remainder of the thesis is organized as follows.
