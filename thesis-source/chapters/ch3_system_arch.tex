@@ -1,0 +1,145 @@
+\chapter{System Architecture and Design}
+
+\section{Use Cases and Interaction Scenarios}
+\begin{itemize}
+    \item Define the concrete user-facing interaction modes implemented by the system: \texttt{look}, \texttt{scan}, \texttt{ask}, \texttt{refreshAndAsk}, and conversation reset.
+    \item Describe typical scenarios such as single-frame captioning, multi-frame scan summaries, object-oriented follow-up questions, and direct vision chat over an uploaded image.
+    \item State which scenarios are evaluated offline and which are evaluated in embodied robot interaction.
+\end{itemize}
+
+\section{Functional Requirements}
+\begin{itemize}
+    \item Remote image processing from Pepper.
+    \item Configurable object detection backends.
+    \item Persistent object identities across frames.
+    \item Scene graph generation with attributes and relations.
+    \item Integration of Pepper-native people and social perception into the world model.
+    \item Grounded dialogue based on current scene memory and recent conversation history.
+    \item Multilingual output support.
+    \item Runtime configuration, monitoring, and memory inspection through a dashboard.
+    \item Offline experimental tooling for prompt, vocabulary, and graph-quality studies.
+\end{itemize}
+
+\section{Non-Functional Requirements and Constraints}
+\begin{itemize}
+    \item Pepper-side hardware and software limitations.
+    \item Network dependence and the need for graceful degradation.
+    \item Latency constraints for interactive dialogue.
+    \item Modularity and provider interchangeability.
+    \item Traceability of intermediate states for debugging and evaluation.
+    \item Safety and robustness under partial sensor failure, provider failure, or malformed structured outputs.
+\end{itemize}
+
+\section{Design Principles}
+\begin{itemize}
+    \item Separate robot-side sensing and interaction from server-side heavy inference.
+    \item Keep state explicit and inspectable through a structured scene memory.
+    \item Prefer configurable components over hard-coded pipelines.
+    \item Support both fast approximate reasoning and slower richer reasoning.
+    \item Reuse production components inside the research pipeline where possible.
+\end{itemize}
+
+\section{System Boundaries}
+\begin{itemize}
+    \item Clarify what is in scope: perception, memory, grounded dialogue, runtime configuration, and evaluation tooling.
+    \item Clarify what is not fully implemented or not central: full autonomous action planning, navigation, long-term vector memory, and broad manipulation-oriented robot control.
+\end{itemize}
+
+
+\section{End-to-End Processing Pipeline}
+\begin{itemize}
+    \item Present the complete data flow from Pepper image capture to spoken answer.
+    \item Include the main stages: capture, metadata collection, HTTP request, server-side inference, memory update, dialogue generation, and robot speech output.
+    \item Add a figure with the full end-to-end architecture.
+\end{itemize}
+
+\section{Deployment Topology}
+\begin{itemize}
+    \item Describe the three main runtime domains: Pepper client, FastAPI orchestration server, and optional worker process.
+    \item Explain when inference runs in-process and when it is delegated to the worker runtime.
+    \item Discuss external providers, local GPU models, and optional tunnel exposure for remote access.
+\end{itemize}
+
+\section{Communication Interfaces and Data Contracts}
+\begin{itemize}
+    \item Describe the REST endpoints for captioning, detection, chat, vision chat, configuration, worker control, and memory access.
+    \item Explain the robot metadata payload and why it is essential for person fusion and geometric reasoning.
+    \item Describe the WebSocket channel used by the dashboard for live updates.
+\end{itemize}
+
+\section{Runtime Configuration and Reconfiguration}
+\begin{itemize}
+    \item Describe the YAML plus Pydantic configuration model.
+    \item Explain the difference between hot updates and hard reloads.
+    \item Discuss configurable backends, prompts, ontology sources, worker settings, tracking settings, and pipeline presets.
+\end{itemize}
+
+\section{Observability, Persistence, and Operator Control}
+\begin{itemize}
+    \item Describe the dashboard as a practical engineering component, not only a debugging aid.
+    \item Cover live image display, scene graph view, conversation view, memory view, and configuration editing.
+    \item Discuss optional persistence of the last state and image.
+\end{itemize}
+
+
+
+\section{NAOqi Application Structure}
+\begin{itemize}
+    \item Introduce the Pepper client service and its lifecycle.
+    \item Describe how the application initializes adapters, loads configuration, and exposes robot methods such as \texttt{look}, \texttt{scan}, \texttt{ask}, and \texttt{resetConversation}.
+    \item Mention the practical consequence of the client being implemented in Python 2 within the robot ecosystem.
+\end{itemize}
+
+\section{Turn Management and Interaction Logic}
+\begin{itemize}
+    \item Describe the \texttt{TurnManager} as the coordination layer for user-visible interaction.
+    \item Explain busy-state protection, acknowledgement speech, thread-based turn execution, and fallback behavior under failure.
+    \item Describe each turn type separately:
+    \begin{itemize}
+        \item \texttt{look}: capture one frame, request a caption, optionally trigger background detection;
+        \item \texttt{scan}: move the head over predefined yaw angles, process multiple frames, optionally summarize the scan through chat;
+        \item \texttt{ask}: optionally refresh visual context, then run grounded chat;
+        \item \texttt{refreshAndAsk}: force a visual refresh before answering.
+    \end{itemize}
+\end{itemize}
+
+\section{Visual Acquisition}
+\begin{itemize}
+    \item Describe the camera adapter built on ALVideoDevice.
+    \item Explain frame capture, JPEG encoding, field-of-view retrieval, and timing metadata.
+    \item Mention the fake-camera path used for testing and simulation.
+\end{itemize}
+
+\section{Robot Context Collection}
+\begin{itemize}
+    \item Explain the role of the \texttt{RobotContextCollector}.
+    \item Describe how pose, people perception, face detection, social signals, and sonar measurements are collected.
+    \item Cover the specific robot-side sources:
+    \begin{itemize}
+        \item people IDs, yaw, pitch, and distance from ALPeoplePerception;
+        \item face labels and confidence from ALFaceDetection;
+        \item gaze, engagement, waving, sitting, age, gender, smile, and expression cues from NAOqi social modules;
+        \item left and right sonar measurements.
+    \end{itemize}
+\end{itemize}
+
+\section{Metadata Construction and Session State}
+\begin{itemize}
+    \item Describe the metadata payload sent together with each image.
+    \item Explain frame IDs, scan IDs, capture mode, camera geometry, and attached people/social information.
+    \item Describe the local session store: chat ID, last caption, last detection timestamp, selected output language, and server base URL.
+\end{itemize}
+
+\section{Robot-Side Transport, Speech, and Tablet Output}
+\begin{itemize}
+    \item Describe the HTTP transport layer and its request types for caption, detect, chat, conversation reset, and config patching.
+    \item Explain timeout and malformed-response handling.
+    \item Describe speech synthesis and animated speech fallback.
+    \item Describe the tablet adapter used to display the server dashboard on Pepper.
+\end{itemize}
+
+\section{Client-Side Limitations and Trade-Offs}
+\begin{itemize}
+    \item Discuss Python 2 compatibility, request blocking, network dependence, and limited local reasoning.
+    \item Explain why the client focuses on sensing, metadata packaging, and interaction orchestration rather than heavy intelligence.
+\end{itemize}

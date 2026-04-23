@@ -1,0 +1,49 @@
+\chapter{Experimental Methodology}
+
+\section{Perception and Scene-Memory Results}
+\begin{itemize}
+    \item Report detector behavior, tracking behavior, and Pepper-fusion behavior.
+    \item Discuss what types of errors dominate: missed detections, identity fragmentation, false relations, or noisy social attributes.
+    \item Show examples where scene memory improves follow-up interaction.
+\end{itemize}
+
+\section{Scene Graph Quality Results}
+\begin{itemize}
+    \item Report the graph metrics defined in the previous chapter.
+    \item Compare different prompting setups, model providers, vocabularies, or graph-generation modes if these experiments are executed.
+    \item Discuss the balance between richer semantics and hallucination risk.
+\end{itemize}
+
+\section{Dialogue and Interaction Results}
+\begin{itemize}
+    \item Present representative interaction transcripts for \texttt{look}, \texttt{scan}, general chat, object chat, and vision chat.
+    \item Analyze whether answers remain grounded in the scene and whether the robot maintains object continuity across follow-up questions.
+    \item Discuss multilingual behavior and user-facing latency.
+\end{itemize}
+
+\section{Ablations and Sensitivity Findings}
+\begin{itemize}
+    \item Interpret vocabulary-size sensitivity, prompt sensitivity, and any comparisons between rule-based and multimodal graph generation.
+    \item Discuss which system parts most strongly affect downstream dialogue quality.
+\end{itemize}
+
+\section{Architectural Discussion}
+\begin{itemize}
+    \item Reflect on the main architectural choices:
+    \begin{itemize}
+        \item remote inference versus onboard intelligence;
+        \item in-process versus worker runtime;
+        \item explicit scene memory versus implicit conversational context;
+        \item hybrid graph generation versus a single-model solution.
+    \end{itemize}
+    \item Explain what worked well and what remains engineering debt.
+\end{itemize}
+
+\section{Limitations}
+\begin{itemize}
+    \item Current reliance on external compute and network connectivity.
+    \item Limited long-term memory and lack of a richer knowledge layer beyond current scene state and short conversation history.
+    \item Dependence on prompt quality and provider reliability.
+    \item Incomplete evaluation of some exploratory training paths if they remain unfinished.
+    \item Potential mismatch between offline graph metrics and perceived dialogue quality in real HRI.
+\end{itemize}
