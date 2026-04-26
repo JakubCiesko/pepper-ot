@@ -1,142 +1,83 @@
-\chapter{Server-Side Integration}
+\chapter{Server-Side Intelligence (The ``Brain'')}
+\label{chap:server_side}
 
-\section{Conversation State Management}
-\begin{itemize}
-    \item Describe the conversation service and its bounded conversation history.
-    \item Explain storage of original text, model text, detected language, output language, and translation status.
-    \item Explain why conversation state is separate from scene memory.
-\end{itemize}
+% TL;DR: This chapter explains the linear server pipeline from image input to grounded dialogue output.
+This chapter describes the server as the cognitive core of the system. It details how the server receives raw visual and metadata inputs from the robot, tracks entities over time, structures them into a queryable scene memory, builds semantic scene graphs, and ultimately generates grounded dialogue text that Pepper can speak. The architecture is designed as a linear, unidirectional processing pipeline that transforms unstructured sensor data into structured relational knowledge and, finally, into natural language.
 
-\section{Prompt Composition from Scene Memory}
-\begin{itemize}
-    \item Describe how the chat service serializes the current world state into textual context.
-    \item Explain object ordering by salience, with emphasis on socially relevant people.
-    \item Describe the use of latest caption and recent captions as additional grounding context.
-    \item Explain how the current implementation realizes grounded retrieval by rendering structured memory into prompts.
-\end{itemize}
+\section{Infrastructure and Routing}
+\label{sec:infrastructure}
 
-\section{General Scene-Aware Chat}
-\begin{itemize}
-    \item Describe the normal chat endpoint for open questions about the current scene.
-    \item Explain language normalization, history inclusion, prompt rendering, and provider-agnostic text generation.
-    \item Discuss expected question types and answer scope.
-\end{itemize}
+% TL;DR: FastAPI provides a stable HTTP boundary and modular orchestration for all server capabilities.
+The server infrastructure is built using the FastAPI framework, which exposes the full intelligence stack through explicit REST and WebSocket API routes. This design enforces a strict, stable HTTP boundary between the legacy Python~2.7 environment of the robot and the modern Python~3.12 environment required for deep learning. By treating the server as an isolated microservice, the orchestration layer remains modular, allowing individual processing stages to be updated or swapped without requiring changes to the client-side robot code.
 
-\section{Object-Focused Dialogue}
-\begin{itemize}
-    \item Present the object-chat mode as one of the strongest concrete contributions of the current implementation.
-    \item Explain object matching by label, ranking by salience, and extraction of per-object attributes and relations.
-    \item Describe the crop-caption fallback used when an object has weak structured memory but a tracked crop is available.
-    \item Explain how matched object IDs are returned as traceability metadata.
-\end{itemize}
+% TL;DR: Every request follows one fixed sequence, making the system predictable and debuggable.
+Every incoming request follows a fixed, predictable sequence: input parsing, visual perception, memory updating, graph generation, prompt construction, and response formulation. This strict ordering creates a transparent data flow from the initial sensory cause to the final spoken output. Predictability at the routing level is essential for debugging embodied interactions, as it allows developers to isolate failures to specific pipeline stages when the robot exhibits unexpected conversational behavior.
 
-\section{Direct Vision Chat}
-\begin{itemize}
-    \item Describe the route that bypasses scene-memory grounding and sends an image directly to a multimodal model together with a question.
-    \item Explain how this mode complements the memory-grounded chat mode and when it is useful.
-    \item Discuss its trade-off: richer direct visual reasoning but weaker persistent identity tracking.
-\end{itemize}
+% TL;DR: The optional RPC Worker Runtime isolates heavy GPU inference and model warmup from the API process.
+To manage computational load efficiently, the server supports an optional Remote Procedure Call (RPC) Worker Runtime that operates in an entirely separate system process. This worker process exclusively handles GPU-bound inference tasks, model loading, and heavy memory allocations. Meanwhile, the main FastAPI process remains lightweight, ensuring that the HTTP orchestration layer remains highly responsive to incoming network requests even when the GPU is saturated.
 
-\section{Multilingual Handling}
-\begin{itemize}
-    \item Explain the translation layer and the use of canonical model-facing language when needed.
-    \item Describe the current English/Czech output modes and how translation is applied to both user input and model response.
-    \item Discuss translation-related failure modes and semantic drift.
-\end{itemize}
+% TL;DR: Identical API contracts across runtime modes keep client integration stable.
+Crucially, the system maintains identical request and response schemas regardless of whether it is running in single-process mode or distributed RPC mode. The robot client utilizes a single, unified API interface that abstracts away the underlying deployment topology. This architectural guarantee ensures that the system can scale from a local laptop testing environment to a multi-GPU cloud server without necessitating any modifications to the robot's networking logic.
 
-\section{Failure Handling and Practical Limitations}
-\begin{itemize}
-    \item Describe response fallback behavior under timeouts, malformed outputs, unavailable services, or missing visual context.
-    \item Discuss remaining limits of prompt-only grounding, short conversation memory, and scene-memory incompleteness.
-    \item Explicitly identify which limitations belong to the current implementation and which are reserved for future work.
-\end{itemize}
+% TL;DR: Process isolation improves robustness by reducing cross-component failure propagation.
+Isolating heavy inference in a worker process fundamentally improves the operational stability of the system. If a large vision-language model causes an Out-Of-Memory (OOM) error or stalls during inference, the crash is contained within the worker process. The main orchestration layer intercepts the RPC timeout, gracefully returns a controlled error to the robot, and initiates a worker restart, thereby preventing a total system collapse and keeping the interaction loop alive.
 
+\section{Visual Perception and Tracking}
+\label{sec:perception_tracking}
 
-\section{Role of the \texttt{research} Package}
-\begin{itemize}
-    \item Explain that the repository contains both production code and research tooling.
-    \item Clearly separate the newer structured experiment pipeline from older exploratory scripts and notebooks.
-    \item State which parts directly support the thesis evaluation.
-\end{itemize}
+% TL;DR: Perception starts from a detector abstraction that decouples downstream logic from concrete models.
+The perception module begins with a generalized detector abstraction interface. This interface normalizes the outputs of various computer vision models into a standard schema of bounding boxes, confidence scores, and class labels. By decoupling the downstream tracking and memory logic from the concrete implementation of the detection model, the architecture remains highly adaptable to future advancements in computer vision.
 
-\section{Structured Experiment Pipeline}
-\begin{itemize}
-    \item Present the newer \texttt{research.experiments} pipeline as the primary evaluation framework.
-    \item Describe its phases in execution order:
-    \begin{itemize}
-        \item image description generation;
-        \item vocabulary mining;
-        \item draft scene graph generation;
-        \item context-rot experiments;
-        \item scene graph evaluation.
-    \end{itemize}
-    \item Explain the purpose of run metadata, stage metrics, and artifact saving.
-\end{itemize}
+% TL;DR: YOLO, RF-DETR, and OWL provide configurable tradeoffs between speed and capability.
+Currently, the implementation supports YOLO, RF-DETR, and OWL-ViT as interchangeable detection backends. This configurability allows operators to tune the system according to specific deployment needs: YOLO provides high-speed closed-set baselines suitable for constrained environments, RF-DETR offers state-of-the-art transformer-based accuracy, and OWL-ViT enables zero-shot open-vocabulary detection for open-ended, environment-specific dialogue without requiring manual dataset annotation.
 
-\section{Reuse of Production Components in Experiments}
-\begin{itemize}
-    \item Describe the research adapters that import and reuse production detection, caption, LLM, and VLM code.
-    \item Explain why this is important scientifically: the offline experiments should evaluate the same or very similar components as the deployed system.
-\end{itemize}
+% TL;DR: Multi-object tracking preserves identity across discrete frames through persistent track IDs.
+Because the robot captures the environment through discrete, discontinuous head scans rather than a continuous video stream, multi-object tracking must preserve identity across significant spatial displacements. The tracking module links observations over time by computing geometric overlap (Intersection over Union) and comparing semantic appearance embeddings extracted via models like C-RADIOv4. This process assigns stable, persistent IDs to detected entities, allowing later modules to reason coherently about the same object across multiple conversational turns.
 
-\section{Description Generation and Vocabulary Mining}
-\begin{itemize}
-    \item Describe the description phase: detect objects, then generate detailed captions focused on those detections.
-    \item Describe the vocabulary phase: extract candidate predicates and attributes per image, then consolidate them into a final vocabulary.
-    \item Explain why vocabulary design is a key variable for scene graph quality and dialogue usefulness.
-\end{itemize}
+% TL;DR: Robot-Native Perception Fusion aligns visual tracks with Pepper's ALPeoplePerception stream.
+A critical innovation in this pipeline is the Robot-Native Perception Fusion, which geometrically aligns the server-side visual bounding boxes with the native \texttt{ALPeoplePerception} data transmitted by the robot. By mapping the camera's field-of-view against the yaw and pitch coordinates reported by Pepper's internal sensors, the server matches purely visual human detections with the robot's proprietary social tracking framework.
 
-\section{Draft Scene Graph Generation}
-\begin{itemize}
-    \item Describe the construction of SoM-marked images for offline scene-graph prompting.
-    \item Explain prompt rendering from detected objects, vocabulary, and captions.
-    \item Describe the use of structured output schemas for draft graph generation.
-\end{itemize}
+% TL;DR: Fused human tracks carry social cues that enrich downstream scene understanding.
+Following a successful geometric match, the visual human tracks are enriched with explicit social cues extracted from the robot's sensors. These cues include engagement zone proximity, waving detection, smile indicators, and estimated demographic data (age and gender). Injecting these embodied social signals into the tracking pipeline transforms a generic visual bounding box into a socially aware entity, which becomes a first-class input for scene graph generation and grounded dialogue.
 
-\section{Context-Rot and Sensitivity Experiments}
-\begin{itemize}
-    \item Explain the idea behind context-rot: reducing available vocabulary and measuring degradation in graph output.
-    \item Describe how vocabulary slices are built and evaluated.
-    \item Explain how prompt sensitivity is later summarized across runs.
-\end{itemize}
+\section{Scene Memory and Graph Generation}
+\label{sec:scene_memory}
 
-\section{Scene Graph Evaluation Metrics}
-\begin{itemize}
-    \item Define the core metrics implemented by the code:
-    \begin{itemize}
-        \item strict triplet precision, recall, and F1;
-        \item binary relation triplet metrics;
-        \item unary attribute metrics;
-        \item relation-pair metrics;
-        \item predicate-only metrics;
-        \item overgeneration and undergeneration rates;
-        \item optional normalized graph edit distance.
-    \end{itemize}
-    \item Explain micro-averaging and per-predicate summaries.
-    \item Describe image-potency statistics and why they help characterize scene complexity.
-\end{itemize}
+% TL;DR: Scene Memory keeps temporal context by storing active and dormant tracks.
+To support coherent, multi-turn dialogue, the system maintains a persistent Scene Memory that stores per-track state beyond a single frame. This memory structure holds class labels, geometric coordinates, timestamps, and the fused social attributes. By querying this persistent state rather than relying solely on the latest image capture, the robot can answer questions about objects that have temporarily left its field of view.
 
-\section{System-Level Evaluation Protocol}
-\begin{itemize}
-    \item Define what should be evaluated on the deployed system itself:
-    \begin{itemize}
-        \item latency of captioning, detection, memory update, scene graph generation, and end-to-end chat;
-        \item stability of tracked identities across frames and scans;
-        \item usefulness of Pepper social fusion for person-centered dialogue;
-        \item qualitative quality of grounded robot responses in interactive scenarios.
-    \end{itemize}
-    \item Explain how pipeline stage timings exposed by the server can be used for runtime profiling.
-\end{itemize}
+% TL;DR: Explicit aging rules govern track lifecycle transitions to manage memory bloat.
+The memory manager applies explicit aging rules to govern the lifecycle of tracked entities. When regular observations of an object cease, the track transitions from an `active` state to a `dormant` state. Aging thresholds dictate how long a dormant track is retained in memory before it is permanently pruned, ensuring that the system does not hallucinate the presence of objects that were removed from the room long ago.
 
-\section{Legacy Exploratory and Training Pipelines}
-\begin{itemize}
-    \item Describe the older exploratory workflows, but keep them clearly secondary to the main evaluation story.
-    \item Mention:
-    \begin{itemize}
-        \item automated SoM scene-graph dataset generation with Grounding DINO and an LLM labeler;
-        \item knowledge distillation for detector training data;
-        \item detector training for RT-DETR or YOLO;
-        \item LoRA-based VLM fine-tuning with Unsloth.
-    \end{itemize}
-    \item Explain whether these are reported as completed experiments, supporting tooling, or future-ready extensions.
-\end{itemize}
+% TL;DR: Reactivation restores continuity when an old entity reappears.
+If new visual observations geometrically and semantically match a dormant entry, the memory manager reactivates the existing track rather than spawning a new identity. This reactivation policy significantly reduces identity churn and reference failures, enabling the dialogue system to seamlessly resume discussing an entity after brief occlusions or sensor misses.
+
+% TL;DR: Scene graph generation combines deterministic geometry with learned semantic reasoning.
+Drawing from the populated Scene Memory, the graph generation module constructs a structured representation of the environment. It employs a hybrid neuro-symbolic approach: first, it computes deterministic spatial relations (e.g., `left-of`, `right-of`, `overlapping`) using fast geometric rules. Subsequently, it augments this rigid spatial framework with complex semantic relations inferred by a Vision-Language Model.
+
+% TL;DR: Set-of-Mark prompting ties semantic predictions to concrete tracked entities.
+To prevent the Vision-Language Model from hallucinating relations or failing to disambiguate multiple instances of the same class, the pipeline applies Set-of-Mark (SoM) prompting. By overlaying explicit alphanumeric markers onto the image before inference, the VLM is forced to reference the exact, tracked IDs present in the Scene Memory, strongly anchoring its semantic predictions to stable physical entities.
+
+% TL;DR: Self-referential attribute edges provide a uniform graph representation for properties and relations.
+Within the generated Scene Graph, object attributes (such as color, state, or social cues) are elegantly encoded as self-referential edges (unary relations) on the respective object nodes. This architectural choice unifies the data schema, allowing the downstream dialogue manager to query object properties and spatial relations using identical, simplified graph traversal logic.
+
+\section{Grounded Dialogue Generation}
+\label{sec:grounded_dialogue}
+
+% TL;DR: ChatService is the final orchestration layer that builds prompts from scene context.
+The \texttt{ChatService} serves as the final orchestration layer, acting as the critical bridge between the structured scene representation and natural language output. Depending on the user's intent, it selects the appropriate dialogue mode, gathers the necessary context from Scene Memory, constructs the system prompt, invokes the LLM, and returns the grounded textual response to the robot.
+
+% TL;DR: General Chat uses CAG with the full graph for broad scene-level questions.
+When operating in General Chat mode, the service addresses broad, scene-level inquiries (e.g., "Describe the room"). It injects the full, serialized Scene Graph and recent descriptive captions directly into the LLM's prompt. This approach utilizes Cache-Augmented Generation (CAG), bypassing computationally heavy vector retrieval to provide the model with absolute, non-probabilistic access to the entire current physical state.
+
+% TL;DR: Object-Focused Chat uses RAG over a 1-hop neighborhood for precise object questions.
+Conversely, in Object-Focused mode (e.g., "Tell me about the laptop"), the service queries the Scene Graph for a specific tracked entity. It extracts a localized 1-hop subgraph---containing only the target node, its self-referential attributes, and its immediate relational edges---and uses this as Retrieval-Augmented Generation (RAG) context. This targeted subgraph retrieval keeps prompts highly compact and ensures the LLM generates precise, object-centric answers without being distracted by irrelevant background entities.
+
+% TL;DR: Vision Chat bypasses memory and sends the current image directly to a VLM.
+For scenarios requiring dense visual reasoning that cannot be easily captured by a graph (e.g., reading text or interpreting fine-grained textures), the system supports a direct Vision Chat mode. This pathway bypasses the persistent Scene Memory entirely, forwarding the raw image and the user's question directly to a Vision-Language Model, sacrificing long-term identity tracking in exchange for immediate, high-fidelity visual reasoning.
+
+% TL;DR: A bilingual translation layer supports Czech and English with one internal dialogue core.
+To support diverse user demographics, the \texttt{ChatService} incorporates a seamless bilingual translation layer. It intercepts Czech input, translates it to English for canonical model-facing reasoning, and translates the generated response back to Czech before transmission to the robot. This architecture allows the system to utilize the most advanced English-centric LLMs while providing a native multilingual experience.
+
+% TL;DR: Pre-generated QA pairs reduce latency for frequent intents and keep a fallback path.
+Finally, to minimize latency for highly predictable user queries, the pipeline automatically pre-generates specific Question-Answer pairs based on the current Scene Graph during the perception phase. When the user asks a recognized question, the service returns the cached answer instantly. If the question falls outside this pre-generated pool, the system seamlessly falls back to full, graph-grounded LLM generation, ensuring a continuous and responsive conversational flow.

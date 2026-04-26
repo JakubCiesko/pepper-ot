@@ -1,145 +1,85 @@
-\chapter{System Architecture and Design}
+\chapter{System Architecture and Design}\label{chap:system_architecture}
 
-\section{Use Cases and Interaction Scenarios}
-\begin{itemize}
-    \item Define the concrete user-facing interaction modes implemented by the system: \texttt{look}, \texttt{scan}, \texttt{ask}, \texttt{refreshAndAsk}, and conversation reset.
-    \item Describe typical scenarios such as single-frame captioning, multi-frame scan summaries, object-oriented follow-up questions, and direct vision chat over an uploaded image.
-    \item State which scenarios are evaluated offline and which are evaluated in embodied robot interaction.
-\end{itemize}
+% TL;DR: This chapter gives the system-level map and defers implementation details to Chapters 4 and 5.
+This chapter defines the system requirements, high-level architecture, and interface-level data flow for the scene-aware dialogue system deployed on the Pepper robot. It explains the core design decisions that govern the interaction between the robot and the server, establishing the conceptual map necessary before diving into the specific implementation details in Chapter~\ref{chap:server_side} (Server-Side Integration) and Chapter~\ref{chap:robot_side} (Robot-Side Integration).
 
-\section{Functional Requirements}
-\begin{itemize}
-    \item Remote image processing from Pepper.
-    \item Configurable object detection backends.
-    \item Persistent object identities across frames.
-    \item Scene graph generation with attributes and relations.
-    \item Integration of Pepper-native people and social perception into the world model.
-    \item Grounded dialogue based on current scene memory and recent conversation history.
-    \item Multilingual output support.
-    \item Runtime configuration, monitoring, and memory inspection through a dashboard.
-    \item Offline experimental tooling for prompt, vocabulary, and graph-quality studies.
-\end{itemize}
+\section{Requirements and Constraints}\label{sec:requirements_constraints}
 
-\section{Non-Functional Requirements and Constraints}
-\begin{itemize}
-    \item Pepper-side hardware and software limitations.
-    \item Network dependence and the need for graceful degradation.
-    \item Latency constraints for interactive dialogue.
-    \item Modularity and provider interchangeability.
-    \item Traceability of intermediate states for debugging and evaluation.
-    \item Safety and robustness under partial sensor failure, provider failure, or malformed structured outputs.
-\end{itemize}
+% TL;DR: The core goal is real-time, scene-grounded spoken interaction.
+The fundamental requirement of the system is to support spoken interaction that remains tightly grounded in the current physical scene surrounding the robot. To achieve this, the architecture must continuously acquire visual data, interpret the spatial and semantic relationships within that data, and constrain the language generation process to reflect these observations. A fluent conversational agent that hallucinates objects or ignores the immediate physical context fails to meet this primary objective.
 
-\section{Design Principles}
-\begin{itemize}
-    \item Separate robot-side sensing and interaction from server-side heavy inference.
-    \item Keep state explicit and inspectable through a structured scene memory.
-    \item Prefer configurable components over hard-coded pipelines.
-    \item Support both fast approximate reasoning and slower richer reasoning.
-    \item Reuse production components inside the research pipeline where possible.
-\end{itemize}
+% TL;DR: Turn latency must stay low enough for natural dialogue flow.
+Consequently, the system must process this multimodal information within an interaction tempo that feels natural to human users. If the latency between a user's question and the robot's spoken response exceeds a few seconds, the natural flow of conversation breaks down, and user engagement sharply declines. Therefore, achieving near real-time performance is a strict architectural constraint that directly influences the choice of models and the distribution of computational load.
 
-\section{System Boundaries}
-\begin{itemize}
-    \item Clarify what is in scope: perception, memory, grounded dialogue, runtime configuration, and evaluation tooling.
-    \item Clarify what is not fully implemented or not central: full autonomous action planning, navigation, long-term vector memory, and broad manipulation-oriented robot control.
-\end{itemize}
+% TL;DR: Perception uses discrete low-rate scans (left/center/right), not continuous video.
+Furthermore, the perception loop must operate within the mechanical constraints of the Pepper platform, which relies on discrete visual scans rather than a continuous high-framerate video stream. Because the robot surveys its environment by panning its head to distinct poses (e.g., left, center, right) and acquiring snapshots at each angle, objects exhibit massive spatial displacement between observations. The architecture must robustly handle these low-framerate, discontinuous inputs without losing object permanence.
 
+% TL;DR: The system must fuse robot-native sensing with server-side vision outputs.
+In addition to camera data, the system is required to fuse robot-native sensory signals with server-side vision outputs. Pepper possesses built-in social perception capabilities, including the ability to report people's engagement zones, smile indicators, and sonar context. An effective architecture must merge these embodied social cues with the semantic object detections to form a unified, socially aware world model.
 
-\section{End-to-End Processing Pipeline}
-\begin{itemize}
-    \item Present the complete data flow from Pepper image capture to spoken answer.
-    \item Include the main stages: capture, metadata collection, HTTP request, server-side inference, memory update, dialogue generation, and robot speech output.
-    \item Add a figure with the full end-to-end architecture.
-\end{itemize}
+% TL;DR: Dialogue must stay open-ended but grounded in persistent scene memory.
+The dialogue module must support open-ended, generative conversation while firmly grounding each answer in both current observations and persistent memory from previous turns. Rather than relying on rigid, pre-scripted intent trees, the system must leverage Large Language Models (LLMs) to handle unpredictable user queries, utilizing the structured scene memory to ensure factual accuracy over the course of the interaction.
 
-\section{Deployment Topology}
-\begin{itemize}
-    \item Describe the three main runtime domains: Pepper client, FastAPI orchestration server, and optional worker process.
-    \item Explain when inference runs in-process and when it is delegated to the worker runtime.
-    \item Discuss external providers, local GPU models, and optional tunnel exposure for remote access.
-\end{itemize}
+% TL;DR: Pepper hardware and Python 2.7 limit onboard intelligence and require offloading.
+However, Pepper provides excellent embodiment and social interaction features but suffers from severe onboard computational limitations. Its legacy Python 2.7 environment and lack of modern GPU acceleration make it entirely incapable of running state-of-the-art heavy perception pipelines, Vision-Language Models (VLMs), or LLMs locally. Consequently, heavy computational reasoning must be offloaded.
 
-\section{Communication Interfaces and Data Contracts}
-\begin{itemize}
-    \item Describe the REST endpoints for captioning, detection, chat, vision chat, configuration, worker control, and memory access.
-    \item Explain the robot metadata payload and why it is essential for person fusion and geometric reasoning.
-    \item Describe the WebSocket channel used by the dashboard for live updates.
-\end{itemize}
+% TL;DR: A stable API must bridge heterogeneous runtimes (robot legacy stack vs modern server stack).
+This hardware constraint dictates that the architecture must connect highly heterogeneous runtimes through a stable communication boundary. The system must seamlessly bridge the legacy NAOqi software stack running on the robot with a modern, GPU-accelerated server stack running Python 3, ensuring reliable data serialization and transport across the network.
 
-\section{Runtime Configuration and Reconfiguration}
-\begin{itemize}
-    \item Describe the YAML plus Pydantic configuration model.
-    \item Explain the difference between hot updates and hard reloads.
-    \item Discuss configurable backends, prompts, ontology sources, worker settings, tracking settings, and pipeline presets.
-\end{itemize}
+% TL;DR: Network dependence introduces reliability constraints and recovery requirements.
+Because the robot inherently depends on offboard inference, the system must tolerate variable network latency and temporary connection issues without collapsing the interaction loop. Network dependence introduces points of failure that a purely local system would not face, making asynchronous turn management and robust error handling essential components of the design.
 
-\section{Observability, Persistence, and Operator Control}
-\begin{itemize}
-    \item Describe the dashboard as a practical engineering component, not only a debugging aid.
-    \item Cover live image display, scene graph view, conversation view, memory view, and configuration editing.
-    \item Discuss optional persistence of the last state and image.
-\end{itemize}
+% TL;DR: The system needs graceful fallback behavior to keep interaction coherent under failures.
+When perception pipelines fail, network timeouts occur, or language generation yields malformed outputs, the robot must exhibit graceful fallback behavior. Delivering short, safe, pre-scripted responses allows the robot to maintain the illusion of competence and continue the interaction in the next turn, rather than crashing or freezing silently.
 
+% TL;DR: Chapter 3 keeps requirements at system level and defers implementation-level specifics.
+While this section defines the overarching system-level constraints and requirements, the concrete API schemas, model hyperparameters, database structures, and specific exception-handling code paths are deliberately deferred to the subsequent implementation chapters.
 
+\section{High-Level System Architecture}\label{sec:high_level_architecture}
 
-\section{NAOqi Application Structure}
-\begin{itemize}
-    \item Introduce the Pepper client service and its lifecycle.
-    \item Describe how the application initializes adapters, loads configuration, and exposes robot methods such as \texttt{look}, \texttt{scan}, \texttt{ask}, and \texttt{resetConversation}.
-    \item Mention the practical consequence of the client being implemented in Python 2 within the robot ecosystem.
-\end{itemize}
+% TL;DR: The architecture uses a Body--Brain split.
+To satisfy the aforementioned constraints, the system is structured around a strict two-part architecture: the Pepper robot acts as the \textit{Body}, while an external FastAPI-based compute server acts as the \textit{Brain}. This topology enforces a clear separation of concerns, decoupling the physical interaction layer from the heavy cognitive processing layer.
 
-\section{Turn Management and Interaction Logic}
-\begin{itemize}
-    \item Describe the \texttt{TurnManager} as the coordination layer for user-visible interaction.
-    \item Explain busy-state protection, acknowledgement speech, thread-based turn execution, and fallback behavior under failure.
-    \item Describe each turn type separately:
-    \begin{itemize}
-        \item \texttt{look}: capture one frame, request a caption, optionally trigger background detection;
-        \item \texttt{scan}: move the head over predefined yaw angles, process multiple frames, optionally summarize the scan through chat;
-        \item \texttt{ask}: optionally refresh visual context, then run grounded chat;
-        \item \texttt{refreshAndAsk}: force a visual refresh before answering.
-    \end{itemize}
-\end{itemize}
+% TL;DR: Body handles embodiment, capture, NAOqi social metadata, speech, tablet, and head control.
+The Body is exclusively responsible for managing physical embodiment and sensory acquisition. During each interaction turn, the robot client controls speech output, orchestrates head movements for scanning, captures image frames, updates the tablet UI, and extracts social metadata from the native NAOqi APIs. It does not perform any deep learning inference or complex decision-making.
 
-\section{Visual Acquisition}
-\begin{itemize}
-    \item Describe the camera adapter built on ALVideoDevice.
-    \item Explain frame capture, JPEG encoding, field-of-view retrieval, and timing metadata.
-    \item Mention the fake-camera path used for testing and simulation.
-\end{itemize}
+% TL;DR: Brain handles heavy perception, memory, and grounded chat generation.
+Conversely, the Brain is responsible for all heavy perception, memory management, and grounded chat generation. Upon receiving data from the Body, the server executes object detection, multi-object tracking with appearance-based re-identification, scene graph generation, and scene captioning. It then updates a persistent memory structure and executes the LLM-based dialogue generation.
 
-\section{Robot Context Collection}
-\begin{itemize}
-    \item Explain the role of the \texttt{RobotContextCollector}.
-    \item Describe how pose, people perception, face detection, social signals, and sonar measurements are collected.
-    \item Cover the specific robot-side sources:
-    \begin{itemize}
-        \item people IDs, yaw, pitch, and distance from ALPeoplePerception;
-        \item face labels and confidence from ALFaceDetection;
-        \item gaze, engagement, waving, sitting, age, gender, smile, and expression cues from NAOqi social modules;
-        \item left and right sonar measurements.
-    \end{itemize}
-\end{itemize}
+% TL;DR: This split is justified by responsiveness, compute limits, and maintainability.
+This fundamental split is justified by the need to balance immediate physical responsiveness with massive computational requirements. By moving compute-heavy reasoning to external hardware equipped with modern libraries and GPU acceleration, the robot's local CPU remains free to ensure smooth motor control and uninterrupted audio processing, preventing the physical platform from stalling during inference.
 
-\section{Metadata Construction and Session State}
-\begin{itemize}
-    \item Describe the metadata payload sent together with each image.
-    \item Explain frame IDs, scan IDs, capture mode, camera geometry, and attached people/social information.
-    \item Describe the local session store: chat ID, last caption, last detection timestamp, selected output language, and server base URL.
-\end{itemize}
+% TL;DR: Clear state ownership separates short-lived client state from persistent server memory.
+Furthermore, this architecture enforces clear state ownership, strictly separating short-lived client state from persistent server memory. The Body only manages the state necessary for the current interaction turn (e.g., the current chat ID or the immediate audio buffer), while the Brain acts as the single source of truth for the long-term, evolving representation of the physical scene across multiple turns and sessions.
 
-\section{Robot-Side Transport, Speech, and Tablet Output}
-\begin{itemize}
-    \item Describe the HTTP transport layer and its request types for caption, detect, chat, conversation reset, and config patching.
-    \item Explain timeout and malformed-response handling.
-    \item Describe speech synthesis and animated speech fallback.
-    \item Describe the tablet adapter used to display the server dashboard on Pepper.
-\end{itemize}
+% TL;DR: The split supports future portability to other robots or deployments.
+Finally, this decoupled design significantly enhances the modularity and portability of the system. Because the heavy perception and dialogue logic is entirely abstracted behind standard HTTP interfaces on the Brain, adapting the system to a different robotic platform simply requires implementing a new, lightweight Body client, without necessitating a rewrite of the core AI architecture.
 
-\section{Client-Side Limitations and Trade-Offs}
-\begin{itemize}
-    \item Discuss Python 2 compatibility, request blocking, network dependence, and limited local reasoning.
-    \item Explain why the client focuses on sensing, metadata packaging, and interaction orchestration rather than heavy intelligence.
-\end{itemize}
+\section{Communication Interfaces and Data Flow}\label{sec:communication_data_flow}
+
+% TL;DR: Each turn follows a request-response loop from user speech to robot action.
+At the interface level, every interaction within the system follows a structured request-response loop that originates with user speech and culminates in synchronized robot speech and tablet output. The architecture treats each verbal exchange as a discrete transaction, ensuring that perception, memory updates, and language generation occur sequentially before the robot physically reacts.
+
+% TL;DR: QiChat intent triggers client-side turn collection.
+The data flow begins when a user utterance activates a specific intent within the robot's local QiChat engine. Once an intent is recognized, it triggers the client-side Python module, which initiates a turn-lock to prevent overlapping commands and begins the process of sensory data acquisition.
+
+% TL;DR: Client packages images and metadata in one multipart HTTP request.
+To minimize network overhead and preserve turn-level synchronicity, the client packages all acquired data into a single, comprehensive payload. Captured image frames and the corresponding robot metadata (including head pose, sonar readings, and detected people) are bundled together and transmitted to the server as a unified multipart HTTP request.
+
+% TL;DR: Server runs detection, tracking/Re-ID, scene graph, and caption in pipeline order.
+Upon receiving the payload, the server routes the data through a sequential perception pipeline. The image and metadata first pass through the object detection and tracking modules to establish identities, followed immediately by the scene graph construction and image captioning modules to extract rich semantic and relational context.
+
+% TL;DR: Server updates persistent Scene Memory before generation.
+Crucially, before any dialogue generation occurs, the server commits the newly extracted perception data into the persistent Scene Memory. This intermediate step ensures that the subsequent language generation relies on a stable, updated world model, allowing future turns to reference entities and relations that were established in the current turn.
+
+% TL;DR: Grounded chat uses current observations plus retrieved memory context (RAG/CAG).
+With the Scene Memory updated, the server invokes the grounded chat generation service. This service dynamically constructs a prompt that combines the user's original query with retrieved context from the structured memory, effectively utilizing the Cache-Augmented Generation (CAG) paradigm to constrain the LLM's response to the factual physical state.
+
+% TL;DR: Server returns response text; client updates local state, speech, and tablet.
+Once the LLM generates a grounded response, the server returns the text to the client. The client then updates its local session state, triggers the Pepper speech synthesis engine to vocalize the response, and simultaneously pushes a new visualization of the scene graph to the robot's chest-mounted tablet.
+
+% TL;DR: Error paths and logging keep the loop recoverable and debuggable.
+Throughout this entire data flow, the communication interface enforces explicit error handling and comprehensive logging. If the server times out, returns a malformed response, or encounters an inference error, the client gracefully intercepts the failure, emits a localized fallback phrase, and releases the turn-lock to ensure the system remains recoverable and debuggable.
+
+% TL;DR: Chapter 3 defines interfaces and flow; Chapters 4 and 5 provide module-level internals.
+While this chapter has established the high-level communication contract and architectural flow, the exact mechanisms by which the server executes this pipeline, and the specific APIs utilized by the robot client, are detailed exhaustively in Chapter~\ref{chap:server_side} and Chapter~\ref{chap:robot_side}.

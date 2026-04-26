@@ -1,4 +1,4 @@
-\chapter{Introduction}
+\chapter{Introduction}\label{chap:intro}
 
 The motivation behind this thesis as well as the research problem and overall direction is introduced in this chapter. 
 First, the work is situated within the broader field of human-robot interaction (HRI) and the growing role of social robots in real-world environments. 
@@ -7,7 +7,7 @@ Based on this motivation, the research objectives and questions are formulated a
 
 \section{Motivation}
 
-Social robots, that is, robots designed for interaction, communication, and assistance in human-centered environments, are becoming increasingly present in everyday life. They are already being deployed in domains such as healthcare~\cite{Han2024HRIHealthcare, liao_use_2023}, assisted living, education~\cite{latif_physicsassistant_2024,sievers_humanoid_2025}, public services, and industry~\cite{brad_retrieval-augmented_2025}. As their presence expands, social robotics is no longer only an experimental research topic for the labs, but an increasingly practical technological reality. This broader adoption also raises a fundamental question: how can robots operate meaningfully in environments shaped by human needs and expectations?
+Social robots, that is, robots designed for interaction, communication, and assistance in human-centered environments, are becoming increasingly present in everyday life. They are already being deployed in domains such as healthcare~\cite{Han2024HRIHealthcare, liao_use_2023}, assisted living, education~\cite{latif_physicsassistant_2024,sievers_humanoid_2025}, public services \cite{horak_v_2018}, and industry~\cite{brad_retrieval-augmented_2025}. As their presence expands, social robotics is no longer only an experimental research topic for the labs, but an increasingly practical technological reality. This broader adoption also raises a fundamental question: how can robots operate meaningfully in environments shaped by human needs and expectations?
 
 This question places human-robot interaction (HRI) at the center of contemporary robotics research. Sheridan's well-known taxonomy distinguishes supervisory control, teleoperation, automated vehicles, and social interaction~\cite[525--526]{Sheridan2016HRI}. This thesis focuses on the latter category, in which robots are expected to assist, guide, teach, comfort, or accompany users through direct engagement. While the emphasis here is on social interaction, the underlying challenge extends beyond a single Sheridan's HRI category. As robots move from tightly controlled industrial settings into shared human environments, success depends on both mechanical capability and the quality of their interactions with users.
 
@@ -19,16 +19,22 @@ Across these examples, a common conclusion emerges: the usefulness of a social r
 
 This requirement naturally leads to the concept of conversational grounding, the process by which interlocutors establish and maintain a shared understanding of what is being discussed \cite{Clark_1996}. For interaction to be meaningful, a robot should not merely generate fluent responses, but relate them to what it currently perceives. In practice, this includes identifying relevant objects and people, recognizing attributes and relationships, and responding in a way that is consistent with the observed environment. 
 
-Grounding helps reduce ambiguity, repair misunderstandings, and align system responses with both user intent and contextual constraints. It is particularly important in human-robot interaction, where the absence of shared embodiment and lived experience can make mutual understanding more difficult~\cite[611]{skantze-dogruoz-2023-open}. Moreover, Lee and Makatchev have also shown that users may assume that a physically present robot is aware of its surroundings and able to refer to them appropriately, which further increases the need for grounded behaviour~\cite[3771]{makatchev}. Without such grounding, conversational ability can create only an illusion of understanding rather than genuine situational competence.
+Grounding helps reduce ambiguity, repair misunderstandings, and align system responses with both user intent and contextual constraints. It is particularly important in human-robot interaction, where the absence of shared embodiment and lived experience can make mutual understanding more difficult~\cite[611]{skantze-dogruoz-2023-open}.
+ 
+Moreover, Lee and Makatchev have also shown that users may assume that a physically present robot is aware of its surroundings and able to refer to them appropriately, which further increases the need for grounded behaviour~\cite[3771]{makatchev}. Without such grounding, conversational ability can create only an illusion of understanding rather than genuine situational competence.
 
 Recent advances in large language models (LLMs) have made this issue even more important. LLM-based systems can replace traditionally modular pipelines composed of automatic speech recognition, intent detection, dialogue management, and text-to-speech with a more unified generative framework~\cite{aturhurra_leveraging_2024}. This enables more flexible and natural interaction, but it also increases user expectations that the robot genuinely understands the current situation. 
 
 Even though LLM-based systems can substantially improve conversational richness and engagement, fluent language without perceptual grounding creates a mismatch between apparent competence and real-world understanding~\cite{kim_understanding_2024} [PAGE]. In socially assistive settings, this mismatch also raises broader concerns related to trust and bias resulting in requirements for more responsible deployment~\cite{aturhurra_leveraging_2024}.
 
 
-Achieving grounded interaction, however, requires more than combining strong perception models with fluent language generation. Object detection and language modeling have advanced rapidly, but this does not by itself yield an integrated understanding of a scene. Perception and dialogue operate at different levels of abstraction and therefore require an intermediate representational layer. A structured scene representation, such as a scene graph describing objects, their attributes, and their relationships, provides a bridge between low-level visual outputs and higher-level reasoning~\cite{johnson_image_2015}. Such representations support relational queries, more precise references, and more coherent communication about the environment.
+Achieving grounded interaction, however, requires more than combining strong perception models with fluent language generation. Object detection and language modeling have advanced rapidly, but this does not by itself yield an integrated understanding of a scene. Perception and dialogue operate at different levels of abstraction and therefore require an intermediate representational layer. 
 
-A further requirement is persistence over time. Real-world interaction is rarely limited to a single observation; it unfolds across multiple conversation turns and changing scenes. In language-only systems, this role is partly addressed through conversational context windows. For embodied agents, however, maintaining context also requires memory of the external world. A robot should therefore preserve object identity across observations, update relevant attributes and relationships, and support questions not only about the current scene but also about past context. More broadly, this reflects a general challenge in robotics: higher-level competence increasingly depends on persistent and semantically rich scene representations rather than purely geometric or single-frame perception~\cite{mascaro_scene_2025,peng_object_2024}.
+A structured scene representation, such as a scene graph describing objects, their attributes, and their relationships, provides a bridge between low-level visual outputs and higher-level reasoning~\cite{johnson_image_2015}. Such representations support relational queries, more precise references, and more coherent communication about the environment.
+
+A further requirement is persistence over time. Real-world interaction is rarely limited to a single observation; it unfolds across multiple conversation turns and changing scenes. In language-only systems, this role is partly addressed through conversational context windows. For embodied agents, however, maintaining context also requires memory of the external world. 
+
+A robot should therefore preserve object identity across observations, update relevant attributes and relationships, and support questions not only about the current scene but also about past context. More broadly, this reflects a general challenge in robotics: higher-level competence increasingly depends on persistent and semantically rich scene representations rather than purely geometric or single-frame perception~\cite{mascaro_scene_2025,peng_object_2024}.
 
 For the Pepper robot, these requirements are accompanied by an additional practical constraint: limited onboard computational resources. State-of-the-art models for detection, captioning, multimodal reasoning, and dialogue generation are computationally demanding and cannot be executed efficiently on Pepper alone.\footnote{One should note that running a lightweight detection could in principle be possible even on not so computationally powerful hardware; but a full pipeline composed of detection, language modeling, and other steps would be impossible to run on edge devices of this capacity.} Therefore, many modern robotic systems rely on distributed architectures in which perception and reasoning are offloaded to external compute resources. 
 
@@ -45,13 +51,13 @@ In this thesis, scene-aware dialogue refers to the robot's ability to identify r
 
 To address this problem, the thesis defines the following core technical objectives:
 
-\begin{itemize}
+\begin{enumerate}
     \item Design a distributed edge-cloud system architecture that overcomes the computational limitations of the robot platform while maintaining interactive latency.
     \item Develop an appearance-based Re-Identification (Re-ID) perception pipeline capable of preserving object identity across the discontinuous, low-framerate visual scans typical of humanoid robots.
     \item Construct a structured, queryable representation of the scene (a Scene Graph) that robustly captures objects, attributes, and spatial relationships.
     \item Enable factually grounded dialogue generation that intelligently leverages the Scene Graph as context, supporting both broad scene summarization and targeted subgraph retrieval.
     \item Evaluate the sensitivity, robustness, and latency of the entire perception-to-language pipeline, particularly concerning vocabulary size, prompt formatting constraints, and scene graph generation methods.
-\end{itemize}
+\end{enumerate}
 
 The overall goal of grounding dialogue in visual scene understanding is informed by prior work such as the system proposed by Grassi et al.~\cite{grassi_grounding_2024}. The use of external computation to address Pepper's hardware constraints follows established approaches based on edge or remote processing~\cite{reyes_near_2018,trinquet_future_2025,brad_retrieval-augmented_2025}. Additional design choices draw on a broader body of related research discussed in the corresponding chapters of this thesis.
 
