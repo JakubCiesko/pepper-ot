@@ -56,7 +56,14 @@
   Hereby I declare that this paper is my original authorial work,
   which I have worked out on my own. All sources, references, and
   literature used or excerpted during elaboration of this work are
-  properly cited and listed in complete reference to the due source.}
+  properly cited and listed in complete reference to the due source.
+  
+  I declare that the ideas and solutions presented in this thesis
+  are my own, those of the cited authors, or a combination thereof. 
+  I used generative artificial intelligence tools only 
+  to assist with code writing and to improve the style and grammar of my thesis. 
+  All AI-generated output was subsequently reviewed and verified by me, I take full responsibility for it.
+  }
 
 \gdef\thesis@english@assignment{%
   \ifthesis@digital@
