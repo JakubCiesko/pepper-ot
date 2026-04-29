@@ -212,6 +212,44 @@ To prevent a mismatch between linguistic competence and actual situational aware
 
 
 
+\section{Grounding and Scene Graph Generation}
+
+Grounding in human-robot interaction means linking linguistic expressions to entities and relations in the robot's perceived world \cite{lemaignan_grounding_2012}. In practice, this requires more than
+raw detections: the robot needs a structured, queryable representation that supports reference resolution across turns. Following this perspective, the system in this thesis uses scene graphs as an
+intermediate representation between perception and dialogue.
+
+A scene graph represents a scene as objects, attributes, and relations \cite{johnson_image_2015}. Let
+\[
+\mathcal{G}=(\mathcal{V},\mathcal{E}),
+\]
+where \(\mathcal{V}\) is a set of object instances and \(\mathcal{E}\) is a set of labeled edges. Each edge is a triplet \((s,p,o)\), where \(s\) is subject, \(p\) is predicate, and \(o\) is object. In
+this thesis, unary attributes are encoded in the same triplet format as self-relations (\(s=o\)), which keeps one uniform data structure for querying both attributes and pairwise relations.
+
+Scene graph generation (SGG) is the task of mapping visual input to this structured graph \cite{zhu_scene_2022}. The literature includes both geometric/rule-based methods and learned methods. Rule-
+based approaches are deterministic and interpretable but limited in semantic richness. Learned approaches are more expressive but can be sensitive to domain shift, class imbalance, and output-format
+constraints \cite{zhu_scene_2022}.
+
+For learned SGG, this thesis uses RelTR as one backend. RelTR formulates SGG as end-to-end set prediction with a transformer encoder-decoder architecture \cite{cong_reltr_2023}. The encoder models
+global visual context, and the decoder predicts a fixed-size set of \((\text{sub},\text{pred},\text{obj})\) triplets using coupled subject-object queries. Training uses matching-based set loss, which
+avoids exhaustive pairwise relation enumeration and supports sparse one-stage prediction \cite{cong_reltr_2023}.
+
+This thesis also uses a VLM-based SGG backend. VLM-based methods generate relation triplets directly from image evidence and prompts, including domain-specific ontologies that can be difficult to cover
+with fixed supervised label spaces. Recent work such as IndVisSGG shows that VLM-based pipelines can produce useful scene graphs with good transfer to new industrial settings and without additional
+object-level annotation in their method setup \cite{wang_indvissgg_2025}. This is relevant for robotics deployments where scene semantics vary across environments.
+
+A practical issue is output formatting. Many SGG pipelines require strict machine-readable outputs (e.g., JSON triplets). However, stricter format constraints can reduce reasoning quality in LLM-style
+generation settings \cite{tam_let_2024}. For this reason, the architecture in this thesis is hybrid: deterministic geometric rules handle stable spatial predicates, while learned backends (RelTR and
+VLM prompting) contribute semantic and interaction relations. The final graph is obtained by merging and filtering backend outputs under one controlled ontology.
+
+Grounding quality also depends on unambiguous visual references. To improve referential precision, the system uses Set-of-Mark style object-indexed prompting, where explicit object markers are rendered
+in the visual input before VLM relation extraction \cite{yang_set-of-mark_2023}. This reduces ambiguity when multiple similar instances are present and supports consistent linking between detection
+IDs, graph nodes, and dialogue references.
+
+In the SGG literature, evaluation is commonly reported under protocols such as Predicate Classification (PredCls), Scene Graph Classification (SGCls), and Scene Graph Detection (SGDet), which separate
+relation prediction difficulty from detector dependence to different extents \cite{zhu_scene_2022}. Because this thesis builds graphs from detected instances in an end-to-end embodied pipeline, its
+practical setting is closest to SGDet conditions, where detection quality and relation quality jointly affect downstream dialogue behavior.
+
+
 \section{Language modeling:\@ LLMs, VLMs}
 
 To generate grounded dialogue, the structured scene representation must be connected to natural language via Large Language Models (LLMs). LLMs are built upon the Transformer architecture, which fundamentally relies on the self-attention mechanism~\cite{vaswani2023attentionneed}. Rather than processing text sequentially like recurrent neural networks, self-attention allows the model to compute a weighted representation of every word in a sequence relative to all other words simultaneously. This mechanism enables the network to capture long-range semantic dependencies and contextual nuances, making autoregressive next-token prediction exceptionally coherent and fluent.
@@ -239,6 +277,54 @@ Recent literature demonstrates the viability of augmenting Pepper with large lan
 % THIS PART WILL BE MOVED TO POSSIBLE FUTURE VLA SECTION OR EXTENSION OF LLM AND VLM SECTION SORT OF WHAT IS THE FUTURE PART OF IT. MAYBE REMOVED COMPLETELY. 
 [WILL-BE-MOVED-TO-VLM/LLMEND]
 Beyond conversational fluency, LLMs are increasingly utilized as high-level semantic planners for embodied agents. The SayCan framework~\cite{ahn_as_2022} pioneered this by grounding LLM reasoning in physical robotic affordances, ensuring that proposed actions are actually executable in the real world. Similarly, paradigms like ``Code as Policies''~\cite{liang_code_2023} demonstrate that LLMs can directly synthesize Python code to map visual perception to robot control primitives. In the context of humanoid robots, Catalini et al.~\cite{catalini_llms_nodate} have demonstrated the capability of LLMs to act as 3D motion planners, generating sequences of joint angles for the NAO robot directly from natural language prompts.
+
+
+
+  \section{Language modeling:\@ LLMs, VLMs}
+
+  In this system, language models connect machine perception to dialogue. Perception modules produce structured representations (detected objects, attributes, scene-graph relations, and memory
+  summaries), and language models convert these structures into responses that are understandable, concise, and contextually appropriate for human-robot interaction. This is not only a text generation
+  problem: the model output must remain faithful to current scene state and to persistent memory.
+
+  Large language models (LLMs) are based on the Transformer architecture, where self-attention computes token-to-token dependencies across the whole context window \cite{vaswani2023attentionneed}. In
+  practice, this means the model does not process text as a strict recurrent chain. Instead, each new token is generated from a representation that already encodes long-range dependencies in the prompt
+  and conversation history. The operational outcome is strong fluency and coherence in multi-turn dialogue, which is essential for a social robot that must keep consistent wording and references over
+  time.
+
+  A base autoregressive model is optimized for next-token prediction, not for reliable instruction following. Instruction-tuned models add an alignment stage that teaches the model to follow user intent
+  and produce safer, more useful responses. InstructGPT-style alignment combines supervised fine-tuning with preference optimization through a reward model and reinforcement learning
+  \cite{ouyang2022traininglanguagemodelsfollow}. For this thesis, that distinction matters: the dialogue module requires instruction-following behavior (grounded answers, bounded style, and schema-
+  constrained outputs), not open-ended continuation.
+
+  Vision-language models (VLMs) extend the same principle to multimodal input. A vision encoder maps image content to latent features, those features are projected into the language model token space,
+  and the decoder then generates text conditioned on both visual and textual context. LLaVA demonstrates this design by connecting a vision encoder to an LLM and instruction-tuning on visual dialogue-
+  style data \cite{liu_visual_2023}. InstructBLIP adds an instruction-aware query transformer that selects visual features relevant to the current prompt before passing them to the language model
+  \cite{dai_instructblip_2023}. PaLM-E further shows how an embodied model can ingest continuous sensor observations and robot-state signals as part of a unified token stream for robotic reasoning
+  \cite{driess_palm-e_2023}. These models differ in architecture, but they share the same core mechanism: visual evidence is translated into language-model-compatible representations.
+
+  Model scale introduces a latency-cost problem for robotics. Dense models activate all parameters for every token, which increases compute and response time. Mixture-of-Experts (MoE) addresses this by
+  routing each token through a small subset of experts while keeping total model capacity high \cite{shazeer2017outrageouslylargeneuralnetworks}. For interactive HRI, this trade-off is practical: larger
+  effective capacity can be used without paying full dense-model inference cost at every decoding step.
+
+  A second practical issue is visual grounding precision. VLMs can produce fluent but weakly grounded outputs when multiple similar objects are present. Set-of-Mark prompting addresses this by drawing
+  explicit visual indices or regions directly onto the image, so the model can refer to concrete marked entities instead of implicit regions \cite{yang_set-of-mark_2023}. Segment Anything provides
+  promptable masks that can be used to create these explicit visual references \cite{kirillov_segment_2023}. Related multimodal work such as Kosmos-2 also formalizes grounding by linking text spans to
+  spatial regions, reinforcing the same idea that language should bind to specific image locations \cite{peng_kosmos-2_2023}.
+
+  Within this thesis pipeline, LLMs and VLMs are assigned distinct roles. The LLM is used for grounded dialogue generation over structured memory and for controlled generation tasks such as concise
+  question-answer pairs. The VLM is used where semantic interpretation of visual content is needed beyond pure geometry. This separation keeps deterministic geometric reasoning in symbolic modules while
+  reserving generative capacity for linguistic compression and higher-level semantic interpretation.
+
+  Recent Pepper-focused studies support this design direction. Retrieval-augmented Pepper assistants have been reported for industrial support scenarios \cite{brad_retrieval-augmented_2025}. Educational
+  and interaction-oriented prototypes combine Pepper with modern perception and language stacks, including YOLO+LLM integrations and object-aware storytelling
+  \cite{latif_physicsassistant_2024,zabala_exploring_2025,wang_target_2024,becerra_improving_2024}. The common pattern is that language quality alone is insufficient: perceived usefulness depends on
+  whether responses remain grounded in what the robot can actually perceive and do.
+
+  The same trend appears in embodied planning literature. SayCan shows how language-model suggestions can be filtered by action feasibility scores before execution \cite{ahn_as_2022}. Code as Policies
+  demonstrates direct synthesis of executable control logic from language instructions \cite{liang_code_2023}. Early humanoid experiments also explore LLM-mediated motion generation pipelines for NAO-
+  like platforms \cite{catalini_llms_nodate}. For this thesis, these works motivate a conservative integration strategy: use language models as high-level semantic interfaces, but keep grounding,
+  constraints, and execution checks explicit in the surrounding robotic system.
+ 
 
 
 
