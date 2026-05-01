@@ -350,3 +350,564 @@ Crucially, this structured approach shifts the cognitive burden placed on the LL
 % THIS WILL BE PART OF PEPPER INTRODCUTION SECTION
 [WILL BE MOVED TO PEPPER INTRO]
 The Pepper robot is a prominent platform for HRI research due to its humanoid form, native tablet interface~\cite{softbank_peppers_tablet_2026}, and built-in speech recognition~\cite{softbank_alspeechrecognition_2026}. However, its onboard computational hardware is severely limited and insufficient for modern deep learning inference. Consequently, achieving near real-time scene understanding on Pepper requires a distributed architecture, where heavy visual and linguistic processing is offloaded to an external server while the robot handles interaction and sensory acquisition~\cite{reyes_near_2018, trinquet_future_2025, brad_retrieval-augmented_2025}.
+
+
+\section{Object Detection, Tracking, and Re-Identification}
+
+  Object detection is the first perception task required for scene-aware dialogue. Formally, given an image \(I\), a detector predicts a set of object hypotheses
+  \[
+  \mathcal{D}(I)=\{(b_i,\ell_i,s_i)\}_{i=1}^{N},
+  \]
+  where \(b_i\) is a spatial localization (typically a bounding box), \(\ell_i\) is a semantic label, and \(s_i\) is a confidence score \cite[Part XIII]{foundationsCVbook}. This formulation separates two
+  coupled subproblems: localization (where an object is) and recognition (what object class it is). In downstream robotics, both errors propagate: localization errors degrade geometry, while label errors
+  degrade semantic grounding.
+
+  Classical detector pipelines can be described as proposal, scoring, and suppression stages \cite{foundationsCVbook}. Even in modern one-stage systems, this logic remains in modified form through dense
+  prediction and subsequent filtering. A key component is non-maximum suppression (NMS), which removes redundant overlapping detections using score ranking and an IoU threshold. NMS is computationally
+  simple and effective, but its greedy nature creates a known precision-recall tradeoff in crowded scenes and partial occlusions \cite{hosang_learning_2017}. This tradeoff is important whenever multiple
+  nearby objects must remain distinguishable for later relational reasoning.
+
+  A central distinction in detector design is vocabulary regime. Closed-vocabulary detectors map visual patterns to a fixed class set learned during training. Their performance therefore depends not only
+  on architecture but also on label coverage in training datasets. In practice, benchmark datasets such as COCO provide broad object coverage, yet still reflect a finite ontology and specific data
+  distribution \cite{lin2015microsoftcococommonobjects}. As a result, domain transfer to specialized environments typically requires either fine-tuning or explicit class remapping.
+
+  The YOLO family represents the dominant real-time closed-vocabulary paradigm. Architecturally, YOLO-style models perform single-pass dense prediction over multi-scale feature maps and then apply
+  confidence and overlap filtering. Their practical strength is throughput under strict latency budgets, which explains their persistent use in embodied and edge-constrained systems
+  \cite{sapkota_ultralytics_2026}. Their main limitation is semantic rigidity: when relevant entities are outside the trained label inventory, recognition quality degrades even if localization remains
+  strong.
+
+  Detection Transformers (DETRs) redefine detection as direct set prediction, replacing dense anchor-style post-processing with learned bipartite matching during training. RT-DETR specifically targets
+  real-time deployment by combining an efficient hybrid encoder with query-based decoding, preserving the end-to-end DETR formulation while improving latency-accuracy balance \cite{zhao_detrs_2024}. RF-
+  DETR extends this line by emphasizing architecture-search-based optimization of the accuracy-latency Pareto frontier for practical deployment constraints \cite{robinson_rf-detr_2026}. The theoretical
+  shift is important: set prediction reduces reliance on hand-designed suppression heuristics and provides cleaner object-level assignment under overlap.
+
+  Open-vocabulary detection addresses a different bottleneck: fixed semantics. Instead of classifying only into a predefined taxonomy, open-vocabulary methods align visual and textual representations in
+  a shared embedding space and perform detection conditioned on text queries. OWL-ViT and OWLv2 exemplify this approach: text prompts define categories at inference time, while contrastive vision-
+  language pretraining supports transfer to unseen labels \cite{minderer_simple_2022,minderer_scaling_2024}. The main benefit is semantic flexibility; the main cost is typically weaker closed-set
+  calibration and higher dependence on prompt design and language-image alignment quality.
+
+  Object detection, however, is only per-frame perception. Scene-aware dialogue also requires object persistence across time. This leads to multi-object tracking (MOT), where the goal is to infer
+  trajectories and stable identities over an image sequence. In state-space form, tracking combines dynamic prediction (commonly linear-Gaussian motion models) with data association between predicted
+  tracks and current detections. Association is usually solved as an assignment problem over a cost matrix derived from geometry and, in modern trackers, appearance similarity.
+
+  Deep SORT and ByteTrack are representative modern MOT strategies. Deep SORT augments geometric association with a learned appearance metric, reducing identity switches under short-term occlusion
+  \cite{wojke_simple_2017}. ByteTrack improves robustness by associating not only high-confidence detections but also lower-confidence candidates that would otherwise be discarded, improving continuity
+  in difficult visibility conditions \cite{zhang_bytetrack_2022}. Both methods are strong when temporal continuity is present, i.e., when consecutive observations have sufficiently smooth motion and
+  partial spatial overlap.
+
+  These prerequisites are not universal. In embodied active perception, observations may be discontinuous in time and viewpoint, and inter-frame overlap can be minimal. Under such conditions, trajectory
+  extrapolation and IoU-driven association become underconstrained: the same object can reappear at substantially different image coordinates, scale, and pose. This motivates reframing persistence as re-
+  identification rather than only frame-to-frame tracking.
+
+  Object re-identification (ReID) is the task of matching object instances across non-contiguous observations using identity-sensitive appearance features rather than local temporal continuity
+  \cite{ye_transformer_2024}. A standard formulation computes an embedding \(f(x)\in\mathbb{R}^d\) for each object crop \(x\), then performs nearest-neighbor or thresholded similarity matching in
+  embedding space. In this family of methods, geometric cues remain useful, but appearance embeddings become the primary identity carrier. Recent foundation backbones, including C-RADIOv4, are relevant
+  because multi-teacher distillation improves transfer across viewpoint and domain variation \cite{ranzinger2026cradiov4techreport}.
+
+  For human identities, robotic platforms can also leverage dedicated face-recognition services provided by onboard middleware. In Pepper’s NAOqi ecosystem, this creates a complementary pathway: generic
+  ReID handles broad object categories, while face-centric modules can support person-specific identity anchoring under suitable enrollment and sensing conditions \cite{softbank_python_sdk_2026}. The
+  broader theoretical conclusion is that persistence is best treated as a hierarchy of cues: motion continuity when available, appearance embeddings for discontinuous views, and category-specific
+  biometric channels when applicable. This layered view provides the conceptual basis for identity-consistent scene understanding in embodied dialogue systems.
+
+
+  \section{Grounding and Scene Graph Generation}
+
+  Grounding in HRI is the process of linking linguistic expressions to entities, events, and relations in the robot’s perceived world \cite{lemaignan_grounding_2012}. In dialogue, this includes
+  referential expressions (e.g., ``the cup on the table'') and relational statements (e.g., ``the person is behind the chair''). The theoretical requirement is bidirectional: language must be resolved
+  into world symbols, and world symbols must be verbalized back into language. Without this bidirectional mapping, conversational fluency does not imply situational understanding.
+
+  A key implication is that object detections alone are not a sufficient substrate for grounded dialogue. Bounding boxes and class labels provide entity hypotheses, but they do not explicitly encode
+  relational structure. Grounded dialogue, by contrast, depends heavily on relational semantics: proximity, support, containment, orientation, and attribute-bearing states. This motivates intermediate
+  structured representations that are more expressive than flat detection lists.
+
+  Scene graphs provide such a representation \cite{johnson_image_2015}. Formally, a scene graph can be written as
+  \[
+  \mathcal{G}=(\mathcal{V},\mathcal{E},\mathcal{A}),
+  \]
+  where \(\mathcal{V}\) is a set of object instances, \(\mathcal{E}\subseteq \mathcal{V}\times \mathcal{P}\times \mathcal{V}\) is a set of labeled binary relations, and \(\mathcal{A}\subseteq
+  \mathcal{V}\times \mathcal{U}\) is a set of unary attributes. In practice, many systems normalize both relation types into triplets \((s,p,o)\), with unary attributes encoded as self-relations or typed
+  node properties. This unification is important because it makes graph querying and downstream reasoning uniform.
+
+  Scene graph generation (SGG) is then the task of estimating \(\mathcal{G}\) from visual input. Given an image \(I\), SGG aims to infer objects and relation triplets
+  \[
+  \{(s_i,p_i,o_i)\}_{i=1}^{M},
+  \]
+  often jointly with object localization and classification. The survey literature frames SGG as a central structured-vision problem and highlights recurring challenges: long-tail predicate
+  distributions, high combinatorial relation space, detector error propagation, and sensitivity to annotation schemas \cite{zhu_scene_2022}. These challenges explain why SGG remains harder than
+  standalone object detection.
+
+  Classical SGG families rely on explicit geometry and symbolic heuristics. They are attractive because they are interpretable, fast, and stable under small data regimes. Their prerequisites are also
+  clear: reasonably accurate boxes, consistent coordinate frames, and predicates that are geometrically grounded (e.g., left\_of, above, inside). Their limitation is semantic coverage. Predicates such as
+  holding, reading, or interacting often require appearance cues and contextual semantics that simple geometry cannot recover robustly.
+
+  Neural SGG families learn object-relation inference end-to-end or in staged pipelines. Their core advantage is expressivity: they can model contextual dependencies and non-geometric predicates. Their
+  drawbacks are data dependence and calibration issues under domain shift \cite{zhu_scene_2022}. In particular, relation prediction quality can degrade rapidly when moving from curated benchmarks to
+  operational scenes with different camera viewpoints, object taxonomies, and interaction patterns.
+
+  RelTR is a representative transformer-based SGG model \cite{cong_reltr_2023}. It reformulates relation prediction as set prediction with transformer queries, reducing exhaustive pairwise enumeration
+  and learning global context through attention. Conceptually, this mirrors the broader shift from local handcrafted pairing to globally conditioned structured prediction. The method improves
+  expressivity and often relation recall, but it still inherits standard learned-model prerequisites: sufficient relation supervision, ontology consistency, and robustness to detector noise.
+
+  A newer direction is open-vocabulary SGG through vision-language modeling and sequence generation. Here, relation concepts are not constrained to a small fixed predicate inventory; instead, models
+  generate or retrieve relation semantics in broader lexical space. Recent work in open-world graph reasoning demonstrates that combining graph construction with retrieval and language-conditioned
+  reasoning can improve adaptability in dynamic domains \cite{wang_indvissgg_2025}. The theoretical benefit is semantic flexibility; the theoretical risk is weaker output controllability and increased
+  dependence on prompting and post-parse constraints.
+
+  This leads to an important modeling tradeoff: free-form generative reasoning versus strict structured outputs. SGG consumers (planning, QA, memory) require machine-readable triplets, yet forcing rigid
+  output formats can interfere with generative reasoning behavior in language-centric models \cite{tam_let_2024}. As a result, many practical architectures converge toward hybrid designs: deterministic
+  modules for high-confidence geometric predicates, and learned modules for semantically rich predicates, followed by ontology-constrained merge and validation. This is best understood as a bias-
+  allocation strategy rather than a purely engineering choice.
+
+  Finally, SGG evaluation protocols clarify what is being measured. PredCls, SGCls, and SGDet isolate different sources of error by progressively removing ground-truth assumptions \cite{zhu_scene_2022}.
+  PredCls evaluates relation classification with oracle objects, SGCls adds object-label uncertainty, and SGDet evaluates full end-to-end detection plus relations. For embodied systems, SGDet-like
+  conditions are the most relevant because grounding quality depends on the full perception stack, not only on relation heads. This theoretical framing is essential before discussing implementation-
+  specific pipeline choices in the next chapters.
+
+  \section{Language modeling:\@ LLMs, VLMs}
+
+  Natural language processing (NLP) studies computational methods for analyzing and generating human language. Within NLP, language modeling is the task of estimating the probability of token sequences.
+  In autoregressive form, a model learns
+  \[
+  p(x_1,\dots,x_T)=\prod_{t=1}^{T} p(x_t \mid x_{<t}),
+  \]
+  and generation proceeds by repeatedly sampling or selecting the next token from the conditional distribution. This probabilistic framing is the theoretical core of large language models.
+
+  Modern LLMs are based on the Transformer architecture, where self-attention replaces strict recurrence as the primary mechanism for contextual integration \cite{vaswani2023attentionneed}. Instead of
+  compressing all prior context into a single recurrent state, self-attention computes pairwise interactions across the sequence, which improves long-range dependency modeling and supports highly
+  parallel training. This architectural change is one reason why scaling with data and compute became practical.
+
+  Pretraining alone, however, does not guarantee useful dialogue behavior. A base next-token predictor can be fluent while still failing to follow user intent, constraints, or safety requirements.
+  Instruction tuning and alignment methods address this gap by training models to produce responses that are more helpful and better aligned with user instructions
+  \cite{ouyang2022traininglanguagemodelsfollow}. The theoretical shift is from unconditional continuation quality to conditional task compliance.
+
+  Vision-language models (VLMs) extend this framework to multimodal inputs by coupling a vision encoder with a language decoder. Visual features are projected into the language model token space, so
+  generation is conditioned jointly on image and text context. Architectures such as LLaVA, InstructBLIP, and PaLM-E illustrate this general design pattern while differing in feature selection, alignment
+  strategy, and embodiment assumptions \cite{liu_visual_2023,dai_instructblip_2023,driess_palm-e_2023}. Conceptually, they transform perception into token-conditioned reasoning.
+
+  A core advantage of VLMs is semantic flexibility: they can express rich descriptions and infer high-level relations that are hard to encode with rigid symbolic templates. A core risk is weak grounding.
+  Fluent outputs can remain underconstrained by the visual evidence, especially under clutter, occlusion, or multiple similar instances. This is a structural issue of generative modeling under ambiguity,
+  not only a prompt-engineering issue.
+
+  Grounding aids such as Set-of-Mark prompting mitigate this ambiguity by converting latent visual regions into explicit referential symbols \cite{yang_set-of-mark_2023}. Segment-level prompting can
+  further improve locality by providing cleaner object boundaries through promptable segmentation models \cite{kirillov_segment_2023}. Related multimodal formulations, such as grounded span-to-region
+  linking, similarly emphasize that language quality and spatial faithfulness must be coupled rather than optimized independently \cite{peng_kosmos-2_2023}.
+
+  Model scale introduces a second theoretical tradeoff: capacity versus inference cost. Dense models activate all parameters for each token, while Mixture-of-Experts (MoE) models route tokens through
+  sparse expert subsets \cite{shazeer2017outrageouslylargeneuralnetworks}. Sparse routing can improve parameter efficiency, but it introduces additional routing complexity and hardware sensitivity. For
+  robotics, latency determinism matters as much as raw capability, so model class selection is partly a systems-theoretic choice.
+
+  In embodied AI, LLMs are also studied as high-level planners. SayCan combines language priors with affordance/value estimates to constrain textual plans by physical executability \cite{ahn_as_2022}.
+  Code-as-Policies reframes the output as executable control programs rather than free-form text \cite{liang_code_2023}. Related humanoid studies explore direct motion-generation roles for language
+  models \cite{catalini_llms_nodate}. These lines of work suggest that language modeling can serve both communicative and control interfaces when grounded by external constraints.
+
+  From a background perspective, the key conclusion is that LLM/VLM usefulness in HRI depends on explicit grounding interfaces. Fluency is necessary for natural interaction but insufficient for reliable
+  behavior. The relevant theoretical construct is constrained generation: language models operate best when conditioned by structured world state, perception-derived references, and explicit task
+  boundaries, rather than unconstrained open-text prompting alone.
+
+  \section{RAG, CAG, and GraphRAG}
+
+  Large language models store knowledge in parameters, but parametric memory has known limits: incompleteness, staleness, and weak source traceability. Retrieval-Augmented Generation (RAG) addresses this
+  by coupling a retriever with a generator so that responses are conditioned on externally retrieved evidence \cite{lewis_retrieval-augmented_2020}. In abstract form, RAG decomposes response generation
+  into indexing, retrieval, context assembly, and conditioned decoding.
+
+  The principal strength of RAG is factual extensibility without full model retraining. The principal costs are architectural: retrieval latency, chunking sensitivity, index maintenance, and additional
+  failure modes when retrieval selects irrelevant context. In HRI settings, these costs matter because interaction quality is sensitive to response timing and stability, not only answer correctness
+  \cite{fazlollahtabar_human-robot_2025}.
+
+  Multimodal and semi-structured retrieval extends this pattern by representing heterogeneous inputs (text, tables, images) in retrievable form. Multi-vector retrieval strategies formalize this by
+  storing multiple representations per source unit, improving recall for heterogeneous queries at the expense of larger index and reranking overhead \cite{noauthor_multi-vector_nodate}. The theoretical
+  benefit is richer recall; the operational cost is greater retrieval complexity.
+
+  Cache-Augmented Generation (CAG) proposes a different regime for bounded knowledge tasks: preload the relevant corpus directly into the model context or cache path, then answer without runtime
+  retrieval \cite{Chan_2025}. Relative to RAG, CAG reduces serving-time dependency on retrieval infrastructure and can lower latency when the knowledge base is compact enough. Its prerequisite is strict:
+  the relevant knowledge must fit the effective context budget and remain manageable under update frequency.
+
+  The tradeoff between RAG and CAG is therefore not binary but regime-dependent. RAG scales better to large or frequently changing corpora, while CAG is attractive for compact, high-reuse knowledge where
+  retrieval overhead dominates. For embodied dialogue systems, this distinction maps naturally to whether the required context is global and archival (RAG-like) or local and session-bounded (CAG-like).
+
+  Graph-based retrieval variants, often grouped under the term GraphRAG, organize knowledge as nodes and relations rather than isolated chunks. Retrieval then becomes relation-aware traversal and
+  aggregation, which can improve multi-hop reasoning and thematic synthesis. The conceptual advantage is structural coherence; the challenge is graph construction quality and maintenance overhead. In
+  perception-grounded domains, scene-graph-centric retrieval-augmented reasoning demonstrates this structural benefit in practice \cite{wang_indvissgg_2025}.
+
+  From a theory standpoint, graph-structured retrieval changes the bias of the system: evidence is selected not only by vector similarity but also by relational topology. This is especially relevant for
+  questions that are inherently relational (who is near whom, what supports what, what changed relative to prior state), where flat chunk retrieval can miss compositional dependencies.
+
+  In social-robot dialogue research, ontology- and structure-aware memory has also been linked to improved coherence and continuity over purely reactive response strategies
+  \cite{grassi2022knowledge,grassi2023knowledge}. This aligns with the broader retrieval argument: factuality and coherence improve when generation is constrained by explicit, queryable structure.
+
+  The practical theoretical conclusion is that RAG, CAG, and GraphRAG are complementary operating points on one design axis: \emph{how external knowledge is represented and injected into generation}.
+  Their suitability depends on corpus scale, update rate, latency budget, and the relational depth of expected queries. In embodied systems, where temporal and relational consistency are central, graph-
+  structured or cache-structured context can be preferable to purely flat retrieval in many interaction regimes.
+
+  \section{Pepper Robot}
+
+  Pepper is a humanoid social robot platform designed for natural human-facing interaction. In HRI research, it is widely used as an embodied interface for speech, gesture, and multimodal social
+  behaviors rather than as a high-payload manipulation platform. Its research value lies in proximate interaction design, not in raw onboard compute performance.
+
+  Software-wise, Pepper is built around the NAOqi ecosystem, which exposes modular services for sensing, speech, tablet interaction, and behavior orchestration \cite{softbank_python_sdk_2026}. This
+  service-oriented model is important theoretically because it supports compositional HRI pipelines: perception, dialogue, and actuation can be integrated through explicit interfaces instead of
+  monolithic controllers.
+
+  Speech interaction on Pepper combines built-in recognition modules with dialog/grammar layers. Native speech services are robust for constrained command patterns and domain-specific vocabularies, but
+  open-ended conversational behavior typically requires external language modeling augmentation \cite{softbank_alspeechrecognition_2026}. This creates a common architectural split between deterministic
+  trigger/control logic and generative response synthesis.
+
+  Pepper’s tablet subsystem adds a visual interaction channel that is directly relevant to grounded dialogue: world state and references can be externalized as visual artifacts to reduce ambiguity in
+  spoken exchange \cite{softbank_peppers_tablet_2026}. In HRI terms, this supports mixed-modality information exchange and can reduce cognitive load by coupling language with explicit visual grounding
+  cues.
+
+  A persistent platform constraint is compute budget. Modern detection, scene-graph, and VLM/LLM inference workloads often exceed what is feasible on legacy onboard hardware. This has historically
+  motivated distributed architectures that offload heavy inference to external compute while keeping interaction and low-latency control on the robot side \cite{reyes_near_2018,trinquet_future_2025}. The
+  same constraint appears across recent Pepper modernization efforts.
+
+  Recent studies that combine Pepper with modern language and perception stacks report improved conversational breadth and task flexibility, but also highlight latency-control, grounding, and reliability
+  tradeoffs \cite{brad_retrieval-augmented_2025}. The common pattern is that embodiment increases expectations: users tolerate less mismatch between what the robot says and what it can actually perceive
+  or do.
+
+  From a theoretical perspective, Pepper is therefore best viewed as an embodied interaction front-end in a hybrid cognitive architecture. Its strength is social presence and multimodal engagement; its
+  weakness is limited native capacity for contemporary deep inference pipelines. This asymmetry is precisely why Pepper remains a useful research platform for studying grounded dialogue under realistic
+  systems constraints.
+
+  In summary, Pepper’s relevance to this thesis is methodological: it provides a concrete embodiment where perception, memory, grounding, retrieval, and generation must be integrated under strict
+  interaction-time constraints. The platform forces explicit design choices that make theoretical tradeoffs observable, measurable, and practically meaningful for HRI research.
+
+
+  \section{Object Detection, Tracking, and Re-Identification}
+
+  Object detection is the task of identifying object instances and localizing them in an image. A detector maps an input image \(I\) to a set
+  \[
+  \mathcal{D}(I)=\{(b_i,\ell_i,s_i)\}_{i=1}^{N},
+  \]
+  where \(b_i\in\mathbb{R}^4\) is a bounding box (for example \((x_{\min},y_{\min},x_{\max},y_{\max})\) or \((c_x,c_y,w,h)\)), \(\ell_i\) is a class label, and \(s_i\in[0,1]\) is a confidence score
+  \cite[Part XIII]{foundationsCVbook}. The two coupled subproblems are localization and classification. Localization error propagates into downstream geometry and relation extraction; classification
+  error propagates into semantic grounding and language references.
+
+    A standard conceptual decomposition is: (i) candidate generation, (ii) class scoring and box regression, (iii) duplicate suppression \cite{foundationsCVbook}. Historically, this appeared as sliding
+  windows or proposal-based pipelines; modern one-stage models internalize proposal generation into dense prediction heads. Even in one-stage designs, suppression remains necessary when many candidate
+  boxes overlap the same object.
+
+    Intersection over Union (IoU) between boxes \(A\) and \(B\) is
+  \[
+  \mathrm{IoU}(A,B)=\frac{|A\cap B|}{|A\cup B|}.
+  \]
+  IoU is used both during evaluation (matching predictions to ground truth) and post-processing (suppressing duplicates). Because IoU is scale-aware overlap, it is robust for object-level localization
+  comparison, but sensitive to annotation style for thin or highly non-rectangular objects.
+
+    Given predicted boxes \(\{b_i\}\) with scores \(\{s_i\}\), greedy NMS sorts boxes by score, keeps the highest-scoring box, and removes remaining boxes with IoU above threshold \(\tau_{\text{nms}}\).
+  This repeats until exhaustion. Pseudocode-wise, NMS is a score-ordered greedy set packing. It is fast and practical, but it hard-codes a global overlap rule and can remove valid nearby instances in
+  crowded scenes \cite{hosang_learning_2017}. This is one reason why \enquote{NMS-free} or end-to-end set-prediction detectors were developed.
+
+    Convolutional neural networks (CNNs) extract spatially local features using shared kernels and hierarchical receptive fields. In detection, a backbone CNN produces multi-scale feature maps \(F_l\), and
+  a detection head predicts class logits and box offsets per location/anchor. The core strength is translation equivariance and efficient dense computation on GPUs. The core limitation is that local
+  receptive fields and hand-designed heads may require careful architecture engineering for long-range context and dense occlusion handling.
+
+    YOLO-style detectors are single-stage dense predictors. In simplified form:
+  \begin{enumerate}
+  \item The backbone (CNN, and in newer variants sometimes hybrid blocks) produces feature pyramids at multiple resolutions.
+  \item A neck aggregates multi-scale information (for small and large objects).
+  \item A detection head predicts, per cell/anchor or anchor-free location, objectness, class scores, and box parameters.
+  \item Predictions are confidence-filtered and post-processed by NMS.
+  \end{enumerate}
+  This gives strong speed-accuracy tradeoffs for real-time systems \cite{sapkota_ultralytics_2026}. The speed benefit comes from avoiding a separate proposal stage and sharing one forward pass across all
+  candidate locations. The typical weaknesses are class-imbalance sensitivity, dependence on training ontology, and occasional localization degradation for small or heavily overlapping objects.
+
+    Closed-vocabulary detection assumes a fixed label set \(\mathcal{L}\) learned during training. If a target class is absent or weakly represented in the training distribution, the detector may map it to
+  nearby seen categories or miss it entirely. COCO remains a dominant benchmark and offers broad category coverage, but it is still finite and domain-biased \cite{lin2015microsoftcococommonobjects}.
+  Domain transfer to offices, labs, or industrial spaces therefore often requires fine-tuning, ontology remapping, or fallback open-vocabulary components.
+
+    DETR-family detectors reframe detection as direct set prediction. Instead of dense candidate enumeration plus NMS, the model predicts a fixed-size set of object queries and trains with bipartite
+  matching between predictions and ground truth. Let \(\hat{y}_j\) be predictions and \(y_i\) ground-truth objects. Training solves
+  \[
+  \hat{\sigma}=\arg\min_{\sigma}\sum_i \mathcal{L}_{\text{match}}(y_i,\hat{y}_{\sigma(i)}),
+  \]
+  then optimizes classification and box regression losses on matched pairs. This reduces duplicate predictions by design. RT-DETR adapts this paradigm for real-time constraints with efficient encoder/
+  decoder design \cite{zhao_detrs_2024}; RF-DETR emphasizes architecture search over accuracy-latency tradeoffs \cite{robinson_rf-detr_2026}.
+
+    Open-vocabulary methods replace fixed closed-set classification with text-conditioned detection. A text prompt set \(\{t_k\}\) is encoded into embeddings \(e_k\), visual regions into embeddings
+  \(v_r\), and compatibility is scored by similarity (often cosine or dot-product with normalization). In OWL-ViT/OWLv2-style systems, contrastive vision-language pretraining enables transfer to unseen
+  labels \cite{minderer_simple_2022,minderer_scaling_2024}. This increases semantic flexibility but introduces prompt sensitivity and calibration challenges: confidence comparability across prompts is
+  harder than in closed-set softmax classification.
+
+    Given IoU threshold \(\tau\), a prediction is true positive if matched to an unmatched ground-truth instance with IoU \(\ge\tau\), otherwise false positive. Sorting predictions by confidence yields
+  precision-recall points:
+  \[
+  \mathrm{Precision}=\frac{\mathrm{TP}}{\mathrm{TP}+\mathrm{FP}},\quad
+  \mathrm{Recall}=\frac{\mathrm{TP}}{\mathrm{TP}+\mathrm{FN}}.
+  \]
+  Average Precision (AP) is area under the precision-recall curve for one class; mean AP (mAP) averages AP across classes (and, in COCO, across IoU thresholds). These definitions are central when
+  comparing detector families because architecture gains can differ by IoU regime and object scale \cite{foundationsCVbook}.
+
+    Detection is frame-local. Multi-object tracking (MOT) adds temporal identity persistence. At time \(t\), each track state \(x_t\) is predicted by a motion model:
+  \[
+  x_{t|t-1}=F x_{t-1|t-1},
+  \]
+  with covariance propagation (Kalman-style linear-Gaussian assumption). New detections \(z_t^j\) are associated to predicted tracks using a cost matrix \(C_{ij}\) (geometry and/or appearance), then
+  assignment is solved (typically Hungarian algorithm in standard pipelines). Updated states are corrected with matched observations.
+
+    Deep SORT augments motion-based association with appearance descriptors, reducing identity switches under short occlusions \cite{wojke_simple_2017}. ByteTrack keeps low-confidence detections in
+  association instead of dropping them early, recovering trajectories that would be fragmented by confidence thresholding alone \cite{zhang_bytetrack_2022}. Both methods assume moderate temporal
+  continuity: nearby frames, bounded displacement, and informative overlap/motion cues.
+
+    When observations are sparse, viewpoint-jumped, or separated by active camera motion, MOT assumptions weaken. If frame \(t\) and \(t+1\) are separated by large pan/tilt changes, IoU overlap can
+  collapse even for static objects. Motion extrapolation also becomes weakly informative because apparent displacement is dominated by camera motion and perspective change. Under such conditions,
+  identity persistence should be reframed as re-identification across non-contiguous views.
+
+    Re-identification maps each crop \(x\) to embedding \(f(x)\in\mathbb{R}^d\), then compares query and gallery embeddings with similarity
+  \[
+  \mathrm{sim}(x_q,x_g)=\frac{f(x_q)^\top f(x_g)}{\|f(x_q)\|\|f(x_g)\|}.
+  \]
+  Association becomes nearest-neighbor or thresholded matching in embedding space, optionally fused with geometry priors. ReID is therefore identity-by-appearance rather than identity-by-local-motion.
+  Transformer-era ReID literature emphasizes robustness to viewpoint, illumination, and background variation \cite{ye_transformer_2024}.
+
+    Foundation backbones such as C-RADIOv4 are useful for ReID-like matching because they are trained to preserve transferable semantic and instance-sensitive visual structure across domains
+  \cite{ranzinger2026cradiov4techreport}. In practical terms, better embedding geometry yields improved separation between \enquote{same object under view change} and \enquote{different object with
+  similar category appearance}. This directly affects false merge and false split rates in long-horizon memory.
+
+    For people, face-centric middleware channels can complement generic object ReID. In NAOqi ecosystems, face detection/recognition services provide additional biometric cues when frontal visibility and
+  enrollment conditions hold \cite{softbank_python_sdk_2026}. The theoretical point is multimodal cue hierarchy: motion continuity if valid, appearance embedding matching for discontinuities, and
+  biometric specialization when available.
+
+    Object-centric scene awareness requires three distinct but connected tasks: detection (what/where now), tracking (how identity evolves in continuous time), and ReID (identity across discontinuous
+  observations). Their assumptions differ. A rigorous design must select the identity mechanism that matches sensing dynamics rather than applying a video-MOT prior to non-video observation regimes.
+
+  \section{Grounding and Scene Graph Generation}
+
+  Grounding is the process of connecting linguistic symbols to perceived world entities and relations \cite{lemaignan_grounding_2012}. In dialogue, grounding is not one-way labeling; it is a
+  bidirectional mapping between language and structured world state. A grounded system must resolve references such as \enquote{the person near the chair} to concrete symbols and generate language from
+  those same symbols consistently over time.
+
+    A list of detected objects does not encode relational semantics required for spatial language, disambiguation, or multi-entity reasoning. For example, \enquote{cup left of laptop} is not recoverable
+  from independent object labels without relation inference. This motivates graph-structured scene representations.
+
+    A scene graph is typically
+  \[
+  \mathcal{G}=(\mathcal{V},\mathcal{E}),
+  \]
+  with nodes \(\mathcal{V}\) representing object instances and typed edges \(\mathcal{E}\) representing predicates. Each relation is a triplet
+  \[
+  (s,p,o),\quad s,o\in\mathcal{V},\; p\in\mathcal{P}.
+  \]
+  Attributes can be encoded either as node properties or unary/self edges (for example \((v,\text{is\_red},v)\)). The triplet format is attractive because it supports uniform querying and downstream
+  symbolic manipulation \cite{johnson_image_2015}.
+
+    Scene Graph Generation (SGG) predicts object labels and relation triplets from an image. If object boxes are also predicted, SGG becomes a joint detection-relation task. If boxes are given, SGG
+  isolates relation/object classification components. The challenge scales combinatorially: for \(n\) objects, candidate directed pairs are \(n(n-1)\), and each pair may support multiple predicates.
+
+    The SGG survey literature highlights four dominant issues \cite{zhu_scene_2022}: long-tail predicate distributions, detector error propagation, ambiguous relation semantics, and annotation
+  inconsistency across datasets. Long-tail is especially severe: frequent predicates such as \enquote{on} dominate, while fine-grained interaction predicates have sparse supervision, biasing models
+  toward generic relations.
+
+    Rule-based SGG computes relations from geometry: center offsets, overlap ratios, containment tests, depth heuristics, and distance thresholds. For example, left/right can be derived from projected
+  centroids, support from vertical ordering plus overlap, and proximity from normalized distance. These methods are interpretable and deterministic, but limited for semantic predicates like
+  \enquote{holding} or \enquote{reading}, which require appearance and context.
+
+    Neural methods learn predicate inference from visual features, often with graph/message-passing, pairwise relation heads, or transformer decoders. They improve semantic expressivity but need
+  substantial supervision and may overfit dataset-specific biases \cite{zhu_scene_2022}. A known pathology is over-prediction of frequent generic predicates due to class imbalance.
+
+    RelTR models SGG as set prediction with transformer queries \cite{cong_reltr_2023}. Instead of classifying every object pair exhaustively, learned queries decode a sparse set of subject-predicate-
+  object hypotheses globally conditioned on image context. This reduces quadratic pair enumeration pressure and encourages holistic relation reasoning. However, performance still depends on detector
+  quality, predicate supervision coverage, and ontology compatibility.
+
+    Open-vocabulary SGG replaces fixed predicate ontology assumptions with text-conditioned or generative relation extraction. Vision-language models can infer relations beyond closed taxonomies and adapt
+  to domain language, but output controllability becomes harder: generated text must be parsed into valid triplets reliably. Recent open-world graph reasoning work supports this direction while
+  highlighting post-processing and consistency constraints \cite{wang_indvissgg_2025}.
+
+    SGG pipelines for downstream planning/QA require strict machine-readable structure. Yet strict output-format constraints can reduce generative reasoning flexibility in language-centric models
+  \cite{tam_let_2024}. This creates an architectural tension between semantic richness and syntactic reliability. Hybrid designs address this by assigning high-confidence geometric predicates to
+  deterministic modules and semantic predicates to learned modules, then merging under ontology and consistency constraints.
+
+    SGG evaluation is usually partitioned into three settings \cite{zhu_scene_2022}:
+  \begin{enumerate}
+  \item PredCls: ground-truth boxes and labels are given; only predicates are predicted.
+  \item SGCls: ground-truth boxes are given; object labels and predicates are predicted.
+  \item SGDet: boxes, labels, and predicates are all predicted from image.
+  \end{enumerate}
+  These settings isolate error sources. PredCls measures relation-head quality under oracle objects. SGCls adds object classification uncertainty. SGDet evaluates full end-to-end scene graph extraction
+  with compounded detector and relation errors.
+
+    A predicted triplet \((\hat{s},\hat{p},\hat{o})\) is considered correct if predicate and object labels match ground truth and localization matches under IoU thresholds for subject and object boxes
+  (commonly \(>0.5\), dataset-dependent). Let \(M_K\) be number of matched ground-truth triplets within top-\(K\) ranked predictions for an image, and \(G\) total ground-truth triplets:
+  \[
+  R@K = \frac{M_K}{G}.
+  \]
+  This is the standard Recall@K metric family used in SGG benchmarks.
+
+    Because frequent predicates dominate global recall, many works report mean Recall@K (mR@K). If \(\mathcal{P}\) is predicate set and \(R_p@K\) recall computed per predicate \(p\),
+  \[
+  mR@K = \frac{1}{|\mathcal{P}|}\sum_{p\in\mathcal{P}} R_p@K.
+  \]
+  mR@K penalizes models that perform well only on frequent predicates and is therefore more informative under long-tail relation distributions.
+
+    For dialogue-grounded systems, useful evaluation also includes semantic consistency over time, ontology-valid outputs, and referential stability across turns. A scene graph with high benchmark recall
+  but unstable instance references can still fail in interactive settings. Therefore, benchmark SGG metrics are necessary but not sufficient for grounded conversational use.
+
+    SGG is the bridge between detection-level perception and language-level reasoning. PredCls, SGCls, and SGDet provide controlled evaluation decompositions; \(R@K\) and \(mR@K\) quantify retrieval of
+  correct triplets under different class-balance sensitivities. Method selection should follow predicate ontology needs, supervision availability, and required output reliability.
+
+
+
+  \section{Language modeling:\@ LLMs, VLMs}
+
+  Natural language processing (NLP) addresses computational processing of human language, while language modeling is a specific probabilistic task inside NLP: estimate the probability of token sequences.
+  For tokens \(x_{1:T}\), an autoregressive model factorizes
+  \[
+  p(x_{1:T})=\prod_{t=1}^{T}p(x_t\mid x_{<t}),
+  \]
+  so generation is iterative next-token prediction. Training minimizes negative log-likelihood, usually implemented as token-level cross-entropy. This formal objective matters because it explains both
+  the power and limitations of LLMs: they optimize sequence continuation under context, not logical truth by construction.
+
+  Before transformers, mainstream probabilistic methods included n-gram language models with Markov truncation:
+  \[
+  p(x_t\mid x_{<t})\approx p(x_t\mid x_{t-n+1:t-1}).
+  \]
+  These models are simple and interpretable, but data sparsity grows rapidly with \(n\), requiring smoothing and backoff. Recurrent neural networks replaced explicit count tables with learned hidden
+  states, but long-horizon dependencies remained difficult due to gradient instability in long sequences.
+
+  Gated recurrent models (LSTM/GRU families) improved memory by introducing additive state updates and learned gates, but training was still sequential in time, limiting parallelization. Transformer
+  self-attention removed recurrent dependence in representation building and enabled large-scale parallel pretraining \cite{vaswani2023attentionneed}. For hidden states \(X\in\mathbb{R}^{n\times d}\),
+  scaled dot-product attention is
+  \[
+  \mathrm{Attn}(X)=\mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}+M\right)V,
+  \]
+  with \(Q=XW_Q\), \(K=XW_K\), \(V=XW_V\), and causal mask \(M\). Multi-head attention repeats this with different projections and concatenates head outputs, allowing the model to represent multiple
+  relation types in parallel.
+
+  Pretraining produces broad linguistic competence, but dialogue systems require instruction compliance, safety behavior, and role consistency. Instruction-tuning and alignment stages provide this shift.
+  InstructGPT-style pipelines combine supervised instruction data with preference optimization and reinforcement learning from human feedback \cite{ouyang2022traininglanguagemodelsfollow}. A common
+  aligned-policy objective includes a reward term and a divergence penalty to a reference model:
+  \[
+  \max_{\pi}\ \mathbb{E}_{y\sim \pi(\cdot\mid x)}[r(x,y)]-\beta\,\mathrm{KL}\!\left(\pi(\cdot\mid x)\,\|\,\pi_{\mathrm{ref}}(\cdot\mid x)\right).
+  \]
+  This explains why aligned models are usually more usable in human interaction despite sharing base architecture with plain pretrained models.
+
+  Decoding is another theoretical layer often overlooked in thesis writing. Greedy decoding maximizes local token probability, beam search approximates global sequence maximization with fixed-width
+  search, and stochastic decoding samples from temperature-scaled distributions:
+  \[
+  p_\tau(x_t=i\mid x_{<t})=\frac{\exp(z_i/\tau)}{\sum_j \exp(z_j/\tau)}.
+  \]
+  Smaller \(\tau\) sharpens outputs; larger \(\tau\) increases diversity. Dialogue quality is therefore jointly determined by model parameters and decoding policy.
+
+  Vision-language models (VLMs) extend language modeling by conditioning on visual observations. A generic formulation is
+  \[
+  p(y\mid x,\,I)=\prod_{t=1}^{|y|}p(y_t\mid y_{<t},x,\phi(I)),
+  \]
+  where \(\phi(I)\) is a visual embedding sequence. Architecturally, VLMs differ mainly in how \(\phi(I)\) is computed and fused: dual-encoder contrastive models for retrieval/classification, projector-
+  based instruction models that inject visual tokens into an LLM, and fully embodied multimodal models that combine language with sensor/state streams.
+
+  Contrastive vision-language pretraining is central to open-vocabulary behavior. With paired image/text minibatches \((I_i,T_i)\), a symmetric contrastive objective aligns matching pairs and separates
+  mismatches. Let \(v_i\) and \(t_i\) be normalized image/text embeddings and \(s_{ij}=v_i^\top t_j/\tau\). A typical batch loss is
+  \[
+  \mathcal{L}=\frac{1}{2}\left[
+  -\frac{1}{N}\sum_i\log\frac{e^{s_{ii}}}{\sum_j e^{s_{ij}}}
+  -\frac{1}{N}\sum_i\log\frac{e^{s_{ii}}}{\sum_j e^{s_{ji}}}
+  \right],
+  \]
+  which is the core idea behind CLIP-style alignment \cite{pmlr-v139-radford21a}. This shared embedding geometry later enables open-vocabulary detection and prompt-driven perception modules.
+
+  LLaVA, InstructBLIP, and PaLM-E exemplify three practically important VLM design choices \cite{liu_visual_2023,dai_instructblip_2023,driess_palm-e_2023}. LLaVA emphasizes efficient visual instruction
+  tuning over a frozen or lightly adapted LLM backbone. InstructBLIP introduces an instruction-aware query transformer that selects a compact task-relevant visual token set before decoding. PaLM-E
+  broadens multimodal conditioning to embodied state channels, which is directly relevant when perception and action are coupled.
+
+  VLM failure modes should be described explicitly in theory chapters. First, semantic hallucination: the model produces plausible but visually unsupported claims. Second, referential ambiguity: multiple
+  similar instances are described inconsistently across turns. Third, structure fragility: free-form outputs violate strict schemas required by downstream symbolic modules. These are not minor
+  engineering issues; they follow from generative modeling under uncertainty and context compression.
+
+  Set-of-Mark prompting attacks referential ambiguity by converting implicit regions into explicit identifiers that language can point to unambiguously \cite{yang_set-of-mark_2023}. Segment-level
+  prompting improves this further when masks are available from promptable segmentation models such as SAM \cite{kirillov_segment_2023}. Grounded span-to-region formulations in multimodal models (for
+  example Kosmos-2 style linking) pursue the same principle: bind words to explicit visual loci rather than latent attention alone \cite{peng_kosmos-2_2023}.
+
+  A second axis is efficiency. Dense models activate all parameters per token; sparse Mixture-of-Experts models activate selected expert subsets via routing
+  \cite{shazeer2017outrageouslylargeneuralnetworks}. This can increase effective capacity at lower per-token compute, but introduces routing overhead and hardware sensitivity. In robotics-oriented
+  dialogue, worst-case latency and variance often matter more than mean throughput, so architecture choice must be evaluated as a systems property, not only a benchmark property.
+
+  Recent HRI literature on LLM-powered robots reinforces this theoretical framing: language fluency alone is insufficient if perception-grounding interfaces are weak
+  \cite{kim_understanding_2024,atuhurra_leveraging_2024}. For this thesis context, language models should be treated as conditional generators operating over external world representations, not as
+  standalone world models. That distinction is the conceptual bridge to retrieval-augmented and graph-augmented context injection.
+
+  \section{RAG, CAG, and GraphRAG}
+
+  Retrieval-Augmented Generation (RAG) combines parametric generation with non-parametric memory \cite{lewis_retrieval-augmented_2020}. Given query \(x\), a retriever returns top-\(K\) contexts \(z\),
+  and a generator produces answer \(y\) conditioned on \(x\) and retrieved evidence. In latent-document form:
+  \[
+  p(y\mid x)\approx \sum_{z\in \mathrm{top}\text{-}K} p_\eta(z\mid x)\,p_\theta(y\mid x,z).
+  \]
+  This decomposition explains both success and failure. If relevant evidence is retrieved and packed well, factuality improves. If retrieval misses or ranking is poor, generation quality collapses even
+  with a strong base model.
+
+  Retriever scoring is usually embedding-based. Let \(q=f_q(x)\) and \(d_i=f_d(c_i)\) for corpus chunk \(c_i\). Similarity can be cosine or inner product:
+  \[
+  \mathrm{score}(x,c_i)=\frac{q^\top d_i}{\|q\|\,\|d_i\|}\quad \text{or}\quad q^\top d_i.
+  \]
+  Approximate nearest-neighbor indexing then reduces search cost for large corpora. This stage introduces a direct accuracy-latency tradeoff through embedding dimension, index type, and recall target.
+
+  RAG quality depends on chunking and context assembly. Large chunks preserve context but reduce retrieval granularity; small chunks increase granularity but fragment semantics and raise false-positive
+  retrieval risk. Many pipelines therefore use two-stage selection: fast vector retrieval followed by heavier reranking. Multimodal retrieval generalizes this with multiple vectors per source item to
+  represent text, image, table, or summary views \cite{noauthor_multi-vector_nodate,zheng_retrieval_2025}.
+
+  Cache-Augmented Generation (CAG) changes the operating regime \cite{Chan_2025}. Instead of querying an external retriever each turn, the task-relevant knowledge is preloaded into context/cache and
+  reused during generation. For bounded knowledge tasks this can reduce online latency and remove retrieval infrastructure from the critical path. The prerequisite is strict: the effective knowledge
+  state must fit usable context budget and remain stable enough that refresh cost does not dominate.
+
+  CAG does not eliminate selection difficulty; it relocates it. In RAG, selection happens at query time through retrieval. In CAG, selection happens at cache construction time through compression,
+  pruning, and ordering. If cache construction is weak, long-context dilution appears and answer quality drops despite zero retrieval latency. Therefore, CAG is best interpreted as \enquote{retrieval
+  shifted in time}, not retrieval-free reasoning.
+
+  GraphRAG introduces explicit relational structure into retrieval. Instead of storing only independent chunks, the knowledge base is represented as a graph \(G=(V,E)\) of entities, facts, or summaries.
+  Query-time evidence is gathered by relation-aware traversal, neighborhood expansion, and graph-level summarization. A generic relevance score can combine semantic query similarity with graph
+  centrality:
+  \[
+  \mathrm{score}(v\mid x)=\alpha\,\mathrm{sim}(x,v)+(1-\alpha)\,\mathrm{centrality}(v).
+  \]
+  This improves multi-hop questions where relevant evidence is distributed across several linked facts rather than a single chunk.
+
+  Graph-based retrieval is particularly natural when upstream perception already outputs graph-structured state, as in scene-graph-centric pipelines \cite{wang_indvissgg_2025,li_vlm-msgraph_2025}. In
+  such settings, graph traversal aligns with the semantics of downstream questions (\enquote{what is left of}, \enquote{what is connected to}, \enquote{what changed relative to}). Flat vector retrieval
+  can still work, but it often needs additional synthesis steps to reconstruct relations that graph retrieval preserves natively.
+
+  Theoretical comparison can be summarized along four axes. First, knowledge scale: RAG and GraphRAG scale to larger corpora than plain CAG. Second, latency: CAG has low online latency when cache fits.
+  Third, relational depth: GraphRAG is stronger on compositional multi-hop queries. Fourth, operational complexity: GraphRAG and high-quality RAG require more indexing and maintenance than CAG.
+
+  In embodied HRI systems, these tradeoffs interact with interaction-time constraints and user expectations. A slower but more factual answer may still be perceived as worse if turn latency breaks
+  conversational rhythm. Conversely, a fast answer that violates grounded memory reduces trust. Research on structured dialogue memory in social robots supports this point: coherence depends on state
+  modeling, not only generation fluency \cite{grassi2022knowledge,grassi2023knowledge,gava2024physical}.
+
+  For this thesis-level background, RAG, CAG, and GraphRAG should be understood as alternative evidence-access operators over the same generator class. The critical design question is not \enquote{which
+  model is best}, but \enquote{which knowledge operator matches corpus structure, update frequency, and latency budget}. That framing avoids method confusion and keeps the chapter theory-driven.
+
+  \section{Pepper Robot}
+
+  Pepper is a humanoid social robot platform designed for proximate human interaction. In HRI taxonomy, it is best viewed as an embodied communication platform rather than a high-payload manipulation
+  platform \cite{goodrich_human-robot_2007,henschel_what_2021}. Its relevance comes from shared-space interaction: speech, gaze direction, body posture, gestures, and tablet feedback are co-present and
+  jointly interpreted by users.
+
+  Software-wise, Pepper runs NAOqi, a service-oriented middleware exposing robot capabilities through modules and event-driven APIs \cite{softbank_python_sdk_2026}. This architectural style matters
+  theoretically because it supports compositional design: sensing, dialogue, memory, and behavior can be implemented as interacting services with explicit interfaces, rather than hard-coded monolithic
+  control loops.
+
+  NAOqi interaction services include speech recognition and dialogue-facing components \cite{softbank_alspeechrecognition_2026}. In practical terms, deterministic grammar/topic layers are strong for
+  command-and-control and domain-bounded interaction, while open-ended conversation usually requires external language models. This motivates hybrid dialogue architectures where rule-based intent routing
+  and generative response synthesis coexist.
+
+  Pepper’s tablet channel is a first-class HRI modality, not an auxiliary display \cite{softbank_peppers_tablet_2026}. It can externalize robot state, provide disambiguating visual references, and reduce
+  spoken ambiguity. In grounded dialogue theory, this is shared external memory: both human and robot can refer to a visible artifact, reducing hidden-state mismatch between internal model and user
+  interpretation.
+
+  A major constraint is onboard compute capacity relative to modern vision-language workloads. Contemporary detection, scene-graph generation, and LLM/VLM inference often exceed practical realtime limits
+  on legacy social-robot hardware. Prior Pepper studies therefore repeatedly adopt distributed architectures that offload heavy inference to external compute while preserving local interaction control
+  \cite{reyes_near_2018,trinquet_future_2025,brad_retrieval-augmented_2025}.
+
+  This client-server split introduces its own theoretical tradeoffs. It improves model capacity but adds network dependence, synchronization problems, and failure modes around stale context.
+  Consequently, system reliability depends on control-plane design: timeout policy, partial-fallback behavior, and consistency management between local robot state and remote inference state.
+
+  Recent Pepper integrations with LLM and advanced perception show gains in flexibility and user-perceived intelligence, but also expose grounding and latency bottlenecks
+  \cite{latif_physicsassistant_2024,zabala_exploring_2025,wang_target_2024,becerra_improving_2024}. Embodiment amplifies these effects: users evaluate coherence between words, motion, and context more
+  strictly than in disembodied chat systems.
+
+  From a thesis-theory perspective, Pepper is valuable precisely because it forces hard constraints into model design. It is not enough to maximize offline benchmark quality. A valid method must satisfy
+  interaction-time responsiveness, multimodal consistency, and grounded reference stability under real-world sensing noise. This makes Pepper a suitable platform for studying the full stack from
+  perception to grounded dialogue.
+
+  In summary, Pepper provides a concrete embodiment where HRI theory, perception theory, retrieval theory, and language-model theory intersect under operational constraints. For a background chapter,
+  that is the key point: the platform is not merely hardware context; it is part of the methodological problem definition.
+
+  

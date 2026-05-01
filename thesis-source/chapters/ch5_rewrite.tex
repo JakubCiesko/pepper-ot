@@ -1,0 +1,188 @@
+\chapter{Robot-Side Implementation}\label{chap:robot_side_rewrite}
+
+%TL;DR: The robot client is the embodied interaction layer of the system.
+The robot-side client is the part of the system that makes the server usable by a person standing in front of Pepper. It does not run the object detector, scene graph generator, visual embedding model, caption model, or LLM. Instead, it listens for spoken intents, starts the appropriate robot turn, captures images, collects robot metadata, sends requests to the server, speaks the returned answer, and displays memory on the tablet. This separation is deliberate. The robot client should stay lightweight enough to run inside Pepper's NAOqi application environment, while the server performs the expensive inference and memory operations described in Chapter~\ref{chap:server_side_rewrite}.
+
+\section{Service Boundary and Runtime Objects}\label{sec:client-service-boundary}
+
+%TL;DR: PepperGroundedClient is the NAOqi service boundary.
+The main client entry point is the \texttt{PepperGroundedClient} service. This service is loaded as a Pepper application and exposes methods that can be called from QiChat grammar and from the tablet page. Examples include \texttt{look}, \texttt{scan}, \texttt{ask}, \texttt{refreshAndAsk}, \texttt{askAboutObject}, \texttt{answerCachedQuestion}, \texttt{showMemory}, \texttt{hideMemory}, \texttt{resetMemory}, and \texttt{resetConversation}. The service methods are intentionally thin. They log the call and delegate long-running work to the turn manager. This keeps the Qi service responsive and prevents spoken grammar callbacks from becoming the place where perception and networking logic accumulate.
+
+%TL;DR: The client is adapter-based because NAOqi services are heterogeneous and failure-prone.
+During initialization, the service constructs a set of adapters. The camera adapter captures image bytes from \texttt{ALVideoDevice}. The pose adapter reads head and body pose from \texttt{ALMotion}. The people, face, social, and sonar adapters read robot-native perception signals. The speech adapter wraps text-to-speech and animated speech. The dialog adapter updates dynamic QiChat concepts. The tablet adapter opens and updates the local memory page. The transport object handles HTTP communication with the server. The session store keeps local conversation and memory summary state. This adapter structure is not only stylistic. NAOqi services differ in availability, behavior, and error modes, so isolating them behind small wrappers keeps the rest of the client simpler.
+
+\begin{figure}[t]
+\centering
+\fbox{%
+\begin{minipage}{0.94\linewidth}
+\centering
+\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
+\multicolumn{3}{c}{QiChat topics and tablet JavaScript} \\
+\multicolumn{3}{c}{$\downarrow$} \\
+\multicolumn{3}{c}{\texttt{PepperGroundedClient} NAOqi service} \\
+\multicolumn{3}{c}{$\downarrow$} \\
+\multicolumn{3}{c}{\texttt{TurnManager}} \\
+\multicolumn{3}{c}{$\swarrow \hspace{2em} \downarrow \hspace{2em} \searrow$} \\
+Perception adapters & HTTP transport & Interaction adapters \\
+Camera, pose, people, social, sonar & Server API & Speech, dialog, tablet
+\end{tabular}
+\end{minipage}}
+\caption{Robot client runtime object graph. The client coordinates Pepper services and server calls, but it does not run the heavy perception or language models locally.}
+\label{fig:client-runtime-graph}
+\end{figure}
+
+%TL;DR: The client configuration controls interaction behavior without changing code.
+The client loads its behavior from \texttt{client\_config.json}. This file specifies the server base URL, endpoint paths, timeouts, camera settings, scan angles, head movement speed, language behavior, dynamic concept limits, social perception services, tablet behavior, fake camera mode, and fake tablet mode. These values are not peripheral. For example, changing scan yaw angles changes what part of the environment is observed. Changing timeouts changes whether the robot waits for slow inference or speaks a fallback. Changing the server URL can move the same robot client between a local server, an ngrok tunnel, or a deployed machine.
+
+\section{Spoken Grammar and Interaction Entry Points}\label{sec:client-qichat}
+
+%TL;DR: QiChat maps spoken phrases to service calls.
+The spoken interface is defined in two QiChat topic files, one for English and one for Czech. The topics define static concepts such as quick-look commands, full-scan commands, reset commands, and system-explanation questions. They also define dynamic concepts for memory objects, memory attributes, memory relations, and cached questions. When a user utterance matches a rule, QiChat calls the corresponding method on \texttt{PepperGroundedClient}. For example, a quick-look phrase calls \texttt{look}, a full-scan phrase calls \texttt{scan}, and an object question using a dynamic memory object calls \texttt{askAboutObject}.
+
+%TL;DR: Dynamic concepts connect server memory back into speech recognition.
+Dynamic concepts are one of the most important robot-side mechanisms. The server may currently remember labels such as chair, laptop, person, or bottle. The client fetches a memory summary, extracts labels, attributes, relations, and cached questions, and writes them into ALDialog concepts. As a result, the grammar can recognize object-specific questions about entities that were not statically listed in the topic file. This is how the robot's spoken interface becomes scene-dependent. The set of words that Pepper can recognize in object questions changes when the visual memory changes.
+
+%TL;DR: The grammar uses scripted interaction for control and LLM-based chat for open-ended content.
+The spoken grammar is not replaced by the language model. It still handles interaction control: start a scan, show memory, reset memory, list objects, or ask about a recognized object. The language model is used after the intent and relevant parameters are known. This hybrid design avoids sending every utterance directly to an LLM while still supporting flexible answers. The grammar provides structure and safety; the server-side LLM provides open-ended language generation grounded in memory.
+
+\section{Turn Management}\label{sec:client-turn-management}
+
+%TL;DR: TurnManager owns long-running robot actions.
+The operational center of the client is \texttt{TurnManager}. It implements the workflows for quick look, full scan, general ask, object ask, cached answer, memory display, visual refresh, and memory reset. The turn manager starts a daemon thread for each accepted turn. The NAOqi-bound method can therefore return quickly, while the longer action continues in the background. This is important because a scan or server request can take several seconds, and blocking the calling interface would make the robot application brittle.
+
+%TL;DR: A busy lock prevents overlapping embodied actions.
+The turn manager uses a re-entrant lock, a busy flag, and an active-turn record. If a new turn starts while another is active, the client rejects it and speaks a localized busy fallback. This is not only a programming convenience. Pepper is an embodied robot. Two overlapping turns could both try to move the head, capture from the camera, speak over each other, or update the tablet. Serializing turns preserves a simple interaction model: at any moment, Pepper is either idle or working on one requested action.
+
+%TL;DR: Error handling turns failures into spoken recovery messages.
+The turn manager catches camera errors, server timeouts, server unavailability, malformed responses, and unexpected exceptions. In each case, it logs the failure and speaks an appropriate fallback message in the current runtime language. The important design choice is that errors release the busy lock in a \texttt{finally} block. The robot may fail to answer one turn, but it should not remain permanently busy. This is essential for a demo or user study, where a single network timeout should not force the whole application to restart.
+
+\begin{figure}[t]
+\centering
+\fbox{%
+\begin{minipage}{0.90\linewidth}
+\centering
+\begin{tabular}{c}
+Idle \\
+$\downarrow$ user intent accepted \\
+Busy: acknowledgement spoken \\
+$\downarrow$ \\
+Run capture, server call, memory update, or tablet update \\
+$\swarrow \hspace{3em} \searrow$ \\
+Success: speak or display result \hspace{2em} Failure: speak fallback \\
+$\downarrow$ \\
+Release busy lock and return to Idle
+\end{tabular}
+\end{minipage}}
+\caption{Simplified turn-manager state machine. The robot accepts only one long-running turn at a time and always returns to the idle state after success or failure.}
+\label{fig:client-turn-state-machine}
+\end{figure}
+
+\section{Visual Turns}\label{sec:client-visual-turns}
+
+%TL;DR: Quick look is optimized for immediate scene description.
+The quick-look workflow is used when the user asks what Pepper currently sees. The client creates a new frame identifier, captures one image, collects metadata, and calls the server caption endpoint. Depending on configuration, the request asks the server to start detection in the background after returning the caption. The client stores the caption response in the session store and speaks the caption. It then refreshes dynamic memory concepts if configured. The result is a low-latency interaction: the user hears a quick description, while memory can still be updated for later questions.
+
+%TL;DR: Full scan expands the scene memory beyond Pepper's current narrow view.
+The full-scan workflow is used when the user asks Pepper to scan the room or look around. The client first records the original head pose. It then moves the head through configured yaw angles, waits for the head to settle, captures one image at each pose, and builds metadata for every frame. After the captures are prepared, the client either sends them as one panorama detection request or sends them sequentially as individual detection requests. At the end of the scan, the head is restored if configured. This makes scanning useful for memory construction while keeping Pepper's physical posture predictable after the action.
+
+%TL;DR: Panorama and sequential scan modes reflect different assumptions about geometry.
+The panorama mode sends several images to the server together, which can stitch them and run one detection pipeline on the broader image. This is convenient because the server receives one wide observation. However, stitching assumes that the images are ordered and that the merged geometry is meaningful enough for downstream processing. Sequential mode avoids panorama artifacts by treating each frame independently, but it creates several server requests and returns separate detections. The client supports both because neither mode is universally better.
+
+\begin{figure}[t]
+\centering
+\fbox{%
+\begin{minipage}{0.92\linewidth}
+\centering
+\begin{tabular}{c c c}
+Head yaw $-35^\circ$ & Head yaw $0^\circ$ & Head yaw $35^\circ$ \\
+Capture frame A & Capture frame B & Capture frame C \\
+\multicolumn{3}{c}{$\downarrow$} \\
+\multicolumn{3}{c}{Send as panorama request or sequential detection requests} \\
+\multicolumn{3}{c}{$\downarrow$} \\
+\multicolumn{3}{c}{Server updates scene memory; client refreshes dynamic concepts}
+\end{tabular}
+\end{minipage}}
+\caption{Client-side scan pattern. The exact yaw values are configurable; the figure shows the current default pattern.}
+\label{fig:client-scan-pattern}
+\end{figure}
+
+%TL;DR: Ask turns can optionally refresh visual context before chatting.
+A general ask turn begins with query sanitization and length limiting. The client then decides whether to refresh visual context. A forced refresh always captures and sends a new detection request. An automatic refresh can happen if the previous detection is older than a configured time-to-live and the relevant behavior flag is enabled. In the current configuration, automatic refresh before chat is disabled, so ordinary chat can use existing memory. This is a deliberate latency tradeoff. Some interactions should be fast and memory-based; others should explicitly refresh vision first.
+
+%TL;DR: Object ask turns rely on object labels extracted from memory concepts.
+An object ask turn receives an object label from QiChat, usually through the dynamic \texttt{memory\_objects} concept. If no explicit query is passed, the client builds a default question such as ``Tell me what you know about chair''. It then sends a chat request with mode \texttt{object} and the object label. The server performs the actual object matching and context construction. The client does not try to decide which exact object instance is meant; it only passes the recognized label and preserves the shared chat identifier.
+
+\section{Metadata Collection}\label{sec:client-metadata-collection}
+
+%TL;DR: The robot sends embodied metadata with every visual observation.
+Every visual observation sent to the server is accompanied by metadata. The camera adapter returns image bytes, image width, image height, timestamp, camera horizontal field of view, and camera vertical field of view. The pose adapter returns head yaw, head pitch, and optional body yaw. The robot context collector adds people, social people, and sonar snapshots. The metadata builder combines these values into the JSON payload expected by the server. This is the bridge between raw camera pixels and embodied scene understanding.
+
+%TL;DR: People metadata comes from Pepper's own perception stack.
+The people adapter subscribes to \texttt{ALPeoplePerception} and reads visible people from \texttt{ALMemory}. For each visible person, it extracts the Pepper person identifier, yaw, pitch, and distance. These values are not image detections produced by the server. They are robot-native estimates. The server can later align them with visual person detections or create synthetic person detections when no visual match is found. The client therefore contributes information that the server could not recover from the image alone.
+
+%TL;DR: Social metadata enriches people with interaction-relevant attributes.
+The social adapter collects additional information from Pepper services such as face characteristics, gaze analysis, engagement zones, sitting detection, and waving detection. It can report whether a person appears to be sitting, waving, looking at the robot, smiling, or located in a certain engagement zone. It can also include rough demographic and expression estimates when available. These signals are noisy and should not be treated as perfect truth, but they are valuable for social interaction because they describe how people relate to the robot.
+
+%TL;DR: Face matching associates recognized faces with visible Pepper people.
+The face adapter reads \texttt{FaceDetected} data and attempts to match recognized faces to people by comparing yaw and pitch. If a face label and confidence are available, they are attached to the corresponding social person record. This is another example of robot-side fusion before the server receives the payload. The server still owns the final scene memory, but the client packages the native robot observations in a way that makes later fusion possible.
+
+\section{Server Communication and Local State}\label{sec:client-transport-state}
+
+%TL;DR: PepperServerTransport is the strict HTTP boundary to the server.
+The client sends all server requests through \texttt{PepperServerTransport}. Image endpoints use multipart form uploads. Chat, memory reset, and QA endpoints use JSON. The transport object applies configured timeouts, TLS verification, endpoint paths, and response validation. Low-level \texttt{requests} exceptions are converted into client-specific timeout or server-unavailable errors. Invalid JSON or missing required response fields become malformed-response errors. This keeps error handling consistent in the turn manager.
+
+%TL;DR: The client stores interaction continuity but not authoritative world state.
+The session store keeps the local state needed for smooth interaction. It stores the current chat identifier, the last caption, the last detection time, the last scan identifier, the last query, the last server response, the last memory summary, remembered labels, remembered attributes, remembered relations, cached questions, and a question-to-answer cache. This state is local and process-bound. It helps the client decide whether to refresh visual context, what labels to inject into QiChat, and what cached answers can be spoken. It is not the authoritative scene memory; that remains on the server.
+
+%TL;DR: Memory summaries synchronize server memory into robot-side grammar and tablet state.
+When the client asks for a memory summary, the server returns object labels, label counts, scene graph relations, a graph SVG, and optional pregenerated question-answer pairs. The client extracts labels, attributes, relations, and cached questions from this summary. These values are stored locally and pushed into dynamic concepts. The same summary can also be transformed into a tablet payload. In this way, one server memory endpoint supports both speech recognition and visual inspection on the robot.
+
+%TL;DR: Cached answer turns avoid unnecessary model calls when the answer is already known.
+The cached answer workflow first checks the local question-to-answer mapping. If the exact question is found, Pepper speaks the cached answer immediately. If not, the client falls back to general chat. This is a simple latency optimization, but it also improves interaction with the tablet. A user can tap a suggested question and receive a quick answer without waiting for a new LLM call, provided the cached pair is still available.
+
+\section{Speech, Language, and Tablet Output}\label{sec:client-speech-tablet}
+
+%TL;DR: The speech layer maps between several language naming conventions.
+The client has to map between three different language naming schemes. Internally, it uses short runtime codes such as \texttt{en} and \texttt{cs}. QiChat topic languages use codes such as \texttt{enu} and \texttt{czc}. Server requests use language names such as \texttt{english} and \texttt{czech}. The speech policy module centralizes these conversions. It also chooses localized acknowledgements and fallback messages. This prevents language handling from being scattered across the turn logic.
+
+%TL;DR: Speech output uses animated speech when available and TTS otherwise.
+The speech adapter speaks the text returned by the server or selected by the client. It applies the requested TTS language when possible, tries animated speech first, and falls back to ordinary text-to-speech if animated speech fails. It also protects speech with a lock, because multiple parts of the client could attempt to speak in response to asynchronous events. This is another example of adapting ordinary API calls to an embodied platform where output is physical and time-dependent.
+
+%TL;DR: The tablet renders an inspectable memory view for users.
+The tablet adapter opens a local HTML application and injects a memory payload into it with JavaScript. The page renders detected object labels and counts, attributes, relationships, a server-generated scene graph SVG, and pregenerated question-answer buttons. The tablet therefore serves two purposes. It makes the robot's memory visible to the user, and it offers clickable questions that call back into the Pepper service through \texttt{qi.js}. This makes the memory not only inspectable but also interactive.
+
+\begin{figure}[t]
+\centering
+\fbox{%
+\begin{minipage}{0.94\linewidth}
+\centering
+\begin{tabular}{c}
+Server memory summary \\
+$\downarrow$ \\
+Client session store updates labels, relations, cached QA \\
+$\swarrow \hspace{3em} \searrow$ \\
+ALDialog dynamic concepts \hspace{3em} Tablet memory page \\
+$\downarrow \hspace{5em} \downarrow$ \\
+Spoken object questions \hspace{3em} Visible graph and QA buttons
+\end{tabular}
+\end{minipage}}
+\caption{Memory summary reuse on the robot side. The same server response updates speech recognition concepts and the tablet memory interface.}
+\label{fig:client-memory-summary-reuse}
+\end{figure}
+
+%TL;DR: Fake adapters support development without changing the main client logic.
+The client includes fake camera and fake tablet modes. The fake camera selects images from a local folder and returns them in the same shape as a robot camera capture. The fake tablet starts a small local HTTP server and serves the same tablet page with polling for payload updates. These fake adapters are not part of the final interaction with Pepper, but they are important for development. They allow testing client-server behavior without repeatedly deploying to the physical robot.
+
+\section{Limitations of the Robot-Side Design}\label{sec:client-limitations}
+
+%TL;DR: The robot client remains dependent on network and server behavior.
+The most important limitation of the client is that it depends on the server for intelligence-heavy operations. If the network is unavailable, if the server URL is wrong, if the server times out, or if a response is malformed, the robot can only speak a fallback. This is an unavoidable consequence of the offloaded architecture. The client mitigates the issue with timeouts, error classes, and fallback messages, but it cannot answer grounded visual questions without the server.
+
+%TL;DR: Spoken grammar provides control but limits unconstrained speech recognition.
+A second limitation is the dependence on QiChat grammar for spoken entry points. The grammar gives useful control over actions and object-specific queries, especially through dynamic concepts. However, it is not the same as unrestricted speech recognition followed by semantic parsing. Users must still speak within recognizable patterns for the intended service call to trigger. This is a tradeoff between robustness and openness. For a prototype robot system, the grammar makes the interaction more controllable, but it also limits natural variation.
+
+%TL;DR: Robot-side metadata is useful but noisy.
+The third limitation is metadata quality. Pepper's people perception, social perception, face detection, gaze analysis, and sonar readings can be missing, delayed, or wrong. The client sends this information when available, and the server treats it as evidence rather than as unquestionable truth. This is the correct engineering stance. Embodied metadata improves scene awareness, but it must be fused cautiously with visual detections and memory state.
+
+%TL;DR: The chapter closes by positioning the client as the embodied half of the system.
+The robot-side implementation completes the split architecture introduced in Chapter~\ref{chap:system_architecture_rewrite}. The server builds and uses the scene memory, while the client makes that memory accessible in a physical interaction. It captures images, collects embodied metadata, controls head movement, manages turns, updates dynamic grammar concepts, speaks answers, and renders memory on the tablet. The result is not merely a server demo with a robot attached. It is an embodied interface to a structured scene-aware dialogue system.
