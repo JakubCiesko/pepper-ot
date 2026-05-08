@@ -13,6 +13,8 @@ dependencies = [
   "PyYAML>=6.0",
   "Pillow>=10.0",
   "tqdm>=4.66",
+  "datasets>=2.19",
+  "matplotlib>=3.8",
 ]
 
 [project.scripts]

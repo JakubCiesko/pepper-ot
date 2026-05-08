@@ -5,7 +5,8 @@ from PIL import Image
 from tqdm import tqdm
 
 from .bootstrap import ensure_server_app_importable
-from .utils import resize_pil
+from .utils import resize_pil_with_scale
+from .utils import scale_xyxy_bbox
 
 
 class ServerDetectionAdapter:
@@ -25,10 +26,17 @@ class ServerDetectionAdapter:
     def detect_image(
         self, image: Image.Image, max_image_size: int | None = None
     ) -> list[dict[str, Any]]:
+        scale_x = scale_y = 1.0
         if max_image_size:
-            image = resize_pil(image, max_image_size)
+            image, (scale_x, scale_y) = resize_pil_with_scale(image, max_image_size)
         detections = self._service.detect(image)
-        return [det.model_dump() for det in detections]
+        out: list[dict[str, Any]] = []
+        for det in detections:
+            payload = det.model_dump()
+            if max_image_size:
+                payload["bbox"] = scale_xyxy_bbox(payload["bbox"], scale_x, scale_y)
+            out.append(payload)
+        return out
 
     def model_optimization(self, current_batch_size: int, batch_size: int = 4) -> bool:
         needs_reoptimization = current_batch_size != batch_size
@@ -50,13 +58,18 @@ class ServerDetectionAdapter:
         output: dict[str, list[dict[str, Any]]] = {}
         batch: list[Image.Image] = []
         batch_paths: list[Path] = []
+        batch_scales: list[tuple[float, float]] = []
         for path in tqdm(image_paths, desc="Running inference on images", leave=False):
             with Image.open(path) as img:
                 img_pil = img.convert("RGB").copy()
+                scale_x = scale_y = 1.0
                 if max_image_size:
-                    img_pil = resize_pil(img_pil, max_image_size)
+                    img_pil, (scale_x, scale_y) = resize_pil_with_scale(
+                        img_pil, max_image_size
+                    )
                 batch.append(img_pil)
                 batch_paths.append(path.resolve())
+                batch_scales.append((scale_x, scale_y))
             # what will happen if data size is N*batch_size + 1?
             if len(batch) < batch_size:
                 continue
@@ -66,9 +79,19 @@ class ServerDetectionAdapter:
                 results = [self._service.detect(batch[0])]
             else:
                 results = self._service.detect_batch(batch)
-            for p, dets in zip(batch_paths, results, strict=True):
-                output[str(p)] = [det.model_dump() for det in dets]
-            batch, batch_paths = [], []
+            for p, dets, (scale_x, scale_y) in zip(
+                batch_paths, results, batch_scales, strict=True
+            ):
+                rescaled: list[dict[str, Any]] = []
+                for det in dets:
+                    payload = det.model_dump()
+                    if max_image_size:
+                        payload["bbox"] = scale_xyxy_bbox(
+                            payload["bbox"], scale_x, scale_y
+                        )
+                    rescaled.append(payload)
+                output[str(p)] = rescaled
+            batch, batch_paths, batch_scales = [], [], []
 
         if batch:
             reoptimized = self.model_optimization(len(batch), batch_size)
@@ -82,6 +105,16 @@ class ServerDetectionAdapter:
                     else [self._service.detect(batch[0])]
                 )
 
-            for p, dets in zip(batch_paths, results, strict=True):
-                output[str(p)] = [det.model_dump() for det in dets]
+            for p, dets, (scale_x, scale_y) in zip(
+                batch_paths, results, batch_scales, strict=True
+            ):
+                rescaled: list[dict[str, Any]] = []
+                for det in dets:
+                    payload = det.model_dump()
+                    if max_image_size:
+                        payload["bbox"] = scale_xyxy_bbox(
+                            payload["bbox"], scale_x, scale_y
+                        )
+                    rescaled.append(payload)
+                output[str(p)] = rescaled
         return output

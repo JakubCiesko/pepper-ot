@@ -1,0 +1,34 @@
+name: PepperResearchSmokeMatrix
+base_config: default.yaml
+
+common_overrides:
+  name: PepperResearchSmokeMatrix
+  paths:
+    manifest_file: data/eval/local_smoke.jsonl
+    output_root: research/artifacts
+  descriptions:
+    max_concurrent_batches: 50
+  draft_scene_graph:
+    max_concurrent_batches: 50
+    max_image_size: 1024
+  context_rot:
+    enabled: false
+  evaluation:
+    enabled: false
+
+variants:
+  - name: smoke_vlm_som
+    overrides:
+      experiment_id: smoke_vlm_som
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: true
+
+  - name: smoke_vlm_raw
+    overrides:
+      experiment_id: smoke_vlm_raw
+      draft_scene_graph:
+        use_som_image: false
+        som_show_bbox: true
+        som_show_labels: true

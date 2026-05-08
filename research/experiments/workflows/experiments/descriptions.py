@@ -10,7 +10,7 @@ from research.experiments.adapters import ServerDetectionAdapter
 from research.experiments.config.models import ExperimentConfig
 from research.experiments.io import RunContext
 from research.experiments.io import StageMetrics
-from research.experiments.io import iter_image_paths
+from research.experiments.io import iter_config_image_paths
 from research.experiments.io import load_json
 from research.experiments.io import save_json
 
@@ -23,7 +23,9 @@ def _objects_from_detection_row(row: list[dict]) -> list[str]:
 async def run_descriptions(config: ExperimentConfig, run: RunContext) -> dict:
     run.logger.info("Starting description phase")
     stage_metrics = StageMetrics(stage="descriptions")
-    image_paths = list(iter_image_paths(config.paths.images_dir))
+    image_paths = list(
+        iter_config_image_paths(config.paths.images_dir, config.paths.manifest_file)
+    )
     run.logger.info("Found images=%d", len(image_paths))
 
     detections: dict[str, list[dict]] = {}

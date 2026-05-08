@@ -1,0 +1,33 @@
+name: PepperVocabularyContextMatrix
+base_config: default.yaml
+
+common_overrides:
+  name: PepperVocabularyContextMatrix
+  paths:
+    manifest_file: data/eval/local_smoke.jsonl
+    output_root: research/artifacts
+  context_rot:
+    enabled: true
+    min_vocab_size: 10
+    step: 15
+    rounds_per_size: 1
+    evaluate_against_ground_truth: false
+  evaluation:
+    enabled: false
+
+variants:
+  - name: vocab_semantic_som
+    overrides:
+      experiment_id: vocab_semantic_som
+      context_rot:
+        strategy: semantic
+      draft_scene_graph:
+        use_som_image: true
+
+  - name: vocab_random_som
+    overrides:
+      experiment_id: vocab_random_som
+      context_rot:
+        strategy: random
+      draft_scene_graph:
+        use_som_image: true

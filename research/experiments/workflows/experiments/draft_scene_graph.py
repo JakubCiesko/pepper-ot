@@ -168,14 +168,15 @@ async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> di
                     som_file = som_dir / f"som_{path.name}"
                     som_image.save(som_file)
                     som_path = str(som_file)
+                prompt_image = som_image if config.draft_scene_graph.use_som_image else pil_image
                 if config.draft_scene_graph.max_image_size:
-                    som_image = resize_pil(
-                        som_image, config.draft_scene_graph.max_image_size
+                    prompt_image = resize_pil(
+                        prompt_image, config.draft_scene_graph.max_image_size
                     )
                 raw_text, parsed = await vlm.generate_structured(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
-                    image_bytes=_pil_to_jpeg_bytes(som_image),
+                    image_bytes=_pil_to_jpeg_bytes(prompt_image),
                     output_schema=SceneGraphDraft,
                 )
                 parsed_payload = (
@@ -185,6 +186,7 @@ async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> di
                 drafts[image_path] = {
                     "image_path": image_path,
                     "som_image_path": som_path,
+                    "used_som_image": config.draft_scene_graph.use_som_image,
                     "caption": caption,
                     "objects": objects,
                     "vocabulary": vocabulary,

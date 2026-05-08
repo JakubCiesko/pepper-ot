@@ -7,6 +7,7 @@ from pydantic import Field
 
 class PathsConfig(BaseModel):
     images_dir: Path
+    manifest_file: Path | None = None
     output_root: Path = Path("research/artifacts")
     detections_file: str = "detections.json"
     descriptions_file: str = "descriptions.json"
@@ -75,6 +76,7 @@ class DraftSceneGraphStageConfig(BaseModel):
     batch_size: int = 8
     max_concurrent_batches: int = 2
     save_som_images: bool = True
+    use_som_image: bool = True
     som_output_dir: str = "som_images_draft"
     include_raw_response: bool = True
     som_show_bbox: bool = True
@@ -99,7 +101,7 @@ class ContextRotStageConfig(BaseModel):
     enabled: bool = True
     min_vocab_size: int = 10
     step: int = 5
-    strategy: Literal["llm_drop", "random_drop"] = "llm_drop"
+    strategy: Literal["semantic", "frequency", "random", "llm_drop", "random_drop"] = "semantic"
     rounds_per_size: int = 1
     evaluate_against_ground_truth: bool = True
 
