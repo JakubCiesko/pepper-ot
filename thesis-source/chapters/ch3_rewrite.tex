@@ -1,88 +1,32 @@
 \chapter{System Architecture and Design}\label{chap:system_architecture_rewrite}
 
-%TL;DR: This chapter turns the problem setting from the background chapter into a concrete client-server robotic system.
-Chapter~\ref{chap:background} defined the background concepts needed for scene-aware dialogue: object detection, re-identification, scene graphs, language models, retrieval, and the Pepper robot platform. We can now move from these concepts to the implemented system. The aim of this chapter is to describe the architecture before describing the implementation details. For this reason, the chapter stays at the level of responsibilities, information flow, assumptions, and interfaces. The exact server modules are then described in Chapter~\ref{chap:server_side_rewrite}, and the robot-side client is described in Chapter~\ref{chap:robot_side_rewrite}.
+The previous Chapter~\ref{chap:background} defined the technical background for scene-aware dialogue on Pepper; 
+This chapter describes how these ideas are organized in the implemented system in a high-level view before the individual parts are described in detail. The server-side architecture is described in Chapter~\ref{chap:server_side_rewrite}, and the robot client is described in Chapter~\ref{chap:robot_side_rewrite}. The code is publicly available at \url{https://github.com/JakubCiesko/pepper-ot}.
 
-%TL;DR: The system solves scene-aware dialogue, not generic open-domain conversation.
-The central task of the system is not to build a general chatbot that happens to run on a robot. The task is more specific. A human user interacts with Pepper in a physical environment, and the robot should answer questions using what it has observed or remembered about that environment. In one turn, the user may ask for an immediate description of the current view. In another turn, the user may ask what objects are present, where an object is located, whether a person is waving, or what can be asked about the current scene. Formally, we can view one interaction turn as a mapping from a user utterance, optional new observations, robot metadata, conversation history, and scene memory to a spoken answer and optional tablet output. The answer is acceptable only if it remains grounded in the available scene evidence.
-
-%TL;DR: The main requirements are embodiment, grounding, latency, robustness, and inspectability.
-This task creates five system-level requirements. First, the robot must preserve embodiment: it must speak, move its head, display information on the tablet, and respond through a natural interaction loop. Second, the answer must be grounded in explicit scene state rather than in generic world knowledge only. Third, the system must preserve interaction tempo, because a technically correct answer can still be a poor robot answer if it arrives too late. Fourth, the system must be robust to camera errors, network errors, model failures, and malformed model output. Fifth, the system must be inspectable, because grounded dialogue is hard to debug if the developer cannot see what the robot currently believes about the scene.
-
-%TL;DR: Pepper is the embodied interface, but not a suitable host for heavy modern inference.
-Pepper is therefore used as the embodied interface of the system. It provides a camera, speech output, animated speech, a tablet, head motion, and several NAOqi perception services. These features are important because they make the interaction physically situated. At the same time, Pepper is not a good platform for modern vision-language inference. Its software environment is old, the robot-side application is written for the NAOqi Python stack, and the robot does not provide the GPU memory needed for object detectors, visual embedding models, VLMs, or LLMs. This is not a minor implementation inconvenience. It is one of the basic constraints that determines the architecture.
-
-%TL;DR: The architecture uses a split between embodied client and external intelligence server.
-The system therefore uses a split architecture. The Pepper client is responsible for embodiment and sensing. It listens through QiChat, calls the Python service, moves the head, captures images, reads robot context, sends requests to the server, speaks answers, and updates the tablet. The server is responsible for intelligence-heavy work. It runs object detection, appearance-based re-identification, scene graph generation, image captioning, question-answer generation, memory management, language-model prompting, and the developer dashboard. This split is sometimes called a Body-Brain architecture. In this thesis, the phrase should be understood pragmatically: Pepper is not passive, and the server is not a disembodied chatbot. The client and server both maintain state, but they own different kinds of state.
+The system follows a distributed client-server design. Pepper is used as an interaction platform, while a separate server performs the computationally expensive perception, scene memory managment, and language processing. This choice follows directly from the motivation in Chapter~\ref{chap:intro}, where related Pepper systems were shown to rely on cloud or remote processing for modern perception and language components~\cite{reyes_near_2018,wilson_enhancing_2025,becerra_improving_2024,brad_retrieval-augmented_2025,hafez_enhancing_nodate,grassi_grounding_2024,latif_physicsassistant_2024,trinquet_future_2025}. 
+It is also supported by the Pepper platform presentation in Section~\ref{sec:pepper-platform}; Pepper provides useful interaction hardware and NAOqi services, but its resources are limited for a full or even a partial vision and language pipeline.
 
 \begin{figure}[t]
 \centering
-\fbox{%
-\begin{minipage}{0.92\linewidth}
-\centering
-\begin{tabular}{c}
-Human user speech \\
-$\downarrow$ \\
-QiChat topics and tablet JavaScript \\
-$\downarrow$ \\
-\texttt{PepperGroundedClient} service on Pepper \\
-$\downarrow$ \\
-\texttt{TurnManager}: capture, scan, ask, show memory \\
-$\downarrow$ \\
-HTTP image and metadata requests \\
-$\downarrow$ \\
-FastAPI server: detection, tracking, scene graph, memory, chat \\
-$\downarrow$ \\
-Response text, memory summary, graph, cached questions \\
-$\downarrow$ \\
-Pepper speech and tablet output
-\end{tabular}
-\end{minipage}}
-\caption{High-level flow of the scene-aware dialogue system. The robot side handles embodied interaction and data collection, while the server side builds and uses the scene representation.}
-\label{fig:system-high-level-flow}
+\includegraphics[width=1\linewidth]{pics/architecture.pdf}
+\caption{High-level architecture of the proposed scene-aware dialogue system. The Pepper robot (client) handles user speech input, speech and tablet output, image capture, and robot metadata collection. The server exposes perception, chat, and memory endpoints that create and use the scene representation.}
+\label{fig:overall-system-architecture}
 \end{figure}
 
-%TL;DR: State ownership separates local interaction state from authoritative scene memory.
-The client owns short-lived interaction state. It remembers the current chat identifier, the last caption, the time of the last visual refresh, recently received object labels, cached questions, and the last memory summary shown on the tablet. This state helps the robot conduct a smooth conversation, but it is not the authoritative world model. The server owns the scene memory. This memory contains tracked objects, their identities, bounding boxes, attributes, robot-relative bearings, people metadata, scene graph relationships, captions, timestamps, and object crops. The distinction matters because it prevents the robot client from becoming a second inconsistent memory store.
+Figure~\ref{fig:overall-system-architecture} shows the main information flow. The user interacts with Pepper through speech. The robot client sends an image and robot metadata to the server when prompted for a scan of its surroundings based on QiChat grammar. When the user asks a question, it sends the text queries to the server's chat endpoint. It can also request a memory summary when the user wants to inspect what the system currently remembers. The server answers all these requests through a small set of HTTP endpoints and returns detections, captions, grounded replies, or memory summaries. These are then furhter processed or presented to the user using its native TTS module.
 
-%TL;DR: Different user intents use different runtime paths rather than one universal pipeline.
-The architecture should not be understood as one fixed pipeline that runs after every utterance. A quick visual question uses the caption route and can optionally start detection in the background. A full scan moves the robot head through several yaw angles and calls panorama or sequential detection. A general question may use existing scene memory without taking a new picture. An object-focused question uses a label recognized from dynamic memory concepts and asks the server to build a smaller object-specific context. A tablet interaction can ask the robot to speak a cached answer without invoking the LLM. This is important for latency. The system uses the expensive perception path when the scene state must be refreshed, not for every spoken token.
+The robot side is generally responsible for the parts of the system that provide data for processing or must stay close to the user. 
+It runs inside Pepper's NAOqi application environment as a NAOqi service which listens through QiChat, moves the head during scans, captures images, speaks answers, and updates the tablet. It also keeps remembered object labels, their relationship and attributes, and cached pregenerated question-answer pairs for fast answerings without calling the server. 
 
-\begin{figure}[t]
-\centering
-\fbox{%
-\begin{minipage}{0.94\linewidth}
-\begin{tabular}{p{0.21\linewidth}p{0.31\linewidth}p{0.34\linewidth}}
-\textbf{Mode} & \textbf{Client action} & \textbf{Server action} \\
-\hline
-Quick look & Capture one image and request a caption & Caption image; optionally run detection in background \\
-Full scan & Move head, capture several images & Detect on panorama or on individual frames; update memory \\
-General ask & Send user query and chat id & Build scene-memory prompt and answer with LLM \\
-Object ask & Send query plus object label & Build object-focused context and answer with LLM \\
-Show memory & Request summary and QA pairs & Render memory summary, graph, and cached questions
-\end{tabular}
-\end{minipage}}
-\caption{Main interaction modes. The system deliberately uses different server paths for different user intents.}
-\label{fig:interaction-modes}
-\end{figure}
+The server side owns the heavier and more persistent part of the system. 
+It receives robot observations, runs object detection, associates detections with remembered objects, generates captions, builds scene graph relations, updates scene memory, and calls language models for grounded responses. 
+The server also exposes a dashboard which servers as a configuration interface for development and changing the pipeline settings as well as monitoring device displaying the processed scene representation. %This makes the server the central place where visual observations become a structured representation that can be used in dialogue.
 
-%TL;DR: The shared observation unit consists of image bytes plus robot metadata.
-The most important interface object between client and server is a captured image together with robot metadata. The image is sent as JPEG bytes. The metadata describes the robot and capture context: head yaw, head pitch, body yaw, camera field of view, image size, timestamp, frame identifier, scan identifier, capture mode, visible people, and available social people metadata. This metadata is not decorative. It allows the server to interpret the image as an embodied observation rather than as an isolated picture. For example, the same person bounding box has different meaning when Pepper's head is turned left than when it is looking straight ahead.
+The shared boundary between the two sides is intentionally simple. Visual requests contain image bytes and a metadata payload with head pose, camera field of view, image size, frame identifiers, scan identifiers, visible people and available social signals captured by NAOqi APIs, i. e. ALPeoplePerception. 
+Dialogue requests contain a query, an optional conversation identifier, language information, and sometimes an object label. These contracts keep the robot client independent of the exact detector, caption model, scene graph method, or language model used by the server and make it easy for swap of these components.
 
-%TL;DR: Scene memory is the central abstraction between perception and dialogue.
-The server does not simply pass raw detections into a prompt. A detection is only an observation in one image. Dialogue needs a more stable representation. The server therefore converts observations into scene memory. A scene memory object has a persistent identifier, label, bounding box, first and last observation time, hit count, attributes, optional Pepper person identifier, optional robot distance, and optional bearing. Relations are stored as triples between object identifiers. Captions are stored as recent natural-language summaries. This structure is the point where computer vision becomes usable by dialogue. It lets the language model answer from a compact, explicit, and inspectable representation of the scene.
+The architecture uses different interaction modes both for detection and for conversation. The robot is able to take just a quick look or do a full scan of its surroundings. A quick look can request a caption and optionally refresh visual memory in the background. A scan moves Pepper's head through several poses and sends multiple observations for detection. A general question can use the existing scene memory without taking a new picture. An object-focused question sends an object label so that the server can build a narrower context from matching objects and their relations. A memory request returns a compact summary displayed on the tablet and populates QiChat dynamic concepts.
 
-%TL;DR: The architecture explicitly works around discontinuous robot observation.
-A normal multi-object tracking system often assumes a temporally dense video stream. Pepper does not provide that interaction pattern in this system. The robot typically captures one image, or it scans by turning its head to a small number of discrete positions. Objects can therefore move substantially in image coordinates between observations, and adjacent frames need not overlap. The system works around this assumption violation in several ways. It uses visual embeddings from object crops for re-identification, combines them with a smaller geometric term, attaches robot pose and field-of-view metadata to captures, and supports panorama-style scan processing. This does not remove all ambiguity, but it makes the tracking problem better matched to Pepper's sensing regime.
+Scene memory serves as the main abstraction between perception and conversation. Raw detections are tied to one image, while dialogue usually needs stable references over time. The server therefore stores tracked objects, their identifiers, attributes, relations, recent captions, timestamps, and object crops. The robot client only mirrors the parts needed for interaction, such as labels and cached questions. MAYBEDROP: This separation avoids two competing world models and gives the dialogue layer one authoritative source of scene state.
 
-%TL;DR: The architecture combines CAG-like full memory context with graph-like object focusing.
-The dialogue side also makes an architectural tradeoff. Since the active scene memory is bounded and relatively small, the system can often insert the whole current memory description into the prompt. This resembles cache-augmented generation more than a large-scale vector retrieval system. However, object-focused questions benefit from a narrower context, because the user usually asks about one object category or one visible entity. For these turns, the server builds an object-specific context from matching objects, their attributes, and their immediate relations. The system therefore combines broad memory injection for general questions with graph-like filtering for object questions.
-
-%TL;DR: Reliability mechanisms are part of the architecture, not only implementation details.
-The architecture contains several reliability mechanisms. The robot client uses a turn lock so that a scan, a speech response, and another server call do not overlap destructively. Network calls have explicit timeouts and malformed-response checks. The server can isolate heavy inference in a worker process, so model loading and GPU memory pressure do not have to block the main web application process. The server also exposes a dashboard and WebSocket events, which makes failures easier to inspect. These choices do not make the system fail-proof, but they make failures bounded and recoverable.
-
-%TL;DR: The architecture exposes its internal state to both developers and users.
-Inspectability is deliberately exposed through two interfaces. The developer dashboard shows detections, memory, configuration, chat events, and worker status. The robot tablet shows a simplified memory view to the user: object labels, attributes, relationships, a rendered graph, and suggested questions. These views serve different audiences, but they are based on the same underlying scene memory. This is important for trust. If Pepper says that it sees a chair near a person, the user or developer should be able to see whether the system actually stored such an object and relation.
-
-%TL;DR: The following chapters explain the two sides of the split architecture.
-The rest of the implementation description follows the same boundary. Chapter~\ref{chap:server_side_rewrite} explains the server, because it owns the perception pipeline, scene memory, worker runtime, and grounded dialogue services. Chapter~\ref{chap:robot_side_rewrite} explains the Pepper client, because it owns the embodied turn structure, NAOqi adapters, spoken grammar, tablet interface, and HTTP communication. This ordering mirrors the contribution of the system: a scene-aware dialogue robot is built by making perception, memory, and language generation usable from the constraints of an embodied platform.
+MAYBEDROP KEEP JUST LAST SENTENCE: The server-client split also supports reliability. The robot client can reject overlapping turns, speak localized fallback messages, and recover from camera or network errors. The server can isolate heavy inference in a worker process and expose its internal state through the dashboard. The result is a system where Pepper remains responsive as an interaction device, while the external server provides the computational capacity needed for scene-aware dialogue.

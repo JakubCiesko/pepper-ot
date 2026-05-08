@@ -79,6 +79,19 @@ class FeatureExtractionConfig(BaseModel):
     device: str | None = None
     target_size: tuple[int, int] | None = None
     resampling_method: str | None = None
+    human_reid_enabled: bool = False
+    human_reid_model: str | None = None
+    human_reid_target_size: tuple[int, int] | None = None
+    human_labels: list[str] = Field(
+        default_factory=lambda: [
+            "person",
+            "human",
+            "man",
+            "woman",
+            "boy",
+            "girl",
+        ]
+    )
 
 
 class TrackingConfig(BaseModel):

@@ -1,0 +1,147 @@
+\chapter{Introduction}\label{chap:intro}
+
+%TL;DR: The chapter motivates the thesis and states the problem before the technical background.
+This chapter introduces the motivation, research problem, objectives, research questions, and contributions of the thesis. The central topic is scene-aware dialogue for the Pepper robot. The problem is not just to make Pepper speak with a large language model (LLM) or applying object detection to robot-captured images. The main challenge is to connect speech, visual perception, robot-native metadata, persistent scene memory, and language generation into one system that can answer questions about the environment in which the interaction takes place.
+
+%TL;DR: The thesis is framed as a system thesis under embodiment and hardware constraints.
+The thesis is therefore a system-oriented contribution. It studies how a computationally constrained humanoid robot can use off-board perception and language models while still behaving as an embodied interaction partner. The implemented system does not propose a new object detector, a new scene graph generation benchmark model, or a new LLM architecture. Instead, it selects, combines, and adapts existing methods under the practical assumptions of Pepper: limited onboard computation, discrete camera observations, imperfect robot perception, network communication, and dialogue with a human user.
+
+
+
+\section{Motivation}\label{sec:intro-motivation}
+
+%TL;DR: Social robots are useful only if interaction quality is treated as part of the technical problem.
+Social robots are physically embodied systems designed to communicate, assist, guide, or cooperate with people in human-centered environments. They appear in healthcare, assisted living, education, public services, and industrial assistance \cite{Han2024HRIHealthcare,liao_use_2023,latif_physicsassistant_2024,sievers_humanoid_2025,horak_v_2018,brad_retrieval-augmented_2025}. In these settings, a robot is not evaluated only by isolated model accuracy. It is evaluated by whether its behavior is understandable, context-sensitive, and useful in front of a human user. This makes human-robot interaction (HRI) a technical problem as well as a social one.
+
+%TL;DR: Pepper is used as a social interaction platform rather than as a manipulator or vehicle.
+Sheridan distinguishes several broad forms of HRI, including supervisory control, teleoperation, automated vehicles, and social interaction \cite[525--526]{Sheridan2016HRI}. The present thesis belongs primarily to the last category. Pepper is not used as an industrial manipulator or an autonomous navigation platform. It is used as a social robot that speaks, listens, looks around, displays information, and reacts to a user in a shared space. For such a robot, the relevant question is not only whether an object can be detected in an image, but whether detected objects can become part of a coherent interaction.
+
+%TL;DR: Existing Pepper work motivates the platform, but persistent scene-aware dialogue remains a specific gap.
+Pepper has already been used in several domains where social interaction matters. In education, Pepper has been connected with LLM-based teaching systems and multimodal learning scenarios \cite{sievers_humanoid_2025,latif_physicsassistant_2024}. In libraries and service environments, Pepper has been combined with visual perception, optical character recognition, and conversational assistance \cite{trinquet_future_2025}. Other recent work connects Pepper or similar robots with retrieval-augmented generation, remote computation, and LLM-based dialogue \cite{brad_retrieval-augmented_2025,becerra_improving_2024,grassi_grounding_2024}. These systems show that modern AI components can make social robots more flexible. They also show the remaining problem: fluency alone does not make a robot aware of the room in which it speaks.
+
+%TL;DR: Grounding explains why language must be connected to shared context.
+Conversational grounding is the process by which interlocutors establish and maintain shared understanding \cite{Clark_1996}. In ordinary human interaction, this shared understanding is supported by the environment, previous utterances, pointing, gaze, memory, and common expectations. A robot does not automatically have access to this shared context. It may generate fluent language while being unable to identify the object on the table, remember what it saw a few seconds earlier, or distinguish a current visual fact from a language-model prior. For embodied interaction, this is a serious limitation rather than a small implementation detail.
+
+%TL;DR: LLMs increase the need for grounding because fluent language raises user expectations.
+Large language models have made robotic dialogue more flexible. They can replace or reduce hand-written intent rules, dialogue states, and response templates, and they can produce language that appears more natural than traditional modular dialogue systems \cite{atuhurra_leveraging_2024}. However, this fluency also increases the risk of misleading interaction. A physically present robot invites the user to assume that it can perceive and refer to the surrounding world. If the robot speaks confidently without grounded scene information, the interaction can create an illusion of understanding rather than actual situational competence \cite{kim_understanding_2024}. This is particularly important in socially assistive or educational settings, where trust, expectation management, and responsible deployment matter \cite{atuhurra_leveraging_2024}.
+
+%TL;DR: Scene representations bridge low-level perception and language-level reasoning.
+Grounded dialogue cannot be obtained simply by placing an object detector before an LLM. A detector produces local hypotheses such as bounding boxes, labels, and confidence scores. A dialogue model needs a compact and semantically meaningful context that can support questions such as \enquote{what is next to the laptop?}, \enquote{is the person still there?}, or \enquote{what changed since you looked around?}. A structured scene representation is the intermediate layer between these levels. Scene graphs are one such representation: they describe objects, attributes, and relations in a form that can support retrieval, comparison, and language generation \cite{johnson_image_2015}.
+
+%TL;DR: Persistence over time is needed because interaction is not a single image question-answering task.
+A second requirement is memory. In a real interaction, the robot may observe the room, answer a question, rotate its head, observe another part of the room, and later be asked about an object that is no longer visible. A single-image vision-language model cannot handle this setting by itself. The system must preserve object identities across observations, update attributes and relations, and expose the resulting state to the dialogue layer. This makes scene-aware dialogue different from ordinary image captioning or visual question answering. The robot is not only asked to describe one frame; it is asked to maintain a usable state of its perceived environment.
+
+%TL;DR: Pepper's limited onboard resources make off-board computation a design requirement.
+The Pepper robot adds a practical constraint. Modern detectors, visual embedding models, captioning models, VLMs, and LLMs are computationally demanding. Pepper can provide embodiment, speech, tablet output, cameras, head motion, and robot-native perception signals, but it cannot efficiently run the full perception-to-language pipeline onboard. Previous Pepper systems therefore often rely on external computation, edge devices, or server-side components \cite{reyes_near_2018,trinquet_future_2025,brad_retrieval-augmented_2025,grassi_grounding_2024}. This thesis follows the same practical direction: Pepper remains the embodied client, while the server performs the heavier perception, memory, and dialogue operations.
+
+%TL;DR: The motivation is to turn isolated capabilities into a persistent scene-aware dialogue system.
+The motivation of the thesis is therefore to move from isolated components toward an integrated system for scene-aware dialogue. The target environment is an ordinary indoor setting, such as an office, computer laboratory, or similar shared space. The robot should be able to observe this environment, preserve a structured memory of relevant entities, and use that memory when answering user questions. The system should also remain inspectable, because failures in grounded dialogue can originate from detection, identity association, relation extraction, metadata fusion, retrieval, or language generation.
+
+\section{Problem Statement}\label{sec:intro-problem}
+
+%TL;DR: The central problem is stated as perception, memory, and language integration on Pepper.
+The central problem addressed in this thesis is how to enable the Pepper robot to conduct dialogue that is grounded in a persistent representation of its perceived surroundings. More specifically, the thesis asks how Pepper can collect visual and robot-native observations, send them to an external server, construct and update a structured scene memory, and use this memory as context for answering user questions.
+
+%TL;DR: Scene-aware dialogue is defined as an operational capability, not as vague contextual awareness.
+In this thesis, scene-aware dialogue denotes dialogue in which the robot's answers are conditioned on an explicit memory of perceived objects, people, attributes, spatial relations, and observation history. At a high level, each robot observation contributes evidence about the scene, and the system updates a memory state from this evidence. When the user asks a question, the dialogue layer selects relevant parts of that memory and uses them as context for response generation. This definition is intentionally operational. A system is scene-aware in the sense used here only if the scene state is represented, updated, inspected, and used by the dialogue pipeline.
+
+%TL;DR: The thesis setting violates assumptions made by standard tracking and perception pipelines.
+This problem setting differs from standard computer-vision pipelines in several ways. First, Pepper does not provide a stable high-frame-rate video stream for the whole room. It observes the environment through discrete scans, often separated by head motion and viewpoint changes. Second, the object vocabulary is not fully known in advance, because users may refer to ordinary objects in the room. Third, the robot has its own native metadata, such as head orientation and people perception signals, which are useful but incomplete. Fourth, the dialogue model must answer fluently while remaining constrained by the scene memory. These constraints are the reason why the thesis combines open-vocabulary detection, appearance-based re-identification, scene graph construction, structured memory, and off-board dialogue generation.
+
+%TL;DR: The task is bounded to scene-aware conversation, not autonomous manipulation or full world modeling.
+The thesis does not attempt to solve general robotic autonomy. Pepper does not manipulate objects, navigate freely through the environment, or build a complete metric map of the world. The focus is narrower: the robot should support spoken interaction about what it observes and remembers. This scope is important because it defines the level of representation needed. The system needs object- and relation-level scene memory for dialogue, not a complete planning representation for physical task execution.
+
+\section{Objectives}\label{sec:intro-objectives}
+
+%TL;DR: The objectives correspond to the implemented system and the later evaluation burden.
+To address the problem, the thesis defines the following objectives:
+
+\begin{enumerate}
+    \item Design a distributed client-server architecture in which Pepper remains the embodied interaction client and an external server performs computationally demanding perception, memory, and dialogue processing.
+
+    \item Develop a perception pipeline that can detect relevant objects and people in robot images, including support for open-vocabulary object categories where possible.
+
+    \item Preserve object identity across discontinuous robot observations using appearance-based re-identification and available robot metadata, rather than relying only on frame-to-frame tracking assumptions.
+
+    \item Construct and maintain a structured scene memory containing persistent entities, attributes, spatial relations, observation history, and selected robot-native perception signals.
+
+    \item Use the scene memory as context for grounded dialogue, including broad questions about the whole observed scene and targeted questions about particular objects or relations.
+
+    \item Provide inspection and evaluation mechanisms that make the perception-to-dialogue pipeline observable, including intermediate detections, scene graph state, memory updates, prompts, responses, and latency.
+\end{enumerate}
+
+%TL;DR: The objectives avoid claiming new base models while preserving the system contribution.
+These objectives deliberately separate the thesis contribution from the underlying foundation models. The system uses existing detectors, embedding models, VLMs, and LLMs as components. The research question is how such components can be arranged into an embodied, persistent, and inspectable dialogue system for Pepper.
+
+\section{Research Questions}\label{sec:intro-research-questions}
+
+%TL;DR: The research questions ask whether structured scene memory is useful and operationally feasible.
+The thesis investigates the following research questions:
+
+\begin{enumerate}
+    \item How can a computationally constrained humanoid robot use off-board perception and language models to support scene-aware dialogue while preserving an embodied interaction interface?
+
+    \item To what extent can appearance-based re-identification preserve object identity across discontinuous, low-frame-rate robot observations?
+
+    \item How can detections, robot metadata, visual descriptions, and relation predictions be combined into a structured scene memory suitable for dialogue?
+
+    \item How effectively can structured scene memory support broad scene questions and targeted object- or relation-level questions compared with less structured context?
+
+    \item What are the main practical failure modes of the perception-to-dialogue pipeline, and how do they affect latency, grounding, and answer consistency?
+\end{enumerate}
+
+%TL;DR: The questions are system-level because the thesis evaluates integration under constraints.
+These questions are system-level questions. They do not ask whether LLMs in general can converse, whether object detection in general works, or whether scene graphs are useful in abstract image retrieval. They ask whether these ideas can be made operational together on a real Pepper-based interaction pipeline.
+
+\section{Contributions}\label{sec:intro-contributions}
+
+%TL;DR: The main contribution is an integrated scene-aware dialogue system for Pepper.
+The main contribution of this thesis is the design and implementation of a scene-aware dialogue system for the Pepper robot. The system connects robot-side interaction, server-side multimodal perception, persistent scene memory, and grounded language generation. It is intended as a practical prototype and research platform for studying how social robots can answer questions about their perceived environment.
+
+%TL;DR: The first contribution is the distributed architecture.
+The first contribution is a distributed client-server architecture for Pepper-based scene-aware dialogue. Pepper handles embodied interaction: speech, head motion, image acquisition, tablet output, and robot-native metadata collection. The server handles computationally demanding operations: detection, crop embedding, memory update, scene graph construction, captioning, VLM calls, LLM dialogue, worker management, and dashboard inspection. This split directly addresses Pepper's onboard computational limits while preserving the robot as the user's visible interaction partner.
+
+%TL;DR: The second contribution is object persistence for discrete robot scans.
+The second contribution is an object persistence pipeline designed for discontinuous robot observations. Standard multi-object tracking assumes temporal continuity between adjacent frames. Pepper's scanning behavior violates this assumption because the camera may move substantially between observations. The thesis therefore uses appearance-based re-identification of detected crops, together with available robot metadata, to associate object observations over time.
+
+%TL;DR: The third contribution is structured scene memory for dialogue.
+The third contribution is a structured scene memory that stores persistent entities, attributes, relations, timestamps, observation provenance, and selected robot-native perception signals. This memory acts as the bridge between perception and dialogue. It allows the system to answer from an accumulated scene state rather than from a single current image or from the LLM's parametric knowledge alone.
+
+%TL;DR: The fourth contribution is grounded dialogue over broad and targeted context.
+The fourth contribution is a grounded dialogue layer that uses scene memory as context. Broad user questions can be answered from a compact representation of the current scene memory. Targeted questions can use object-focused or relation-focused structured context. This is related to Cache-Augmented Generation (CAG) and Retrieval-Augmented Generation (RAG), but the thesis treats them pragmatically as context-construction strategies over the robot's scene memory rather than as new retrieval algorithms.
+
+%TL;DR: The fifth contribution is observability for debugging and evaluation.
+The fifth contribution is an inspectable implementation that exposes intermediate pipeline state. The dashboard, API structure, stored memory, prompts, responses, and timing information make it possible to analyze where a grounded answer came from and where an error entered the pipeline. This is important because scene-aware dialogue failures are often composite: a wrong answer may originate from a missed detection, an identity merge, a relation hallucination, stale memory, poor retrieval, or the final language model.
+
+%TL;DR: The contribution boundary is explicit to avoid overclaiming.
+Taken together, these contributions provide a functional Pepper-based prototype for scene-aware dialogue. The novelty lies in the integration, adaptation, and evaluation of the full perception-memory-dialogue pipeline under the constraints of a real social robot. The thesis does not claim to solve general embodied intelligence or to replace the underlying perception and language models on which it builds.
+
+\section{Scope and Assumptions}\label{sec:intro-scope}
+
+%TL;DR: The thesis states what must hold for the system to work.
+The system assumes an indoor environment in which Pepper can capture useful camera images and communicate with an external server. It also assumes that the server has access to the required model backends and that network latency remains acceptable for interactive use. These assumptions are realistic for many laboratory, classroom, library, or office deployments, but they are still assumptions. If the robot has poor visibility, no network access, or severely delayed server responses, the system cannot provide fluent grounded interaction.
+
+%TL;DR: The system's knowledge is evidence-based rather than guaranteed.
+The scene memory should be understood as an evidence-based representation, not as a perfect model of the world. Object labels, attributes, relations, and identity associations can be wrong. For this reason, the implementation emphasizes inspection and intermediate outputs. A reliable scene-aware dialogue system should not only generate answers; it should also make it possible to examine which observations and context supported those answers.
+
+%TL;DR: The evaluation should therefore focus on practical usefulness and failure modes.
+The evaluation of such a system must consider more than final answer fluency. It should examine detection and identity persistence, scene graph usefulness, prompt and context construction, latency, and failure modes. This is why the later chapters describe not only the user-facing robot behavior, but also the server internals and the tools used to inspect them.
+
+\section{Thesis Structure}\label{sec:intro-structure}
+
+%TL;DR: The structure follows the thesis line from motivation to background, architecture, implementation, and evaluation.
+The remainder of the thesis is organized as follows.
+
+Chapter~\ref{chap:background} reviews the relevant background and related work. It introduces HRI, social robots, the formal problem setting of scene-aware dialogue, object detection, tracking, re-identification, grounding, scene graph generation, language models, vision-language models, RAG, CAG, GraphRAG, and the Pepper platform.
+
+Chapter~\ref{chap:system_architecture_rewrite} presents the overall system architecture. It explains why the system is distributed, how the robot client, server, workers, memory, and dashboard interact, and how the architecture follows from the requirements stated in this chapter.
+
+Chapter~\ref{chap:server_side_rewrite} describes the server-side implementation. It covers the API, runtime state, perception pipeline, robot metadata fusion, scene graph construction, scene memory, dialogue services, worker management, and dashboard inspection.
+
+Chapter~\ref{chap:robot_side_rewrite} describes the robot-side implementation. It explains the Pepper client, spoken interaction flow, visual turns, metadata collection, server communication, local state, speech output, and tablet output.
+
+Chapter~6 presents the experimental methodology and evaluation. It examines the system components and the end-to-end pipeline with attention to grounding quality, scene representation, prompt design, and latency.
+
+Chapter~7 summarizes the results, discusses limitations and trade-offs, and outlines directions for future work.
+
+The appendices provide supplementary technical material, including prompts, configuration examples, selected schemas, API details, interaction transcripts, and additional experimental information.

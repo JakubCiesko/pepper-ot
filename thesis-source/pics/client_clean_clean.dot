@@ -1,0 +1,90 @@
+digraph RobotClientSystemCompact {
+    rankdir = TB;//LR;
+//    splines = ortho;
+    nodesep = 0.28;
+    ranksep = 0.45;
+    pad = 0.30;
+    bgcolor = "white";
+
+    graph [fontname = "Helvetica"];
+
+    node [
+        fontname = "Helvetica",
+        fontsize = 12,
+        shape = box,
+        style = "rounded,filled",
+        color = "#000000",
+        penwidth = 1.1,
+        margin = "0.12,0.08"
+    ];
+
+    edge [
+        fontname = "Helvetica",
+        fontsize = 12,
+        color = "#000000",
+        penwidth = 1.0,
+        arrowsize = 0.7
+    ];
+
+    HUMAN [
+        label = "Human user",
+        fillcolor = "#F2D45C"
+    ];
+
+    UI [
+        label = "Robot interface\nQiChat grammar",
+        fillcolor = "white"
+    ];
+
+    CLIENT [
+        label = "PepperGroundedClient\nNAOqi service",
+        fillcolor = "#F2D45C"
+    ];
+
+    CONTEXT [
+        label = "Robot Internal Context\ncamera, pose,\nALPeoplePerception data",
+        fillcolor = "white"
+    ];
+
+    METADATA [
+        label = "RobotMetadata\nimage + robot internal context snapshot",
+        fillcolor = "white"
+    ];
+
+    TRANSPORT [
+        label = "Server transport\nHTTP API client running in PepperGroundedClient",
+        fillcolor = "white"
+    ];
+
+    SERVER [
+        label = "GPU-enabled Perception Server",
+        fillcolor = "#F2D45C"
+    ];
+
+    STATE [
+        label = "Local session state\ndynamic concepts update\nobject labels,\nrelations, attributes, cached QA",
+        fillcolor = "white"
+    ];
+
+    OUTPUT [
+        label = "Robot output\nspeech, tablet, animation",
+        fillcolor = "white"
+    ];
+
+    HUMAN -> UI;
+    UI -> CLIENT;
+
+    CLIENT -> CONTEXT;
+    CONTEXT -> METADATA;
+    METADATA -> TRANSPORT;
+
+    TRANSPORT -> SERVER;
+    SERVER -> TRANSPORT;
+
+    TRANSPORT -> STATE;
+    STATE -> OUTPUT;
+    CLIENT -> OUTPUT;
+
+    //OUTPUT -> UI;
+    OUTPUT -> HUMAN;
+}

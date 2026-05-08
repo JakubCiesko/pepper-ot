@@ -109,6 +109,46 @@
         Target-size and resampling control crop preprocessing before embedding
         extraction.
       </p>
+      <label class="block text-xlg mt-5">Human ReID Enabled</label>
+      <label class="inline-flex items-center gap-2 mt-1">
+        <input id="memory-feat-human-reid-enabled" type="checkbox" />
+        <span class="text-md">Use a dedicated model for human-like labels</span>
+      </label>
+      <p class="text-md panel-muted mt-1">
+        Routes human-like detections through a dedicated ReID model while other
+        labels continue using the generic embedding model.
+      </p>
+      <label class="block text-xlg mt-3">Human ReID Model</label>
+      <input
+        id="memory-feat-human-reid-model"
+        type="text"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="your-hf-name/personvit-reid-msmt17-vit-s"
+      />
+      <p class="text-md panel-muted mt-1">
+        Hugging Face model ID for person-specific tracking embeddings.
+      </p>
+      <label class="block text-xlg mt-3">Human Target Size</label>
+      <input
+        id="memory-feat-human-target-size"
+        type="text"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="128,256"
+      />
+      <p class="text-md panel-muted mt-1">
+        Optional override for the person ReID crop size, formatted as
+        <code>width,height</code>. Leave blank to use the model default.
+      </p>
+      <label class="block text-xlg mt-3">Human Labels</label>
+      <input
+        id="memory-feat-human-labels"
+        type="text"
+        class="w-full border rounded px-3 py-2 mt-1"
+        placeholder="person,human,man,woman,boy,girl"
+      />
+      <p class="text-md panel-muted mt-1">
+        Comma-separated labels that should use the dedicated human ReID branch.
+      </p>
     </div>
 
     <div class="mt-6 border-t panel-border pt-6">

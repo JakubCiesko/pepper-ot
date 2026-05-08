@@ -1,0 +1,54 @@
+digraph PipelineStageTrackingFusionClean {
+    rankdir = LR;
+    // splines = compound;
+    // compound = true;
+    nodesep = 0.50;
+    ranksep = 0.55;
+    pad = 0.35;
+    bgcolor = "white";
+    
+    graph [fontname = "Helvetica";];
+    node [fontname = "Helvetica"; fontsize = 10; shape = box; style = "rounded,filled"; color = "#000000"; penwidth = 1.1; margin = "0.12,0.08";];
+    edge [fontname = "Helvetica"; fontsize = 8; color = "#000000"; penwidth = 1.0; arrowsize = 0.7;];
+    
+    RAW [label = "Raw detections\nlabel, confidence, bbox";fillcolor = "#F2D45C";];
+    
+    MODE [label = "Tracking enabled?";shape = diamond;style = "filled";fillcolor = "#FFF2CC";margin = "0.08,0.05";];
+    
+    TEMP [label = "Per-frame IDs only\ntemporary identifiers";fillcolor = "white";];
+    
+    subgraph cluster_tracking {
+        label = "Tracking and fusion";
+        color = "#4E8B57";
+        penwidth = 1.1;
+        style = "rounded,dashed";
+        bgcolor = "#ECF4EA";
+        
+        FEAT [label = "Feature extraction\ncrops + embeddings";fillcolor = "white";];
+        
+        ASSOC [label = "Association with active tracks\nvisual + geometric matching";fillcolor = "white";];
+        
+        TRACKS [label = "Track update\nmatch, age, create";fillcolor = "white";];
+        
+        FUSE [label = "Pepper metadata fusion\npeople perception + geometry";fillcolor = "white";];
+        
+        MEM [label = "Object and memory update\nattributes, last seen, pruning";fillcolor = "white";];
+        
+        FEAT -> ASSOC -> TRACKS -> FUSE -> MEM;
+    }
+    
+    STORE [label = "Scene memory store\nactive tracks and object state";fillcolor = "#F7F7F7";];
+    
+    OUT [label = "Tracked detections\nstable object IDs\n+ updated scene memory";fillcolor = "#F2D45C";];
+    
+    RAW -> MODE;
+    
+    MODE -> TEMP [label = "no";];
+    TEMP -> OUT;
+    
+    MODE -> FEAT [label = "yes"; lhead = cluster_tracking;];
+    MEM -> OUT;
+    
+    STORE -> ASSOC [style = dashed; label = "active tracks";];
+    MEM -> STORE [style = dashed; label = "write back";];
+}

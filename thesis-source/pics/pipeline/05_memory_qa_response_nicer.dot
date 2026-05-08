@@ -1,0 +1,83 @@
+digraph PipelineStageMemoryQaResponseClean {
+    rankdir = LR;
+    // splines = ortho;
+    nodesep = 0.30;
+    ranksep = 0.45;
+    pad = 0.35;
+    bgcolor = "white";
+
+    graph [fontname = "Helvetica"];
+    node [
+        fontname = "Helvetica",
+        fontsize = 10,
+        shape = box,
+        style = "rounded,filled",
+        color = "#000000",
+        penwidth = 1.1,
+        margin = "0.12,0.08"
+    ];
+    edge [
+        fontname = "Helvetica",
+        fontsize = 8,
+        color = "#000000",
+        penwidth = 1.0,
+        arrowsize = 0.7
+    ];
+
+    IN [
+        label = "Stage outputs\ntracked detections, caption,\nscene graph, SoM image, metrics",
+        fillcolor = "#F2D45C"
+    ];
+
+    MEM_UPDATE [
+        label = "Memory update\nstore captions and scene graph",
+        fillcolor = "white"
+    ];
+
+    QA_MODE [
+        label = "Generate QA pairs?",
+        shape = diamond,
+        style = "filled",
+        fillcolor = "#FFF2CC",
+        margin = "0.08,0.05"
+    ];
+
+    QA [
+        label = "QA generation\nLLM from scene-graph facts",
+        fillcolor = "white"
+    ];
+
+    MEMORY [
+        label = "Scene memory\nobjects, relations, captions",
+        fillcolor = "#F2D45C"
+    ];
+
+    RESULT [
+        label = "Pipeline result\ndetections, graph, caption,\nQA pairs, metrics",
+        fillcolor = "#F2D45C"
+    ];
+
+    RESPONSE [
+        label = "API response formatting",
+        fillcolor = "white"
+    ];
+
+    CALLER [
+        label = "Detection response\nto caller",
+        fillcolor = "white"
+    ];
+
+    SIDE [
+        label = "Optional side effects\nbroadcast, persistence,\nQA-pool ingest",
+        fillcolor = "#E8F0F7"
+    ];
+
+    IN -> MEM_UPDATE -> MEMORY;
+    IN -> QA_MODE;
+    QA_MODE -> QA [label = "yes"];
+    QA_MODE -> RESULT [label = "no", style = dashed];
+    QA -> RESULT;
+    MEMORY -> RESULT;
+    RESULT -> RESPONSE -> CALLER;
+    CALLER -> SIDE [style = dashed];
+}

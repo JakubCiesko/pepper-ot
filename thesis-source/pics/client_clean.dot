@@ -1,0 +1,181 @@
+digraph RobotClientSystemClean {
+    rankdir = LR;
+//    splines = ortho;
+  //  compound = true;
+    nodesep = 0.30;
+    ranksep = 0.50;
+    pad = 0.35;
+    bgcolor = "white";
+
+    graph [fontname = "Helvetica"];
+
+    node [
+        fontname = "Helvetica",
+        fontsize = 12,
+        shape = box,
+        style = "rounded,filled",
+        color = "#000000",
+        penwidth = 1.1,
+        margin = "0.12,0.08"
+    ];
+
+    edge [
+        fontname = "Helvetica",
+        fontsize = 12,
+        color = "#000000",
+        penwidth = 1.0,
+        arrowsize = 0.7
+    ];
+
+    HUMAN [
+        label = "Human user\nspeech and tablet input",
+        fillcolor = "#F2D45C"
+    ];
+
+    subgraph cluster_ui {
+        label = "Robot interaction interface";
+        color = "#666666";
+        style = "rounded,dashed";
+        bgcolor = "#F7F7F7";
+
+        QICHAT [
+            label = "QiChat topics\nEnglish/Czech commands",
+            fillcolor = "white"
+        ];
+
+        TABLET_UI [
+            label = "Tablet web app\nmemory and QA interface",
+            fillcolor = "white"
+        ];
+    }
+
+    subgraph cluster_client {
+        label = "PepperGroundedClient service";
+        color = "#666666";
+        style = "rounded,dashed";
+        bgcolor = "#E8F0F7";
+
+        SERVICE [
+            label = "NAOqi service\nbound interaction methods",
+            fillcolor = "#F2D45C"
+        ];
+
+        TURN [
+            label = "Turn manager\nserializes interaction turns",
+            fillcolor = "white"
+        ];
+
+        SESSION [
+            label = "Session store\nchat state, labels,\nrelations, cached QA",
+            fillcolor = "white"
+        ];
+    }
+
+    subgraph cluster_robot_context {
+        label = "Robot sensing and metadata";
+        color = "#666666";
+        style = "rounded,dashed";
+        bgcolor = "#ECF4EA";
+
+        CAMERA [
+            label = "Camera capture\nimage + camera parameters",
+            fillcolor = "white"
+        ];
+
+        CONTEXT [
+            label = "Robot context\npose, people, social cues,\nsonar",
+            fillcolor = "white"
+        ];
+
+        METADATA [
+            label = "RobotMetadata\nframe, scan, pose,\npeople and sensor state",
+            fillcolor = "#F2D45C"
+        ];
+
+        CAMERA -> METADATA;
+        CONTEXT -> METADATA;
+    }
+
+    subgraph cluster_transport {
+        label = "Server communication";
+        color = "#666666";
+        style = "rounded,dashed";
+        bgcolor = "#F7F7F7";
+
+        TRANSPORT [
+            label = "Server transport\nHTTP requests, timeouts,\nresponse validation",
+            fillcolor = "#F2D45C"
+        ];
+
+        SERVER [
+            label = "Grounded perception server\ncaption, detect, chat,\nmemory and QA endpoints",
+            fillcolor = "#F2D45C"
+        ];
+
+        TRANSPORT -> SERVER [
+            label = "image + metadata\nor JSON request"
+        ];
+
+        SERVER -> TRANSPORT [
+            label = "caption, detections,\nanswer, memory, QA"
+        ];
+    }
+
+    subgraph cluster_outputs {
+        label = "Robot outputs";
+        color = "#666666";
+        style = "rounded,dashed";
+        bgcolor = "#ECF4EA";
+
+        SPEECH [
+            label = "Speech output\nspoken answer or fallback",
+            fillcolor = "white"
+        ];
+
+        DIALOG [
+            label = "Dynamic QiChat concepts\nobjects, attributes,\nrelations, cached questions",
+            fillcolor = "white"
+        ];
+
+        TABLET [
+            label = "Tablet output\nmemory page and QA choices",
+            fillcolor = "white"
+        ];
+
+        FALLBACK [
+            label = "Fallback policy\nbusy, camera error,\nserver failure",
+            fillcolor = "white"
+        ];
+    }
+
+    HUMAN -> QICHAT [label = "speech"];
+    HUMAN -> TABLET_UI [label = "tap"];
+
+    QICHAT -> SERVICE [label = "service call"];
+    TABLET_UI -> SERVICE [label = "tablet action"];
+
+    SERVICE -> TURN;
+    TURN -> SESSION [dir = both, label = "local state"];
+
+    TURN -> CAMERA [label = "capture"];
+    TURN -> CONTEXT [label = "snapshot"];
+    METADATA -> TURN;
+
+    TURN -> TRANSPORT [label = "request"];
+    TRANSPORT -> SESSION [label = "validated response"];
+
+    SESSION -> DIALOG [label = "refresh concepts"];
+    TURN -> SPEECH [label = "answer"];
+    TURN -> TABLET [label = "memory view"];
+
+    DIALOG -> QICHAT [style = dashed, label = "dynamic grammar"];
+    TABLET -> TABLET_UI [label = "UI payload"];
+
+    SPEECH -> HUMAN [label = "spoken response"];
+    TABLET_UI -> HUMAN [label = "visual response"];
+
+    CAMERA -> FALLBACK [style = dashed, label = "capture error"];
+    TRANSPORT -> FALLBACK [style = dashed, label = "server error"];
+    TURN -> FALLBACK [style = dashed, label = "busy/error"];
+    FALLBACK -> SPEECH [style = dashed];
+}

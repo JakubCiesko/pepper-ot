@@ -1,0 +1,174 @@
+digraph PerceptionAndDialoguePipeline {
+    rankdir = TB;
+    splines = polyline;
+    compound = true;
+    nodesep = 0.32;
+    ranksep = 0.62;
+    pad = 0.45;
+    bgcolor = "white";
+
+    graph [fontname = "Helvetica";];
+    node [fontname = "Helvetica"; fontsize = 10.5; shape = box; style = "rounded,filled"; color = "#000000"; penwidth = 1.2; margin = "0.14,0.10";];
+    edge [fontname = "Helvetica"; fontsize = 8; color = "#000000"; penwidth = 1.0; arrowsize = 0.75;];
+
+    INPUT [label = "Frame request\nimage bytes + optional RobotMetadata\nhead pose, people, camera FOV,\nframe/scan ids"; fillcolor = "#F2D45C";];
+    API_PREP [label = "API boundary\nresize image if requested,\nparse metadata JSON,\nnormalize FOV radians"; fillcolor = "white";];
+    RUNTIME [label = "Runtime adapter\nin-process pipeline or\nworker /internal/detect"; fillcolor = "#F2D45C";];
+    PROCESS [label = "PerceptionPipeline.process()\nuses pipeline_controls"; fillcolor = "#F2D45C";];
+
+    INPUT -> API_PREP;
+    API_PREP -> RUNTIME;
+    RUNTIME -> PROCESS;
+
+    subgraph cluster_early {
+        label = "Early frame stages: sequential, or caption and detect overlapped when pipeline_controls.parallel_execution=true";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#E8F0F7";
+
+        CAPTION_STAGE [label = "caption stage\nCaptionInferenceService.caption_image()\noptional by controls.caption"; fillcolor = "white";];
+        DETECT_STAGE [label = "detect stage\nDetectionService.detect()\nbackend + threshold + optional NMS\noptional by controls.detect"; fillcolor = "white";];
+        CAPTION_RESULT [label = "caption text + provider/model\nstage failures are logged\nand pipeline continues"; fillcolor = "white";];
+        RAW_DETS [label = "raw detections\nlabel, confidence, bbox,\nclass id"; fillcolor = "white";];
+    }
+
+    PROCESS -> CAPTION_STAGE [label = "parallel branch or first sequential step";];
+    PROCESS -> DETECT_STAGE [label = "parallel branch or after caption";];
+    CAPTION_STAGE -> CAPTION_RESULT;
+    DETECT_STAGE -> RAW_DETS;
+
+    subgraph cluster_tracking {
+        label = "Tracking and robot-perception fusion";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#ECF4EA";
+
+        TRACK_CONTROL [label = "track_memory enabled?"; shape = diamond; fillcolor = "white";];
+        TEMP_IDS [label = "tracking disabled\nassign per-frame ids only"; fillcolor = "white";];
+        EXTRACT [label = "FeatureExtractor\ncrop detections,\nextract ReID embeddings"; fillcolor = "white";];
+        ASSOC [label = "Associator\nmatch detections to active tracks\nvisual + geometry weights"; fillcolor = "white";];
+        TRACKS [label = "SceneMemoryStore tracks\nupdate matched tracks,\nage/drop dormant tracks,\ncreate new tracks"; fillcolor = "white";];
+        FUSION [label = "Pepper people fusion\nbind robot people metadata,\nadd synthetic person detections\nwhen needed"; fillcolor = "white";];
+        OBJECT_STATE [label = "tracked detections\nstable object_id values,\nupdated object attributes,\nstored crop bytes"; fillcolor = "white";];
+    }
+
+    RAW_DETS -> TRACK_CONTROL;
+    TRACK_CONTROL -> TEMP_IDS [label = "false";];
+    TRACK_CONTROL -> EXTRACT [label = "true";];
+    EXTRACT -> ASSOC;
+    ASSOC -> TRACKS;
+    TRACKS -> FUSION;
+    FUSION -> OBJECT_STATE;
+    TEMP_IDS -> OBJECT_STATE;
+
+    subgraph cluster_visual_sg {
+        label = "Set-of-mark rendering and scene-graph generation";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#F7F7F7";
+
+        SOM_CONTROL [label = "paint_som enabled?"; shape = diamond; fillcolor = "white";];
+        SOM [label = "SoMPainter.paint()\nboxes, masks, polygons,\nlabels according to vis config"; fillcolor = "white";];
+        RAW_IMAGE_FALLBACK [label = "raw image fallback\nused when no SoM image exists"; fillcolor = "white";];
+        SG_CONTROL [label = "scene_graph enabled?"; shape = diamond; fillcolor = "white";];
+        SG_SERVICE [label = "SceneGraphService.generate()\nreceives detections, SoM/raw image,\ncaption text, current memory"; fillcolor = "#F2D45C";];
+
+        subgraph cluster_sg_backends {
+            label = "Scene-graph backends: sequential, or parallel when scene_graph.parallel_execution=true";
+            color = "#000000";
+            penwidth = 1.2;
+            style = "rounded";
+            bgcolor = "#FFFFFF";
+
+            RULES [label = "rules backend\ngeometric predicates\nfrom raw image + detections"; fillcolor = "white";];
+            RELTR [label = "RelTR backend\nlearned relationship proposals\nmapped to tracked detections"; fillcolor = "white";];
+            VLM [label = "VLM backend\nSoM/raw image + detections\n+ optional caption context"; fillcolor = "white";];
+            MERGE [label = "merge strategy\nSceneGraph union + dedup"; fillcolor = "white";];
+        }
+
+        ENHANCE [label = "enhance with robot-derived memory attributes\nonly for current tracked object ids"; fillcolor = "white";];
+        SCENE_GRAPH [label = "current-frame scene graph\nrelationship triples"; fillcolor = "#F2D45C";];
+    }
+
+    OBJECT_STATE -> SOM_CONTROL;
+    SOM_CONTROL -> SOM [label = "true";];
+    SOM_CONTROL -> RAW_IMAGE_FALLBACK [label = "false";];
+    SOM -> SG_CONTROL;
+    RAW_IMAGE_FALLBACK -> SG_CONTROL;
+    CAPTION_RESULT -> SG_SERVICE [label = "caption context";];
+    SG_CONTROL -> SG_SERVICE [label = "true";];
+    SG_CONTROL -> SCENE_GRAPH [label = "false: no graph"; style = dashed;];
+    SG_SERVICE -> RULES;
+    SG_SERVICE -> RELTR;
+    SG_SERVICE -> VLM;
+    RULES -> MERGE;
+    RELTR -> MERGE;
+    VLM -> MERGE;
+    MERGE -> ENHANCE;
+    ENHANCE -> SCENE_GRAPH;
+
+    subgraph cluster_memory_outputs {
+        label = "Memory updates, QA, and detection response side effects";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#E8F0F7";
+
+        QA_CONTROL [label = "qa_generation enabled?"; shape = diamond; fillcolor = "white";];
+        QA_GEN [label = "SceneQAGenerationService\nLLM structured QA from\nscene graph facts + detections + caption"; fillcolor = "white";];
+        CAP_MEM [label = "caption memory update\nupsert SceneCaptionState\nif caption exists"; fillcolor = "white";];
+        GRAPH_MEM [label = "scene graph memory update\nSceneMemory.update_scene_graph()\nif update_scene_memory=true"; fillcolor = "white";];
+        MEMORY [label = "SceneMemory state\nobjects, relationships,\ncaptions, crops, timestamps"; fillcolor = "#F2D45C";];
+        RESULT [label = "PipelineResult\ntracked detections, SoM image,\nscene graph, caption,\nQA pairs, metrics,\nexecuted_stages"; fillcolor = "#F2D45C";];
+        DET_RESPONSE [label = "DetectService response and events\nDetectionResponse to caller,\nwebsocket payload,\noptional last_state persistence,\nQA pool ingestion"; fillcolor = "white";];
+    }
+
+    SCENE_GRAPH -> QA_CONTROL;
+    QA_CONTROL -> QA_GEN [label = "true";];
+    QA_CONTROL -> RESULT [label = "false"; style = dashed;];
+    QA_GEN -> RESULT;
+    CAPTION_RESULT -> CAP_MEM;
+    SCENE_GRAPH -> GRAPH_MEM;
+    CAP_MEM -> MEMORY;
+    GRAPH_MEM -> MEMORY;
+    OBJECT_STATE -> MEMORY [label = "tracking update";];
+    MEMORY -> SG_SERVICE [label = "current scene_state"; style = dashed;];
+    MEMORY -> RESULT [label = "state snapshot";];
+    RESULT -> DET_RESPONSE;
+
+    subgraph cluster_chat {
+        label = "Dialogue paths that consume or bypass memory";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#ECF4EA";
+
+        CHAT_REQ [label = "POST /api/v1/chat\nquery + chat_id + mode"; fillcolor = "white";];
+        CONV [label = "ConversationService\nstore user turn,\nload prompt history"; fillcolor = "white";];
+        CONTEXT [label = "ChatService memory context\nobjects, relations,\nlatest/recent captions"; fillcolor = "white";];
+        OBJ_CONTEXT [label = "object mode\nmatch requested label,\ncollect one-hop relations,\noptional crop-caption fallback"; fillcolor = "white";];
+        LLM_CHAT [label = "LLMClient\nrendered prompt -> answer\nthen output-language enforcement"; fillcolor = "white";];
+        CHAT_OUT [label = "ChatResponse + websocket chat event"; fillcolor = "#F2D45C";];
+
+        VCHAT_REQ [label = "POST /api/v1/vision_chat\nimage + query"; fillcolor = "white";];
+        VCHAT_RUNTIME [label = "runtime.vision_chat()\nuses VLM backend directly\nwith image and conversation text"; fillcolor = "white";];
+        VCHAT_OUT [label = "VisionChatResponse + websocket chat event"; fillcolor = "#F2D45C";];
+    }
+
+    MEMORY -> CONTEXT [label = "read scene_state";];
+    MEMORY -> OBJ_CONTEXT [label = "read crops and object facts";];
+    CHAT_REQ -> CONV;
+    CONV -> CONTEXT;
+    CONTEXT -> OBJ_CONTEXT [label = "mode=object"; style = dashed;];
+    CONTEXT -> LLM_CHAT [label = "mode=general";];
+    OBJ_CONTEXT -> LLM_CHAT;
+    LLM_CHAT -> CONV [label = "store assistant turn";];
+    LLM_CHAT -> CHAT_OUT;
+    VCHAT_REQ -> VCHAT_RUNTIME;
+    VCHAT_RUNTIME -> VCHAT_OUT;
+
+    DET_RESPONSE -> CHAT_REQ [label = "follow-up questions use\nupdated memory"; style = dashed;];
+}

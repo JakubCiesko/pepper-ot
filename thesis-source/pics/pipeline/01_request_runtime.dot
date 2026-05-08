@@ -1,0 +1,51 @@
+digraph PipelineStageRequestRuntimeCompact {
+    rankdir = LR;
+    splines = ortho;
+    compound = true;
+    nodesep = 0.28;
+    ranksep = 0.45;
+    pad = 0.35;
+    bgcolor = "white";
+    
+    graph [fontname = "Helvetica";];
+    
+    node [fontname = "Helvetica"; fontsize = 10; shape = box; style = "rounded,filled"; color = "#000000"; penwidth = 1.1; margin = "0.12,0.08";];
+    
+    edge [fontname = "Helvetica"; fontsize = 8; color = "#000000"; penwidth = 1.0; arrowsize = 0.7;];
+    
+    REQ [label = "Public API requests\n\nPOST /detect\nPOST /detect/panorama\nPOST /caption\nPOST /vision_chat";fillcolor = "#F2D45C";];
+    
+    PRE [label = "API preprocessing\n\nread upload bytes\noptional resize\nparse RobotMetadata";fillcolor = "white";];
+    
+    SERVICE [label = "Request orchestration\n\nDetectService\nCaptionService\nvision_chat endpoint";fillcolor = "white";];
+    
+    ADAPTER [label = "Runtime adapter\n\nselect execution backend";fillcolor = "#F2D45C";];
+    
+    INPROC [label = "In-process runtime\n\ncall AppState.pipeline";fillcolor = "white";];
+    
+    WORKER [label = "Worker runtime\n\ncall WorkerManager RPC\n/internal/* routes";fillcolor = "white";];
+    
+    PIPELINE [label = "Processing path\n\nPerceptionPipeline.process()\nor direct VLM vision-chat path";fillcolor = "#F2D45C";];
+    
+    APPSTATE [label = "AppState\nconfig + runtime handles";fillcolor = "#F7F7F7";];
+    
+    REQ -> PRE;
+    PRE -> SERVICE;
+    SERVICE -> ADAPTER;
+    
+    APPSTATE -> ADAPTER [style = dashed; label = "config";];
+    
+    
+    
+    
+    ADAPTER -> INPROC [label = "worker disabled";];
+    
+    
+    
+    ADAPTER -> WORKER [label = "worker enabled";];
+    
+    
+    
+    INPROC -> PIPELINE;
+    WORKER -> PIPELINE;
+}

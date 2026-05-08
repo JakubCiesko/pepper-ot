@@ -17,6 +17,7 @@ package.json
 *.pt
 detection_models/
 server/detection_models/*.json
+server/model_repos/
 
 data/
 research/artifacts/
@@ -76,3 +77,9 @@ replace_script.py
 *.ilg
 
 *.pdf
+
+ai_reviews/
+
+
+update_aurora.sh
+filelist.txt

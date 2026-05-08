@@ -1,242 +1,131 @@
 \chapter{Server-Side Implementation}\label{chap:server_side_rewrite}
 
-%TL;DR: The server is the stateful intelligence component of the system.
-The server is the part of the system that turns robot observations into a structured memory and then turns that memory into grounded dialogue. It receives images and metadata from Pepper, runs perception, maintains object identities, builds scene graphs, stores captions and relationships, generates suggested questions, and calls language-model providers. It also exposes the developer dashboard and runtime configuration interface. This chapter describes the server as an implemented system rather than as a collection of separate models. The important question is therefore not only which detector or language model is used, but how the individual stages are connected so that the robot can speak about a physical scene.
+The server is the most important part of the system. Its role is to receive images, parse robot metadata, run the perception pipeline, and generate answers based on the current scene memory while also exposing controls and state of the app in the dashboard. Chapter~\ref{chap:system_architecture_rewrite} introduced this component at the system level. Present chapter describes the server in greater detail, the following Chapter~\ref{chap:robot_side_rewrite} will describe the robot side, the client, which calls the server's endpoints.
 
-\section{Runtime Structure and Application State}\label{sec:server-runtime-structure}
+\section{Runtime Structure and Public Boundary}\label{sec:server-runtime-structure}
 
-%TL;DR: FastAPI provides the public boundary between Pepper and the server.
-The public server process is a FastAPI application. It mounts static dashboard files, exposes API routes under \texttt{/api/v1}, exposes the dashboard under \texttt{/dashboard}, and initializes the global application state during startup. This public HTTP boundary is important because it connects two very different runtime environments. The robot client runs inside Pepper's NAOqi application stack, while the server runs modern Python libraries and model providers. The API boundary keeps these environments separated and makes the client independent of the exact inference deployment used behind the server.
+The public process is a FastAPI Python application. 
+It exposes the REST API under \texttt{/api/v1}, serves the dashboard under \texttt{/dashboard}, mounts static dashboard assets, and opens a WebSocket endpoint for live dashboard events. 
+This boundary keeps the Pepper-side NAOqi program separated from the inference stack. Pepper only sees the stable HTTP endpoints useable for detection, captioning, memory summaries, and chat; the server can then change detector backends, model providers, prompts, and runtime mode without changing the robot application in any way.
 
-%TL;DR: AppState is the dependency root of the server.
-The central runtime object is \texttt{AppState}. It stores the active configuration, a monotonically increasing configuration version, the optional in-process perception pipeline, the optional worker manager, the chat service, the conversation service, the caption service, the question-answer pool, and the last published state. This object is not just a convenient global variable. It expresses the fact that most server capabilities need the same shared runtime: the current models, current memory, current prompts, current worker mode, and current provider configuration.
-
-%TL;DR: Configuration determines the concrete pipeline and deployment mode.
-At startup, the server loads \texttt{config.yaml} and constructs the configured runtime. In the current configuration, the detector backend is RF-DETR, tracking uses C-RADIO visual embeddings, scene graph generation combines rules, RelTR, and a VLM backend, chat and VLM providers use Gemini models, captioning uses a local BLIP caption model, and the worker runtime is enabled. These choices are not hard-coded into the API routes. They are selected through the configuration schema, which allows the same orchestration code to run different model combinations.
-
-%TL;DR: The perception pipeline can run either in the API process or in a worker process.
-The server supports two execution modes. In in-process mode, the API process owns the \texttt{PerceptionPipeline} directly. In worker mode, the API process starts a separate internal FastAPI worker and forwards heavy inference requests to it. This design exists because detector models, VLM clients, caption models, and embedding models may allocate substantial GPU memory and may take a long time to warm up. Keeping them in a worker process lets the public API process remain a lighter orchestrator.
-
-%TL;DR: Runtime adapters hide the deployment choice from service code.
-The public API services do not directly decide whether to call a local pipeline or a worker. They use a runtime adapter. The in-process adapter opens the image bytes and calls \texttt{PerceptionPipeline.process}. The worker adapter serializes the same request to an internal worker route and deserializes the returned payload. This adapter layer is a small but important architectural choice. It lets memory, detection, captioning, and vision-chat routes use the same public contracts regardless of whether the heavy runtime lives in the same process.
-
-\begin{figure}[t]
+\begin{figure}[h]
 \centering
-\fbox{%
-\begin{minipage}{0.94\linewidth}
-\centering
-\begin{tabular}{c}
-FastAPI public app \\
-$\downarrow$ \\
-\texttt{AppState}: config, services, worker manager, pipeline reference \\
-$\downarrow$ \\
-Runtime adapter \\
-$\swarrow \hspace{3em} \searrow$ \\
-In-process \texttt{PerceptionPipeline} \hspace{2em} Worker process internal API \\
-$\downarrow \hspace{6em} \downarrow$ \\
-Detection, tracking, captioning, scene graph, memory, QA
-\end{tabular}
-\end{minipage}}
-\caption{Server runtime structure. Public API services call a runtime adapter, which hides whether the perception pipeline runs in the API process or in a separate worker process.}
-\label{fig:server-runtime-structure}
+\includegraphics[width=\linewidth]{pics/server_nicer.pdf}
+\caption{Server architecture. Pepper and the dashboard communicate with the public FastAPI routes. Application services call a runtime adapter, which either uses an in-process perception pipeline or forwards the request to an internal worker process.}\label{fig:server-runtime-structure}
 \end{figure}
 
-\section{Public API and Request Types}\label{sec:server-public-api}
+Figure~\ref{fig:server-runtime-structure} shows the main server components. 
+The route layer is organized around system capabilities. Perception routes are \texttt{api/v1/detect}, \texttt{api/v1/detect/panorama}, and \texttt{api/v1/caption}. 
+Dialogue routes are \texttt{api/v1/chat} and \texttt{api/v1/vision\_chat}. 
+State routes provide memory CRUD operations, configuration update, and worker status management. 
 
-%TL;DR: The public API is organized by robot capability rather than by model internals.
-The public API groups routes according to user-facing capabilities. Detection routes update visual memory. Caption routes provide fast descriptions. Chat routes answer questions. Memory routes expose the current scene state and allow manual edits. Configuration and worker routes support runtime control. Dashboard routes expose the same state to a developer interface. This route organization is useful because Pepper does not need to know which model produced a relation or which provider generated a caption. It needs stable actions: look, scan, ask, show memory, reset memory, and update configuration.
-
-%TL;DR: Detection requests use multipart image upload plus optional robot metadata.
-The main detection route accepts an uploaded image, an optional JSON metadata field, a publish flag, and a resize flag. The image is read as bytes and optionally resized before inference to limit GPU and bandwidth costs. The metadata is parsed into a typed robot metadata object. If no metadata is supplied, the server uses safe defaults for head yaw and pitch. If field-of-view values arrive in degrees rather than radians, the boundary parser normalizes them once so that the rest of the pipeline can assume radians.
-
-%TL;DR: Panorama detection is the server counterpart of Pepper's head scan.
-The panorama detection route accepts multiple image files and a corresponding list of metadata JSON strings. In \texttt{stick\_together} mode, the server stitches the images into one panorama and merges the metadata. The merged metadata sums horizontal fields of view, keeps an average vertical field of view, shifts Pepper person yaw values into the panorama coordinate frame, and preserves scan identifiers. In non-stitching mode, the server processes individual frames and merges the returned object lists. The two modes reflect a real tradeoff: panorama processing gives one wide visual context, while independent processing preserves per-frame geometry and avoids stitching artifacts.
-
-%TL;DR: Caption requests optimize the quick-look interaction.
-The caption route is designed for a fast answer to questions such as ``what do you see''. It receives an image and optional metadata, calls the configured caption service, and returns text with provider and model metadata. It can also start the full detection pipeline in the background. This is an important latency compromise. The robot can speak a quick caption immediately, while the server can still refresh detection, scene graph, memory, and generated QA for later turns.
-
-%TL;DR: Chat requests are text-first but memory-grounded.
-The chat route receives a user query, an optional chat identifier, language fields, and optional object-focus fields. It creates or reuses a conversation, stores the user message, builds model-facing history, calls the chat service, stores the assistant response, and broadcasts both messages to the dashboard. The route also distinguishes the original user text from the model-facing text. This matters for bilingual operation, because the user may speak Czech while the model prompt history is kept in a normalized language.
-
-%TL;DR: Memory routes expose the scene state as a first-class API resource.
-The memory routes expose the server's scene memory directly. A client can read the whole memory, request a compact summary, request object crops, list objects, list relations, upsert a scene state, reset memory, and manually create, update, or delete objects and relations. These routes make the memory inspectable and editable. That is useful for debugging, but it also reflects a methodological point: if dialogue is supposed to be grounded in scene memory, that memory must be available as an explicit object rather than hidden inside a prompt.
-
-\section{Perception Pipeline}\label{sec:server-perception-pipeline}
-
-%TL;DR: The pipeline is staged so that each intermediate representation can be inspected.
-The perception pipeline transforms one image into several increasingly structured representations. It can run captioning, object detection, tracking and memory association, Set-of-Mark rendering, scene graph generation, QA generation, caption memory update, and scene graph memory update. Each stage records timing metrics and a list of executed stages. This is useful because failures in embodied systems are often partial. The detector may succeed while the scene graph model fails, or captioning may fail while tracking continues. The pipeline records this rather than treating the whole request as an opaque model call.
-
-\begin{figure}[t]
+\begin{figure}[h]
 \centering
-\fbox{%
-\begin{minipage}{0.94\linewidth}
-\centering
-\begin{tabular}{c}
-Input image and robot metadata \\
-$\downarrow$ \\
-Caption stage \hspace{1em} and/or \hspace{1em} detection stage \\
-$\downarrow$ \\
-Tracking and scene-memory object update \\
-$\downarrow$ \\
-Set-of-Mark rendering over tracked detections \\
-$\downarrow$ \\
-Scene graph generation from rules, RelTR, and VLM \\
-$\downarrow$ \\
-QA generation and memory relation/caption update \\
-$\downarrow$ \\
-Detection response, dashboard payload, updated memory
-\end{tabular}
-\end{minipage}}
-\caption{Perception pipeline stages. The exact active stages are controlled by configuration, but the default full pipeline produces detections, captions, scene graph edges, QA pairs, and updated memory.}
-\label{fig:server-perception-pipeline}
+\includegraphics[width=\linewidth]{pics/dashboard_screenshot.png}
+\caption{Server dashboard screenshot, main page. The dashboard exposes controls for the application runtime and displays the current state of memory and robot interaction. It also provides way for interacting with the LLMs and VLMs.}\label{fig:dashboard}
 \end{figure}
 
-%TL;DR: Captioning and detection can be configured as sequential or partially parallel stages.
-The pipeline supports sequential execution and a partially parallel execution mode. In sequential mode, captioning runs first, detection follows, and later stages use the outputs of both. In parallel mode, captioning and detection can be started concurrently on image copies, and the later stages wait for the needed results. The reason for this option is practical. Caption providers and detector models have different latency profiles, and interaction quality depends on wall-clock time, not only on individual model accuracy.
+The dashboard is served at \texttt{/dashboard} and provides way to control the runtime, and view all the processed inputs and memory state which are broadcasted to it using websocket. 
+The user can also interact with all API endpoints through it directly, i. e. changing system prompts, switching between parallel and sequential pipeline execution, insert synthetic objects into memory or upload images for processing and chat with the RAG enhanced LLM. Dashboard screenshot is shown in Figure~\ref{fig:dashboard}.
 
-%TL;DR: Detection backends are normalized into one schema.
-Object detection is implemented behind a detector abstraction. YOLO, RT-DETR, RF-DETR, and OWLv2 can be used as backends, but each backend returns the same normalized object schema: class identifier, label, confidence, bounding box, and optional object identifier. This normalization is important because tracking, memory, scene graph generation, and dashboard rendering should not depend on detector-specific return types. The rest of the system only needs to know what was detected, where it was detected, and with what confidence.
+%The same route layer is used by the Pepper client and by the dashboard, although the dashboard also receives live updates through WebSocket broadcasts.
 
-%TL;DR: Closed-vocabulary and open-vocabulary detection share downstream code.
-The detector abstraction also allows closed-vocabulary and open-vocabulary detection to coexist. Closed-vocabulary models such as YOLO-style and RF-DETR-style detectors return labels from a fixed training vocabulary. Open-vocabulary models such as OWLv2 use an ontology or text label list as input. In both cases, the downstream system receives labels and boxes. This is useful in a robot setting because some deployments may prefer fast common-object detection, while others may need task-specific labels without retraining the detector.
+The central runtime object is \texttt{AppState}. It stores the active configuration, the configuration version, the optional in-process pipeline, the optional worker manager, the chat service, the caption service, the conversation service, the generated question-answer pool, and the last published state. This is the dependency root of the server. The routes do not construct detector or language-model objects directly; they resolve services from this shared runtime state.
 
-%TL;DR: Detector thresholds and NMS are runtime controls because false positives directly affect dialogue.
-The detection service applies confidence thresholds and can optionally apply non-maximum suppression. NMS can be general or per class. These controls are not merely computer vision details. In a dialogue system, a false positive can become a spoken claim. If the detector hallucinates a laptop, the LLM may confidently talk about that laptop. Conversely, aggressive filtering can remove objects that the user expects Pepper to mention. The threshold therefore trades recall against dialogue safety.
+The server supports two execution modes. In in-process mode, the public FastAPI application owns the perception pipeline directly, e. g. it runs it in the same process. In worker mode, the public process starts a second internal FastAPI application and forwards heavy inference requests to it. The prefered configuration for deployment is the worker mode. This setup is useful because in in-process mode the object detectors, VLMs, caption models, and embedding models can allocate substantial GPU memory which is not freed and made able to be reallocated until the end of process. The worker processes thus utilizes the needed GPU resources for the minimum time required thanks to managmenet of another process which can be killed and restarted when needed. The public server process remains a lighter HTTP and orchestration layer, while the worker owns the heavy model objects and the scene memory used by the pipeline.
 
-%TL;DR: Tracking assigns persistent identities to detections.
-After detection, the server updates scene memory through appearance-based tracking. Each detection crop is resized and encoded with a visual feature extractor. Existing tracks and new detections are matched with the Hungarian algorithm using a weighted cost. The current configuration gives most weight to visual similarity and a smaller weight to image-space geometry. Labels are treated as a hard constraint, so a previous chair track should not become a dog track. Matched detections receive the old object identifier, and unmatched detections create new tracks.
+The code hides this deployment choice behind a runtime adapter. The in-process adapter opens the uploaded image and calls the local pipeline. The worker adapter serializes the same request and sends it to the internal worker API in an RPC manner. The higher-level services therefore use the same contracts in both modes. This is important for the implementation, as it creates a single source of truth for inference.
 
-%TL;DR: Appearance-based ReID is used because Pepper does not provide continuous video tracking in this system.
-This tracking design follows from the sensing regime. Pepper's useful observations are often isolated snapshots or a small set of scan poses. Adjacent observations may not overlap enough for ordinary bounding-box overlap tracking. Appearance embeddings provide a better cue for this discontinuous setting, because the same object crop can be similar even when it moves to a different part of the image. The approach is still imperfect. Similar objects of the same class can be confused, and objects can change appearance with viewpoint. Nevertheless, it is more appropriate here than relying only on frame-to-frame overlap.
+\section{Requests and Pipeline Execution}\label{sec:server-perception-pipeline}
 
-%TL;DR: SceneMemory stores both active tracks and dialogue-facing object state.
-The tracking stage updates two related structures. The low-level track stores an identifier, label, embedding, bounding box, confidence, crop, first-seen time, last-seen time, hit count, and frames-since-seen counter. The dialogue-facing object state stores a typed scene-memory record with label, status, attributes, bounding box, frame and scan identifiers, bearings, robot distance, Pepper person identifier, and timestamps. This separation is useful because the tracker needs embeddings and crops, while dialogue needs concise symbolic state.
+The main perception request is a multipart image upload with optional JSON robot metadata. Metadata contains fields such as head yaw and pitch, camera field of view, frame and scan identifiers, image size, battery state, and Pepper people-perception outputs. The server parses this into typed Pydantic schemas before inference. %If field-of-view values arrive in degrees, the boundary parser normalizes them to radians, so the rest of the pipeline can use one convention.
 
-\section{Pepper Metadata Fusion}\label{sec:server-pepper-fusion}
-
-%TL;DR: Robot-native people perception provides evidence that the camera detector alone does not provide.
-Pepper can report visible people through native NAOqi services. The client sends person identifiers, yaw, pitch, distance, and optional social metadata. The server uses these signals to enrich visual detections. This is not a replacement for object detection, because Pepper's people perception does not detect chairs, laptops, cups, and other objects. It is a complementary source of embodied social evidence. In a human-robot interaction setting, this evidence is valuable because a person who is waving or looking at the robot is often more dialogue-relevant than a visually similar but socially inactive object.
-
-%TL;DR: The server projects robot person angles into image coordinates.
-To fuse robot-native people data with server detections, the server uses camera field of view and robot head pose. A Pepper-reported person has yaw and pitch relative to the robot. A detected person has a bounding box in image coordinates. The server computes the expected pixel position of the robot-reported person in the image, or computes the angular bearing of the detected bounding box. It then scores candidate matches using angular similarity, previous Pepper-to-server bindings, tracker stability, and distance-size consistency.
-
-%TL;DR: Synthetic person detections are created when Pepper sees a person but the detector misses one.
-The fusion logic also includes a workaround for missed person detections. If Pepper reports a visible person but no server-side person detection matches, the server can create a synthetic \texttt{person} detection by projecting the robot person into the image and estimating a bounding box size from distance. This is a cautious engineering compromise. The synthetic box is less visually reliable than a real detector output, but it preserves an important social fact: Pepper's native perception reports a person in front of the robot. Without this step, the dialogue system could ignore a socially salient person only because the visual detector missed the box.
-
-%TL;DR: Social metadata becomes attributes on tracked person objects.
-When a Pepper person is matched to a server object, social metadata is merged into the object's attributes. The system can represent properties such as sitting, waving, looking at the robot, smiling, engagement zone, gaze direction, estimated age bucket, gender, expression, and distance. Confidence thresholds are used for some signals. These attributes later appear as self-relations in the scene graph and as facts in the chat context. This is one of the ways the system becomes scene-aware in a social rather than only geometric sense.
-
-\section{Scene Graph Generation}\label{sec:server-scene-graph-generation}
-
-%TL;DR: Scene graph generation combines deterministic, learned, and VLM-based relation sources.
-After tracking and optional metadata fusion, the server builds a scene graph. The implemented service is compositional. It can run a rule backend, a RelTR backend, a VLM backend, or a combination of them. The resulting graphs are added together and deduplicated. This design follows from the weaknesses of individual methods. Geometric rules are predictable but shallow. RelTR-style relation models can infer learned visual relations but remain constrained by their training regime. VLMs can express richer open-ended relations but can hallucinate or refer ambiguously. Combining them gives the system several sources of evidence.
-
-%TL;DR: Rule-based scene graph edges provide cheap and transparent spatial structure.
-The rule backend computes relations from bounding boxes and image pixels. Directional rules can generate relations such as \texttt{left\_of}, \texttt{right\_of}, \texttt{above}, and \texttt{below}. Spatial and overlap rules can generate relations such as \texttt{near}, \texttt{next\_to}, \texttt{far\_from}, or \texttt{in\_front\_of}. The backend can also infer coarse color attributes from object crops. The advantage is transparency: if a rule fires, the developer can inspect the threshold and geometry. The disadvantage is that many meaningful relations, such as use, ownership, or activity, cannot be reliably inferred from boxes alone.
-
-%TL;DR: RelTR is treated as an optional relation proposal source, not as the only graph generator.
-The RelTR backend is included as a learned relation proposal source. It can provide relations that are not manually encoded as simple geometry rules. However, the system does not rely on RelTR alone. Its output still has to be matched to current detections, thresholded, and merged with other sources. This makes the backend useful but bounded. It contributes relation hypotheses without becoming the sole authority over the memory graph.
-
-%TL;DR: The VLM backend uses prompts, structured output, and filtering to reduce hallucination.
-The VLM backend receives either the raw image or the Set-of-Mark image, a list of allowed predicates, optional caption text, and a prompt template. It requests structured output when the provider supports it. If parsing fails, it attempts to repair the JSON-like output. Finally, it filters generated relations against the current detections. Relations that refer to object identifiers not present in the current detection set are removed. This filtering step is important because a plausible VLM relation is not automatically a grounded relation.
-
-%TL;DR: Set-of-Mark rendering helps bind language output to tracked object identifiers.
-Set-of-Mark rendering overlays visual markers on the image before the VLM relation step. The purpose is to make object references explicit. Instead of asking a VLM to describe a scene containing several chairs, the prompt can ask about marked objects with stable identifiers. This reduces ambiguity between multiple instances of the same label. It also aligns the VLM output with the memory representation, because the output relations can refer to object identifiers that already exist in scene memory.
-
-%TL;DR: Robot-derived attributes are injected into the graph for current objects.
-After backend graph generation, the scene graph service can enhance the graph with robot-derived attributes stored in scene memory. For current objects, each attribute can become a self-edge. For example, if a tracked person has the attribute \texttt{is\_waving}, the graph can contain an edge from that person node back to itself with that predicate. This unifies binary relations and unary attributes under one graph representation. It also simplifies dialogue, because both object relations and object properties can be serialized as graph facts.
-
-\begin{figure}[t]
+\begin{figure}[p]
 \centering
-\fbox{%
-\begin{minipage}{0.94\linewidth}
-\centering
-\begin{tabular}{p{0.22\linewidth}p{0.28\linewidth}p{0.34\linewidth}}
-\textbf{Source} & \textbf{Strength} & \textbf{Main risk} \\
-\hline
-Rules & Transparent, cheap, deterministic & Limited to configured geometry and simple visual cues \\
-RelTR & Learned relation proposals & Training vocabulary and matching uncertainty \\
-VLM & Rich open-ended relations & Hallucination and ambiguous references \\
-Robot metadata & Social and embodied signals & Noisy NAOqi estimates and incomplete coverage
-\end{tabular}
-\end{minipage}}
-\caption{Complementary evidence sources for scene graph generation. The implementation does not assume that one source is always best.}
-\label{fig:server-sgg-sources}
+\includegraphics[height=0.9\textheight]{pics/pipeline_less_detailed.pdf}
+\caption{Perception pipeline overview. The pipeline consists of captioning for fast description of the scene and object detection for futher scene modeling, ReID, scene graph generation, question-answer (QA) pairs pregeneration and memory updates. Captioning and detection can run sequentially or in parallel.}\label{fig:server-perception-pipeline}
 \end{figure}
 
-\section{Scene Memory}\label{sec:server-scene-memory}
+Figure~\ref{fig:server-perception-pipeline} summarizes the pipeline. In the full configuration, the server can run captioning, object detection, tracking and memory association, Set-of-Mark rendering, scene graph generation, question generation, caption memory update, and scene graph memory update. Each stage records and logs timing metrics. Not all stages of the pipeline are needed, a request can still return useful detections and memory updates even if captioning or relation generation fails. Every pipeline stage is also configurable in the dashboard in the corresponding tabs, as well as the pipeline constitution can be changed --- some stages can be dropped.
 
-%TL;DR: Scene memory is the server's world model for dialogue.
-Scene memory is the central data structure of the server. It stores objects, relationships, captions, Pepper-person bindings, and object crops. The memory is updated by the perception pipeline and read by chat, memory summary, dashboard, and tablet-facing endpoints. It is deliberately explicit. The system does not only keep hidden conversation history. It keeps a typed world model that can be inspected, summarized, edited, and rendered.
+The pipeline has a sequential mode and a partially parallel mode. In sequential mode, captioning runs first, then detection, then the post-detection stages. In parallel mode, captioning and detection start at the same time on separate image copies. Detection can be offloaded to a thread and guarded by a detector lock, while the caption request can wait on a remote or local provider. After both branches are ready, the pipeline joins the outputs and continues with tracking, SoM rendering, scene graph generation, memory updates, and question generation. This parallelism is optional because the best choice depends on hardware, provider latency, and model memory pressure. Further parallelism of the pipeline is not possible as all the subsequent stages depend on the output of these two stages and on the output of the preceeding stage (e.g. scene graph generation can use captions in the user or system prompt if needed to provide hints for the VLM). 
 
-%TL;DR: Object records contain both visual and embodied fields.
-A tracked object state contains the fields needed by later dialogue: identifier, label, status, source, attributes, bounding box, first-seen time, last-seen time, hit count, frame identifier, scan identifier, optional bearing yaw and pitch, optional Pepper person identifier, optional robot distance, optional engagement zone, and optional robot timestamp. Some fields come from computer vision, some from robot pose, and some from Pepper social perception. The object record is therefore a fusion point between server perception and robot embodiment.
+There is a second parallelism switch inside scene graph generation. The scene graph service can run rules, RelTR \cite{cong_reltr_2023}, and the VLM backend sequentially, or it can run the rule and RelTR backends in worker threads while the VLM backend runs asynchronously. The generated graphs are then merged with a union and deduplication strategy. %The current configuration keeps this parallelism disabled, which favors simpler timing and easier debugging during development.
 
-%TL;DR: Relationship records accumulate evidence over time.
-Relations are stored as triples with subject identifier, predicate, object identifier, first-seen time, last-seen time, and count. If a relation appears again, the count increases and the last-seen timestamp is updated. If the subject and object identifiers are the same, the predicate is treated as an attribute of the object. This design allows the same graph mechanism to represent both \texttt{cup\_3 near laptop\_4} and \texttt{person\_2 is\_waving person\_2}.
+\section{Object Detection Backends}\label{sec:server-detection-backends}
 
-%TL;DR: Captions are stored as recent scene-level natural-language evidence.
-The memory also stores captions produced by the caption stage. Captions have identifiers, text, provider, model identifier, source, frame identifier, scan identifier, timestamps, and counts. They are not a substitute for object-level memory, but they provide a useful scene-level summary. The chat service can include the latest caption and recent captions in prompts, which helps answer broad questions about the scene when object-level facts are incomplete.
+Object detection is implemented behind a common detector interface. The current registry can load YOLO, RT-DETR, RF-DETR, and OWLv2 backends. Regardless of the model family, each backend returns the same internal schema; class identifier, label, confidence, bounding box, and optional object identifier. This normalization is central to the architecture as tracking, Set-of-Mark rendering, scene graph generation and other stages should be agnostic of the used detection backend.
 
-%TL;DR: Memory is bounded by age and capacity so old observations do not dominate dialogue.
-Scene memory is not permanent autobiographical memory. Objects, relations, captions, and tracks are pruned by time and capacity limits. If an object has not been seen recently, or if the memory exceeds configured size limits, the oldest entries are removed. Tracks that no longer correspond to object state are also removed. This matters for grounding: keeping stale objects forever would make the robot speak as if old observations were still true.
+The DETR family is the conceptual base for RT-DETR and RF-DETR. Traditional detectors often generate many candidate boxes and then remove duplicates with post-processing such as non-maximum suppression. As mentioned in section \ref{sec:object-detection-tracking-reid}, DETR instead treats detection as direct set prediction.
 
-\begin{figure}[t]
+RT-DETR adapts this idea for real-time use. Its authors argue that DETR-style detectors can be made competitive with YOLO-style real-time detectors by improving the encoder and query selection. RT-DETR uses an efficient hybrid encoder to process multi-scale features and an uncertainty-minimal query selection mechanism to initialize higher-quality decoder queries. It also allows speed adjustment by changing the number of decoder layers without retraining~\cite{zhao_detrs_2024}. In this server, RT-DETR is useful as a ready-to-use backend when a deployment wants a real-time transformer detector with an Ultralytics loading path.
+
+RF-DETR is the default detector in the current configuration. It is also a detection transformer, but it is presented as a lightweight specialist detector that uses weight-sharing neural architecture search to explore accuracy-latency tradeoffs for target datasets~\cite{robinson_rf-detr_2026}. In implementation, the server loads the Roboflow RF-DETR large model through the \texttt{rfdetr} package,\footnote{\url{https://pypi.org/project/rfdetr/}} optimizes it for inference, and maps predictions to COCO class names. This makes it practical for the thesis system; it provides strong off-the-shelf closed-vocabulary object detection without requiring custom detector training before the rest of the scene-aware dialogue pipeline can be tested.
+
+OWLv2 serves a different purpose. It is an open-vocabulary detector, so the category list can be supplied as text rather than fixed entirely by the detector's supervised training label set. OWL-ViT first showed a simple vision-transformer approach for open-vocabulary detection with text-conditioned categories~\cite{minderer_simple_2022}. OWLv2 scales the same direction with self-training, using pseudo-box annotations on image-text data to improve open-world localization~\cite{minderer_scaling_2024}. In the server code, OWLv2 first receives an ontology list, caches the encoded text inputs so it can be reused and not be recomputed on each call. Upon call it runs the image through the Hugging Face model and processor, and returns grounded boxes with text labels. This is useful when the task needs labels that are not covered well by COCO, although it also requires careful threshold and ontology selection.
+
+THIS IS BIT BLABLABLA: The detector service includes confidence thresholds and optional post-filtering with non-maximum suppression. Even when a model family is designed to reduce duplicate predictions, the server keeps these controls available because the downstream cost of a false object is high. If the detector invents a laptop, the memory and the dialogue prompt can turn that into a spoken claim. If the threshold is too strict, the robot may ignore an object that the user can clearly see. The detection configuration therefore trades recall against dialogue honesty, not only computer vision metrics.
+
+\section{Tracking, Re-identification, and Pepper Metadata}\label{sec:server-pepper-fusion}
+
+Detection alone is per-frame perception. The dialogue system needs persistent object identities, because the user may ask follow-up questions after a scan or after the object has temporarily left the current frame. The server therefore updates scene memory after detection. It crops each detection, extracts visual embeddings, and matches detections to existing tracks using the Hungarian algorithm. The configured association cost combines visual distance and image-space geometry derived from the robot metadata, with label equality as a hard constraint. %A previous chair track should not silently become a detected person.
+
+The configured feature extractor is NVIDIA C-RADIOv4-SO400M, used through the local embedding code for object re-identification~\cite{ranzinger2026cradiov4techreport,nvidia_cradiov4_so400m_2026}. C-RADIO provides general visual representations that are useful when the system must compare cropped objects across discontinuous observations. The code also contains support for a PersonViT-based human re-identification model, with a ported MSMT17 ViT-S checkpoint available on Hugging Face.\footnote{Original code: \url{https://github.com/hustvl/personvit} Ported model: \url{https://huggingface.co/maennyn/personvit-reid-msmt17-vit-s}} The use of this or other models can be configured in the dashboard under the memory tab.
+
+Pepper metadata is fused with visual detections after tracking. The client can send Pepper people-perception records, including person identifiers, yaw, pitch, distance, and social signals acquired from NAOqi APIs. The server projects the robot reported person direction into the image coordinate frame and compares it with detected person boxes (A very similar idea used for making Pepper grasp objects while using depth sensor can be found in \cite[4]{wang_target_2024}.). It can then attach Pepper person identifiers, distances, engagement zones, waving, sitting, looking-at-robot, gaze, smile, expression, and demographic signals to the tracked object state when the confidence checks pass.
+
+The fusion code also handles a difficult case; Pepper may report a person while the visual detector misses the box. In that situation, the server can create a synthetic person detection from the robot-reported angle and distance. This is less visually reliable than a normal detector box, so it should be understood as a pragmatic social-perception cue rather than as ordinary image evidence stemming from the idea that people and people-like objects are the most important for social interactions with the robot. It prevents the system from losing an interaction-relevant object only because the camera detector failed on that frame.
+
+\section{Set-of-Mark and Scene Graph Generation}\label{sec:server-scene-graph-generation}
+
+Scene graph generation starts after detections have stable object identifiers, as we can see in Figure \ref{fig:server-som-scene-graph}. The SoM painter overlays boxes, labels, and optional masks or polygons onto the image. In the current configuration, boxes, labels, and polygon outlines are shown, while masks are disabled and GrabCut is the default mask backend. The purpose of SoM is grounding. A VLM can refer to \enquote{object 4} instead of ambiguously describing \enquote{the chair on the left}. Set-of-Mark prompting was introduced as a way to improve visual grounding in VLMs by making image regions explicitly referable~\cite{yang_set-of-mark_2023}.
+
+The scene graph service combines three relation sources. The rule backend computes transparent geometric relations from boxes, such as \texttt{left\_of}, \texttt{right\_of}, \texttt{above}, \texttt{below}, \texttt{near}, \texttt{next\_to}, \texttt{far\_from}, and \texttt{in\_front\_of}. The RelTR backend proposes learned visual relations. The VLM backend uses the raw or SoM image, the current detections, the caption if available, and an allowed predicate list (all of these apart from the image can be added or removed from the prompt in the dashboard). The resulting graphs are added together and deduplicated, then robot-derived attributes from scene memory can be inserted as self-relations.
+
+RelTR is included because it predicts scene graph triplets directly with a transformer relation model~\cite{cong_reltr_2023}. Instead of enumerating every possible object pair and classifying all pairs independently, RelTR uses learned queries to decode sparse subject-predicate-object relations. For this server, that makes it a useful learned relation proposal source. It is not treated as the only authority; its outputs are thresholded, matched to current detections, and merged with rules and VLM relations before memory is updated. An example of RelTR and VLM generated scene graph can be seen in Figure~\ref{fig:sgg-example}.
+
+The VLM relation backend is deliberately constrained. It asks for structured output matching the scene graph schema, then parses the result. If the provider supports native structured output, the server requests it. If it does not, the code can use Instructor\footnote{\url{https://pypi.org/project/instructor/}} where available or fall back to prompting and JSON parsing. If parsing fails, the backend attempts a repair call to the VLM without providing the image again to save tokens and then filters relations against the current object identifiers. This is necessary because strict JSON can make model behavior brittle, while unconstrained generation can hallucinate relations or refer to objects that are not in the scene~\cite{tam_let_2024}.
+
+\begin{figure}[!htbp]
 \centering
-\fbox{%
-\begin{minipage}{0.94\linewidth}
-\centering
-\begin{tabular}{p{0.23\linewidth}p{0.63\linewidth}}
-\textbf{Memory item} & \textbf{Fields used by dialogue and dashboard} \\
-\hline
-Object & id, label, bbox, attributes, hits, first seen, last seen, scan id, bearing, Pepper person id, distance \\
-Relation & subject id, predicate, object id, first seen, last seen, count \\
-Caption & text, provider, model id, source, frame id, scan id, timestamps \\
-Crop & latest image crop per tracked object, used for object fallback descriptions
-\end{tabular}
-\end{minipage}}
-\caption{Server scene memory schema at the level used by dialogue and visualization. The implementation stores additional tracking fields, but these are the fields that shape grounded responses.}
-\label{fig:server-memory-schema}
+\includegraphics[width=1\linewidth]{pics/sgg_example2.png}
+\caption{Scene Graph Example. Labeled SoM Image with corresponding scene graph generated by RelTR and a VLM (\texttt{gemini-3.1-flash-lite-preview})}\label{fig:sgg-example}
 \end{figure}
 
-\section{Dialogue, Captions, and Question Generation}\label{sec:server-dialogue-services}
 
-%TL;DR: ChatService converts scene memory into prompt context.
-The chat service is the bridge between structured memory and natural language. For general chat, it builds a context string from the current scene state. Objects are ordered by a salience heuristic that gives extra weight to socially important labels and attributes, such as people, waving, looking at the robot, engagement zone, and distance. Relationships are serialized as triples between object labels and identifiers. Recent captions are also available to the prompt renderer. The resulting prompt gives the LLM a compact representation of the scene.
+\begin{figure}[p]
+\centering
+\includegraphics[height=0.8\textheight]{pics/pipeline/04_som_scene_graph_nicer_nicer.pdf}
+\caption{Set-of-Mark and scene graph stage. Tracked detections are rendered with persistent identifiers before the VLM scene graph backend is called. Rule-based, RelTR, and VLM relation sources are merged and filtered. Robot metadata (such as gender, eyes closed flag, approximate age or mood, etc.) is added to objects representing people before memory is updated.}\label{fig:server-som-scene-graph}
+\end{figure}
 
-%TL;DR: Object-focused chat narrows the context to matching object instances.
-Object-focused chat handles queries such as ``tell me about the chair''. The service matches objects by exact or partial normalized label, sorts the matches by salience, and builds a context containing object identifiers, hit counts, last-seen times, attributes, and relations involving the matched objects. If an object has no structured facts and crop fallback is enabled, the service can ask the caption model to describe the stored crop. This fallback is useful because a visible object may be tracked even when the graph contains few facts about it.
 
-%TL;DR: ConversationService separates original text from model-facing text.
-The chat endpoint stores both the original message and the model-facing message. For example, a Czech user utterance can be preserved for debugging or display, while an English model-facing version is used in prompt history. The same distinction is used for assistant responses. This is more careful than overwriting the user's language, and it avoids mixing incompatible language histories in long conversations.
+\section{Language Models, VLMs, and Dialogue Services}\label{sec:server-dialogue-services}
 
-%TL;DR: Language enforcement supports Czech and English without duplicating the whole dialogue system.
-The server normalizes requested output language and model-facing language. If the request asks for Czech output, the server can enforce Czech in the final answer even when the model-facing context is English. This does not make multilingual dialogue trivial, because translation can still lose nuance or alter object labels. However, it keeps the architecture simple: one chat service can serve both Czech and English robot interaction.
+The server does not depend on one language-model vendor. It has provider adapters for OpenAI, OpenAI API compatible (e. g., llamacpp server hosted models), Google Gemini, and local Hugging Face models. In practice, this makes the architecture usable with API models during development and with local open models when privacy, cost, or offline operation matters.
 
-%TL;DR: QA generation prepares low-latency factual questions from the current scene.
-The pipeline can generate question-answer pairs after scene graph generation. These pairs are ingested into a QA pool when memory was updated. The pool stores generated pairs, supports bilingual snapshots, and is returned through memory summary and chat QA endpoints. The robot tablet can show these questions as buttons, and the QiChat grammar can recognize cached questions. If the user asks one of them, the client can answer quickly from the cache. If there is no cache hit, it falls back to normal chat.
+The local model choices are deliberately ordinary community models rather than a new model contribution of this thesis. Examples include a very well known and used Qwen-family models such as Qwen3.5-35B-A3B, Qwen3.5-0.8B, and Qwen3-VL-8B-Instruct~\cite{qwen_qwen35_35b_a3b_2026,qwen_qwen35_08b_2026,qwen_qwen3_vl_8b_instruct_2025}. Qwen2.5-VL and Qwen3-VL technical reports describe the broader VLM family and its image-text-to-text capabilities.\footnote{For more information, see: \url{https://qwen.ai/blog?id=qwen3.5}} For smaller multilingual text experiments, Tiny Aya Global~\cite{coherelabs_tiny_aya_global_2026} was tested thoroughly and shown promising results. The use of multilingual models is not needed though, as the system also implements automatic translation using unofficial Google Translate API\footnote{\url{https://pypi.org/project/googletrans/}} based on the currently selected system language. There are many comparable open LLMs and VLMs; the architectural point is that the server treats them as replaceable providers behind stable prompting and parsing interfaces.
 
-%TL;DR: Vision chat is a separate path for direct image-question reasoning.
-The server also exposes a vision-chat route. This path sends an image and question directly to a VLM backend rather than answering from stored scene memory. It is useful for dense visual questions that may not be represented in the graph, such as fine-grained descriptions or text-like visual details. The tradeoff is clear: direct vision chat can use the image more richly, but it does not preserve persistent identities and does not update the scene memory in the same way as the perception pipeline.
+The chat service converts scene memory into prompt context. It orders objects by a salience heuristic that gives extra weight to people, social attributes such as waving or looking at the robot, engagement zone, distance (these are acquired from the robot metadata), recency, and hit count. It serializes visible objects, attributes, relations, and recent captions into a compact text context. The language model is then asked to answer over that context rather than from its parametric memory alone.
 
-\section{Worker Runtime and Operational Control}\label{sec:server-worker-runtime}
+Object-focused chat narrows the context further. If the user asks about a label such as \enquote{chair}, the service matches current memory objects by normalized label, orders them by salience, and includes only the relevant object records and their neighboring relations. If the matched object has few structured facts and a stored crop is available, the service can call the caption model on the crop as a fallback. This avoids a common failure mode where an object is detected and tracked, but no relation generator has said anything useful about it yet.
 
-%TL;DR: Worker mode isolates heavy inference from public HTTP orchestration.
-Worker mode starts a second FastAPI application with internal routes. The worker owns the heavy pipeline objects after configuration is loaded. The main server process sends internal requests for detection, captioning, vision chat, memory reads, memory edits, and worker status. This split isolates GPU-bound inference, model warmup, and possible model crashes from the public API layer. It also makes lazy startup possible: the worker can be started when needed, warmed up, stopped after idleness, and restarted after configuration reloads.
+The caption route serves a different interaction need. It can return a quick scene description and optionally start the full detection pipeline in the background. This gives Pepper a low-latency answer for broad questions such as \enquote{what do you see}, while the more expensive detection, tracking, SoM, relation, memory, and question-generation stages can update state for later turns. The caption is also stored in scene memory with provider and model metadata.
 
-%TL;DR: The worker manager enforces lifecycle rules.
-The worker manager tracks worker state, process identifier, uptime, inflight count, last active time, configuration version, restart count, idle-kill count, crash count, circuit-breaker state, and last error. It performs health checks, waits for startup, forwards stdout and stderr, sends graceful shutdown requests, and terminates the process if needed. These details matter in practice because model processes can fail in ways ordinary request handlers do not. A social robot should not become unusable because one GPU process got stuck.
+The server also pregenerates question-answer pairs from the current scene graph. These pairs are stored in a bounded QA pool and can be exposed to the robot tablet or recognized through cached interaction paths. This is not the main dialogue method; normal chat still exists. It is a latency optimization for predictable scene questions, where an answer can be prepared immediately after perception rather than generated from scratch when the user asks. It is used on the robot side where it is saved as a QiChat dynamic concept.
 
-%TL;DR: Configuration changes are divided into hot updates and hard reloads.
-Some configuration updates can be pushed into a running worker. Examples include runtime thresholds, some prompt paths, provider parameters, and pipeline controls. Other updates require a hard reload because model objects must be rebuilt. The server therefore distinguishes hot updates from hard reloads. This distinction is practical, but it also reflects the underlying model reality: changing a threshold is not the same operation as replacing a detector backend or reloading a large model.
+\section{Scene Memory and Inspection}\label{sec:server-scene-memory}
 
-\section{Dashboard and Inspection}\label{sec:server-dashboard}
+Scene memory stores the state used by dialogue and the dashboard. It contains tracked objects, relations, captions, object crops, and Pepper person bindings. Object records include identifiers, labels, bounding boxes, attributes, first-seen and last-seen timestamps, hit counts, scan and frame identifiers, optional bearing values, optional robot distance, and optional Pepper person identifiers. Relation records are triples with subject identifier, predicate, object identifier, timestamps, and counts.
 
-%TL;DR: The dashboard is the developer-facing view of the same runtime state used by Pepper.
-The dashboard is not part of Pepper's spoken interaction, but it is part of the research system. It receives WebSocket events for detections, captions, memory updates, and chat messages. It exposes configuration panels, model controls, worker status, memory views, QA pool views, and live outputs. During development, this is essential. Without a dashboard, a wrong spoken answer could be caused by speech recognition, the robot client, the detector, tracking, scene graph generation, prompt construction, translation, or the LLM. The dashboard helps localize which layer produced the problem.
+Memory is bounded by age and capacity. Memory is pruned so stale observations do not dominate the robot's answers. This matters in a physical setting. If a cup was seen five minutes ago and is no longer visible, the robot should not speak as if the cup is definitely still present. The memory timeout is configurable in the dashboard.
 
-%TL;DR: Memory editing supports debugging but also reveals the intended data model.
-The dashboard and memory API allow manual object and relation edits. This is useful for correcting memory during testing, but it also clarifies the intended abstraction. The system represents scene knowledge as objects and relations, not only as text. If a relation is manually inserted, the chat service can use it like a model-generated relation. If an object is deleted, relations can be cascaded away. This behavior demonstrates that scene memory is an independent layer between perception and dialogue.
+The memory API exposes this state as a first-class resource. Clients can read the full scene state, request a summary, fetch object crops, list objects and relations, reset memory, upsert a scene state, and manually create, update, or delete objects and relations. %In worker mode these calls are proxied to the worker memory; in in-process mode they use the pipeline memory directly. Manual editing is useful for debugging, but it also shows the intended abstraction. The system represents scene knowledge as objects and relations that can be inspected and corrected.
 
-%TL;DR: The server chapter closes by identifying the server contribution as integration under constraints.
-The server implementation is best understood as an integration layer under embodied constraints. It does not invent object detection, scene graph generation, or language modeling as standalone algorithms. Instead, it combines them into a runtime that accepts Pepper observations, compensates for discontinuous scans, fuses robot-native social perception, maintains a bounded scene memory, and exposes that memory to dialogue. The following chapter describes the other side of the same system: the Pepper client that collects observations, manages turns, speaks responses, and makes the server's memory available to users through speech and tablet interaction.
+\section{Configuration, Worker Control, and Dashboard}\label{sec:server-worker-runtime}
+
+Configuration changes are divided into hot updates and hard reloads. Thresholds, prompt paths, selected runtime flags, and some provider parameters can be pushed into a running worker; They can be hot-reloaded. Changes that rebuild model objects require a hard reload. The worker manager tracks process state, startup and shutdown, health checks, inflight requests, idle timeout. Theis matters mainly for the mentioned GPU allocation.
+
+The dashboard is the developer-facing view of the same runtime. It receives WebSocket events for detections, captions, memory updates, and chat messages. It also exposes configuration panels, worker status, memory views, QA pool views, scene graph outputs, translation settings and live images.
+
+As we can see now, the server main contribution is an integration architecture. It does not bring any new models of scene graph generation or detection, but it tries to combine strong ready-to-use components into a controllable runtime for Pepper. %detector backends produce boxes, tracking gives persistent identities, Pepper metadata adds embodied social evidence, SoM and scene graph backends turn detections into relations, memory keeps the result bounded and inspectable, and language services turn that state into dialogue.

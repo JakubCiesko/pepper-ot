@@ -1,0 +1,73 @@
+digraph PipelineStageDialoguePaths {
+    rankdir = LR;
+    splines = polyline;
+    compound = true;
+    nodesep = 0.35;
+    ranksep = 0.65;
+    pad = 0.45;
+    bgcolor = "white";
+
+    graph [fontname = "Helvetica";];
+    node [fontname = "Helvetica"; fontsize = 11; shape = box; style = "rounded,filled"; color = "#000000"; penwidth = 1.2; margin = "0.14,0.10";];
+    edge [fontname = "Helvetica"; fontsize = 8; color = "#000000"; penwidth = 1.0; arrowsize = 0.75;];
+
+    MEMORY [label = "SceneMemory\nobjects, relations,\ncaptions, crops"; fillcolor = "#F2D45C";];
+
+    subgraph cluster_memory_chat {
+        label = "Memory-grounded chat: POST /api/v1/chat";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#ECF4EA";
+
+        CHAT_REQ [label = "ChatRequest\nquery, chat_id,\nmode, language"; fillcolor = "white";];
+        TRANSLATE_IN [label = "input language enforcement\nmodel-facing query"; fillcolor = "white";];
+        CONV_IN [label = "ConversationService\nstore user turn,\nload prompt history"; fillcolor = "white";];
+        CONTEXT [label = "ChatService context\nobjects, one-line relations,\nlatest/recent captions"; fillcolor = "white";];
+        MODE [label = "mode"; shape = diamond; fillcolor = "white";];
+        GENERAL [label = "general mode\nrender system/user prompt\nwith memory placeholders"; fillcolor = "white";];
+        OBJECT [label = "object mode\nmatch requested label,\ncollect attributes and relations"; fillcolor = "white";];
+        CROP [label = "optional crop-caption fallback\nwhen matched object has\nno structured facts"; fillcolor = "white";];
+        LLM [label = "LLMClient.generate_text()\nor structured generation for QA endpoints"; fillcolor = "white";];
+        TRANSLATE_OUT [label = "output language enforcement"; fillcolor = "white";];
+        CHAT_OUT [label = "ChatResponse\nsource object ids,\nmetadata, confidence"; fillcolor = "#F2D45C";];
+    }
+
+    subgraph cluster_direct_vision {
+        label = "Image-direct vision chat: POST /api/v1/vision_chat";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#E8F0F7";
+
+        V_REQ [label = "VisionChat request\nimage + query + chat_id"; fillcolor = "white";];
+        V_CONV [label = "ConversationService\nhistory text"; fillcolor = "white";];
+        V_RUNTIME [label = "runtime.vision_chat()\nin-process or worker"; fillcolor = "white";];
+        V_VLM [label = "VLM backend client\nimage + conversation prompt"; fillcolor = "white";];
+        V_OUT [label = "VisionChatResponse\nanswer + provider/model"; fillcolor = "#F2D45C";];
+    }
+
+    WS [label = "ws_manager\nchat message broadcast\nto dashboard"; fillcolor = "white";];
+
+    CHAT_REQ -> TRANSLATE_IN;
+    TRANSLATE_IN -> CONV_IN;
+    CONV_IN -> CONTEXT;
+    MEMORY -> CONTEXT [label = "scene_state";];
+    CONTEXT -> MODE;
+    MODE -> GENERAL [label = "general";];
+    MODE -> OBJECT [label = "object";];
+    MEMORY -> OBJECT [label = "object facts + crops";];
+    OBJECT -> CROP [label = "fallback needed"; style = dashed;];
+    CROP -> OBJECT [label = "caption text"; style = dashed;];
+    GENERAL -> LLM;
+    OBJECT -> LLM;
+    LLM -> TRANSLATE_OUT;
+    TRANSLATE_OUT -> CHAT_OUT;
+    CHAT_OUT -> WS;
+
+    V_REQ -> V_CONV;
+    V_CONV -> V_RUNTIME;
+    V_RUNTIME -> V_VLM;
+    V_VLM -> V_OUT;
+    V_OUT -> WS;
+}

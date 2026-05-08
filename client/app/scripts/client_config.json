@@ -31,7 +31,7 @@
       35
     ],
     "settle_seconds": 0.6,
-    "fake_camera": true,
+    "fake_camera": false,
     "fake_camera_path": "/home/jakub-ciesko/Desktop/test-imgs/test/one"
   },
   "dialog": {
@@ -95,7 +95,7 @@
     "fake_host": "127.0.0.1",
     "fake_poll_interval_ms": 1000,
     "fake_port": 8766,
-    "fake_tablet": true,
+    "fake_tablet": false,
     "local_app_name": "pepper-grounded-client",
     "memory_render_limit": 5,
     "pregenerated_questions_count": 5

@@ -26,6 +26,10 @@ tracking:
     reid_model: "nvidia/C-RADIOv4-SO400M"
     target_size: [384, 384]
     resampling_method: "BICUBIC"
+    human_reid_enabled: false
+    human_reid_model: null
+    human_reid_target_size: [128, 256]
+    human_labels: ["person", "human", "man", "woman", "boy", "girl"]
 
 scene_graph:
   parallel_execution: false

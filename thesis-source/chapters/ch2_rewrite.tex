@@ -1,0 +1,431 @@
+\chapter{Background and Related Work}\label{chap:background}
+
+%TL;DR: The chapter separates background concepts from related work and prepares the formal vocabulary for the method chapters.
+Chapter~\ref{chap:intro} introduced the motivation for scene-aware dialogue on the Pepper robot. In this chapter, this motivation can be made technically more precise. The aim of this part is, however, not yet to describe the implemented system itself, but to introduce the concepts, assumptions, and previous approaches that are needed before the system can be understood. 
+
+For this reason, the chapter combines two roles. It gives the theoretical background, that is, the academic ancestors of the work, and it also reviews related work, that is, alternative attempts by other authors to solve similar problems under slightly different assumptions.
+
+%TL;DR: The chapter follows the perception-to-dialogue pipeline used by the thesis.
+The order of the chapter follows the path from the robot's interaction setting to the final language response. We first discuss human-robot interaction and social robots, because these shape the overall domain of the project and explain why ordinary visual perception is not sufficient. We then define the problem setting of scene-aware dialogue. 
+
+After that, object detection is introduced alongisde tracking, and re-identification, which provide object-level perception and persistence. The next section explains grounding and scene graph generation, where detections are transformed into structured relational context. 
+
+Next, we describe language models and vision-language models, because these models handle (generate and interpret) natural language in the proposed system. The final technical sections discuss Retrieval-Augmented Generation (RAG), Cache-Augmented Generation (CAG), GraphRAG, and the Pepper platform itself.
+
+%TL;DR: The chapter keeps the contribution boundary explicit.
+% I will use this but in different part, in the system arch thing intro
+%Throughout the chapter, the distinction between prior work and this thesis is kept explicit. Object detectors, tracking algorithms, scene graph models, LLMs, VLMs, and retrieval mechanisms are not contributions of this thesis by themselves. They are methods or model families on which the system builds. The contribution lies in selecting and combining them under the constraints of Pepper's sensing, computation, memory, and interaction regime. This is why the chapter repeatedly states not only what a method does, but also what assumptions it makes and where those assumptions do or do not hold in the system developed here.
+
+\section{Human-Robot Interaction and Social Robots}\label{sec:hri-social-robots}
+
+%TL;DR: HRI is introduced as the field that makes interaction quality part of the technical problem.
+Human-robot interaction (HRI) studies how humans and robots interact, how these interactions can be designed, and how they should be evaluated. Goodrich and Schultz describe HRI as an interdisciplinary field in which robotics, human factors, psychology, design, linguistics, and computer science meet~\cite[203--216]{goodrich_human-robot_2007}. 
+
+From a design perspective, the HRI problem can be characterized, as per Goodrich and Schultz, as the problem of understanding and shaping interaction between humans and robots. They identify five key attributes through which interaction can be influenced: the level and behavior of autonomy, the nature of information exchange, the structure of the human-robot team, adaptation and learning of both the human and the robot, and the shape of the task~\cite[216--217]{goodrich_human-robot_2007}. 
+
+
+The level of autonomy determines how independently the robot can act and how control is shared between the human and the robot. The nature of information exchange describes how information is communicated, including modalities such as speech, vision, or interfaces, as well as the structure and clarity of that communication. The team structure defines the roles and relationships between humans and robots, for example whether the robot acts as a tool, assistant, peer, or supervisor. Adaptation and learning capture how both the human and the robot adjust their behavior over time through interaction. Finally, the shape of the task reflects how the introduction of the robot modifies or constrains the activity being performed~\cite[216--232]{goodrich_human-robot_2007}.
+
+
+% In this context, a robot operating in a shared human environment is evaluated as an embodied interaction partner rather than as an isolated perception or language system.
+
+% This matters for the present thesis because a robot in a shared human environment is not evaluated only as a perception system or only as a language system. It is evaluated as an embodied artifact that speaks, looks, waits, gestures, displays information, and sometimes fails in front of a user.
+SOME\_BRIDGING\_PART
+
+%TL;DR: The thesis focuses on social interaction, not teleoperation or industrial manipulation.
+%Sheridan distinguishes several broad forms of HRI, including supervisory control, teleoperation, automated vehicles, and social interaction\\cite[525--526]{Sheridan2016HRI}. EXPLAIN THOSE A BIT. THEN IN ONE SENTENCE JUST SAY: The present work belongs primarily to the last category. Pepper is not used here as a high-payload manipulator or a vehicle, but as a platform for proximate interaction. The relevant technical question is therefore not simply whether the robot can detect an object, but whether the robot can use detected objects in a way that supports understandable and context-sensitive dialogue.
+% PROBABLY WILL DOP FIRST PARAGRAPH AND KEEP SECOND
+Sheridan distinguishes four broad application areas of HRI:\@supervisory control, teleoperation, automated vehicles, and social interaction~\cite[525--526]{Sheridan2016HRI}. Supervisory control involves high-level human oversight of largely autonomous systems, teleoperation denotes direct real-time remote control, automated vehicles operate mostly autonomously with humans as passengers, and social interaction focuses on communication-oriented human-robot interaction.
+
+The present work belongs primarily to the last category, where the central challenge is not only detecting objects, but using them to support grounded, context-sensitive dialogue with humans.
+
+The present work clearly belongs primarily to the last category, as the central challenge is not only detecting objects, but using them to support grounded, context-sensitive dialogue with humans. Moreover, using the five attributes of an HRI problem, this thesis can be characterized as follows. Pepper operates with limited, interaction-triggered autonomy: it captures observations, updates scene memory, and produces grounded responses, but does not independently plan or act in the environment. The information exchange is multimodal, combining human speech and tablet input with robot speech, tablet output, camera images, robot-native metadata, scene memory, and scene graphs. The team structure is a proximate one-human-one-robot interaction, with an off-board server acting as computational infrastructure rather than as an independent teammate. Adaptation is implemented not as online model learning, but through interaction-time updates to memory, dynamic dialogue concepts, cached question-answer pairs, and conversation state. The task is open-ended but bounded: the robot supports situated dialogue about the visible environment rather than manipulation, navigation, or fully autonomous task execution. 
+
+
+Another important term is social robot. Its meaning is not entirely uniform in the literature. Henschel, Laban, and Cross note that there is no universally accepted definition and that social robots are often characterized by embodiment, some degree of autonomy, and interactional behavior interpreted by humans as social~\cite[11--12]{henschel_what_2021}. 
+
+In this thesis, a social robot is understood as a physically embodied system that communicates or cooperates with humans in a socially interpretable manner. This definition does not require anthropomorphic form, but rather that the robot's behavior participates in social interaction with a human user. THIS\_MIGHT\_BE\_DROPPED\_TOO\_OPINIONATED
+
+%TL;DR: Social embodiment raises expectations that language-only systems do not face in the same way.
+This point is important because social embodiment changes user expectations. A user may reasonably expect that a robot standing in the same room can refer to objects in that room, distinguish people, or remember a previously mentioned item. Henschel et al. also discuss studies of Pepper users in which reciprocal conversation and the limitations of single-turn interaction become salient expectations~\cite[12]{henschel_what_2021}. The same issue appears in work on LLM-powered HRI;\@Language fluency can make users expect broader situational competence than the system actually has\@\cite{kim_understanding_2024,atuhurra_leveraging_2024}.
+
+%TL;DR: Related HRI work motivates grounding, but often does not solve persistent visual scene memory.
+Several recent systems connect social robots with the well-known abilities of LLMs or VLMs in order to improve interaction. Some focus on human-support in teaching and education~\cite{latif_physicsassistant_2024,sievers_humanoid_2025}; others focus on assistance, libraries, industry, or general conversational flexibility~\cite{trinquet_future_2025,brad_retrieval-augmented_2025,becerra_improving_2024}. 
+
+These systems are very much important to this current thesis as they are its academic siblings because they address the same broad problem: modern language models can make Pepper more flexible, yet the robot still needs a reliable connection to the physical context. They do, however, differ in their emphasis. Many of them use perception as an input to a specific task or response, whereas this thesis treats the scene as a persistent structured state that can be queried across dialogue turns. THIS LAST SENT TO BE DROPPED
+
+%TL;DR: The HRI background gives the reason for the technical architecture.
+MOVE THE MENTIONS OF HOW THIS THESIS COMPARES TO OTHER RESEARCH HERE IN THE END AND THEN BRIDGE: NEXT SECTION IS DETECTION
+We can summarize the HRI background as follows. If Pepper were only a camera, object detection would be enough. If it were only a chatbot, language modeling would be enough. But Pepper is an embodied social robot, and therefore the system must preserve a connection between what the robot says, what it sees, what it has seen before, and what the user can plausibly expect it to know. This is the reason why the remaining sections move from perception to structured memory and then to grounded dialogue.
+
+
+\section{Human-Robot Interaction and Social Robots}\label{sec:hri-social-robots}
+
+  %TL;DR: HRI is introduced as the field that makes interaction quality part of the technical problem.
+  Human-robot interaction (HRI) studies how humans and robots interact, how these interactions can be designed, and how they should be evaluated. Goodrich and Schultz describe HRI as an interdisciplinary
+  field in which robotics, human factors, psychology, design, linguistics, and computer science meet~\cite[203--216]{goodrich_human-robot_2007}. This matters for the present thesis because a robot in a
+  shared human environment is not evaluated only as a perception system or only as a language system. It is evaluated as an embodied artifact that speaks, looks, waits, displays information, and
+  sometimes fails in front of a user.
+
+  %TL;DR: Goodrich and Schultz describe HRI through attributes that shape the interaction.
+  From a design perspective, Goodrich and Schultz characterize the HRI problem as the problem of understanding and shaping interaction between humans and robots. They identify five key attributes through
+  which interaction can be influenced: the level and behavior of autonomy, the nature of information exchange, the structure of the human-robot team, adaptation and learning of both the human and the
+  robot, and the shape of the task~\cite[216--217]{goodrich_human-robot_2007}. These attributes are useful because they prevent HRI from being reduced to one component. A robot's behavior is not
+  determined only by its algorithms, but also by how much control it has, how it communicates, what role it plays, how interaction changes over time, and what task the human and robot are trying to
+  perform.
+
+  %TL;DR: The five attributes give vocabulary for describing the system developed in the thesis.
+  The level of autonomy determines how independently the robot can act and how control is shared between the human and the robot. The nature of information exchange describes how information is
+  communicated, including modalities such as speech, vision, touch interfaces, and graphical displays, as well as the clarity and timing of that communication. The team structure defines the roles and
+  relationships between humans and robots, for example whether the robot acts as a tool, assistant, peer, supervisor, or social companion. Adaptation and learning capture how the human and the robot
+  adjust their behavior over time through interaction. Finally, the shape of the task describes how the introduction of the robot changes, constrains, or supports the activity being
+  performed~\cite[216--232]{goodrich_human-robot_2007}.
+
+  %TL;DR: Sheridan's taxonomy distinguishes social interaction from teleoperation, supervision, and automated vehicles.
+  Sheridan distinguishes four broad application areas of HRI: supervisory control, teleoperation, automated vehicles, and social interaction~\cite[525--526]{Sheridan2016HRI}. Supervisory control refers
+  to systems in which a human provides high-level oversight to a partly autonomous machine. Teleoperation refers to direct remote control, where the human operator controls the robot from a distance.
+  Automated vehicles are systems that operate largely autonomously while humans act mainly as passengers, supervisors, or fallback operators. Social interaction concerns robots that communicate with
+  people directly and whose usefulness depends on the quality of that interaction.
+
+  %TL;DR: The thesis belongs to social interaction rather than manipulation, teleoperation, or vehicle autonomy.
+  The present work belongs primarily to social interaction. Pepper is not used here as a high-payload manipulator, a remotely controlled machine, or an autonomous vehicle. It is used as a platform for
+  proximate interaction with a human user. The central technical question is therefore not simply whether the robot can detect an object, but whether it can use detected objects in a way that supports
+  understandable and context-sensitive dialogue.
+
+  %TL;DR: Social robots are defined cautiously because the term is not uniform in the literature.
+  The term social robot is not entirely uniform in the literature. Henschel, Laban, and Cross note that there is no universally accepted definition and that social robots are often characterized by
+  embodiment, some degree of autonomy, and interactional behavior interpreted by humans as social~\cite[11--12]{henschel_what_2021}. In this thesis, a social robot is understood as a physically embodied
+  robot that communicates or cooperates with humans in a socially interpretable manner. This definition does not require the robot to be human-like in every respect. It only requires that the robot's
+  behavior participates in social interaction with a human user.
+
+  %TL;DR: Social embodiment raises expectations that language-only systems do not face in the same way.
+  This point is important because social embodiment changes user expectations. A user may reasonably expect that a robot standing in the same room can refer to objects in that room, distinguish people,
+  or remember a previously mentioned item. Henschel et al. also discuss studies of Pepper users in which reciprocal conversation and the limitations of single-turn interaction become salient
+  expectations~\cite[12]{henschel_what_2021}. The same issue appears in work on LLM-powered HRI: language fluency can make users expect broader situational competence than the system actually
+  has~\cite{kim_understanding_2024,atuhurra_leveraging_2024}.
+
+  %TL;DR: Related HRI systems motivate grounding, but often treat perception as task-specific input rather than persistent state.
+  Several recent systems connect social robots with LLMs, VLMs, or external computation in order to improve interaction. Some focus on human support in teaching and
+  education~\cite{latif_physicsassistant_2024,sievers_humanoid_2025}; others focus on assistance, libraries, industry, or general conversational flexibility~\cite{trinquet_future_2025,brad_retrieval-
+  augmented_2025,becerra_improving_2024}. These systems are academic siblings of the present thesis because they address the same broad pressure: modern language models can make social robots more
+  flexible, but the robot still needs a reliable connection to the physical context. They differ, however, in emphasis. Many of them use perception as an input to a specific task or response, whereas
+  this thesis treats the scene as a persistent structured state that can be queried across dialogue turns.
+
+  %TL;DR: The HRI taxonomies position the thesis precisely.
+  Using the five attributes of Goodrich and Schultz, the system developed in this thesis can be characterized more precisely. Pepper operates with limited, interaction-triggered autonomy: it captures
+  observations, updates scene memory, and produces grounded responses, but it does not independently plan or act in the environment. The information exchange is multimodal, combining human speech and
+  tablet input with robot speech, tablet output, camera images, robot-native metadata, scene memory, and scene graphs. The team structure is a proximate one-human-one-robot interaction, with an off-board
+  server acting as computational infrastructure rather than as an independent teammate. Adaptation is implemented not as online model learning, but through interaction-time updates to memory, dynamic
+  dialogue concepts, cached question-answer pairs, and conversation state. The task is open-ended but bounded: the robot supports situated dialogue about the visible environment rather than manipulation,
+  navigation, or fully autonomous task execution.
+
+  %TL;DR: The HRI background gives the reason for the technical architecture.
+  We can therefore summarize the HRI background as follows. If Pepper were only a camera, object detection would be enough. If it were only a chatbot, language modeling would be enough. But Pepper is an
+  embodied social robot, and therefore the system must preserve a connection between what the robot says, what it sees, what it has seen before, and what the user can plausibly expect it to know. This is
+  the reason why the next section first defines scene-aware dialogue as the problem setting, and why the later sections move from perception to structured memory and then to grounded dialogue.
+
+\section{Problem Setting: Scene-Aware Dialogue}\label{sec:problem-setting-scene-aware-dialogue}
+NICE BUT MIGHT BE DROPPED 
+%TL;DR: The section defines the task formally before discussing methods.
+Before introducing individual terms and methods, we need a more precise formulation of the task. In this thesis, scene-aware dialogue is not merely dialogue accompanied by an image. It is dialogue in which the robot maintains a structured representation of its perceived environment and uses that representation when answering the user. The problem therefore combines perception, temporal identity, relation extraction, memory update, and language generation.
+
+%TL;DR: Observations are discrete robot scans, not a normal continuous video stream.
+Let the robot collect a sequence of visual observations
+\[
+O_1,O_2,\ldots,O_T,
+\]
+where each observation contains an image \(I_t\), robot metadata \(r_t\) such as head orientation or camera parameters, and possibly robot-native social perception signals. 
+
+Unlike a standard video sequence, these observations need not be temporally continuous. Pepper may scan the scene in discrete steps, for example by rotating the head by a fixed angle between captures. This distinction is important because many tracking methods assume adjacent frames with limited displacement, while the present setting may contain large viewpoint changes between observations.
+
+%TL;DR: The system state is a persistent graph memory updated from each observation.
+The desired internal state after observation \(t\) is a memory
+\[
+M_t=(\mathcal{O}_t,\mathcal{G}_t,\mathcal{H}_t),
+\]
+where \(\mathcal{O}_t\) is a set of persistent object identities, \(\mathcal{G}_t\) is a scene graph over those identities, and \(\mathcal{H}_t\) stores relevant dialogue or observation history. 
+
+The update step can be written abstractly as
+\[
+M_t = U(M_{t-1}, O_t),
+\]
+where \(U\), the update function, includes detection, identity association, relation extraction, and scene graph generation and merging. This formulation is useful because it makes explicit that the system does not answer only from the current image. It answers from an updated memory state. It also clearly shows what are the individual constituents of the proposed system.
+
+%TL;DR: Dialogue generation is conditioned on a query and a selected part of memory.
+The conversation layer works like a classical question-answering system. At dialogue turn \(k\), the user asks an utterance \(q_k\). The system selects relevant context \(C_k\) from memory and generates an answer conditioned on the context and the query.
+\[
+y_k \sim p_\theta(y\mid q_k,C_k).
+\]
+The central design question is how \(C_k\) should be constructed. 
+
+A broad question such as \enquote{what do you see?} may require a compact summary of the whole scene. A targeted question such as \enquote{what is next to the laptop?} requires retrieval of a subgraph around a particular object. This distinction motivates the later use of CAG for broad cached context and structured graph retrieva, for targeted queries.
+
+%TL;DR: The thesis violates some standard assumptions and must therefore state workarounds explicitly.
+This formulation also identifies the main assumption violations that shape the rest of the thesis. The visual input is not a stable high-frame-rate video stream, the object vocabulary is not fully known in advance, the language response must remain constrained by scene memory, and Pepper cannot run the full pipeline onboard. We can therefore treat the system as a composition of several required parts: perception, identity persistence, relation extraction, memory update, context construction, and dialogue generation. The following sections introduce the theory and related work needed for each part.
+
+\section{Object Detection, Tracking, and Re-Identification}\label{sec:object-detection-tracking-reid}
+
+%TL;DR: Object detection provides localized object hypotheses for all later modules.
+The first technical requirement for scene awareness is object detection. Object detection is the task of identifying object instances in an image and localizing them, most commonly by bounding boxes. Formally, a detector maps an image \(I\) to a finite set
+\[
+\mathcal{D}(I)=\{(b_i,\ell_i,s_i)\}_{i=1}^{N},
+\]
+where \(b_i\in\mathbb{R}^4\) is a bounding box, \(\ell_i\) is a class label, and \(s_i\in[0,1]\) is a confidence score \cite[Part XIII]{foundationsCVbook}. For this thesis, these detections are not the final result. They are inputs to identity persistence, scene graph construction, memory update, and dialogue grounding.
+
+%TL;DR: Detection decomposes into localization, classification, and duplicate handling.
+A useful conceptual decomposition of detection contains three steps: candidate localization, class scoring, and removal of redundant boxes \cite[Part XIII]{foundationsCVbook}. In older pipelines these steps were often visible as sliding windows, region proposals, classifiers, and post-processing. Modern detectors internalize much of this pipeline into neural architectures, but the same functional needs remain. The detector must find where objects are, assign labels to them, and avoid returning many boxes for the same physical instance.
+
+%TL;DR: IoU and NMS are basic tools, but they introduce assumptions about overlap.
+The standard overlap measure between two boxes \(A\) and \(B\) is Intersection over Union,
+\[
+\mathrm{IoU}(A,B)=\frac{|A\cap B|}{|A\cup B|}.
+\]
+IoU is used in evaluation, training assignment, and post-processing. Non-maximum suppression (NMS) then keeps high-confidence boxes and removes lower-confidence boxes that overlap them above a threshold \(\tau_{\text{nms}}\). This is efficient and still common, but it hard-codes a local overlap rule. In crowded scenes or with thin objects, valid instances can be suppressed, while small localization errors can strongly affect downstream spatial relations \cite{hosang_learning_2017}.
+
+%TL;DR: Closed-vocabulary detectors are fast and practical, but limited by their training ontology.
+Closed-vocabulary detection assumes a fixed label set \(\mathcal{L}\) known at training time. YOLO-style detectors are the most familiar example of fast one-stage detection in this family. They predict boxes and class scores in one forward pass over multi-scale feature maps and usually apply confidence filtering and NMS afterwards \cite{sapkota_ultralytics_2026}. Their advantage is speed and deployment simplicity, which is important in robotics. Their disadvantage is semantic rigidity. If the relevant object is absent from the training ontology, the model must either miss it, map it to a nearby class, or require fine-tuning.
+
+%TL;DR: COCO is broad but not identical to an office, laboratory, or Pepper interaction ontology.
+COCO is a central benchmark for object detection and contains common object categories in diverse image contexts \cite{lin2015microsoftcococommonobjects}. It is therefore a reasonable reference point for detector discussion. Nevertheless, it is still a finite and biased ontology. A robot deployed in a computer laboratory, office, classroom, or library may need categories that are too specific, too rare, or visually ambiguous in COCO-like training data. This creates the first pressure toward open-vocabulary detection.
+
+%TL;DR: DETR-style detectors reformulate detection as set prediction and reduce dependence on NMS.
+DETR-family detectors formulate detection as direct set prediction. Instead of enumerating dense local proposals and suppressing duplicates afterwards, the model predicts a fixed-size set of object hypotheses and trains them with bipartite matching. If \(y_i\) are ground-truth objects and \(\hat{y}_j\) are predictions, training selects an assignment
+\[
+\hat{\sigma}=\arg\min_{\sigma}\sum_i \mathcal{L}_{\mathrm{match}}(y_i,\hat{y}_{\sigma(i)}),
+\]
+then optimizes classification and box losses on matched pairs. RT-DETR adapts this formulation for real-time object detection \cite{zhao_detrs_2024}, while RF-DETR focuses on architecture search for real-time detection transformers \cite{robinson_rf-detr_2026}. The advantage is cleaner one-object/one-query behavior and less reliance on heuristic duplicate suppression. The cost is architectural complexity and, depending on the variant, training and deployment demands.
+
+%TL;DR: Open-vocabulary detection allows labels at inference time through vision-language alignment.
+Open-vocabulary detection addresses the label-set limitation. Models such as OWL-ViT and OWLv2 encode text queries and visual regions into a shared embedding space, then score compatibility between a region and a prompt \cite{minderer_simple_2022,minderer_scaling_2024}. In simplified form, a text prompt \(t_k\) receives an embedding \(e_k\), a visual region receives an embedding \(v_r\), and the detector scores them by a similarity function such as \(v_r^\top e_k\) or cosine similarity. This is attractive for scene-aware dialogue because the user may ask about \enquote{the power strip}, \enquote{the red cable}, or another class not explicitly present in a closed detector.
+
+%TL;DR: Open-vocabulary detection trades semantic flexibility for prompt and calibration sensitivity.
+The advantage of open-vocabulary detection is flexibility. The limitation is that the detector becomes sensitive to prompt wording, label granularity, and score calibration across different textual categories. A closed detector has one training ontology and one classification head; an open-vocabulary detector must compare visual evidence with language descriptions whose specificity can vary. In the present thesis, this is acceptable only if the detector output is treated as evidence for a memory system, not as unquestionable truth.
+
+%TL;DR: Standard detection metrics do not directly measure usefulness for dialogue.
+Detector evaluation usually uses precision, recall, and Average Precision (AP). Given an IoU threshold \(\tau\), a prediction counts as true positive if it matches an unmatched ground-truth instance with IoU at least \(\tau\). Precision and recall are
+\[
+\mathrm{Precision}=\frac{\mathrm{TP}}{\mathrm{TP}+\mathrm{FP}},\qquad
+\mathrm{Recall}=\frac{\mathrm{TP}}{\mathrm{TP}+\mathrm{FN}}.
+\]
+AP summarizes the precision-recall curve for one class, while mean AP averages across classes and, in COCO-style evaluation, across IoU thresholds \cite{foundationsCVbook}. These metrics are necessary for detector comparison, but they do not fully measure whether the detector supports stable dialogue. A small error on a visually irrelevant object may not matter, while an identity switch on the object currently discussed by the user may break the interaction.
+
+%TL;DR: Tracking adds temporal identity, but classical MOT assumes continuous observations.
+Object detection is frame-local. Multi-object tracking (MOT) adds temporal persistence by associating detections across time. In a standard tracking-by-detection pipeline, each track state \(x_t\) is predicted by a motion model, for example
+\[
+x_{t|t-1}=F x_{t-1|t-1},
+\]
+and detections are assigned to predicted tracks through a cost matrix. SORT combines a Kalman filter with Hungarian assignment and shows that simple motion-based online tracking can be fast and effective when detections are reliable \cite{bewley_simple_2016}. Deep SORT adds an appearance metric to reduce identity switches \cite{wojke_simple_2017}. ByteTrack improves association by using low-confidence detections instead of discarding them too early \cite{zhang_bytetrack_2022}.
+
+%TL;DR: The prerequisite of ordinary MOT is violated by Pepper's discrete scanning.
+The prerequisite behind these tracking methods is moderate temporal continuity. Adjacent frames should be close enough that motion prediction, bounding-box overlap, or short-term appearance continuity remains informative. Pepper's scanning regime violates this assumption. If the robot captures images from different head orientations, the same physical object may move far in image coordinates, disappear due to field-of-view change, or reappear with no meaningful IoU overlap. In this situation, applying a video-MOT prior without modification would produce unstable identities.
+
+%TL;DR: Re-identification is the workaround for discontinuous observations.
+For this reason, the persistence problem in this thesis is better understood as re-identification (Re-ID). Re-ID matches the same object across different times, views, or scenes by comparing appearance representations rather than only local motion \cite{ye_transformer_2024}. A crop \(x\) is mapped to an embedding \(f(x)\in\mathbb{R}^d\), and query-gallery similarity can be computed as
+\[
+\mathrm{sim}(x_q,x_g)=\frac{f(x_q)^\top f(x_g)}{\|f(x_q)\|\,\|f(x_g)\|}.
+\]
+Identity association then becomes thresholded nearest-neighbor matching, optionally combined with geometric priors from the robot pose.
+
+%TL;DR: The chosen embedding model is used as an appearance backbone, not as a full tracker.
+The system developed in this thesis uses visual embeddings of detected object crops. The chosen backbone is C-RADIOv4-SO400M, a vision foundation model from the C-RADIO family. The C-RADIOv4 report describes multi-teacher distillation from teachers including SigLIP2, DINOv3, and SAM3, with released SO400M and H variants \cite{ranzinger2026cradiov4techreport}. In this thesis, the model is not treated as a complete Re-ID algorithm by itself. It provides transferable crop embeddings, which the memory module then combines with similarity thresholds and robot geometry.
+
+%TL;DR: Face recognition is a special auxiliary case for people, not a general object solution.
+For people, Pepper and NAOqi provide additional face detection and recognition services. These can complement generic visual Re-ID when the face is visible and the person has been learned by the system. The Aldebaran documentation describes ALFaceDetection as a module for detecting and optionally recognizing faces in front of the robot.\footnote{See \url{http://doc.aldebaran.com/2-4/naoqi/peopleperception/alfacedetection.html}.} This is useful, but it does not solve general object persistence. It applies primarily to people and depends on visibility, pose, and enrollment.
+
+%TL;DR: The section concludes by matching each method to the thesis assumptions.
+We can now distinguish the roles of the methods. Detection answers what is visible now and where it is. Tracking answers how identities persist in temporally continuous streams. Re-ID answers whether an instance seen now corresponds to one seen earlier under discontinuous views. Since Pepper's visual observations are sparse and viewpoint-dependent, the thesis uses detection for instance proposals, Re-ID for identity persistence, and robot geometry as an additional consistency constraint. This is the first example of a more general pattern in the thesis: standard methods are used only after their assumptions are checked against the embodied setting.
+
+\section{Grounding and Scene Graph Generation}\label{sec:grounding-sgg}
+
+%TL;DR: Grounding connects language to perceived entities and relations.
+Chapter~\ref{chap:intro} already introduced conversational grounding. We can now use a narrower robotic sense of the term. In this thesis, grounding means connecting linguistic expressions to entities, attributes, and relations in the robot's perceived world. Lemaignan et al. describe situated grounding in HRI as a process that connects perception, symbolic knowledge representation, and dialogue processing \cite[181--182]{lemaignan_grounding_2012}. The important point is that grounding is not merely adding an image to a prompt. It requires a representation in which the robot can resolve references such as \enquote{the person near the chair} or \enquote{the object on the table}.
+
+%TL;DR: A detection list lacks the relational semantics needed for spatial dialogue.
+A list of detections is insufficient for this purpose. It may contain \((\text{cup}, b_1)\), \((\text{laptop}, b_2)\), and \((\text{table}, b_3)\), but it does not by itself say whether the cup is on the table, left of the laptop, or currently being held by a person. Spatial and semantic dialogue often depends precisely on such relations. This motivates a structured intermediate representation between perception and language.
+
+%TL;DR: Scene graphs represent objects, attributes, and relations.
+A scene graph represents a scene as a graph of objects and predicates. Following the common formulation introduced by Johnson et al., scene graphs contain object nodes, object attributes, and relationships between objects \cite[3668--3669]{johnson_image_2015}. We can write a graph as
+\[
+\mathcal{G}=(\mathcal{V},\mathcal{E}),
+\]
+where \(\mathcal{V}\) is a set of object instances and \(\mathcal{E}\) is a set of typed edges. A binary relation is a triplet
+\[
+(s,p,o),\qquad s,o\in\mathcal{V},\; p\in\mathcal{P},
+\]
+where \(s\) is the subject, \(p\) is the predicate, and \(o\) is the object.
+
+%TL;DR: Attributes may be represented as node properties or self-relations.
+Attributes can be represented either as node properties or as unary relations. In the implementation developed here, attributes can be encoded in the same triplet form, for example \((v,\text{has\_color\_red},v)\). This is not the only possible representation, but it has a practical advantage: the dialogue system can query attributes and pairwise relations through one graph interface. The cost is that the graph contains some artificial self-relations, so the interpretation of edges must distinguish true binary relations from encoded unary properties.
+
+%TL;DR: SGG is the task of mapping visual input to such a graph.
+Scene Graph Generation (SGG) is the task of mapping visual input to object labels and relation triplets. If object boxes and labels are given, the problem focuses mainly on predicate prediction. If they are not given, SGG includes object detection and classification as well. The comprehensive survey by Zhu et al. describes SGG as a central task for high-level scene understanding and reviews methods based on feature extraction, relation fusion, and graph reasoning \cite{zhu_scene_2022}. The task is difficult because possible directed object pairs grow as \(n(n-1)\) for \(n\) detected objects, and because visual relations are often ambiguous.
+
+%TL;DR: SGG has long-tail, ambiguity, and detector-dependence problems.
+Several difficulties recur in SGG. First, predicate distributions are long-tailed: relations such as \enquote{on} or \enquote{near} are frequent, while fine-grained relations are rare. Second, relation labels can be semantically ambiguous, because two annotators may choose different predicates for the same visual configuration. Third, detector errors propagate into relation errors: if the object is missed or mislabeled, the correct relation cannot be recovered downstream. These difficulties are not only benchmark issues. In a dialogue system, they determine whether the robot can refer to the right object and avoid unsupported claims.
+
+%TL;DR: Rule-based relations are reliable where geometry is enough, but semantically limited.
+The simplest SGG strategy is rule-based. Spatial predicates can be derived from geometry: left/right from projected centroids, above/below from vertical ordering, overlap from box intersections, and proximity from normalized distance. The advantage is interpretability and determinism. If the boxes are correct, the system can explain why it produced a relation. The disadvantage is semantic poverty. A rule over bounding boxes cannot reliably infer relations such as \enquote{holding}, \enquote{looking at}, or \enquote{using}, because these require appearance, pose, context, or commonsense priors.
+
+%TL;DR: Learned SGG models add semantic expressivity but depend on training ontology and data.
+Learned SGG models use visual features to predict relation triplets. They can model relations that geometry alone cannot capture, but they inherit dataset bias, label imbalance, and ontology limitations \cite{zhu_scene_2022}. RelTR is one representative learned method used in this thesis as a backend. It formulates relation prediction as a transformer set-prediction problem, using coupled subject-object queries to predict a sparse set of relation triplets directly \cite{cong_reltr_2023}. This avoids exhaustive classification of all object pairs, but it still depends on the visual distribution and predicate ontology on which the model was trained.
+
+%TL;DR: VLM-based SGG improves openness, but makes structure control harder.
+A newer alternative is VLM-based SGG. Instead of training a relation classifier for a fixed predicate set, a VLM can be prompted to generate relations from an image and a requested ontology. This is attractive for open or domain-specific environments. Work such as IndVisSGG shows how VLMs can be used for scene graph generation in industrial spatial intelligence, where transfer to new scenes and relations is important \cite{wang_indvissgg_2025}. The advantage is semantic flexibility. The disadvantage is output control: a generative model may produce invalid JSON, use synonyms outside the ontology, hallucinate unsupported relations, or vary relation wording across runs.
+
+%TL;DR: Strict formats help machines but can hurt generative reasoning.
+This creates a technical tension. Downstream graph memory requires strict structure, but language models often perform worse when forced into rigid output formats. Tam et al. show that format restrictions such as JSON or XML can reduce LLM performance on reasoning and domain understanding tasks \cite{tam_let_2024}. This does not mean that structured outputs should be abandoned. It means that the architecture should not ask the generative model to solve every problem at once. If simple geometric relations can be produced deterministically, the VLM can focus on relations that actually require semantic interpretation.
+
+%TL;DR: The thesis uses a hybrid approach because each SGG family has a different failure mode.
+For this reason, the thesis adopts a hybrid neuro-symbolic strategy. Deterministic rules handle stable spatial predicates when geometry is sufficient. RelTR supplies a learned relation-prediction backend. VLM prompting supplies open semantic relation extraction under a controlled ontology. The final graph is obtained by merging, filtering, and validating these outputs. This is not a claim that hybrid SGG is universally best. It is a response to this system's requirements: the graph must be machine-readable, reasonably open, fast enough for interaction, and less prone to unsupported spatial claims.
+
+%TL;DR: Set-of-Mark prompting makes visual references explicit for the VLM.
+The thesis also uses Set-of-Mark style prompting to reduce referential ambiguity. In this approach, visible objects are marked with explicit identifiers before the image is passed to the VLM. The model can then refer to \enquote{object 3} rather than implicitly resolving attention over many similar regions. Yang et al. show that such marking can improve visual grounding behavior in GPT-4V-style systems \cite{yang_set-of-mark_2023}. In the present system, the main value is not only better VLM interpretation, but also alignment between detector IDs, scene graph nodes, and dialogue references.
+
+%TL;DR: Standard SGG metrics decompose where errors enter the pipeline.
+SGG evaluation usually distinguishes Predicate Classification (PredCls), Scene Graph Classification (SGCls), and Scene Graph Detection (SGDet) \cite{zhu_scene_2022}. PredCls gives ground-truth boxes and object labels, so only predicates are predicted. SGCls gives ground-truth boxes but requires object labels and predicates. SGDet requires boxes, labels, and predicates to be predicted from the image. These settings matter because they isolate different error sources. A model can look strong in PredCls but fail in SGDet if object detection is unstable.
+
+%TL;DR: Recall@K and mean Recall@K are useful but insufficient for dialogue.
+A common SGG metric is Recall@K. If \(M_K\) is the number of ground-truth triplets matched within the top \(K\) predictions and \(G\) is the total number of ground-truth triplets, then
+\[
+R@K=\frac{M_K}{G}.
+\]
+Because frequent predicates can dominate this score, mean Recall@K averages recall across predicate classes. These metrics are useful for comparing SGG methods, but they are not sufficient for grounded dialogue. A graph that has acceptable triplet recall in a single image may still be bad for conversation if object identities change across turns or if predicates are inconsistent over time.
+
+%TL;DR: The scene graph section explains why the thesis needs structured memory rather than captions alone.
+We can therefore summarize the role of scene graphs in the thesis. Captions and dense captions can describe an image in natural language, and systems such as the one proposed by Grassi et al. use dense captioning with LLMs to ground conversational robots on vision \cite{grassi_grounding_2024}. This is close to the present work, but the representation differs. A caption is easy to feed into an LLM, while a graph is easier to update, query, compare, and constrain. The thesis chooses a graph because the dialogue system must answer targeted relational questions and preserve scene state over time, not only describe the latest image.
+
+\section{Language Models and Vision-Language Models}\label{sec:llms-vlms}
+
+%TL;DR: Language modeling is defined as probabilistic sequence modeling.
+Natural language processing (NLP) is the computational study and processing of human language. Language modeling is a narrower task inside NLP: estimating probabilities over token sequences. For a token sequence \(x_{1:T}\), an autoregressive language model factorizes
+\[
+p(x_{1:T})=\prod_{t=1}^{T}p(x_t\mid x_{<t}).
+\]
+Generation is therefore repeated next-token prediction. This formal definition is important because it prevents a common misunderstanding: a language model is optimized to continue or produce text under context, not to be truthful by construction.
+
+%TL;DR: Earlier NLP methods were simpler and more explicit, but weaker for long context.
+Before the current Transformer-based paradigm, language modeling included n-gram models, naive Bayes classifiers for many text classification tasks, and later recurrent neural networks. An n-gram model approximates
+\[
+p(x_t\mid x_{<t})\approx p(x_t\mid x_{t-n+1:t-1}).
+\]
+This is interpretable and efficient, but it suffers from data sparsity and limited context. Recurrent neural networks improve on this by maintaining learned hidden states, and gated variants such as LSTMs and GRUs handle longer dependencies better than plain recurrence. Nevertheless, recurrent computation remains sequential, which limits large-scale parallel training.
+
+%TL;DR: Transformers made large-scale pretraining practical through self-attention.
+The Transformer architecture replaces recurrence with self-attention \cite{vaswani2023attentionneed}. For hidden states \(X\), scaled dot-product attention can be written as
+\[
+\mathrm{Attention}(Q,K,V)=\mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}+M\right)V,
+\]
+where \(Q\), \(K\), and \(V\) are learned projections of the input states, and \(M\) is a mask when causal decoding is required. This mechanism lets each token attend to other tokens in the context and allows much more parallelism during training than recurrent models. Large language models (LLMs) are typically large Transformer-based models trained on large corpora and then adapted for instruction following or dialogue.
+
+%TL;DR: Instruction tuning changes usability, not the basic modeling objective.
+A base pretrained model is not automatically a dialogue agent. It may complete text, imitate patterns, or continue a prompt without following the user's intent. Instruction tuning and alignment methods modify this behavior using supervised instruction data and preference-based training. InstructGPT-style training combines supervised fine-tuning with reinforcement learning from human feedback \cite{ouyang2022traininglanguagemodelsfollow}. This makes the model more useful for interaction, but it does not remove the need for external grounding. The model still generates text from the context it receives.
+
+%TL;DR: Decoding policy is part of the language system and affects behavior.
+The generated answer also depends on decoding. Greedy decoding chooses the most likely next token, beam search keeps several high-probability continuations, and stochastic decoding samples from a temperature-scaled distribution,
+\[
+p_\tau(x_t=i\mid x_{<t})=\frac{\exp(z_i/\tau)}{\sum_j \exp(z_j/\tau)}.
+\]
+Lower temperature makes outputs more deterministic; higher temperature increases variation. This matters for robotics because a dialogue system may need stable factual answers rather than creative variation. Generation settings are therefore part of the method, not merely implementation detail.
+
+%TL;DR: VLMs condition language generation on images or visual embeddings.
+Vision-language models (VLMs) extend language models with visual input. A generic conditional formulation is
+\[
+p(y\mid x,I)=\prod_{t=1}^{|y|}p(y_t\mid y_{<t},x,\phi(I)),
+\]
+where \(x\) is the text prompt, \(I\) is the image, and \(\phi(I)\) is a visual representation. Architectures differ in how they compute and fuse \(\phi(I)\). Some use contrastive dual encoders for retrieval or classification. Others project visual tokens into the LLM input space and train the model to follow multimodal instructions. Examples include LLaVA, InstructBLIP, and PaLM-E \cite{liu_visual_2023,dai_instructblip_2023,driess_palm-e_2023}.
+
+%TL;DR: Contrastive image-text learning explains open-vocabulary behavior.
+Contrastive vision-language pretraining is central to open-vocabulary perception. CLIP-style training aligns images and texts in a shared embedding space by bringing matching image-text pairs closer and pushing mismatched pairs apart \cite{pmlr-v139-radford21a}. If \(v_i\) and \(t_i\) are normalized embeddings of an image and its paired text, similarity can be expressed as \(v_i^\top t_j\). This shared geometry later supports zero-shot classification, open-vocabulary detection, retrieval, and prompt-conditioned visual reasoning.
+
+%TL;DR: VLMs help with semantics, but have failure modes that matter for grounded dialogue.
+VLMs are useful in this thesis because they can connect visual evidence with linguistic categories and relations. However, they also introduce several failure modes. They can hallucinate visually unsupported objects or relations. They can describe similar objects inconsistently across turns. They can fail to produce strict schemas needed by downstream code. These failures are especially problematic in robotics, because an embodied robot's answer can be checked against the visible environment by the user. A false statement about the scene is therefore not only a language error; it is a grounding error.
+
+%TL;DR: LLM/VLM robotics work is related, but often focuses on planning rather than persistent scene dialogue.
+Several robotics systems use LLMs or VLMs to connect language with action. SayCan grounds high-level language model suggestions through affordance scores from robot skills \cite{ahn_as_2022}. Code as Policies uses language models to generate robot policy code from natural language instructions \cite{liang_code_2023}. PaLM-E conditions multimodal language modeling on embodied inputs \cite{driess_palm-e_2023}. These systems are important relatives of the present thesis, but their central question is often action selection or planning. Here the central question is different: how can Pepper maintain and use a structured visual scene memory for dialogue?
+
+%TL;DR: The language model is treated as a conditional generator over external memory.
+For this reason, the thesis treats LLMs and VLMs as conditional generators rather than as independent world models. The relevant question is not whether the model \enquote{knows} what is in the room, but whether the system supplies the model with a reliable representation of what the robot has perceived. This distinction leads directly to retrieval and cache mechanisms, because the scene memory must be converted into usable context for generation.
+
+\section{RAG, CAG, and GraphRAG}\label{sec:rag-cag-graphrag}
+
+%TL;DR: RAG separates parametric language ability from external evidence.
+Retrieval-Augmented Generation (RAG) combines a generator with external evidence retrieval. Lewis et al. describe RAG as a combination of parametric memory in a pretrained model and non-parametric memory in a retrievable corpus \cite{lewis_retrieval-augmented_2020}. Given a query \(x\), a retriever selects contexts \(z\), and the generator produces \(y\) conditioned on both \(x\) and \(z\). A simplified latent-document formulation is
+\[
+p(y\mid x)\approx \sum_{z\in \mathrm{top}\text{-}K}p_\eta(z\mid x)p_\theta(y\mid x,z).
+\]
+This decomposition is useful because it says where errors enter: retrieval can fail even if generation is strong.
+
+%TL;DR: Embedding retrieval introduces a precision-latency tradeoff.
+In many RAG systems, retrieval is embedding-based. A query is encoded as \(q=f_q(x)\), a document chunk as \(d_i=f_d(c_i)\), and relevance is approximated by cosine similarity or inner product,
+\[
+\mathrm{score}(x,c_i)=\frac{q^\top d_i}{\|q\|\,\|d_i\|}\quad\text{or}\quad q^\top d_i.
+\]
+Approximate nearest-neighbor indexing makes retrieval efficient for large corpora, but it introduces tradeoffs between speed, recall, embedding dimensionality, chunking, and reranking. In robotics, these tradeoffs are not abstract. A better retrieval pipeline may be too slow for natural turn-taking, while a faster one may omit the relevant scene fact.
+
+%TL;DR: RAG solves stale or missing knowledge, but chunking can destroy structure.
+RAG is useful when the model needs knowledge that is external, changing, or too large to fit directly in the prompt. In scene-aware dialogue, the external knowledge is not a document collection but the robot's current and past scene state. A naive textual RAG approach could serialize the scene graph into chunks and retrieve them. The problem is that chunking can destroy relational structure. If \enquote{cup}, \enquote{table}, and \enquote{on} are split or retrieved without their relation, the generator receives fragments rather than a usable scene fact.
+
+%TL;DR: Multimodal RAG generalizes retrieval across media, but the thesis mostly retrieves structured scene state.
+Recent retrieval-augmented work also extends beyond text into images and multimodal data \cite{zheng_retrieval_2025}. Older multimodal RAG pipelines often converted images to captions or summaries and then retrieved text. Newer systems can use multimodal embedding spaces and retrieve across text, image, table, or other representations. This development is relevant, but the present thesis uses a more specific form of retrieval: it retrieves structured scene facts from a graph built from perception. The retrieval target is therefore not only semantically similar content, but also topologically relevant entities and relations.
+
+%TL;DR: CAG preloads bounded knowledge into context and reduces online retrieval cost.
+Cache-Augmented Generation (CAG) uses a different assumption. Instead of retrieving external chunks at every turn, it preloads the relevant knowledge into the model context or cache and reuses it during generation. Chan et al. argue that, for some bounded knowledge tasks, CAG can be sufficient and can avoid RAG's online retrieval overhead \cite{Chan_2025}. The prerequisite is clear: the relevant knowledge must fit into the usable context, and it must not change so rapidly that cache reconstruction dominates the interaction.
+
+%TL;DR: CAG shifts selection from query time to cache construction time.
+CAG does not remove selection; it moves selection earlier. In RAG, the system decides what to retrieve after the user asks a question. In CAG, the system decides what to include when constructing the cache. This is useful for broad scene awareness, because a compact representation of the current scene can be made available to the model before the question. It is less useful when the question requires precise multi-hop retrieval around one object, because a broad cache can dilute relevant details.
+
+%TL;DR: GraphRAG retrieves by relations rather than only vector similarity.
+GraphRAG introduces explicit relational structure into retrieval. Instead of treating memory as independent chunks, it represents memory as a graph \(G=(V,E)\) and retrieves evidence through graph traversal, neighborhood expansion, or graph summaries. A simple relevance score can combine semantic similarity and graph position,
+\[
+\mathrm{score}(v\mid x)=\alpha\,\mathrm{sim}(x,v)+(1-\alpha)\,\mathrm{centrality}(v).
+\]
+The exact formula is system-dependent, but the principle is stable: graph retrieval can follow relations such as \enquote{left of}, \enquote{part of}, \enquote{near}, or \enquote{same object as}. This makes it natural for scene graphs.
+
+%TL;DR: Scene graphs make GraphRAG directly applicable to targeted scene questions.
+Graph-based retrieval is particularly appropriate when the upstream representation is already a graph. Open-world 3D scene graph work has begun to connect scene graphs with retrieval-augmented reasoning \cite{yu_open-world_2025}. VLM-based graph representations for robotics and industry similarly show that graph structure can support downstream reasoning and task execution \cite{li_vlm-msgraph_2025,wang_indvissgg_2025}. In this thesis, the same idea is applied at the level of Pepper's dialogue: a user question about an object should retrieve the local subgraph around that object, not a random textual summary of the whole scene.
+
+%TL;DR: The thesis uses CAG and graph retrieval for different query regimes.
+The design choice in this thesis can therefore be stated as follows. CAG is appropriate for broad scene context because the current graph summary is small enough to keep available to the generator. Structured graph retrieval is appropriate for targeted questions because it preserves the object-relation-object structure needed for precise answers. Plain flat RAG is less natural for this setting, although it remains useful as a conceptual baseline. The important comparison is not which acronym is newer, but which evidence-access mechanism matches the structure and update frequency of the knowledge state.
+
+%TL;DR: Retrieval methods must be evaluated as interaction mechanisms, not only QA mechanisms.
+In a social robot, retrieval quality must also be evaluated through interaction. A slow but accurate answer may break conversational rhythm. A fast answer that contradicts scene memory may damage trust. A broad cache may support fluent general descriptions but fail on specific relations. A graph subquery may answer precise questions but require a reliable entity match first. These are the tradeoffs that motivate the evaluation chapters: latency, robustness, vocabulary sensitivity, prompt formatting, and graph construction quality all affect the final dialogue behavior.
+
+\section{Pepper Robot as an Embodied Platform}\label{sec:pepper-platform}
+
+%TL;DR: Pepper is introduced as a concrete platform that imposes methodological constraints.
+Pepper is a humanoid social robot platform designed for proximate human interaction. It has speech, speakers, microphones, cameras, a tablet, expressive motion, and a mobile base. In this thesis, Pepper is best understood as an embodied communication platform rather than as a manipulation platform. This distinction matters because the system's primary output is not physical manipulation, but grounded interaction about the visible environment.
+
+%TL;DR: Pepper's hardware limits motivate off-board computation.
+Pepper's onboard hardware is limited relative to modern vision-language workloads. Public technical specifications list an Intel Atom E3845 CPU, 4 GB RAM, and 32 GB eMMC flash memory in the main CPU module, together with cameras, microphones, a tablet, sonars, lasers, and other sensors.\footnote{See the Pepper technical specifications: \url{https://aldebaran.com/support/kb/pepper/general/pepper-technical-specifications/}.} These specifications are sufficient for robot control and native interaction modules, but not for running a full contemporary pipeline consisting of object detection, Re-ID embedding extraction, VLM-based scene graph generation, and LLM dialogue generation on the robot alone.
+
+%TL;DR: NAOqi gives modular robot access, but not modern open-ended dialogue by itself.
+Software-wise, Pepper 2.5 uses NAOqi, a middleware that exposes robot functions through modules and APIs \cite{softbank_python_sdk_2026}. This is useful because sensing, speech, tablet output, and behavior control can be accessed as services. NAOqi also provides speech-recognition functionality for predefined words or phrases \cite{softbank_alspeechrecognition_2026}. Such grammar- or phrase-based interaction is suitable for bounded commands, but it does not by itself provide open-ended grounded dialogue. Therefore, the thesis uses Pepper's native stack for robot-side interaction and external components for heavy perception and generation.
+
+%TL;DR: The tablet is part of the HRI channel and can reduce ambiguity.
+Pepper's tablet is not merely a display attached to the robot. It is a modality through which the robot can externalize state, show options, present detected objects, or support disambiguation \cite{softbank_peppers_tablet_2026}. In grounded dialogue, this matters because a visible interface can reduce the mismatch between the robot's internal representation and the user's interpretation. If the user sees which object was marked as \enquote{object 3}, reference resolution becomes less hidden.
+
+%TL;DR: Existing Pepper systems use external compute, but often target narrower tasks.
+Several related Pepper systems already use external processing or modern AI components. Reyes et al. demonstrate near real-time object recognition for Pepper using deep neural networks running outside the robot \cite{reyes_near_2018}. Trinquet et al. combine Pepper with object detection and OCR for library assistance \cite{trinquet_future_2025}. Brad et al. propose a RAG architecture for Pepper in industrial assistance \cite{brad_retrieval-augmented_2025}. Latif et al. build an LLM-powered interactive learning robot with YOLO-based perception \cite{latif_physicsassistant_2024}. These works show that distributed architectures are not an accidental choice, but a recurring response to Pepper's computational limits.
+
+%TL;DR: The thesis differs by making persistent scene graph memory the central representational layer.
+The present thesis differs from these systems mainly in the role assigned to memory and structure. Some related systems connect perception to a response for a specific domain, such as books, classroom tasks, or industrial instructions. This thesis instead treats the scene graph as a persistent intermediate state. The robot should be able to answer not only \enquote{what is in the current image?}, but also questions about object identity, relations, and changes across observations. The scene graph is therefore not only an input prompt; it is the representational core of the system.
+
+%TL;DR: Pepper's limitations make the problem scientifically useful rather than merely inconvenient.
+Pepper's constraints are not merely obstacles. They force design choices that are easy to ignore in offline vision-language experiments. The system must respect latency, network dependence, robot-side orchestration, limited sensing viewpoints, and user expectations created by embodiment. For this reason, Pepper is a useful platform for studying scene-aware dialogue: it makes the full stack from perception to language observable under real interaction constraints.
+
+\section{Summary}\label{sec:background-summary}
+
+%TL;DR: The summary restates the conceptual chain from HRI to the proposed architecture.
+This chapter introduced the background needed for the rest of the thesis. We started with HRI and social robotics because Pepper's embodiment makes interaction quality part of the technical problem. We then formulated scene-aware dialogue as a memory-based task in which the robot updates a structured representation of the perceived world and uses that representation during dialogue.
+
+%TL;DR: The perception methods were compared by their assumptions.
+Object detection provides the first layer of visual evidence, but closed-vocabulary detectors are limited by their training ontology and open-vocabulary detectors introduce prompt and calibration sensitivity. MOT methods add temporal identity, but standard frame-to-frame tracking assumes continuity that Pepper's discrete scanning can violate. Re-identification therefore becomes the more appropriate mechanism for identity persistence in this system, especially when combined with robot geometry.
+
+%TL;DR: Scene graphs were justified as the bridge between perception and dialogue.
+Grounding requires more than detections or captions. It requires a representation in which objects, attributes, and relations can be queried and updated. Scene graphs provide such a representation. Rule-based graph construction is reliable where geometry is enough, learned SGG methods such as RelTR add semantic expressivity, and VLM-based SGG adds openness. Each approach has a different failure mode, which motivates the hybrid architecture used later in the thesis.
+
+%TL;DR: The language and retrieval sections explain how graph memory becomes dialogue context.
+LLMs and VLMs supply the language interface, but they do not remove the need for external world state. RAG, CAG, and GraphRAG provide different ways to give that state to the generator. CAG is suitable for broad cached scene awareness, while graph retrieval is more suitable for targeted relational questions. The final design choice follows from the structure of the knowledge state, not from a preference for one retrieval acronym.
+
+%TL;DR: The chapter prepares the method chapters by making assumptions explicit.
+The main result of this chapter is therefore a set of explicit assumptions. The system observes scenes discontinuously, must preserve object identity, must represent relations, must answer in natural language, and must offload heavy computation away from Pepper. The following chapters describe how the implemented architecture satisfies these requirements and where the resulting tradeoffs appear in practice.

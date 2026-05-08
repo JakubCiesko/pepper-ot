@@ -57,6 +57,7 @@ class TrackedObject:
 
         # Smooth embedding (Exponential Moving Average) to stabilize identity
         # We give 10% weight to the new look, 90% to history
+        # TODO: maybe use the new look only
         self.embedding = 0.9 * self.embedding + 0.1 * embedding
         self.embedding /= np.linalg.norm(self.embedding)  # Re-normalize
 

@@ -1,0 +1,169 @@
+digraph ServerArchitecture {
+    rankdir = LR;
+    splines = polyline;
+    compound = true;
+    nodesep = 0.35;
+    ranksep = 0.75;
+    pad = 0.45;
+    bgcolor = "white";
+
+    graph [fontname = "Helvetica";];
+    node [fontname = "Helvetica"; fontsize = 11; shape = box; style = "rounded,filled"; color = "#000000"; penwidth = 1.2; margin = "0.14,0.10";];
+    edge [fontname = "Helvetica"; fontsize = 8; color = "#000000"; penwidth = 1.0; arrowsize = 0.75;];
+
+    subgraph cluster_clients {
+        label = "External clients";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#F7F7F7";
+
+        PEPPER [label = "Pepper client\ncamera image + RobotMetadata\nspeech/tablet chat"; fillcolor = "white";];
+        DASH [label = "Browser dashboard\nuploads, config UI,\nlive websocket view"; fillcolor = "white";];
+        EXT [label = "Research / test clients\nHTTP API calls"; fillcolor = "white";];
+    }
+
+    subgraph cluster_public_routes {
+        label = "Public server routes";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#F2D45C";
+
+        DETECT [label = "POST /api/v1/detect\nsingle image perception"; fillcolor = "white";];
+        PANORAMA [label = "POST /api/v1/detect/panorama\nstitch or parallel multi-image detect"; fillcolor = "white";];
+        CAPTION [label = "POST /api/v1/caption\nquick caption,\noptional background detect"; fillcolor = "white";];
+        CHAT [label = "POST /api/v1/chat\nmemory-grounded dialogue"; fillcolor = "white";];
+        VCHAT [label = "POST /api/v1/vision_chat\nimage-direct VLM dialogue"; fillcolor = "white";];
+        MEMORY [label = "GET/PATCH/POST/DELETE\n/api/v1/memory/*\nworld-state read/edit/reset"; fillcolor = "white";];
+        CONFIG [label = "GET/PATCH/POST\n/api/v1/config*\nGET /api/v1/state\nsave, reload, upload"; fillcolor = "white";];
+        WORKERCTL [label = "GET/POST /api/v1/worker/*\nstatus, warmup, stop"; fillcolor = "white";];
+        DASHROUTES [label = "GET /dashboard\nWS /dashboard/events\n/dashboard helpers"; fillcolor = "white";];
+    }
+
+    subgraph cluster_orchestration {
+        label = "Orchestration layer inside the API process";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#E8F0F7";
+
+        DETECTSERVICE [label = "DetectService\nparse metadata, call runtime,\nformat DetectionResponse"; fillcolor = "white";];
+        CAPTIONSERVICE [label = "CaptionService\ncaption client,\noptional async DetectService job"; fillcolor = "white";];
+        CHATSERVICE [label = "Chat endpoint + ChatService\ntranslation, prompt rendering,\ngeneral/object modes"; fillcolor = "white";];
+        CONVERSATION [label = "ConversationService\nchat_id sessions,\nmessage history"; fillcolor = "white";];
+        MEMSERVICE [label = "MemoryService\nquery, render, edit,\nbroadcast memory changes"; fillcolor = "white";];
+        CFGMGR [label = "config_manager + AppState.apply_config\nhot updates or pipeline rebuild"; fillcolor = "white";];
+        QAPOOL [label = "QAPoolService\npregenerated QA cache"; fillcolor = "white";];
+        WSMGR [label = "ws_manager\nbroadcast detection,\ncaption, chat, memory events"; fillcolor = "white";];
+        STORAGE [label = "last_state persistence\noptional JSON + image on disk"; fillcolor = "white";];
+    }
+
+    APPSTATE [label = "AppState\nconfig, config_version,\nservices, last_state,\nruntime handles"; fillcolor = "#F2D45C";];
+    ADAPTER [label = "resolve_runtime_adapter(app_state)\nselects active perception runtime"; fillcolor = "#F2D45C";];
+
+    subgraph cluster_runtime {
+        label = "Active perception runtime";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#ECF4EA";
+
+        INPROC [label = "InProcessRuntimeAdapter\nuses AppState.pipeline"; fillcolor = "white";];
+        PIPELINE [label = "PerceptionPipeline\nlong-lived detector,\ncaption, SGG, memory,\nQA components"; fillcolor = "#F2D45C";];
+        MEMORYSTATE [label = "SceneMemory\ntracked objects, relations,\ncaptions, crops"; fillcolor = "white";];
+
+        WMANAGER [label = "WorkerManager\nlifecycle, health,\nRPC, idle shutdown"; fillcolor = "white";];
+        WPROC [label = "Worker process\ninternal FastAPI app"; fillcolor = "white";];
+        WINTERNAL [label = "/internal/detect\n/internal/caption\n/internal/vision_chat\n/internal/memory/*"; fillcolor = "white";];
+        WRUNTIME [label = "WorkerRuntime\nbuilds PerceptionPipeline\non demand"; fillcolor = "white";];
+        WPIPELINE [label = "Worker PerceptionPipeline\nsame pipeline components,\nseparate process/VRAM"; fillcolor = "#F2D45C";];
+        WMEMORY [label = "Worker SceneMemory\nworld state behind\ninternal memory routes"; fillcolor = "white";];
+    }
+
+    subgraph cluster_providers {
+        label = "Model/provider backends";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#F7F7F7";
+
+        DETECTOR [label = "Detection backend\nYOLO / RT-DETR / RF-DETR /\nOWL-ViT + NMS"; fillcolor = "white";];
+        CAPTIONMODEL [label = "Caption/VLM provider\nlocal_hf, OpenAI-compatible,\nGemini"; fillcolor = "white";];
+        SGG [label = "Scene-graph backends\nrules, RelTR, VLM\nunion + dedup"; fillcolor = "white";];
+        LLM [label = "LLM provider\nchat + structured QA"; fillcolor = "white";];
+    }
+
+    PEPPER -> DETECT;
+    PEPPER -> CAPTION;
+    PEPPER -> CHAT;
+    PEPPER -> VCHAT;
+    DASH -> DASHROUTES;
+    DASH -> DETECT;
+    DASH -> CAPTION;
+    DASH -> CHAT;
+    DASH -> MEMORY;
+    DASH -> CONFIG;
+    DASH -> WORKERCTL;
+    EXT -> DETECT;
+    EXT -> PANORAMA;
+    EXT -> MEMORY;
+    EXT -> CONFIG;
+
+    DETECT -> DETECTSERVICE [label = "image bytes + RobotMetadata";];
+    PANORAMA -> DETECTSERVICE [label = "panorama or gathered results";];
+    CAPTION -> CAPTIONSERVICE [label = "image + prompt";];
+    CAPTIONSERVICE -> DETECTSERVICE [label = "optional background detect"; style = dashed;];
+    CHAT -> CONVERSATION [label = "store user/assistant turns";];
+    CHAT -> CHATSERVICE [label = "query + history";];
+    VCHAT -> CONVERSATION [label = "store turns";];
+    VCHAT -> ADAPTER [label = "image-direct vision_chat";];
+    MEMORY -> MEMSERVICE;
+    CONFIG -> CFGMGR;
+    WORKERCTL -> WMANAGER;
+    DASHROUTES -> WSMGR [label = "websocket subscribers";];
+
+    DETECTSERVICE -> ADAPTER [label = "detect(image, metadata)";];
+    MEMSERVICE -> ADAPTER [label = "scene_state and memory edits";];
+    CHATSERVICE -> CONVERSATION [label = "history"; dir = both;];
+    CHATSERVICE -> ADAPTER [label = "memory proxy reads\nobject crops when needed";];
+    CHATSERVICE -> LLM [label = "grounded prompt";];
+    CAPTIONSERVICE -> CAPTIONMODEL [label = "caption() when not worker-routed";];
+    CAPTIONSERVICE -> WMANAGER [label = "worker-enabled\n/internal/caption"; style = dashed;];
+    CFGMGR -> APPSTATE [label = "update config";];
+    APPSTATE -> ADAPTER;
+    APPSTATE -> WMANAGER [label = "worker.enabled"; style = dashed;];
+    APPSTATE -> PIPELINE [label = "worker.disabled\nbuild in-process"; style = dashed;];
+    CFGMGR -> PIPELINE [label = "hot update or rebuild"; style = dashed;];
+    CFGMGR -> WMANAGER [label = "config reload / hot update"; style = dashed;];
+
+    ADAPTER -> INPROC [label = "worker disabled";];
+    INPROC -> PIPELINE;
+    PIPELINE -> MEMORYSTATE [label = "track objects,\nstore relations/captions"; dir = both;];
+    PIPELINE -> DETECTOR;
+    PIPELINE -> CAPTIONMODEL;
+    PIPELINE -> SGG;
+    PIPELINE -> LLM [label = "QA generation";];
+
+    ADAPTER -> WMANAGER [label = "worker enabled";];
+    WMANAGER -> WPROC [label = "start, monitor,\nHTTP RPC";];
+    WPROC -> WINTERNAL;
+    WINTERNAL -> WRUNTIME;
+    WRUNTIME -> WPIPELINE;
+    WPIPELINE -> WMEMORY [label = "track objects,\nstore relations/captions"; dir = both;];
+    WPIPELINE -> DETECTOR;
+    WPIPELINE -> CAPTIONMODEL;
+    WPIPELINE -> SGG;
+    WPIPELINE -> LLM [label = "QA generation";];
+    WINTERNAL -> WMEMORY [label = "memory CRUD"; dir = both;];
+
+    ADAPTER -> DETECTSERVICE [label = "objects, scene graph,\ncaption, memory, metrics";];
+    DETECTSERVICE -> WSMGR [label = "publish=True";];
+    DETECTSERVICE -> STORAGE [label = "optional persist";];
+    DETECTSERVICE -> QAPOOL [label = "ingest generated QA";];
+    MEMSERVICE -> WSMGR [label = "broadcast memory edits";];
+    CHATSERVICE -> WSMGR [label = "chat messages";];
+    CAPTIONSERVICE -> WSMGR [label = "caption event";];
+    QAPOOL -> CHAT [label = "/chat/pregenerate_qa\n/pregenerated_qa_pool"; style = dashed;];
+    WSMGR -> DASH [label = "live UI events";];
+}

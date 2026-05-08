@@ -1,0 +1,217 @@
+digraph PipelineStageSomSceneGraphClean {
+    rankdir = TB;
+    //splines = polyline;
+    //compound = true;
+
+    nodesep = 0.30;
+    ranksep = 0.50;
+    pad = 0.35;
+    bgcolor = "white";
+    outputorder = edgesfirst;
+
+    graph [
+        fontname = "Helvetica"
+    ];
+
+    node [
+        fontname = "Helvetica",
+        fontsize = 12,
+        shape = box,
+        style = "rounded,filled",
+        color = "#000000",
+        penwidth = 1.1,
+        margin = "0.12,0.08"
+    ];
+
+    edge [
+        fontname = "Helvetica",
+        fontsize = 12,
+        color = "#000000",
+        penwidth = 1.0,
+        arrowsize = 0.7
+    ];
+
+    INPUTS [
+        label = "Inputs\ntracked detections, image,\ncaption, scene memory state",
+        fillcolor = "#F2D45C"
+    ];
+
+    SOM_MODE [
+        label = "Render SoM?",
+        shape = diamond,
+        style = "filled",
+        fillcolor = "#FFF2CC",
+        margin = "0.08,0.05"
+    ];
+
+    SOM [
+        label = "Set-of-Marks rendering\nboxes, masks, labels",
+        fillcolor = "white"
+    ];
+
+    RAW [
+        label = "Use raw image",
+        fillcolor = "white"
+    ];
+
+    SG_IMAGE [
+        label = "Image for scene-graph generation\nSoM image or raw image",
+        fillcolor = "#F2D45C"
+    ];
+
+    SG_MODE [
+        label = "Generate scene graph?",
+        shape = diamond,
+        style = "filled",
+        fillcolor = "#FFF2CC",
+        margin = "0.08,0.05"
+    ];
+
+    EXEC_MODE [
+        label = "Backend execution mode",
+        shape = diamond,
+        style = "filled",
+        fillcolor = "#FFF2CC",
+        margin = "0.08,0.05"
+    ];
+
+    subgraph cluster_seq {
+        label = "Sequential mode";
+        color = "#666666";
+        penwidth = 1.1;
+        style = "rounded,dashed";
+        bgcolor = "#F7F7F7";
+
+        S_RULES [
+            label = "Rule-based generator\nif enabled",
+            fillcolor = "white"
+        ];
+
+        S_RELTR [
+            label = "RelTR generator\nif enabled",
+            fillcolor = "white"
+        ];
+
+        S_VLM [
+            label = "VLM generator\nif enabled",
+            fillcolor = "white"
+        ];
+
+        S_MERGE [
+            label = "Merge and deduplicate\nrelations from enabled backends",
+            fillcolor = "white"
+        ];
+
+        S_RULES -> S_RELTR [
+            label = "carry current graph"
+        ];
+
+        S_RELTR -> S_VLM [
+            label = "carry current graph"
+        ];
+
+        S_VLM -> S_MERGE;
+    }
+
+    subgraph cluster_par {
+        label = "Parallel mode";
+        color = "#4E8B57";
+        penwidth = 1.1;
+        style = "rounded,dashed";
+        bgcolor = "#ECF4EA";
+
+        P_SPLIT [
+            label = "",
+            shape = point,
+            width = 0.06,
+            height = 0.06,
+            style = filled,
+            color = "#000000",
+            fillcolor = "#000000"
+        ];
+
+        P_RULES [
+            label = "Rule-based generator\nif enabled",
+            fillcolor = "white"
+        ];
+
+        P_RELTR [
+            label = "RelTR generator\nif enabled",
+            fillcolor = "white"
+        ];
+
+        P_VLM [
+            label = "VLM generator\nif enabled",
+            fillcolor = "white"
+        ];
+
+        P_MERGE [
+            label = "Merge and deduplicate\nrelations from enabled backends",
+            fillcolor = "white"
+        ];
+
+        P_SPLIT -> P_RULES;
+        P_SPLIT -> P_RELTR;
+        P_SPLIT -> P_VLM;
+
+        P_RULES -> P_MERGE;
+        P_RELTR -> P_MERGE;
+        P_VLM -> P_MERGE;
+    }
+
+    ENRICH [
+        label = "Enhance with robot API derived\nobject attributes",
+        fillcolor = "white"
+    ];
+
+    NO_GRAPH [
+        label = "Empty scene graph",
+        fillcolor = "white"
+    ];
+
+    OUT [
+        label = "Current-frame scene graph",
+        fillcolor = "#F2D45C"
+    ];
+
+    INPUTS -> SOM_MODE;
+
+    SOM_MODE -> SOM [
+        label = "yes"
+    ];
+
+    SOM_MODE -> RAW [
+        label = "no"
+    ];
+
+    SOM -> SG_IMAGE;
+    RAW -> SG_IMAGE;
+
+    SG_IMAGE -> SG_MODE;
+
+    SG_MODE -> EXEC_MODE [
+        label = "yes"
+    ];
+
+    SG_MODE -> NO_GRAPH [
+        label = "no"
+    ];
+
+    EXEC_MODE -> S_RULES [
+        label = "sequential",
+        lhead = cluster_seq
+    ];
+
+    EXEC_MODE -> P_SPLIT [
+        label = "parallel",
+        lhead = cluster_par
+    ];
+
+    S_MERGE -> ENRICH;
+    P_MERGE -> ENRICH;
+
+    ENRICH -> OUT;
+    NO_GRAPH -> OUT;
+}
+
+

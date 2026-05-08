@@ -51,6 +51,10 @@ class SceneMemory:
             extraction_cfg.target_size,
             extraction_cfg.resampling_method,
             extraction_cfg.device,
+            extraction_cfg.human_reid_enabled,
+            extraction_cfg.human_reid_model,
+            extraction_cfg.human_reid_target_size,
+            extraction_cfg.human_labels,
         )
         association_cfg = association_config or AssociationConfig()
         self.associator = Associator(
@@ -273,6 +277,10 @@ class SceneMemory:
                     self.extractor.resampling_method,
                 )
                 self.extractor.resampling_method = method
+            self.extractor.update_config(
+                human_target_size=feature_config.human_reid_target_size,
+                human_labels=feature_config.human_labels,
+            )
 
     def reset(self):
         with self._lock:

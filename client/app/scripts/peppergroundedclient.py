@@ -306,7 +306,12 @@ class PepperGroundedClient(object):
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def showMemory(self, lang_code):
         self.logger.info("showMemory called lang_code=%s", lang_code)
-        self.turn_manager.start_show_memory(lang_code)
+        try: 
+            self.turn_manager.start_show_memory(lang_code)
+        except Exception as exc:
+            self.logger.error("Failed to show memory on tablet: %s", exc)
+            
+
 
     @qi.bind(returnType=qi.Void, paramsType=[])
     def hideMemory(self):
@@ -398,8 +403,8 @@ class PepperGroundedClient(object):
 
 
 if __name__ == "__main__":
-    run_local = True
-    czech = True
+    run_local = False
+    czech = False
     if run_local:
         app = qi.Application()
         app.start()

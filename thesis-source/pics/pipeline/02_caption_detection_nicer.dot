@@ -1,0 +1,137 @@
+digraph PipelineStageCaptionDetectionClean {
+    rankdir = LR;
+    splines = ortho;
+    compound = true;
+    nodesep = 0.30;
+    ranksep = 0.45;
+    pad = 0.35;
+    bgcolor = "white";
+
+    graph [fontname = "Helvetica"];
+    node [
+        fontname = "Helvetica",
+        fontsize = 10,
+        shape = box,
+        style = "rounded,filled",
+        color = "#000000",
+        penwidth = 1.1,
+        margin = "0.12,0.08"
+    ];
+    edge [
+        fontname = "Helvetica",
+        fontsize = 8,
+        color = "#000000",
+        penwidth = 1.0,
+        arrowsize = 0.7
+    ];
+
+    IMAGE [
+        label = "Input image",
+        fillcolor = "#F2D45C"
+    ];
+
+    CTRL [
+        label = "Pipeline controls\ncaption, detect,\nparallel_execution",
+        fillcolor = "white"
+    ];
+
+    MODE [
+        label = "Execution mode",
+        shape = diamond,
+        style = "filled",
+        fillcolor = "#FFF2CC",
+        margin = "0.08,0.05"
+    ];
+
+    subgraph cluster_seq {
+        label = "Sequential mode";
+        color = "#666666";
+        penwidth = 1.1;
+        style = "rounded,dashed";
+        bgcolor = "#F7F7F7";
+
+        S_CAP [
+            label = "Captioning",
+            fillcolor = "white"
+        ];
+
+        S_DET [
+            label = "Detection",
+            fillcolor = "white"
+        ];
+
+        S_OUT [
+            label = "Caption + detections",
+            fillcolor = "#F2D45C"
+        ];
+
+        S_CAP -> S_DET [label = "caption retained"];
+        S_DET -> S_OUT;
+    }
+
+    subgraph cluster_par {
+        label = "Parallel mode";
+        color = "#4E8B57";
+        penwidth = 1.1;
+        style = "rounded,dashed";
+        bgcolor = "#ECF4EA";
+
+        SPLIT [
+            label = "",
+            shape = point,
+            width = 0.06,
+            height = 0.06,
+            style = filled,
+            color = "#000000",
+            fillcolor = "#000000"
+        ];
+
+        P_CAP [
+            label = "Caption task",
+            fillcolor = "white"
+        ];
+
+        P_DET [
+            label = "Detection task",
+            fillcolor = "white"
+        ];
+
+        JOIN [
+            label = "Join results",
+            fillcolor = "white"
+        ];
+
+        P_OUT [
+            label = "Caption + detections",
+            fillcolor = "#F2D45C"
+        ];
+
+        SPLIT -> P_CAP;
+        SPLIT -> P_DET;
+        P_CAP -> JOIN;
+        P_DET -> JOIN;
+        JOIN -> P_OUT;
+    }
+
+    CAP_BACKEND [
+        label = "Caption backend\nlocal HF / OpenAI-compatible / Gemini",
+        fillcolor = "#F7F7F7"
+    ];
+
+    DET_BACKEND [
+        label = "Detection backend\nYOLO / RT-DETR / RF-DETR / OWL-ViT",
+        fillcolor = "#F7F7F7"
+    ];
+
+    IMAGE -> MODE;
+    CTRL -> MODE [style = dashed, label = "config"];
+
+    MODE -> S_CAP  [label = "parallel_execution = false", lhead = cluster_seq];
+    MODE -> SPLIT  [label = "parallel_execution = true",  lhead = cluster_par];
+
+    CAP_BACKEND -> S_CAP [style = dashed, arrowhead = none];
+    CAP_BACKEND -> P_CAP [style = dashed, arrowhead = none];
+
+    DET_BACKEND -> S_DET [style = dashed, arrowhead = none];
+    DET_BACKEND -> P_DET [style = dashed, arrowhead = none];
+}

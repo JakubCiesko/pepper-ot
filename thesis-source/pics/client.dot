@@ -1,0 +1,137 @@
+digraph RobotClientSystem {
+    rankdir = LR;
+    splines = polyline;
+    compound = true;
+    nodesep = 0.35;
+    ranksep = 0.7;
+    pad = 0.45;
+    bgcolor = "white";
+
+    graph [fontname = "Helvetica";];
+    node [fontname = "Helvetica"; fontsize = 11; shape = box; style = "rounded,filled"; color = "#000000"; penwidth = 1.2; margin = "0.14,0.10";];
+    edge [fontname = "Helvetica"; fontsize = 8; color = "#000000"; penwidth = 1.0; arrowsize = 0.75;];
+
+    subgraph cluster_people_ui {
+        label = "Human-facing robot interfaces";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#F7F7F7";
+
+        HUMAN [label = "Human user\nspoken commands,\nquestions, tablet taps"; fillcolor = "#F2D45C";];
+        QICHAT [label = "QiChat topics\nEnglish/Czech grammar\nlook, scan, ask,\nobject ask, memory"; fillcolor = "white";];
+        TABLET_JS [label = "Tablet web app\nmemory page,\nQA buttons,\nQiSession bridge"; fillcolor = "white";];
+    }
+
+    subgraph cluster_qi_service {
+        label = "PepperGroundedClient Qi service";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#E8F0F7";
+
+        SERVICE [label = "peppergroundedclient.py\nregistered NAOqi service\nloads client_config.json"; fillcolor = "#F2D45C";];
+        BOUND [label = "bound service methods\nlook, scan, ask,\nrefreshAndAsk,\naskAboutObject,\nshowMemory,\nresetMemory,\nanswerCachedQuestion"; fillcolor = "white";];
+        CONFIG [label = "runtime config\nserver URL, timeouts,\nlanguage, capture,\nsocial sensors, tablet"; fillcolor = "white";];
+        TURN [label = "TurnManager\none daemon thread per accepted turn\nbusy lock prevents overlapping turns"; fillcolor = "#F2D45C";];
+        SESSION [label = "SessionStore\nchat_id, last caption/detect/chat,\nremembered labels,\nrelations, attributes,\ncached QA"; fillcolor = "white";];
+    }
+
+    subgraph cluster_robot_adapters {
+        label = "Robot sensing and local context";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#ECF4EA";
+
+        CAMERA [label = "CameraAdapter\nALVideoDevice capture,\nJPEG encode, image size,\ncamera FOV\nor FakeCameraAdapter"; fillcolor = "white";];
+        POSE [label = "PoseAdapter\nALMotion head/body pose,\nhead sweep and restore"; fillcolor = "white";];
+        PEOPLE [label = "PeopleAdapter\nALPeoplePerception\nvisible people yaw/pitch/distance"; fillcolor = "white";];
+        SOCIAL [label = "SocialAdapter + FaceAdapter\nface, gaze, engagement,\nsitting, waving, expression"; fillcolor = "white";];
+        SONAR [label = "SonarAdapter\nALSonar / ALMemory\nrange snapshot"; fillcolor = "white";];
+        CONTEXT [label = "RobotContextCollector\npose + people + social + sonar\nsnapshot"; fillcolor = "#F2D45C";];
+        METADATA [label = "MetadataBuilder\nserver-compatible RobotMetadata\nframe_id, scan_id,\ncapture_mode"; fillcolor = "white";];
+        SCAN [label = "scan_planner\nplanned head yaws,\npanorama or sequential mode"; fillcolor = "white";];
+    }
+
+    subgraph cluster_transport {
+        label = "Server communication";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#F7F7F7";
+
+        TRANSPORT [label = "PepperServerTransport\nrequests.Session,\ntimeouts, TLS verify,\nJSON validation,\nclient error mapping"; fillcolor = "#F2D45C";];
+        CAPTION_API [label = "POST /api/v1/caption\nquick look caption\noptional background detect"; fillcolor = "white";];
+        DETECT_API [label = "POST /api/v1/detect\nvisual refresh or\nsequential scan frame"; fillcolor = "white";];
+        PANORAMA_API [label = "POST /api/v1/detect/panorama\nmulti-frame room scan"; fillcolor = "white";];
+        CHAT_API [label = "POST /api/v1/chat\ngeneral/object chat,\nscan summary,\nfallback cached miss"; fillcolor = "white";];
+        MEMORY_API [label = "GET /api/v1/memory/summary\nPOST /api/v1/memory/reset"; fillcolor = "white";];
+        QA_API [label = "POST /api/v1/chat/pregenerate_qa\ncached question-answer pairs"; fillcolor = "white";];
+        SERVER [label = "Grounded perception server\nperception pipeline,\nscene memory,\nLLM responses"; fillcolor = "#F2D45C";];
+    }
+
+    subgraph cluster_outputs {
+        label = "Robot outputs and local interaction state";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#ECF4EA";
+
+        SPEECH [label = "SpeechAdapter\nALAnimatedSpeech primary,\nALTextToSpeech fallback,\nlanguage policy"; fillcolor = "white";];
+        DIALOG [label = "DialogAdapter\nALDialog dynamic concepts\nmemory_objects,\nattributes, relations,\ncached questions"; fillcolor = "white";];
+        TABLET [label = "TabletAdapter\nALTabletService local app,\ninject memory payload\nor FakeTabletAdapter"; fillcolor = "white";];
+        FALLBACK [label = "error_policy fallbacks\nbusy, camera error,\nserver timeout/unavailable,\nmalformed response"; fillcolor = "white";];
+    }
+
+    HUMAN -> QICHAT [label = "speech";];
+    HUMAN -> TABLET_JS [label = "tablet tap";];
+    QICHAT -> SERVICE [label = "Qi service calls";];
+    TABLET_JS -> SERVICE [label = "answerCachedQuestion()";];
+    SERVICE -> BOUND;
+    CONFIG -> SERVICE;
+    BOUND -> TURN [label = "start_* turn";];
+    TURN -> SESSION [label = "read/update local state"; dir = both;];
+
+    TURN -> CAMERA [label = "capture frame";];
+    TURN -> SCAN [label = "scan turn";];
+    SCAN -> POSE [label = "move head through yaws";];
+    POSE -> CONTEXT;
+    PEOPLE -> CONTEXT;
+    SOCIAL -> CONTEXT;
+    SONAR -> CONTEXT;
+    TURN -> CONTEXT [label = "snapshot";];
+    CAMERA -> METADATA [label = "image info + FOV";];
+    CONTEXT -> METADATA [label = "robot context";];
+    METADATA -> TURN;
+
+    TURN -> TRANSPORT [label = "HTTP request\nimage + metadata or JSON";];
+    TRANSPORT -> CAPTION_API [label = "look";];
+    TRANSPORT -> DETECT_API [label = "refresh / sequential scan";];
+    TRANSPORT -> PANORAMA_API [label = "panorama scan";];
+    TRANSPORT -> CHAT_API [label = "ask / object ask / summary";];
+    TRANSPORT -> MEMORY_API [label = "show/reset memory\nrefresh concepts";];
+    TRANSPORT -> QA_API [label = "memory QA cache";];
+    CAPTION_API -> SERVER;
+    DETECT_API -> SERVER;
+    PANORAMA_API -> SERVER;
+    CHAT_API -> SERVER;
+    MEMORY_API -> SERVER;
+    QA_API -> SERVER;
+    SERVER -> TRANSPORT [label = "caption, detections,\nchat sentence,\nmemory summary,\nQA pairs";];
+
+    TRANSPORT -> SESSION [label = "validated response";];
+    SESSION -> DIALOG [label = "labels, attributes,\nrelations, cached questions";];
+    TURN -> DIALOG [label = "refresh dynamic concepts";];
+    TURN -> SPEECH [label = "speak caption,\nchat answer,\nack/fallback";];
+    TURN -> TABLET [label = "show memory page\nwith summary + QA";];
+    TABLET -> TABLET_JS [label = "local web app payload";];
+    DIALOG -> QICHAT [label = "dynamic concepts\nfor object/cached-Q grammar";];
+    SPEECH -> HUMAN [label = "spoken response";];
+    TABLET_JS -> HUMAN [label = "memory UI";];
+
+    TRANSPORT -> FALLBACK [label = "timeout/unavailable/\nmalformed response"; style = dashed;];
+    CAMERA -> FALLBACK [label = "capture error"; style = dashed;];
+    TURN -> FALLBACK [label = "busy or unexpected error"; style = dashed;];
+    FALLBACK -> SPEECH [label = "localized fallback message";];
+}

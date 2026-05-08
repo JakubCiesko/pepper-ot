@@ -125,7 +125,7 @@ u:(~explain_system)
         Není zač
         Můžeme se teď bavit o tom co vidím
 
-
+# musim to zmazat tie  tagy alebo zatvarat
 
 
 # perception 
@@ -350,7 +350,7 @@ u:({~object_query_prefix} ~object_query_lead _~memory_objects)
 
 
 # with fallbacks dynamic concepts 
-
+#
 u:([co jaké které jmenuj] [objekty věci předměty] [vidíš vnímáš pozoruješ])
     ^pCall(PepperGroundedClient.listObjects("cs"))
 

@@ -27,6 +27,21 @@ class Associator:
         self.match_threshold = match_threshold
         self.INF = 1000.0
 
+    @staticmethod
+    def _align_embeddings(
+        track_embedding: np.ndarray, detection_embedding: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        #TODO: this aligning of multiple dimensions might be fishy. 
+        if track_embedding.shape == detection_embedding.shape:
+            return track_embedding, detection_embedding
+        # width = max(track_embedding.shape[-1], detection_embedding.shape[-1])
+        # track_aligned = np.zeros(width, dtype=np.float32)
+        # det_aligned = np.zeros(width, dtype=np.float32)
+        # track_aligned[: track_embedding.shape[-1]] = track_embedding
+        # det_aligned[: detection_embedding.shape[-1]] = detection_embedding
+
+        return None, None #track_aligned, det_aligned
+
     def compute_cost(
         self,
         tracks: list[TrackedObject],
@@ -55,6 +70,7 @@ class Associator:
                 # Dot product of normalized vectors = Cosine Similarity
                 # Cost = 1 - Similarity
                 det_emb = embeddings[d_idx]
+                #TODO: here aling_embeddings but it is faulty, so now just sim
                 sim = np.dot(track.embedding, det_emb)
                 vis_cost = 1.0 - sim
 

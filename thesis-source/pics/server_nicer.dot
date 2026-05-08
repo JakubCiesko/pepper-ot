@@ -1,0 +1,113 @@
+digraph ServerArchitectureOverviewSimple {
+    rankdir = TB; //LR
+//    splines = polyline;
+    nodesep = 0.30;
+    ranksep = 0.55;
+    pad = 0.15;
+    bgcolor = "white";
+
+    graph [fontname = "Helvetica"];
+
+    node [
+        fontname = "Helvetica",
+        fontsize = 12,
+        shape = box,
+        style = "rounded,filled",
+        color = "#000000",
+        penwidth = 1.1,
+        margin = "0.12,0.08"
+    ];
+
+    edge [
+        fontname = "Helvetica",
+        fontsize = 12,
+        color = "#000000",
+        penwidth = 1.0,
+        arrowsize = 0.7
+    ];
+
+    subgraph cluster_clients {
+        label = "Clients";
+        color = "#666666";
+        style = "rounded";
+        bgcolor = "#F7F7F7";
+
+        PEPPER [
+            label = "Pepper client\ncamera, metadata,\nspeech and tablet interaction",
+            fillcolor = "white"
+        ];
+
+        DASH [
+            label = "Dashboard\nuploads, runtime configuration,\nlive view",
+            fillcolor = "white"
+        ];
+    }
+
+    subgraph cluster_api {
+        label = "Public FastAPI interface";
+        color = "#666666";
+        style = "rounded";
+        bgcolor = "#F2D45C";
+
+        PERCEPTION_API [
+            label = "Perception routes\ndetect, panorama, caption",
+            fillcolor = "white"
+        ];
+
+        DIALOGUE_API [
+            label = "Dialogue routes\nchat, vision_chat",
+            fillcolor = "white"
+        ];
+
+        STATE_API [
+            label = "State and admin routes\nmemory, config, worker, dashboard",
+            fillcolor = "white"
+        ];
+    }
+
+    subgraph cluster_services {
+        label = "Application services";
+        color = "#666666";
+        style = "rounded";
+        bgcolor = "#E8F0F7";
+
+        PERCEPTION_SERVICE [
+            label = "Perception services\nrequest handling, input processing and orchestration",
+            fillcolor = "white"
+        ];
+
+        DIALOGUE_SERVICE [
+            label = "Dialogue services\nhistory, prompting,\ngrounded replies",
+            fillcolor = "white"
+        ];
+
+        STATE_SERVICE [
+            label = "State and admin services\nmemory, configuration,\nworker control",
+            fillcolor = "white"
+        ];
+
+        WS [
+            label = "WebSocket manager\nbroadcast live dashboard events",
+            fillcolor = "white"
+        ];
+    }
+
+    PEPPER -> PERCEPTION_API [dir = both];
+    PEPPER -> DIALOGUE_API [dir = both];
+
+    DASH -> PERCEPTION_API;
+    DASH -> DIALOGUE_API;
+    DASH -> STATE_API;
+
+    PERCEPTION_API -> PERCEPTION_SERVICE;
+    DIALOGUE_API -> DIALOGUE_SERVICE;
+    STATE_API -> STATE_SERVICE;
+
+    PERCEPTION_SERVICE -> WS [style = dashed, label = "image and metrics"];
+    DIALOGUE_SERVICE -> WS [style = dashed, label = "messages"];
+    STATE_SERVICE -> WS [style = dashed, label = "state changes"];
+
+	
+    WS -> DASH [style = dashed];
+}
+

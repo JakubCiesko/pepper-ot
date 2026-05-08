@@ -1,0 +1,62 @@
+digraph PipelineStageSomSceneGraph {
+    rankdir = TB;
+    splines = polyline;
+    compound = true;
+    nodesep = 0.35;
+    ranksep = 0.6;
+    pad = 0.45;
+    bgcolor = "white";
+
+    graph [fontname = "Helvetica";];
+    node [fontname = "Helvetica"; fontsize = 11; shape = box; style = "rounded,filled"; color = "#000000"; penwidth = 1.2; margin = "0.14,0.10";];
+    edge [fontname = "Helvetica"; fontsize = 8; color = "#000000"; penwidth = 1.0; arrowsize = 0.75;];
+
+    INPUTS [label = "tracked detections\nraw image\ncaption text\ncurrent SceneMemory state"; fillcolor = "#F2D45C";];
+
+    subgraph cluster_som {
+        label = "Set-of-mark rendering";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#F7F7F7";
+
+        SOM_CTRL [label = "paint_som enabled\nand detect enabled?"; shape = diamond; fillcolor = "white";];
+        PAINTER [label = "SoMPainter.paint()\nboxes, masks, polygons,\nlabels, color lookup"; fillcolor = "white";];
+        FALLBACK [label = "raw image fallback\nwhen no SoM is rendered"; fillcolor = "white";];
+        SGM_IMAGE [label = "image passed to VLM backend\nSoM image if available,\notherwise raw image"; fillcolor = "#F2D45C";];
+    }
+
+    subgraph cluster_sg {
+        label = "SceneGraphService.generate()";
+        color = "#000000";
+        penwidth = 1.4;
+        style = "rounded";
+        bgcolor = "#E8F0F7";
+
+        SG_CTRL [label = "scene_graph enabled?"; shape = diamond; fillcolor = "white";];
+        FANOUT [label = "backend execution\nsequential or parallel by\nscene_graph.parallel_execution"; fillcolor = "white";];
+        RULES [label = "RuleSceneGraphGenerator\ngeometric predicates"; fillcolor = "white";];
+        RELTR [label = "RelTRSceneGraphGenerator\nlearned relation proposals"; fillcolor = "white";];
+        VLM [label = "VLMSceneGraphGenerator\nSoM/raw image + detections\n+ caption context"; fillcolor = "white";];
+        MERGE [label = "SceneGraph union + dedup\nmerge backend outputs"; fillcolor = "white";];
+        ROBOT_ATTRS [label = "enhance with robot-derived\ncurrent-object attributes\nfrom SceneMemory"; fillcolor = "white";];
+        GRAPH_OUT [label = "current-frame scene graph\nrelationship triples"; fillcolor = "#F2D45C";];
+    }
+
+    INPUTS -> SOM_CTRL;
+    SOM_CTRL -> PAINTER [label = "true";];
+    SOM_CTRL -> FALLBACK [label = "false";];
+    PAINTER -> SGM_IMAGE;
+    FALLBACK -> SGM_IMAGE;
+    SGM_IMAGE -> SG_CTRL;
+    SG_CTRL -> FANOUT [label = "true";];
+    SG_CTRL -> GRAPH_OUT [label = "false: no graph"; style = dashed;];
+    FANOUT -> RULES;
+    FANOUT -> RELTR;
+    FANOUT -> VLM;
+    RULES -> MERGE;
+    RELTR -> MERGE;
+    VLM -> MERGE;
+    MERGE -> ROBOT_ATTRS;
+    ROBOT_ATTRS -> GRAPH_OUT;
+}

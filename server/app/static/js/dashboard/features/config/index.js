@@ -123,6 +123,18 @@ const memoryFeatReidModel = document.getElementById('memory-feat-reid-model');
 const memoryFeatDevice = document.getElementById('memory-feat-device');
 const memoryFeatTargetSize = document.getElementById('memory-feat-target-size');
 const memoryFeatResampling = document.getElementById('memory-feat-resampling');
+const memoryFeatHumanReidEnabled = document.getElementById(
+  'memory-feat-human-reid-enabled',
+);
+const memoryFeatHumanReidModel = document.getElementById(
+  'memory-feat-human-reid-model',
+);
+const memoryFeatHumanTargetSize = document.getElementById(
+  'memory-feat-human-target-size',
+);
+const memoryFeatHumanLabels = document.getElementById(
+  'memory-feat-human-labels',
+);
 const memoryMaxAgeSeconds = document.getElementById('memory-max-age-seconds');
 const memoryMaxObjects = document.getElementById('memory-max-objects');
 const memoryMaxRelations = document.getElementById('memory-max-relations');
@@ -741,6 +753,14 @@ async function loadConfig() {
     ? feat.target_size.join(',')
     : '';
   memoryFeatResampling.value = feat.resampling_method || '';
+  memoryFeatHumanReidEnabled.checked = !!feat.human_reid_enabled;
+  memoryFeatHumanReidModel.value = feat.human_reid_model || '';
+  memoryFeatHumanTargetSize.value = Array.isArray(feat.human_reid_target_size)
+    ? feat.human_reid_target_size.join(',')
+    : '';
+  memoryFeatHumanLabels.value = Array.isArray(feat.human_labels)
+    ? feat.human_labels.join(', ')
+    : '';
   memoryMaxAgeSeconds.value = tracking.memory_max_age_seconds ?? 60;
   memoryMaxObjects.value = tracking.memory_max_objects ?? 200;
   memoryMaxRelations.value = tracking.memory_max_relations ?? 500;
@@ -933,6 +953,12 @@ function buildPatch() {
         device: memoryFeatDevice.value.trim() || null,
         target_size: parseTargetSize(memoryFeatTargetSize.value),
         resampling_method: memoryFeatResampling.value.trim() || null,
+        human_reid_enabled: !!memoryFeatHumanReidEnabled.checked,
+        human_reid_model: memoryFeatHumanReidModel.value.trim() || null,
+        human_reid_target_size: parseTargetSize(
+          memoryFeatHumanTargetSize.value,
+        ),
+        human_labels: parseOntologyList(memoryFeatHumanLabels.value),
       },
     },
     fusion: {

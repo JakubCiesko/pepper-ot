@@ -28,6 +28,28 @@ rules = [
         _apply_pipeline_group,
     ),
     ReloadRule(
+        "tracking.feature_extraction.human_reid_enabled",
+        attrgetter("tracking.feature_extraction.human_reid_enabled"),
+        "hard",
+    ),
+    ReloadRule(
+        "tracking.feature_extraction.human_reid_model",
+        attrgetter("tracking.feature_extraction.human_reid_model"),
+        "hard",
+    ),
+    ReloadRule(
+        "tracking.feature_extraction.human_reid_target_size",
+        attrgetter("tracking.feature_extraction.human_reid_target_size"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
+        "tracking.feature_extraction.human_labels",
+        attrgetter("tracking.feature_extraction.human_labels"),
+        "hot",
+        _apply_pipeline_group,
+    ),
+    ReloadRule(
         "tracking.max_dormant_frames",
         attrgetter("tracking.max_dormant_frames"),
         "hot",
