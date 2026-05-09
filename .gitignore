@@ -26,6 +26,7 @@ research/notebooks/data/
 research/notebooks/runs/
 research/notebooks/test.ipynb
 research/notebooks/unsloth*
+research/notebooks/*
 
 server/state/
 server/mock/
