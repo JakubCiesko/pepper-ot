@@ -122,7 +122,7 @@ class MemoryService:
             relation_label_overrides=overrides.get("relation_labels"),
         )
 
-    async def build_text_description(self): 
+    async def build_text_description(self) -> str:
         state = await self.runtime.scene_state()
         return self.renderer.build_text_description(state)
 

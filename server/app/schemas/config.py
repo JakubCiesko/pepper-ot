@@ -123,7 +123,8 @@ class PromptSource(BaseModel):
             data = (base_dir / self.path).read_text(encoding="utf-8")
             return data.strip()
         return (self.text or "").strip()
-    #REMOVAL
+
+    # REMOVAL
     def strip(self):
         return self.text.strip() if self.text else ""
 
@@ -296,6 +297,7 @@ class WorkerRuntimeConfig(BaseModel):
         if any(delay <= 0 for delay in self.restart_backoff_seconds):
             raise ValueError("restart_backoff_seconds values must be > 0")
         return self
+
 
 # TODO: preset map is useless anymore, i think
 class PipelineControls(BaseModel):

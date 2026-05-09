@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 
-#TODO: this is done in the outside-facing parts of the code, thing whether not put to the system interla parts.
+# TODO: this is done in the outside-facing parts of the code, thing whether not put to the system interla parts.
 from app.providers.translation import enforce_output_language
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,8 @@ class QAPoolService:
             "created_at": float(entry.get("created_at") or time.time()),
             "frame_id": self._sanitize_text(entry.get("frame_id")) or None,
             "scan_id": self._sanitize_text(entry.get("scan_id")) or None,
-            "source": self._sanitize_text(entry.get("source")) or "pipeline_scene_graph",
+            "source": self._sanitize_text(entry.get("source"))
+            or "pipeline_scene_graph",
         }
         if existing_idx is not None:
             self._items.pop(existing_idx)
@@ -99,7 +100,9 @@ class QAPoolService:
             for item in items:
                 self._upsert_locked(item)
 
-    def snapshot_bilingual(self, *, limit: int | None = None) -> list[dict[str, object]]:
+    def snapshot_bilingual(
+        self, *, limit: int | None = None
+    ) -> list[dict[str, object]]:
         with self._lock:
             items = list(self._items)
         items.reverse()
@@ -127,7 +130,9 @@ class QAPoolService:
             and str(item.get("answer_en", "")).strip()
         ]
 
-    async def _snapshot_czech(self, *, limit: int | None = None) -> list[dict[str, str]]:
+    async def _snapshot_czech(
+        self, *, limit: int | None = None
+    ) -> list[dict[str, str]]:
         bilingual = self.snapshot_bilingual(limit=limit)
         prepared: list[dict[str, str]] = []
         translation_tasks: list[tuple[int, str, asyncio.Task[object]]] = []
@@ -142,15 +147,30 @@ class QAPoolService:
             a_cs = str(item.get("answer_cs", "")).strip()
 
             entry_idx = len(prepared)
-            prepared.append({"question_en": q_en, "answer_en": a_en, "question_cs": q_cs, "answer_cs": a_cs})
+            prepared.append(
+                {
+                    "question_en": q_en,
+                    "answer_en": a_en,
+                    "question_cs": q_cs,
+                    "answer_cs": a_cs,
+                }
+            )
 
             if not q_cs:
                 translation_tasks.append(
-                    (entry_idx, "question_cs", asyncio.create_task(enforce_output_language(q_en, "czech")))
+                    (
+                        entry_idx,
+                        "question_cs",
+                        asyncio.create_task(enforce_output_language(q_en, "czech")),
+                    )
                 )
             if not a_cs:
                 translation_tasks.append(
-                    (entry_idx, "answer_cs", asyncio.create_task(enforce_output_language(a_en, "czech")))
+                    (
+                        entry_idx,
+                        "answer_cs",
+                        asyncio.create_task(enforce_output_language(a_en, "czech")),
+                    )
                 )
 
         if translation_tasks:
@@ -160,7 +180,11 @@ class QAPoolService:
             )
             for (entry_idx, target_key, _), result in zip(translation_tasks, results):
                 entry = prepared[entry_idx]
-                fallback = entry["question_en"] if target_key == "question_cs" else entry["answer_en"]
+                fallback = (
+                    entry["question_en"]
+                    if target_key == "question_cs"
+                    else entry["answer_en"]
+                )
                 if isinstance(result, Exception):
                     if target_key == "question_cs":
                         logger.debug("Czech QA question translation failed: %s", result)
@@ -185,9 +209,10 @@ class QAPoolService:
                 for q_en, q_cs, a_en, a_cs in to_cache:
                     key = self._normalize_question(q_en)
                     for item in self._items:
-                        if self._normalize_question(
-                            str(item.get("question_en", ""))
-                        ) != key:
+                        if (
+                            self._normalize_question(str(item.get("question_en", "")))
+                            != key
+                        ):
                             continue
                         if not str(item.get("question_cs", "")).strip():
                             item["question_cs"] = q_cs

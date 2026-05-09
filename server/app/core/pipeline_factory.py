@@ -85,8 +85,7 @@ def build_perception_pipeline(config: AppConfig) -> PerceptionPipeline:
         parallel_execution=config.scene_graph.parallel_execution,
     )
     qa_service = SceneQAGenerationService(
-        config.chat,
-        pairs_per_update=config.qa_generation.pairs_per_update
+        config.chat, pairs_per_update=config.qa_generation.pairs_per_update
     )
     return PerceptionPipeline(
         detector=detector,

@@ -146,9 +146,9 @@ async def enforce_output_language(
             text, return_languages=return_languages
         )
         return (
-            translated if isinstance(translated, str) else translated[0]
-            if not return_languages
-            else translated
+            translated
+            if isinstance(translated, str)
+            else translated[0] if not return_languages else translated
         )
     if mode == "czech":
         logger.info("Enforcing czech for text: %s", text[:25] + "...")
@@ -156,9 +156,9 @@ async def enforce_output_language(
             text, return_languages=return_languages
         )
         return (
-            translated if isinstance(translated, str) else translated[0]
-            if not return_languages
-            else translated
+            translated
+            if isinstance(translated, str)
+            else translated[0] if not return_languages else translated
         )
     return text if not return_languages else text, [output_language]
 

@@ -15,9 +15,7 @@ logger = logging.getLogger(__name__)
 
 def _normalize_labels(labels: list[str] | None) -> set[str]:
     return {
-        str(label).strip().lower()
-        for label in (labels or [])
-        if str(label).strip()
+        str(label).strip().lower() for label in (labels or []) if str(label).strip()
     }
 
 
@@ -98,7 +96,9 @@ class _SingleModelExtractor:
         return 0
 
     def set_device(self, device: str):
-        logger.info("Setting extractor device to %s for model=%s", device, self.reid_model)
+        logger.info(
+            "Setting extractor device to %s for model=%s", device, self.reid_model
+        )
         self.device = device
         self.model = self.model.to(self.device)
 
@@ -108,7 +108,9 @@ class _SingleModelExtractor:
 
     def set_target_aspect_ratio(self, target_aspect_ratio: float | None):
         self.target_aspect_ratio = (
-            target_aspect_ratio if target_aspect_ratio and target_aspect_ratio > 0 else None
+            target_aspect_ratio
+            if target_aspect_ratio and target_aspect_ratio > 0
+            else None
         )
 
     def set_resampling_method(self, resampling_method: Image.Resampling | str):

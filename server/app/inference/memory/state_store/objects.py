@@ -114,7 +114,9 @@ class SceneMemoryStoreObjectsMixin:
                 current.last_seen = now
                 current.hits += 1
 
-            if det.label.strip().lower() not in self.PEOPLE_LABELS or not isinstance(det.object_id, int):
+            if det.label.strip().lower() not in self.PEOPLE_LABELS or not isinstance(
+                det.object_id, int
+            ):
                 continue
 
             pepper_person_id = self._frame_server_to_pepper.get(det.object_id)

@@ -36,6 +36,7 @@ class SceneMemoryStore(
     SceneMemoryStoreRelationsMixin,
 ):
     """State container and mutation helpers for SceneMemory."""
+
     PEOPLE_LABELS = [
         "person",
         "man",
@@ -47,6 +48,7 @@ class SceneMemoryStore(
         "dog",
         "cat",  # :)
     ]
+
     def __init__(
         self,
         memory_max_age_seconds: int = 60,

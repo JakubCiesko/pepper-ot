@@ -1,5 +1,5 @@
-from contextlib import asynccontextmanager
 import asyncio
+from contextlib import asynccontextmanager
 import logging
 import threading
 import time
@@ -258,9 +258,7 @@ class PerceptionPipeline:
     def _copy_image_for_parallel(image: Image.Image) -> Image.Image:
         return image.copy() if isinstance(image, Image.Image) else image
 
-    def _detect_threadsafe(
-        self, image: Image.Image
-    ) -> list[InferenceDetectionObject]:
+    def _detect_threadsafe(self, image: Image.Image) -> list[InferenceDetectionObject]:
         with self._detector_lock:
             return self.detector.detect(image)
 

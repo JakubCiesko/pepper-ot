@@ -1,3 +1,4 @@
+from collections import defaultdict
 import logging
 from pathlib import Path
 from typing import Literal
@@ -5,12 +6,13 @@ from typing import Literal
 from PIL import Image
 import torch
 from torchvision.ops import nms
+
 from app.inference.detection.detectors import DetectionModelType
 from app.inference.detection.model_registry import DetectionModelRegistry
 from app.inference.types import InferenceDetectionObject
-from collections import defaultdict
 
 logger = logging.getLogger(__name__)
+
 
 def apply_nms(
     detections: list[InferenceDetectionObject], iou_threshold: float = 0.5
@@ -22,6 +24,7 @@ def apply_nms(
 
     keep = nms(boxes, scores, iou_threshold)
     return [detections[i] for i in keep.tolist()]
+
 
 def apply_nms_per_class(
     detections: list[InferenceDetectionObject], iou_threshold: float = 0.5
@@ -43,6 +46,7 @@ def apply_nms_per_class(
         final.extend([dets[i] for i in keep.tolist()])
 
     return final
+
 
 class DetectionService:
     """
@@ -241,9 +245,7 @@ class DetectionService:
         after_total = 0
         for idx, detections in enumerate(detections_batch):
             before_total += len(detections)
-            filtered = self._maybe_apply_nms(
-                detections, source=f"detect_batch[{idx}]"
-            )
+            filtered = self._maybe_apply_nms(detections, source=f"detect_batch[{idx}]")
             after_total += len(filtered)
             filtered_batch.append(filtered)
         logger.debug(

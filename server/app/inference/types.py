@@ -6,7 +6,6 @@ import time
 from typing import Any
 
 import numpy as np
-from numpy.typing import NDArray
 from PIL import Image
 from pydantic import BaseModel
 from pydantic import Field
@@ -64,6 +63,7 @@ class TrackedObject:
         self.last_seen = time.time()
         self.hits += 1
         self.frames_since_seen = 0
+
 
 @dataclass
 class SceneGraphEdge:

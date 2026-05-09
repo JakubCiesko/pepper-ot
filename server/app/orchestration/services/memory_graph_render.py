@@ -63,7 +63,7 @@ class MemoryGraphRenderService:
             object_attribute_overrides=object_attribute_overrides,
             relation_label_overrides=relation_label_overrides,
         )
-        # TODO: think whether to send this -> will slow down communication, 
+        # TODO: think whether to send this -> will slow down communication,
         # maybe save space and make pepper parse the counts and all.
         return MemorySummary(
             labels=labels,
@@ -72,19 +72,24 @@ class MemoryGraphRenderService:
             graph_svg=graph_svg,
             timestamp=state.timestamp,
         )
-    # TODO: probably get rid of _ids because it fucks it up 
-    def build_text_description(self, 
-                               state: SceneState) -> str:
-        labels, label_counts = self._labels_and_counts(state)
-        relations, attribute_counts, relationship_counts = self._build_relations(state)
-        description = "Scene Description\n" + "\n".join([
-            f"There is {label}. It is present {count} times."
-        for label, count in label_counts.items()])
-        description += "The objects are in these relations:\n" + "\n".join([
-            f"{rel[0]} {rel[1]} {rel[2]}. This relation is present {count} times." for rel, count in relationship_counts.items() 
-        ])
-        return description
 
+    # TODO: probably get rid of _ids because it fucks it up
+    def build_text_description(self, state: SceneState) -> str:
+        _, label_counts = self._labels_and_counts(state)
+        _, _, relationship_counts = self._build_relations(state)
+        description = "Scene Description\n" + "\n".join(
+            [
+                f"There is {label}. It is present {count} times."
+                for label, count in label_counts.items()
+            ]
+        )
+        description += "The objects are in these relations:\n" + "\n".join(
+            [
+                f"{rel[0]} {rel[1]} {rel[2]}. This relation is present {count} times."
+                for rel, count in relationship_counts.items()
+            ]
+        )
+        return description
 
     def select_render_object_ids(
         self, state: SceneState, *, limit: int | None = None
@@ -106,9 +111,7 @@ class MemoryGraphRenderService:
     ) -> tuple[list[str], dict[str, int]]:
         counts: dict[str, int] = {}
         for obj in state.objects:
-            label = str(
-                (object_label_overrides or {}).get(obj.id, obj.label)
-            ).strip()
+            label = str((object_label_overrides or {}).get(obj.id, obj.label)).strip()
             if not label:
                 continue
             counts[label] = counts.get(label, 0) + 1
@@ -129,14 +132,16 @@ class MemoryGraphRenderService:
     ]:
         object_map = {obj.id: obj for obj in state.objects}
         relations: list[SceneGraphRelation] = []
-        attribute_counts: dict[tuple[str, str, str]: int] = {}
-        relationship_counts: dict[tuple[str, str, str]: int] = {}
+        attribute_counts: dict[tuple[str, str, str] : int] = {}
+        relationship_counts: dict[tuple[str, str, str] : int] = {}
         seen: set[tuple[str, str, str]] = set()
 
         for obj in sorted(state.objects, key=lambda item: item.id):
             label = str((object_label_overrides or {}).get(obj.id, obj.label)).strip()
             node_name = f"{label}_{obj.id}"
-            attributes = (object_attribute_overrides or {}).get(obj.id, obj.attributes or [])
+            attributes = (object_attribute_overrides or {}).get(
+                obj.id, obj.attributes or []
+            )
             for attribute in sorted(set(attributes or [])):
                 key = (node_name, attribute, node_name)
                 attribute_counts[key] = attribute_counts.get(key, 0) + 1
@@ -235,7 +240,8 @@ class MemoryGraphRenderService:
                     dst_y=dst[1] + self.THUMB_HEIGHT / 2,
                     label=str(
                         (relation_label_overrides or {}).get(
-                            (rel.subject_id, rel.predicate, rel.object_id), rel.predicate
+                            (rel.subject_id, rel.predicate, rel.object_id),
+                            rel.predicate,
                         )
                     ).strip(),
                 )

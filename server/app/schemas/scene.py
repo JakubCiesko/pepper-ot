@@ -91,6 +91,7 @@ class SceneState(BaseModel):
     captions: list[SceneCaptionState] = Field(default_factory=list)
     timestamp: float
 
+
 # TODO: look in creation in memoy_graph_render.py ask yourself whther
 # to send over relations, attributes, and their counts.
 class MemorySummary(BaseModel):

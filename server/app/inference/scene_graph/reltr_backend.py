@@ -2,8 +2,8 @@ import asyncio
 import logging
 from pathlib import Path
 import re
-import threading
 import tempfile
+import threading
 from typing import Any
 
 from PIL import Image

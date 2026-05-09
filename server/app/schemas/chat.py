@@ -9,7 +9,7 @@ from pydantic import model_validator
 class ChatMode(StrEnum):
     GENERAL = "general"
     OBJECT = "object"
-    #TODO: implement these in chat service really
+    # TODO: implement these in chat service really
     RELATION = "relation"
     ATTRIBUTE = "attribute"
 
@@ -88,7 +88,8 @@ class PregeneratedQAResponse(BaseModel):
     pregenerated_qa: list[PregeneratedQAPair] = Field(default_factory=list)
     metadata: dict[str, Any]
 
-#TODO: send the bare minimum for bigger throughput?
+
+# TODO: send the bare minimum for bigger throughput?
 class PregeneratedQABilingualItem(BaseModel):
     question_en: str
     answer_en: str

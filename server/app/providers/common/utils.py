@@ -89,11 +89,3 @@ def normalize_openai_parse_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     if "max_tokens" in out and "max_output_tokens" not in out:
         out["max_output_tokens"] = out.pop("max_tokens")
     return out
-
-#REMOVAL
-def _expect_type(
-    where: str, key: str, value: Any, allowed_types: tuple[type, ...]
-) -> None:
-    if not isinstance(value, allowed_types):
-        allowed = ", ".join(t.__name__ for t in allowed_types)
-        raise ValueError(f"{where}.{key} must be of type: {allowed}")

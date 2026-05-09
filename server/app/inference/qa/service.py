@@ -20,22 +20,19 @@ class _GeneratedQAPair(BaseModel):
 class _GeneratedQAPairs(BaseModel):
     items: list[_GeneratedQAPair] = Field(default_factory=list)
 
+
 class SceneQAGenerationService:
-    def __init__(
-        self, llm_config: ChatConfig, *, pairs_per_update: int
-    ):
+    def __init__(self, llm_config: ChatConfig, *, pairs_per_update: int):
         self.llm = LLMClient(llm_config)
         self.pairs_per_update = max(1, int(pairs_per_update))
         self.system_prompt = (
             "You generate concise grounded question answer pairs from scene graph facts. "
             "Use only facts explicitly present in the graph triples. "
             "Do not hallucinate. "
-            "Write in English." # TODO: maybe passable language? But english is safe choice for all LLMs
+            "Write in English."  # TODO: maybe passable language? But english is safe choice for all LLMs
         )
 
-    def update_runtime(
-        self, llm_config: ChatConfig, *, pairs_per_update: int
-    ):
+    def update_runtime(self, llm_config: ChatConfig, *, pairs_per_update: int):
         # TODO: double update for llm and then this
         self.llm.update_runtime(llm_config)
         self.pairs_per_update = max(1, int(pairs_per_update))

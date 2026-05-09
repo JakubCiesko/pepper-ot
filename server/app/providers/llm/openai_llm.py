@@ -1,8 +1,8 @@
 import logging
 from typing import Any
 
+import instructor
 from openai import AsyncOpenAI
-import instructor 
 
 from app.providers.common.io import extract_text_content
 from app.providers.common.io import extract_text_from_openai_response
@@ -74,7 +74,7 @@ class OpenAITextProvider(BaseTextProvider):
         if mode == "instructor" and output_schema is not None:
             try:
                 parsed = await self.instructor_client.chat.completions.create(
-                    model= config.model_id,
+                    model=config.model_id,
                     messages=messages,
                     response_model=output_schema,
                     **kwargs,

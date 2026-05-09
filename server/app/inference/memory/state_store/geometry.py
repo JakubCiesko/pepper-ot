@@ -10,7 +10,6 @@ from app.schemas.robot import RobotMetadata
 logger = logging.getLogger(__name__)
 
 
-
 class SceneMemoryStoreGeometryMixin:
     @staticmethod
     def _image_geometry(
@@ -321,9 +320,15 @@ class SceneMemoryStoreGeometryMixin:
             return detections
 
         persons = [
-            d for d in detections if d.label.lower().strip() in self.PEOPLE_LABELS  and d.object_id is not None
+            d
+            for d in detections
+            if d.label.lower().strip() in self.PEOPLE_LABELS and d.object_id is not None
         ]
-        others = [d for d in detections if d.label.lower().strip() not in self.PEOPLE_LABELS or d.object_id is None]
+        others = [
+            d
+            for d in detections
+            if d.label.lower().strip() not in self.PEOPLE_LABELS or d.object_id is None
+        ]
         logger.info(
             "Server detection comprised of %d people and %d other detected objects",
             len(persons),

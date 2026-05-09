@@ -1,12 +1,13 @@
 import asyncio
+from collections.abc import Iterable
 import json
 import logging
 from pathlib import Path
 from typing import Any
-from typing import Iterable
 
 from app.providers.translation.google_trans import english_to_czech
 from app.schemas.config import AppConfig
+
 # from app.schemas.scene import MemorySummary
 # from app.schemas.scene import SceneGraphRelation
 from app.schemas.scene import SceneState
@@ -54,11 +55,14 @@ class VocabularyTranslationService:
                 for kind, filename in self.USER_FILES.items()
             }
         }
-        self._runtime_signature: tuple[
-            tuple[str, ...],
-            tuple[str, ...],
-            tuple[str, ...],
-        ] | None = None
+        self._runtime_signature: (
+            tuple[
+                tuple[str, ...],
+                tuple[str, ...],
+                tuple[str, ...],
+            ]
+            | None
+        ) = None
 
     def _load_lexicon(self, path: Path) -> dict[str, str]:
         try:
@@ -255,7 +259,9 @@ class VocabularyTranslationService:
     async def warm_from_config(self, cfg: AppConfig, base_dir: Path | None):
         terms = self._collect_terms(cfg, base_dir)
         signature = (
-            tuple(sorted(self._normalize_token(term) for term in terms["label"] if term)),
+            tuple(
+                sorted(self._normalize_token(term) for term in terms["label"] if term)
+            ),
             tuple(
                 sorted(
                     self._normalize_token(term) for term in terms["attribute"] if term
@@ -310,7 +316,6 @@ class VocabularyTranslationService:
 
         await self._translate_missing_and_persist(lang, kind, [original])
         return self._effective_map(lang, kind).get(key, original)
-
 
     async def build_memory_display_overrides(
         self,
@@ -407,7 +412,9 @@ class VocabularyTranslationService:
             },
         }
 
-    def _extract_cs_map(self, section: dict[str, Any], plural_key: str) -> dict[str, str]:
+    def _extract_cs_map(
+        self, section: dict[str, Any], plural_key: str
+    ) -> dict[str, str]:
         if not isinstance(section, dict):
             raise ValueError(f"translations.{plural_key} must be an object")
         if "cs" in section:

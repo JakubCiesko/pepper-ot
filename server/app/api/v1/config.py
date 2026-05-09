@@ -17,6 +17,7 @@ router = APIRouter()
 # TODO: think about the vocabulary_translator whether to have it here
 # It makes sense since it does not affect the pipeline or processors in any way but ... it is weird
 
+
 @router.get("/config")
 async def get_config():
     """

@@ -10,9 +10,9 @@ from app.providers.translation import enforce_output_language
 from app.schemas.chat import ChatMode
 from app.schemas.chat import ChatRequest
 from app.schemas.chat import ChatResponse
+from app.schemas.chat import PregeneratedQABilingualItem
 from app.schemas.chat import PregeneratedQAPair
 from app.schemas.chat import PregeneratedQAPairs
-from app.schemas.chat import PregeneratedQABilingualItem
 from app.schemas.chat import PregeneratedQAPoolResponse
 from app.schemas.chat import PregeneratedQAPoolUpdateRequest
 from app.schemas.chat import PregeneratedQARequest
@@ -21,7 +21,6 @@ from fastapi import APIRouter
 from fastapi import Body
 from fastapi import HTTPException
 from fastapi import Query
-
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -106,7 +105,8 @@ async def _force_generate_qa_pool_if_needed(
         pool.ingest_generated_pairs(generated_pairs, source="forced_memory_snapshot")
     return len(generated_pairs)
 
-#TODO: need to invert the language so that I can have like MODEL_FACING_LANGUAGE, i have input, output language, lets havemodel_facing_language
+
+# TODO: need to invert the language so that I can have like MODEL_FACING_LANGUAGE, i have input, output language, lets havemodel_facing_language
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
@@ -155,15 +155,15 @@ async def chat_endpoint(request: ChatRequest):
             request.output_language
             if request.output_language is not None
             else (
-            app_state.config.system.get("output_language")
-            if app_state.config is not None
-            and isinstance(app_state.config.system, dict)
-            else None
-        ))
+                app_state.config.system.get("output_language")
+                if app_state.config is not None
+                and isinstance(app_state.config.system, dict)
+                else None
+            )
+        )
     )
 
     model_facing_language = request.model_facing_language or output_language
-
 
     query_original = request.query
     query_translated, query_languages = await enforce_output_language(
@@ -426,13 +426,10 @@ async def get_memory_pregenerated_qa(
     pool = _qa_pool_required()
     output_language = _resolve_output_language(request)
     requested_limit = request.requested_number_of_pairs
-    force_count = (
-        request.requested_number_of_pairs
-        or (
-            app_state.config.qa_generation.pairs_per_update
-            if app_state.config is not None
-            else 2
-        )
+    force_count = request.requested_number_of_pairs or (
+        app_state.config.qa_generation.pairs_per_update
+        if app_state.config is not None
+        else 2
     )
     generated_count = await _force_generate_qa_pool_if_needed(
         force_generation=bool(request.force_generation),

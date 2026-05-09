@@ -10,8 +10,8 @@ from app.core.config.mutations.components import apply_hot_changes
 from app.core.config.mutations.components import diff_config as contract_diff_config
 from app.core.config.mutations.components import hard_reload_fields
 from app.core.runtime.state import AppState
-from app.providers.translation.vocabulary import vocabulary_translator
 from app.providers.common.utils import provider_capability_matrix
+from app.providers.translation.vocabulary import vocabulary_translator
 from app.schemas.config import AppConfig
 from app.schemas.config import PipelineControls
 
