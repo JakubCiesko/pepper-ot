@@ -34,13 +34,7 @@ def _semantic_order(items: list[str]) -> list[str]:
         values.sort()
     ordered: list[str] = []
     while any(groups.values()):
-        ordered.extend(
-            [
-            groups[key].pop(0)
-            for key in sorted(groups)
-            if groups[key]
-            ]
-        )
+        ordered.extend([groups[key].pop(0) for key in sorted(groups) if groups[key]])
     return ordered
 
 

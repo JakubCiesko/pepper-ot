@@ -9,7 +9,13 @@ from .utils import resize_pil
 
 
 class ServerCaptionAdapter:
-    def __init__(self, model_provider: str, model_id: str, system_prompt: str, base_url: str | None = None):
+    def __init__(
+        self,
+        model_provider: str,
+        model_id: str,
+        system_prompt: str,
+        base_url: str | None = None,
+    ):
         ensure_server_app_importable()
         from app.inference.caption.service import CaptionInferenceService
         from app.schemas.config import CaptionConfig
@@ -21,7 +27,7 @@ class ServerCaptionAdapter:
             mode="prompted",
             system_prompt=PromptSource(text=system_prompt),
             user_prompt=None,
-            base_url=base_url
+            base_url=base_url,
         )
         self._service = CaptionInferenceService(
             cfg,

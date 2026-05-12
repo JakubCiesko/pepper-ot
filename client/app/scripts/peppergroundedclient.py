@@ -215,7 +215,7 @@ class PepperGroundedClient(object):
         )
         self.turn_manager.start_cached_answer(lang_code, question)
 
-    # TODO: could be used like: I know these facts: 
+    # TODO: could be used like: I know these facts:
     # @qi.bind(returnType=qi.List)
     # def listCachedAnswers(self):
     #     return self.session_store.get_cached_answers()

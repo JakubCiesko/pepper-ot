@@ -14,7 +14,7 @@ class ServerVLMAdapter:
         model_id: str,
         structured_mode: str = "provider_native",
         device: str | None = None,
-        base_url: str | None = None
+        base_url: str | None = None,
     ):
         ensure_server_app_importable()
         from app.providers.vlm.factory import build_vlm_client
@@ -26,7 +26,7 @@ class ServerVLMAdapter:
             model_id=model_id,
             device=device,
             structured_output=StructuredOutputConfig(mode=structured_mode),
-            base_url=base_url
+            base_url=base_url,
         )
         self._client = build_vlm_client(cfg)
 

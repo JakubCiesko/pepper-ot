@@ -70,7 +70,8 @@ def write_report(out_dir: Path, rows: list[dict[str, Any]]) -> Path:
         "| --- | --- | --- | ---: | ---: | ---: | ---: |",
     ]
     lines.extend(
-        ["| {variant} | {model} | {som} | {images} | {strict:.3f} | {pair:.3f} | {attr:.3f} |".format(
+        [
+            "| {variant} | {model} | {som} | {images} | {strict:.3f} | {pair:.3f} | {attr:.3f} |".format(
                 variant=row.get("variant", ""),
                 model=row.get("model_id", ""),
                 som=row.get("use_som_image", ""),
@@ -82,9 +83,7 @@ def write_report(out_dir: Path, rows: list[dict[str, Any]]) -> Path:
             for row in rows
         ]
     )
-        
-            
-        
+
     path = out_dir / "report.md"
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path

@@ -35,14 +35,14 @@ descriptions:
   max_image_size: 512
   max_concurrent_batches: 1
   system_prompt: >
-    You are an expert visual annotator of images. 
-    Describe only what is visually observable in the image. Focus on detected 
-    objects, their attributes, and relationships between them. 
+    You are an expert visual annotator of images.
+    Describe only what is visually observable in the image. Focus on detected
+    objects, their attributes, and relationships between them.
     Write detailed scene description or caption.
   user_prompt_template: >
     Detected objects: {objects}
 
-    Write a detailed but simple visual description for the provided image. 
+    Write a detailed but simple visual description for the provided image.
 
     Explicitly mention:
     - visible detected objects
@@ -63,25 +63,25 @@ vocabulary:
   attributes_target: 50
   max_concurrent_batches: 1
   extract_system_prompt: >
-    You are building a vocabulary of attributes and predicates for a human-robot scene aware conversation.                                                                                                                            in indoor environments.                                                                                                                                                                               
-                                                                                                                                                                                                          
-    For each image, you receive:                                                                                                                                                                          
-    - a detailed visual caption                                                                                                                                                                           
-    - a list of detected object labels                                                                                                                                                                    
-                                                                                                                                                                                                          
-    Extract only predicate and attribute names that are useful for later scene                                                                                                                            
-    conversation and scene graph generation over the list of detected objects.                                                                                                                                                           
-                                                                                                                                                                                                          
-    Predicates are binary relations between two detected objects, such as:                                                                                                                                
-    left_of, right_of, above, below, looking_at, sitting_on, holding, touching, attached_to. 
-    You are not limited to these only, you need to extract predicates from the text.                                                                                                                                                       
-                                                                                                                                                                                                          
-    Attributes are unary properties of one detected object, such as:                                                                                                                                      
+    You are building a vocabulary of attributes and predicates for a human-robot scene aware conversation.                                                                                                                            in indoor environments.
+
+    For each image, you receive:
+    - a detailed visual caption
+    - a list of detected object labels
+
+    Extract only predicate and attribute names that are useful for later scene
+    conversation and scene graph generation over the list of detected objects.
+
+    Predicates are binary relations between two detected objects, such as:
+    left_of, right_of, above, below, looking_at, sitting_on, holding, touching, attached_to.
+    You are not limited to these only, you need to extract predicates from the text.
+
+    Attributes are unary properties of one detected object, such as:
     black, white, wooden, metal, closed, large, small, flat.
-    Attributes are also important relations of one of the detected objects with objects which were not detected, such as: 
+    Attributes are also important relations of one of the detected objects with objects which were not detected, such as:
     wears_shirt, wears_glasses, holds_cup.
-                                                                                                                                                                             
-    Prefer relations and attributes that are visually grounded, reusable, and                                                                                                                             
+
+    Prefer relations and attributes that are visually grounded, reusable, and
     useful for human-robot dialogue.
 
     Focus on the detected object list. Do not introduce predicates or
@@ -95,12 +95,12 @@ vocabulary:
     - use left_of, not "chair left of table"
     - use black, not "black chair"
     - do not output duplicate or near-duplicate terms
-  
+
   consolidate_predicates_prompt: >
-      Consolidate the input predicate candidates into a controlled vocabulary for                                                                                                                           
-      indoor robotic scene graph generation and human-robot conversation.                                                                                                                                                                
-                                                                                                                                                                                                            
-      Keep predicates that are:                                                                                                                                                                             
+      Consolidate the input predicate candidates into a controlled vocabulary for
+      indoor robotic scene graph generation and human-robot conversation.
+
+      Keep predicates that are:
       - visually observable
       - useful for grounded dialogue
       - applicable between two detected objects
@@ -121,17 +121,17 @@ vocabulary:
       - non-visual or speculative predicates
 
       Return the best 100 predicate names only, lowercase with underscores.
-  consolidate_attributes_prompt: >                                                                                                                                                                        
-      Consolidate the input attribute candidates into a controlled vocabulary for                                                                                                                           
-      indoor robotic scene graph generation and human-robot conversation.                                                                                                                                                                
-                                                                                                                                                                                                            
-      Keep attributes that are:                                                                                                                                                                             
-      - visually observable                                                                                                                                                                                 
-      - useful for grounded dialogue                                                                                                                                                                        
+  consolidate_attributes_prompt: >
+      Consolidate the input attribute candidates into a controlled vocabulary for
+      indoor robotic scene graph generation and human-robot conversation.
+
+      Keep attributes that are:
+      - visually observable
+      - useful for grounded dialogue
       - applicable to one detected object
       - reusable across indoor scenes
       - widely applicable attributes concerning other objects, such as wears_shirt, wears_glasses, holds_cup.
-    
+
       Prefer color, material, size, state, shape, visibility, and functional
       visual properties, and general appearance.
 
@@ -140,7 +140,7 @@ vocabulary:
       - use wooden, metal, plastic, glass for materials
       - use open and closed for states
       - use large and small for size
-      
+
       Remove:
       - object names
       - full phrases or sentences

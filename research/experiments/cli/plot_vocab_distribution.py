@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import argparse
-import csv
 from collections import Counter
+import csv
 from pathlib import Path
 from typing import Any
 
 from research.experiments.io import load_json
-
 
 DEFAULT_RUNS = [
     "train_vocab2_gemini",

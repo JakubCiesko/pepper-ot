@@ -52,4 +52,3 @@ def clean_text_unicode(text, max_chars=None):
 #TODO: maybe removal
 def sanitize_query(query, max_chars):
     return clean_text_unicode(query, max_chars=max_chars)#clean_text(query, max_chars=max_chars)
-

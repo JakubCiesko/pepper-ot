@@ -44,15 +44,17 @@ async def run_descriptions(config: ExperimentConfig, run: RunContext) -> dict:
         )
         save_json(detection_path, detections)
         run.logger.info("Saved detections for %d images", len(detections))
-        del detector 
-        try: 
-            import gc 
-            import torch 
+        del detector
+        try:
+            import gc
+
+            import torch
+
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.ipc_collect()
-        except Exception as exc: 
+        except Exception as exc:
             run.logger.warning("Detector VRAM cleanup failed: %s", exc)
     else:
         run.logger.info(
