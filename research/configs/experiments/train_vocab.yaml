@@ -1,0 +1,159 @@
+name: PepperMixedTrain
+experiment_id: train_vocab3_Qwen36-35B-A3B-GGUF-UD-Q4_K_S
+seed: 42
+
+paths:
+  images_dir: "data/images/train"
+  output_root: "research/artifacts"
+
+description_model:
+  provider: "openai_compatible"
+  model_id: "unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_S"
+  structured_mode: "instructor"
+  base_url: "http://127.0.0.1:8080/v1"
+
+vocabulary_model:
+  provider: "openai_compatible"
+  model_id: "unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_S"
+  structured_mode: "instructor"
+  base_url: "http://127.0.0.1:8080/v1"
+
+draft_sgg_model:
+  provider: "openai"
+  model_id: "gpt-5-nano-2025-08-07"
+  structured_mode: "provider_native"
+
+detection:
+  enabled: true
+  backend: "rf_detr"
+  batch_size: 4
+  max_image_size: 1024
+  confidence: 0.3
+
+descriptions:
+  enabled: true
+  max_image_size: 512
+  max_concurrent_batches: 1
+  system_prompt: >
+    You are an expert visual annotator of images. 
+    Describe only what is visually observable in the image. Focus on detected 
+    objects, their attributes, and relationships between them. 
+    Write detailed scene description or caption.
+  user_prompt_template: >
+    Detected objects: {objects}
+
+    Write a detailed but simple visual description for the provided image. 
+
+    Explicitly mention:
+    - visible detected objects
+    - object attributes such as color, material, size, state, and shape
+    - spatial relationships between detected objects
+    - support, containment, proximity, orientation, and interaction relations
+    - relationships useful for conversation (i.e., interaction of two objects, etc.)
+
+    Prefer precise language. Do not invent objects not visible in the image.
+
+
+
+vocabulary:
+  enabled: true
+  source_mode: "current_run"
+  frozen_file: null
+  predicates_target: 100
+  attributes_target: 50
+  max_concurrent_batches: 1
+  extract_system_prompt: >
+    You are building a vocabulary of attributes and predicates for a human-robot scene aware conversation.                                                                                                                            in indoor environments.                                                                                                                                                                               
+                                                                                                                                                                                                          
+    For each image, you receive:                                                                                                                                                                          
+    - a detailed visual caption                                                                                                                                                                           
+    - a list of detected object labels                                                                                                                                                                    
+                                                                                                                                                                                                          
+    Extract only predicate and attribute names that are useful for later scene                                                                                                                            
+    conversation and scene graph generation over the list of detected objects.                                                                                                                                                           
+                                                                                                                                                                                                          
+    Predicates are binary relations between two detected objects, such as:                                                                                                                                
+    left_of, right_of, above, below, looking_at, sitting_on, holding, touching, attached_to. 
+    You are not limited to these only, you need to extract predicates from the text.                                                                                                                                                       
+                                                                                                                                                                                                          
+    Attributes are unary properties of one detected object, such as:                                                                                                                                      
+    black, white, wooden, metal, closed, large, small, flat.
+    Attributes are also important relations of one of the detected objects with objects which were not detected, such as: 
+    wears_shirt, wears_glasses, holds_cup.
+                                                                                                                                                                             
+    Prefer relations and attributes that are visually grounded, reusable, and                                                                                                                             
+    useful for human-robot dialogue.
+
+    Focus on the detected object list. Do not introduce predicates or
+    attributes for objects that are not visible or not relevant to the detected
+    objects or scene.
+
+    Output normalized names only:
+    - use lowercase
+    - use underscores instead of spaces
+    - no arguments, no object names, no natural language sentences, just predicates and attributes
+    - use left_of, not "chair left of table"
+    - use black, not "black chair"
+    - do not output duplicate or near-duplicate terms
+  
+  consolidate_predicates_prompt: >
+      Consolidate the input predicate candidates into a controlled vocabulary for                                                                                                                           
+      indoor robotic scene graph generation and human-robot conversation.                                                                                                                                                                
+                                                                                                                                                                                                            
+      Keep predicates that are:                                                                                                                                                                             
+      - visually observable
+      - useful for grounded dialogue
+      - applicable between two detected objects
+      - reusable across indoor spaces, such as: office, classroom, lab, corridor, living room, restaurant,
+        meeting room, and computer-room scenes
+
+      Prefer interaction and functional relations. Provide also basic spatial, orientation, support, containment, and proximity relations.
+
+      Merge synonyms into one canonical form:
+      - use left_of instead of to_the_left_of
+      - use right_of instead of to_the_right_of
+      - use on instead of on_top_of when possible
+
+      Remove:
+      - predicates tied to specific object names
+      - full phrases or sentences
+      - vague predicates such as related_to, associated_with, visible_with
+      - non-visual or speculative predicates
+
+      Return the best 100 predicate names only, lowercase with underscores.
+  consolidate_attributes_prompt: >                                                                                                                                                                        
+      Consolidate the input attribute candidates into a controlled vocabulary for                                                                                                                           
+      indoor robotic scene graph generation and human-robot conversation.                                                                                                                                                                
+                                                                                                                                                                                                            
+      Keep attributes that are:                                                                                                                                                                             
+      - visually observable                                                                                                                                                                                 
+      - useful for grounded dialogue                                                                                                                                                                        
+      - applicable to one detected object
+      - reusable across indoor scenes
+      - widely applicable attributes concerning other objects, such as wears_shirt, wears_glasses, holds_cup.
+    
+      Prefer color, material, size, state, shape, visibility, and functional
+      visual properties, and general appearance.
+
+      Merge synonyms into one canonical form:
+      - use black, white, gray, red, blue, green for colors
+      - use wooden, metal, plastic, glass for materials
+      - use open and closed for states
+      - use large and small for size
+      
+      Remove:
+      - object names
+      - full phrases or sentences
+      - duplicate or near-duplicate variants
+
+      Return the best 50 attribute names only, lowercase with underscores.
+
+
+draft_scene_graph:
+  enabled: false
+
+context_rot:
+  enabled: false
+
+evaluation:
+  enabled: false

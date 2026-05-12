@@ -29,7 +29,9 @@ class DialogAdapter(object):
                 "ALDialog unavailable, skipping concept update for %s", name)
             return False
         language = self.resolve_dialog_language(language)
+        # TODO: here is the problem 
         cleaned = self._clean_values(values)
+        # TODO: do i need to clear them? 
         if not cleaned:
             return self.clear_dynamic_concept(name, language)
 

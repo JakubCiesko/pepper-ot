@@ -1,12 +1,12 @@
 topic: ~pepper-grounded-client()
 language: czc
 
-dynamic:memory_objects
-dynamic:memory_attributes
-dynamic:memory_relations
-dynamic:memory_cached_questions
+dynamic: memory_objects
+dynamic: memory_attributes
+dynamic: memory_relations
+dynamic: memory_cached_questions
 
-# system introduction 
+# system introduction
 concept:(question_prefix) [
     "[jak jako]"
     "pomocí čeho"
@@ -17,7 +17,7 @@ concept:(vision_action) [
     [rozumíš víš poznáš analyzuješ chápeš] co je kolem [tebe tobě]
     [rozeznáváš rozeznáš poznáš vidíš vnímáš chápeš] ["své okolí" "scénu" "stav věcí" "místnost" "prostředí" "vztahy věcí"]
     [rozeznáváš rozeznáš poznáš vidíš vnímáš chápeš]
-    [zpracovávaš [obrázky fotky obrazy scény]] 
+    [zpracovávaš [obrázky fotky obrazy scény]]
 ]
 
 concept:(explain_system)[
@@ -44,9 +44,9 @@ u:(~explain_system)
     Můžeš se mě zeptat více na to, jak pracuji.
     u1:(["{na} co se mohu zeptat" "{na} jaké otázky se mohu zeptat" "co mi můžeš říct" "víc" "pokračuj" "{a} dál"])
         ^runTag(explain)
-        ["Můžeš se zeptat třeba na skenování, detekci, rychlost skenování nebo paměť. Nebo se zeptej na to jak se ptát" 
+        ["Můžeš se zeptat třeba na skenování, detekci, rychlost skenování nebo paměť. Nebo se zeptej na to jak se ptát"
         "Můžeš se mě zeptat na to, co vidím, jak jsem rychlý, jak zpracovávám scény nebo co si pamatuji. Nebo se zeptej na to jak se ptát"]
-        Co bys chtěl vědět 
+        Co bys chtěl vědět
         ^stayInScope
         u2:(["{zajímá mně} rychlost {skenování}" "jak rychlý {jsi}"])
             ^goto(speed)
@@ -59,13 +59,13 @@ u:(~explain_system)
 
         u2:(["paměť" "co si pamatuješ" "jak si pamatuješ"])
             ^goto(memory)
-        
+
         u2:("jak se {vlastně} ptát")
             ^goto(how)
 
         u2:(["díky" "děkuji" "to stačí"])
             ^goto(exit)
-        
+
     u1:(["jaké objekty poznáš" "co dokážeš rozpoznat" "co vidíš"]) %objects
         ^runTag(explain)
         Dokážu rozpoznat běžné objekty jako židle stoly obrazovky knihy a další
@@ -128,7 +128,7 @@ u:(~explain_system)
 # musim to zmazat tie  tagy alebo zatvarat
 
 
-# perception 
+# perception
 # this is just one fast scan of the scene
 concept:(quick_look_action) [
     "{řekni} co {teď} vidíš {teď}"
@@ -155,7 +155,7 @@ concept:(panorama_scan_action) [
     "zkontroluj všechno"
     "oskenuj detailně"
     "podívej se detailně"
-] 
+]
 
 concept:(quick_look) [
     "{prosím} ~quick_look_action"
@@ -180,7 +180,7 @@ u:(~quick_look)
         "Tak a budu fotit! Řekni sýr!"
         "Usměj se, fotím"
     ]
-    ^pCall(PepperGroundedClient.look("cs")) 
+    ^pCall(PepperGroundedClient.look("cs"))
     ^runTag(look)
     Zabere to {jen} [chvilinku okamžik]
 
@@ -301,7 +301,7 @@ u:(~refresh_memory_concepts)
 
 # TODO: problematic
 
-# dynamic concept conversation 
+# dynamic concept conversation
 concept:(object_query_lead) [
     "řekni mi něco o"
     "co víš o"
@@ -349,7 +349,7 @@ u:({~object_query_prefix} ~object_query_lead _~memory_objects)
 
 
 
-# with fallbacks dynamic concepts 
+# with fallbacks dynamic concepts
 #
 u:([co jaké které jmenuj] [objekty věci předměty] [vidíš vnímáš pozoruješ])
     ^pCall(PepperGroundedClient.listObjects("cs"))
@@ -408,7 +408,7 @@ u:(~position _*)
     $query="Kde se nachází $1"
     ^pCall(PepperGroundedClient.ask("cs", $query))
     Podívám se kde to muže být
-    
+
 
 u:(["co se děje" "popiš situaci" "jak bys popsal tuto situaci"])
     $query="Popiš situaci a co se v ní děje"
@@ -446,18 +446,18 @@ concept:(attribute) [
 u:("jakou barvu má" _~memory_objects)
     $query="Jakou barvu má objekt $1"
     ^pCall(PepperGroundedClient.ask("cs", $query))
-    Barve je hodně, Musím se podívat jakou barvu má $1.
+    Barev je hodně, Musím se podívat jakou barvu má $1.
 
 
 u:("[co něco některé] {[věci předměty]} [je jsou] " _~attribute)
-    $query="Které objekty jsou $1"    
+    $query="Které objekty jsou $1"
     ^pCall(PepperGroundedClient.ask("cs", $query))
     Tak to je otázka. Musím se pořádně zamyslet.
 
 u:(["jaký je" "co je"] _~memory_objects {zač})
     $query="Jaký je $1"
     ^pCall(PepperGroundedClient.ask("cs", $query))
-    $1? 
+    $1?
 
 u:(["jaké" "které"] ["vztahy" "vlastnosti" "atributy"] ["má" "vykazuje"] _~memory_objects)
     $query="jaké vztahy nebo atributy má $1"
@@ -471,7 +471,7 @@ u:(["má něco" "existuje něco"] ["ve vztahu" "s vlastností"] _~memory_relatio
     Zajímavá otázka. Zkusím si spomenout.
 
 
-# cached_qa 
+# cached_qa
 concept:(ask_suggested_questions) [
     "na co se [můžu mohu] zeptat"
     "navrhni otázky"
@@ -483,8 +483,8 @@ concept:(ask_suggested_questions) [
 
 u:(~ask_suggested_questions)
     "Ukážu ti možné otázky"
-    ^pCall(PepperGroundedClient.showMemory("cs"))
-    ^pCall(PepperGroundedClient.listCachedQuestions("cs"))
+    ^pCall(PepperGroundedClient.showMemoryAndSuggestQuestions("cs"))
+    #^pCall(PepperGroundedClient.listCachedQuestions("cs"))
 
 u:(_~memory_cached_questions)
     ^pCall(PepperGroundedClient.answerCachedQuestion("cs", $1))
@@ -493,4 +493,3 @@ u:(_~memory_cached_questions)
 u:(["zeptám se" "odpověz mi" "řekni mi"] _*)
     Pracuji na tom
     ^pCall(PepperGroundedClient.ask("cs", $1))
-

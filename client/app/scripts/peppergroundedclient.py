@@ -215,6 +215,7 @@ class PepperGroundedClient(object):
         )
         self.turn_manager.start_cached_answer(lang_code, question)
 
+    # TODO: could be used like: I know these facts: 
     # @qi.bind(returnType=qi.List)
     # def listCachedAnswers(self):
     #     return self.session_store.get_cached_answers()
@@ -301,16 +302,23 @@ class PepperGroundedClient(object):
                 text = u"Zeptej se cokoliv, teď nemám nic přichystané"
             else:
                 text = u"You can ask anything you like. I have nothing prepared"
-        self.say(text_utils.clean_text_unicode(text))
+        self.say(text)#text_utils.clean_text_unicode(text))
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def showMemory(self, lang_code):
         self.logger.info("showMemory called lang_code=%s", lang_code)
-        try: 
+        try:
             self.turn_manager.start_show_memory(lang_code)
         except Exception as exc:
             self.logger.error("Failed to show memory on tablet: %s", exc)
-            
+
+
+    @qi.bind(returnType=qi.Void, paramsType=[qi.String])
+    def showMemoryAndSuggestQuestions(self, lang_code):
+        self.logger.info("showMemoryAndSuggestQuestions called lang_code=%s",
+                         lang_code)
+        self.turn_manager.start_show_memory_and_suggest_questions(lang_code)
+
 
 
     @qi.bind(returnType=qi.Void, paramsType=[])
@@ -403,8 +411,8 @@ class PepperGroundedClient(object):
 
 
 if __name__ == "__main__":
-    run_local = False
-    czech = False
+    run_local = True
+    czech = True
     if run_local:
         app = qi.Application()
         app.start()

@@ -6,7 +6,9 @@ from research.experiments.io import load_json
 from research.experiments.io import save_json
 
 
-def write_ground_truth_template(run_dir: Path, out: Path | None = None) -> Path:
+def write_ground_truth_template(
+    run_dir: Path, out: Path | None = None, *, prefill_draft: bool = False
+) -> Path:
     detections = load_json(run_dir / "detections.json", default={})
     drafts = load_json(run_dir / "draft_scene_graph.json", default={})
     if out is None:
@@ -26,8 +28,11 @@ def write_ground_truth_template(run_dir: Path, out: Path | None = None) -> Path:
                 }
                 for idx, row in enumerate(detected, start=1)
             ],
-            "relationships": draft.get("relationships", []),
-            "comment": "Edit relationships to ground truth over the listed object IDs.",
+            "relationships": draft.get("relationships", []) if prefill_draft else [],
+            "annotation_source": (
+                "draft_prefilled_template" if prefill_draft else "blank_template"
+            ),
+            "comment": "Annotate ground truth relationships over the listed object IDs.",
         }
     save_json(out, payload)
     return out

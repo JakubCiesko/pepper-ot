@@ -38,7 +38,7 @@ def apply_nms_per_class(
 
     final = []
 
-    for cls, dets in grouped.items():
+    for dets in grouped.values():
         boxes = torch.tensor([d.bbox for d in dets], dtype=torch.float32)
         scores = torch.tensor([d.confidence for d in dets], dtype=torch.float32)
 

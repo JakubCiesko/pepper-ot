@@ -26,10 +26,6 @@ def clean_text(text, max_chars=None):
     return text or ""
 
 
-def sanitize_query(query, max_chars):
-    return clean_text(query, max_chars=max_chars)
-
-
 def clean_text_unicode(text, max_chars=None):
     if text is None:
         return u""
@@ -51,3 +47,9 @@ def clean_text_unicode(text, max_chars=None):
         text = text[:max_chars - 1].rstrip() + u"..."
 
     return text or u""
+
+
+#TODO: maybe removal
+def sanitize_query(query, max_chars):
+    return clean_text_unicode(query, max_chars=max_chars)#clean_text(query, max_chars=max_chars)
+

@@ -1,6 +1,6 @@
 name: PepperResearchExperiments
-experiment_id: PepperResearchExperiments_test
-seed: 42 # whatfor?
+experiment_id: null
+seed: 42
 
 paths:
   images_dir: "data/subset"
@@ -72,6 +72,8 @@ vocabulary:
   enabled: true
   #batch_size: 32
   max_concurrent_batches: 64
+  source_mode: "current_run"
+  frozen_file: null
   predicates_target: 50
   attributes_target: 25
   extract_system_prompt: >
@@ -100,6 +102,8 @@ draft_scene_graph:
   enabled: true
 #  batch_size: 8
   max_concurrent_batches: 64
+  visual_mode: "som"
+  vocab_mode: "closed"
   save_som_images: true
   som_output_dir: "som_images_draft"
   include_raw_response: true
@@ -165,7 +169,7 @@ evaluation:
   compute_pair_f1: true
   compute_attribute_f1: true
   compute_potency: true
-  missing_policy: "skip"
+  missing_policy: "empty"
   complexity_bins: [3, 5, 8, 12, 20]
 
 prompting:

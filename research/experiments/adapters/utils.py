@@ -18,7 +18,10 @@ def resize_pil_with_scale(
         return img, (1.0, 1.0)
     scale = max_dim / max(w, h)
     new_size = (int(w * scale), int(h * scale))
-    return img.resize(new_size, Image.Resampling.LANCZOS), (w / new_size[0], h / new_size[1])
+    return img.resize(new_size, Image.Resampling.LANCZOS), (
+        w / new_size[0],
+        h / new_size[1],
+    )
 
 
 def scale_xyxy_bbox(box: list[float], scale_x: float, scale_y: float) -> list[float]:

@@ -48,9 +48,11 @@ async def run_pipeline_batch(
                 "metrics": result.metrics,
                 "executed_stages": result.executed_stages,
                 "detections": [det.model_dump() for det in result.detections],
-                "scene_graph": result.scene_graph.model_dump()
-                if result.scene_graph is not None
-                else None,
+                "scene_graph": (
+                    result.scene_graph.model_dump()
+                    if result.scene_graph is not None
+                    else None
+                ),
                 "duration_s": perf_counter() - t0,
             }
         except Exception as exc:
@@ -86,7 +88,9 @@ async def run_pipeline_batch(
         if values:
             values = sorted(values)
             summary[f"{key}_p50"] = values[len(values) // 2]
-            summary[f"{key}_p95"] = values[min(len(values) - 1, int(len(values) * 0.95))]
+            summary[f"{key}_p95"] = values[
+                min(len(values) - 1, int(len(values) * 0.95))
+            ]
 
     save_json(out_dir / "pipeline_batch_per_image.json", per_image)
     save_json(out_dir / "pipeline_batch_summary.json", summary)

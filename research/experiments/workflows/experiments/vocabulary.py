@@ -1,4 +1,5 @@
 import asyncio
+from collections import Counter
 from time import perf_counter
 
 from tqdm.auto import tqdm
@@ -17,6 +18,32 @@ from research.experiments.schemas import ImagePredicatesAttributes
 async def run_vocabulary_mining(config: ExperimentConfig, run: RunContext) -> dict:
     run.logger.info("Starting vocabulary mining phase")
     stage_metrics = StageMetrics(stage="vocabulary")
+
+    if config.vocabulary.source_mode == "frozen_file":
+        if config.vocabulary.frozen_file is None:
+            raise RuntimeError(
+                "vocabulary.source_mode=frozen_file requires frozen_file"
+            )
+        final_vocab = load_json(config.vocabulary.frozen_file, default={})
+        if not isinstance(final_vocab, dict):
+            raise RuntimeError(
+                f"Frozen vocabulary is invalid: {config.vocabulary.frozen_file}"
+            )
+        final_vocab = {
+            "predicates": list(final_vocab.get("predicates", [])),
+            "attributes": list(final_vocab.get("attributes", [])),
+            "provenance": {
+                "source_mode": "frozen_file",
+                "frozen_file": str(config.vocabulary.frozen_file),
+            },
+        }
+        save_json(run.run_dir / config.paths.vocabulary_final_file, final_vocab)
+        stage_metrics.finish()
+        save_json(run.run_dir / "metrics_vocabulary.json", stage_metrics.to_dict())
+        run.logger.info(
+            "Copied frozen vocabulary from %s", config.vocabulary.frozen_file
+        )
+        return final_vocab
 
     descriptions = load_json(run.run_dir / config.paths.descriptions_file, default={})
     run.logger.info(
@@ -40,6 +67,7 @@ async def run_vocabulary_mining(config: ExperimentConfig, run: RunContext) -> di
         provider=config.vocabulary_model.provider,
         model_id=config.vocabulary_model.model_id,
         structured_mode=config.vocabulary_model.structured_mode,
+        base_url=config.vocabulary_model.base_url,
     )
 
     semaphore = asyncio.Semaphore(config.vocabulary.max_concurrent_batches)
@@ -103,9 +131,17 @@ async def run_vocabulary_mining(config: ExperimentConfig, run: RunContext) -> di
 
     predicates: list[str] = []
     attributes: list[str] = []
+    source_images: dict[str, dict[str, list[str]]] = {}
     for row in per_image.values():
         predicates.extend(row.get("predicates", []))
         attributes.extend(row.get("attributes", []))
+    for image_path, row in per_image.items():
+        source_images[image_path] = {
+            "predicates": list(row.get("predicates", [])),
+            "attributes": list(row.get("attributes", [])),
+        }
+    predicate_counts = Counter(predicates)
+    attribute_counts = Counter(attributes)
 
     consolidation_progress = tqdm(
         total=2, desc="Consolidating Final Vocabulary", unit="call"
@@ -133,6 +169,16 @@ async def run_vocabulary_mining(config: ExperimentConfig, run: RunContext) -> di
         "attributes": (attr_parsed.attributes if attr_parsed else [])[
             : config.vocabulary.attributes_target
         ],
+        "provenance": {
+            "source_mode": "current_run",
+            "source_images": sorted(source_images.keys()),
+            "predicate_counts": dict(predicate_counts.most_common()),
+            "attribute_counts": dict(attribute_counts.most_common()),
+            "extract_model": config.vocabulary_model.model_dump(),
+            "extract_system_prompt": config.vocabulary.extract_system_prompt,
+            "consolidate_predicates_prompt": config.vocabulary.consolidate_predicates_prompt,
+            "consolidate_attributes_prompt": config.vocabulary.consolidate_attributes_prompt,
+        },
     }
     save_json(run.run_dir / config.paths.vocabulary_final_file, final_vocab)
     stage_metrics.finish()

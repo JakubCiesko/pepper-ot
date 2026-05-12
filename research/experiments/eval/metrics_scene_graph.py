@@ -1,8 +1,11 @@
 from collections import Counter
 from dataclasses import dataclass
+import random
 
 from .normalization import CanonicalEdge
 from .normalization import canonicalize_edges
+from .normalization import normalize_node
+from .normalization import normalize_relation
 from .normalization import split_unary_binary
 
 
@@ -111,6 +114,93 @@ def evaluate_graph_pair(
     return out
 
 
+def _relationship_rows(payload: object) -> list[dict]:
+    if payload is None:
+        return []
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, dict)]
+    if not isinstance(payload, dict):
+        return []
+    for key in ("relationships", "edges", "no_label_edges"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [row for row in value if isinstance(row, dict)]
+    if all(key in payload for key in ("sub", "rel", "obj")):
+        return [payload]
+    return []
+
+
+def graph_diagnostics(
+    gt_payload: object,
+    pred_payload: object,
+    *,
+    valid_object_ids: set[str],
+    vocabulary: dict | None = None,
+    normalize_ids: bool = True,
+    normalize_relations: bool = True,
+) -> dict[str, int]:
+    vocabulary = vocabulary or {}
+    allowed_predicates = {
+        normalize_relation(item, normalize_relations=normalize_relations)
+        for item in vocabulary.get("predicates", [])
+    }
+    allowed_attributes = {
+        normalize_relation(item, normalize_relations=normalize_relations)
+        for item in vocabulary.get("attributes", [])
+    }
+    pred_rows = _relationship_rows(pred_payload)
+    pred_edges = [
+        CanonicalEdge(
+            sub=normalize_node(row.get("sub"), normalize_ids=normalize_ids),
+            rel=normalize_relation(
+                row.get("rel"), normalize_relations=normalize_relations
+            ),
+            obj=normalize_node(row.get("obj"), normalize_ids=normalize_ids),
+        )
+        for row in pred_rows
+        if all(key in row for key in ("sub", "rel", "obj"))
+    ]
+    gt_edges = canonicalize_edges(
+        gt_payload,
+        normalize_ids=normalize_ids,
+        normalize_relations=normalize_relations,
+    )
+    pred_counter = Counter(pred_edges)
+    duplicates = sum(count - 1 for count in pred_counter.values() if count > 1)
+    invalid_ids = 0
+    hallucinated_objects: set[str] = set()
+    oov_predicates = 0
+    oov_attributes = 0
+    direction_errors = 0
+    gt_binary = {edge for edge in gt_edges if edge.sub != edge.obj}
+
+    for edge in pred_edges:
+        for node in (edge.sub, edge.obj):
+            if valid_object_ids and node not in valid_object_ids:
+                invalid_ids += 1
+                hallucinated_objects.add(node)
+        if edge.sub == edge.obj:
+            if allowed_attributes and edge.rel not in allowed_attributes:
+                oov_attributes += 1
+        elif allowed_predicates and edge.rel not in allowed_predicates:
+            oov_predicates += 1
+        if (
+            edge.sub != edge.obj
+            and edge not in gt_binary
+            and CanonicalEdge(edge.obj, edge.rel, edge.sub) in gt_binary
+        ):
+            direction_errors += 1
+
+    return {
+        "invalid_object_id_refs": invalid_ids,
+        "hallucinated_object_count": len(hallucinated_objects),
+        "duplicate_relations": duplicates,
+        "oov_predicates": oov_predicates,
+        "oov_attributes": oov_attributes,
+        "direction_errors": direction_errors,
+    }
+
+
 @dataclass
 class PredicateStats:
     tp: int = 0
@@ -141,6 +231,7 @@ def summarize_per_image(
     attr_tp = attr_fp = attr_fn = 0
     pred_tp = pred_fp = pred_fn = 0
     ged_values: list[float] = []
+    diagnostic_totals: Counter[str] = Counter()
 
     predicate_stats: dict[str, PredicateStats] = {}
 
@@ -176,6 +267,8 @@ def summarize_per_image(
 
         if "normalized_ged" in row:
             ged_values.append(float(row["normalized_ged"]))
+        for key, value in row.get("diagnostics", {}).items():
+            diagnostic_totals[key] += int(value)
 
         if include_per_predicate:
             for predicate, counts in row.get("per_predicate", {}).items():
@@ -214,8 +307,39 @@ def summarize_per_image(
         )
         summary["per_predicate"] = per_predicate
         summary["predicate_macro_f1"] = macro_f1
+    if diagnostic_totals:
+        summary["diagnostics"] = dict(diagnostic_totals)
 
     return summary
+
+
+def bootstrap_metric_ci(
+    per_image: dict[str, dict],
+    *,
+    metric_group: str,
+    metric_name: str = "f1",
+    rounds: int = 1000,
+    seed: int = 42,
+) -> dict[str, float]:
+    rows = list(per_image.values())
+    if not rows or rounds <= 0:
+        return {}
+    rng = random.Random(seed)
+    values: list[float] = []
+    for _ in range(rounds):
+        sample = [rows[rng.randrange(len(rows))] for _ in rows]
+        tp = sum(int(row.get(metric_group, {}).get("tp", 0)) for row in sample)
+        fp = sum(int(row.get(metric_group, {}).get("fp", 0)) for row in sample)
+        fn = sum(int(row.get(metric_group, {}).get("fn", 0)) for row in sample)
+        values.append(float(_prf(tp, fp, fn)[metric_name]))
+    values.sort()
+    lo_idx = max(0, int(0.025 * (len(values) - 1)))
+    hi_idx = min(len(values) - 1, int(0.975 * (len(values) - 1)))
+    return {
+        "mean": sum(values) / len(values),
+        "ci95_low": values[lo_idx],
+        "ci95_high": values[hi_idx],
+    }
 
 
 def per_predicate_counts(

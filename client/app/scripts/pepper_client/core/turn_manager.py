@@ -77,6 +77,14 @@ class TurnManager(object):
             lang_code,
         )
 
+    def start_show_memory_and_suggest_questions(self, lang_code):
+        return self._start_async(
+            "show_memory_and_suggest_questions",
+            lang_code,
+            self._run_show_memory_and_suggest_questions,
+            lang_code,
+        )
+
     def start_cached_answer(self, lang_code, query):
         return self._start_async(
             "cached_answer",
@@ -372,20 +380,42 @@ class TurnManager(object):
         self.session_store.update_after_chat(query, chat_response)
         self._safe_say(chat_response.get("sentence"), speech_mode)
 
+    def _run_show_memory_and_suggest_questions(self, lang_code):
+        runtime_lang = self._speech_lang(lang_code)
+        speech_mode = self._speech_request_language(lang_code)
+        summary, qa_response = self._load_memory_page(runtime_lang)
+        shown = self.tablet_adapter.show_memory_page(
+            payload=self._build_memory_page_payload(
+                summary,
+                qa_response,
+                ui_language=runtime_lang,
+            ))
+        if not shown:
+            self._safe_say(
+                fallback_message("unexpected", runtime_lang),
+                speech_mode,
+            )
+            return
+        self._safe_say(
+            self._suggested_question_text(runtime_lang),
+            speech_mode,
+        )
+
     def _run_cached_answer(self, lang_code, query):
         runtime_lang = self._speech_lang(lang_code)
         speech_mode = self._speech_request_language(lang_code)
         max_chars = int(self.config["behavior"].get("max_query_chars", 320))
-        query = text_utils.sanitize_query(query, max_chars)
+        query = text_utils.clean_text_unicode(query, max_chars=max_chars)
         if not query:
             self.logger.info("Ignoring cached answer with empty query")
             return
         cached_answers = self.session_store.get_cached_answers()
         answer = cached_answers.get(query)
         if answer is None:
-            normalized_query = query.strip().lower()
+            normalized_query = self._normalize_cached_question(query)
             for question, candidate in cached_answers.items():
-                if str(question or "").strip().lower() == normalized_query:
+                if (self._normalize_cached_question(question) ==
+                        normalized_query):
                     answer = candidate
                     break
         if answer:
@@ -406,6 +436,20 @@ class TurnManager(object):
     def _run_show_memory(self, lang_code):
         runtime_lang = self._speech_lang(lang_code)
         speech_mode = self._speech_request_language(lang_code)
+        summary, qa_response = self._load_memory_page(runtime_lang)
+        shown = self.tablet_adapter.show_memory_page(
+            payload=self._build_memory_page_payload(
+                summary,
+                qa_response,
+                ui_language=runtime_lang,
+            ))
+        if not shown:
+            self._safe_say(
+                fallback_message("unexpected", runtime_lang),
+                speech_mode,
+            )
+
+    def _load_memory_page(self, runtime_lang):
         render_limit = scan_planner.memory_render_limit(self.config)
         summary = self.transport.memory_summary(
             render_limit=render_limit,
@@ -422,18 +466,22 @@ class TurnManager(object):
         except Exception as exc:
             self.logger.warning("Pregenerated QA request failed: %s", exc)
         self._refresh_dynamic_concepts_from_summary(summary)
+        return summary, qa_response
 
-        shown = self.tablet_adapter.show_memory_page(
-            payload=self._build_memory_page_payload(
-                summary,
-                qa_response,
-                ui_language=runtime_lang,
-            ))
-        if not shown:
-            self._safe_say(
-                fallback_message("unexpected", runtime_lang),
-                speech_mode,
-            )
+    def _normalize_cached_question(self, value):
+        value = text_utils.clean_text_unicode(value)
+        return value.strip().lower().rstrip(u" ?.!").strip()
+
+    def _suggested_question_text(self, runtime_lang):
+        questions = self.session_store.get_cached_questions()
+        if questions:
+            question = text_utils.clean_text_unicode(questions[0])
+            if runtime_lang == "cs":
+                return u"Mužeš se zeptat třeba tohle: %s" % question
+            return u"You can ask me like this: %s" % question
+        if runtime_lang == "cs":
+            return u"Zeptej se cokoliv, teď nemám nic přichystané"
+        return u"You can ask anything you like. I have nothing prepared"
 
     def _run_reset_memory(self, lang_code):
         runtime_lang = self._speech_lang(lang_code)

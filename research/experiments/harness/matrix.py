@@ -55,7 +55,13 @@ async def run_matrix(matrix_path: Path) -> list[dict[str, Any]]:
         raw_config["name"] = raw_config.get("name") or matrix.get("name", "matrix")
 
         config = ExperimentConfig(**raw_config)
-        run = start_run(config.paths.output_root, config.name, config.experiment_id, raw_config)
+        run = start_run(
+            config.paths.output_root,
+            config.name,
+            config.experiment_id,
+            raw_config,
+            command=f"run-matrix:{name}",
+        )
         _write_variant_config(run.run_dir, raw_config)
         if config.paths.manifest_file:
             manifest_path = Path(config.paths.manifest_file)

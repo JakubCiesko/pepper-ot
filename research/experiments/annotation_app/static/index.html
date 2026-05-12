@@ -1,115 +1,128 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Scene Graph Annotation Center</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <script id="bundle-data" type="application/json">{{BUNDLE_JSON}}</script>
-    <div id="app" class="app-shell">
-      <header class="topbar">
-        <div class="brand">
-          <div class="eyebrow">Scene Graph Annotation Center</div>
-          <h1 id="bundle-title">Bundle</h1>
-          <div id="bundle-meta" class="meta"></div>
-        </div>
-        <div class="top-actions">
-          <button id="prev-btn" class="btn">Prev</button>
-          <button id="next-btn" class="btn">Next</button>
-          <button id="toggle-view-btn" class="btn">Toggle Image</button>
-          <button id="save-btn" class="btn primary">Download JSON</button>
-          <button id="copy-btn" class="btn">Copy JSON</button>
-        </div>
-      </header>
 
-      <main class="layout">
-        <aside class="panel nav-panel">
-          <div class="panel-header">
-            <h2>Images</h2>
-            <div id="progress" class="subtle"></div>
-          </div>
-          <div id="image-list" class="image-list"></div>
-        </aside>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scene Graph Annotation Center</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
 
-        <section class="panel viewer-panel">
+<body>
+  <script id="bundle-data" type="application/json">{{BUNDLE_JSON}}</script>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="eyebrow">Scene Graph Annotation Center</div>
+        <h1 id="bundle-title">Bundle</h1>
+        <div id="bundle-meta" class="meta"></div>
+      </div>
+      <div class="top-actions">
+        <button id="prev-btn" class="btn">Prev</button>
+        <button id="next-btn" class="btn">Next</button>
+        <button id="toggle-view-btn" class="btn">Toggle Image</button>
+        <button id="save-btn" class="btn primary">Download JSON</button>
+        <button id="copy-btn" class="btn">Copy JSON</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel nav-panel">
+        <div class="panel-header">
+          <h2>Images</h2>
+          <div id="progress" class="subtle"></div>
+        </div>
+        <div id="image-list" class="image-list"></div>
+      </aside>
+
+      <section class="panel viewer-panel">
+        <div class="panel-header">
+          <h2 id="image-title">Image</h2>
+          <div id="image-status" class="subtle"></div>
+        </div>
+        <div class="viewer-toolbar">
+          <div id="view-label" class="pill"></div>
+          <button id="mark-done-btn" class="btn">Mark Done</button>
+          <button id="add-relation-btn" class="btn">Add Relation</button>
+          <button id="add-attribute-btn" class="btn">Add Attribute</button>
+        </div>
+
+        <section class="panel editor-panel">
           <div class="panel-header">
-            <h2 id="image-title">Image</h2>
-            <div id="image-status" class="subtle"></div>
+            <h2>Triples</h2>
+            <div id="editor-status" class="subtle"></div>
           </div>
-          <div class="viewer-toolbar">
-            <div id="view-label" class="pill"></div>
-            <button id="mark-done-btn" class="btn">Mark Done</button>
-            <button id="add-relation-btn" class="btn">Add Relation</button>
-            <button id="add-attribute-btn" class="btn">Add Attribute</button>
+          <div class="editor-help">
+            Use the selects to edit triples. Subject and object IDs come from detected objects. Unary attributes use the
+            same ID for subject and object.
           </div>
-          <div class="image-frame">
-            <img id="scene-image" alt="scene" />
-          </div>
-          <details class="caption-box" id="caption-details">
-            <summary class="caption-summary">
-              <span class="caption-label">Caption</span>
-              <span class="caption-summary-hint">hidden by default</span>
-            </summary>
-            <div id="caption-text" class="caption-text"></div>
-          </details>
-          <div class="objects-box">
-            <div class="section-title">
-              <h3>Objects</h3>
-              <div class="subtle">Click S or O to fill the active row</div>
-            </div>
-            <div id="object-list" class="object-list"></div>
+          <div class="table-wrap">
+            <table class="triple-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Subject</th>
+                  <th>Relation</th>
+                  <th>Object</th>
+                  <th>Type</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="triple-body"></tbody>
+            </table>
           </div>
         </section>
 
-        <aside class="panel side-panel">
-          <div class="panel-header">
-            <h2>Vocabulary</h2>
-            <div id="vocab-counts" class="subtle"></div>
-          </div>
-          <input id="relation-filter" class="search" type="search" placeholder="Filter relations" />
-          <div class="vocab-section">
-            <div class="section-title"><h3>Predicates</h3></div>
-            <div id="predicate-list" class="tag-list"></div>
-          </div>
-          <div class="vocab-section">
-            <div class="section-title"><h3>Attributes</h3></div>
-            <div id="attribute-list" class="tag-list"></div>
-          </div>
-          <div class="vocab-section">
-            <div class="section-title"><h3>Notes</h3></div>
-            <textarea id="notes" class="notes" rows="8" placeholder="Optional note for this image"></textarea>
-          </div>
-        </aside>
-      </main>
-
-      <section class="panel editor-panel">
-        <div class="panel-header">
-          <h2>Triples</h2>
-          <div id="editor-status" class="subtle"></div>
+        <div class="image-frame">
+          <img id="scene-image" alt="scene" />
         </div>
-        <div class="editor-help">
-          Use the selects to edit triples. Subject and object IDs come from detected objects. Unary attributes use the same ID for subject and object.
-        </div>
-        <div class="table-wrap">
-          <table class="triple-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Subject</th>
-                <th>Relation</th>
-                <th>Object</th>
-                <th>Type</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="triple-body"></tbody>
-          </table>
+        <details class="caption-box" id="caption-details">
+          <summary class="caption-summary">
+            <span class="caption-label">Caption</span>
+            <span class="caption-summary-hint">hidden by default</span>
+          </summary>
+          <div id="caption-text" class="caption-text"></div>
+        </details>
+        <div class="objects-box">
+          <div class="section-title">
+            <h3>Objects</h3>
+            <div class="subtle">Click S or O to fill the active row</div>
+          </div>
+          <div id="object-list" class="object-list"></div>
         </div>
       </section>
-    </div>
 
-    <script src="app.js"></script>
-  </body>
+      <aside class="panel side-panel">
+        <div class="panel-header">
+          <h2>Vocabulary</h2>
+          <div id="vocab-counts" class="subtle"></div>
+        </div>
+        <input id="relation-filter" class="search" type="search" placeholder="Filter relations" />
+        <div class="vocab-section">
+          <div class="section-title">
+            <h3>Predicates</h3>
+          </div>
+          <div id="predicate-list" class="tag-list"></div>
+        </div>
+        <div class="vocab-section">
+          <div class="section-title">
+            <h3>Attributes</h3>
+          </div>
+          <div id="attribute-list" class="tag-list"></div>
+        </div>
+        <div class="vocab-section">
+          <div class="section-title">
+            <h3>Notes</h3>
+          </div>
+          <textarea id="notes" class="notes" rows="8" placeholder="Optional note for this image"></textarea>
+        </div>
+      </aside>
+    </main>
+
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
 </html>

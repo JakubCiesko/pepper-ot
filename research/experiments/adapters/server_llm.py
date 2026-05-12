@@ -5,7 +5,7 @@ from .bootstrap import ensure_server_app_importable
 
 class ServerLLMAdapter:
     def __init__(
-        self, provider: str, model_id: str, structured_mode: str = "provider_native"
+        self, provider: str, model_id: str, structured_mode: str = "provider_native", base_url: str | None = None
     ):
         ensure_server_app_importable()
         from app.providers.llm.client import LLMClient
@@ -16,6 +16,7 @@ class ServerLLMAdapter:
             provider=provider,
             model_id=model_id,
             structured_output=StructuredOutputConfig(mode=structured_mode),
+            base_url=base_url
         )
         self._client = LLMClient(cfg)
 

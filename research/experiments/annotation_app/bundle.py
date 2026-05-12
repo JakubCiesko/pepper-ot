@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
-import re
-import shutil
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
+import json
 from pathlib import Path
+import re
+import shutil
 from typing import Any
 
 from research.experiments.io import load_json
@@ -37,7 +37,9 @@ def _json_for_html(payload: Any) -> str:
     return text
 
 
-def _collect_objects(item: dict[str, Any], detections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _collect_objects(
+    item: dict[str, Any], detections: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     objects = item.get("objects")
     if isinstance(objects, list) and objects:
         return objects
@@ -71,7 +73,9 @@ def _collect_relationships(item: dict[str, Any]) -> list[dict[str, str]]:
     return out
 
 
-def _collect_vocabulary(item: dict[str, Any], run_vocab: dict[str, Any]) -> dict[str, list[str]]:
+def _collect_vocabulary(
+    item: dict[str, Any], run_vocab: dict[str, Any]
+) -> dict[str, list[str]]:
     vocab = item.get("vocabulary")
     if isinstance(vocab, dict):
         predicates = [str(x) for x in vocab.get("predicates", []) if str(x).strip()]
@@ -98,7 +102,9 @@ def build_annotation_bundle(run_dir: Path, out_dir: Path) -> Path:
     raw_assets.mkdir(parents=True, exist_ok=True)
     som_assets.mkdir(parents=True, exist_ok=True)
 
-    keys = sorted(set(detections.keys()) | set(descriptions.keys()) | set(drafts.keys()))
+    keys = sorted(
+        set(detections.keys()) | set(descriptions.keys()) | set(drafts.keys())
+    )
     items: list[dict[str, Any]] = []
     for idx, key in enumerate(keys, start=1):
         draft = drafts.get(key, {})
@@ -140,7 +146,9 @@ def build_annotation_bundle(run_dir: Path, out_dir: Path) -> Path:
             "image_path": key,
             "raw_image_uri": raw_uri,
             "som_image_uri": som_uri,
-            "caption": str(draft.get("caption") or descriptions.get(key, {}).get("text") or ""),
+            "caption": str(
+                draft.get("caption") or descriptions.get(key, {}).get("text") or ""
+            ),
             "objects": _collect_objects(draft, detection_rows),
             "vocabulary": _collect_vocabulary(draft, run_vocab),
             "draft_relationships": _collect_relationships(draft),
@@ -173,9 +181,13 @@ def build_annotation_bundle(run_dir: Path, out_dir: Path) -> Path:
     return out_dir
 
 
-def _extract_annotation_payload(payload: Any) -> dict[str, dict[str, list[dict[str, str]]]]:
-    if isinstance(payload, dict) and "annotations" in payload and isinstance(
-        payload["annotations"], dict
+def _extract_annotation_payload(
+    payload: Any,
+) -> dict[str, dict[str, list[dict[str, str]]]]:
+    if (
+        isinstance(payload, dict)
+        and "annotations" in payload
+        and isinstance(payload["annotations"], dict)
     ):
         payload = payload["annotations"]
     if not isinstance(payload, dict):

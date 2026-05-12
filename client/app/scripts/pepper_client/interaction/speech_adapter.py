@@ -81,6 +81,7 @@ class SpeechAdapter(object):
         if current == target:
             return
         try:
+            #TODO: never do this? 
             self.tts.setLanguage(target)
             self.logger.info("TTS language set to %s", target)
         except Exception as exc:

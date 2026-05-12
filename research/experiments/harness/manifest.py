@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import asdict
 from dataclasses import dataclass
 import json
 from pathlib import Path
 import random
 import shutil
-from typing import Iterable
 
 from research.experiments.io.dataset import SUPPORTED_EXTENSIONS
 

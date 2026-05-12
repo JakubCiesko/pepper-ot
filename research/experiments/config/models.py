@@ -28,6 +28,8 @@ class LLMModelConfig(BaseModel):
     structured_mode: Literal["provider_native", "parse_output", "instructor"] = (
         "provider_native"
     )
+    base_url: str | None = None
+    api_key: str | None = None
 
 
 class DetectionStageConfig(BaseModel):
@@ -41,7 +43,7 @@ class DetectionStageConfig(BaseModel):
 class DescriptionStageConfig(BaseModel):
     enabled: bool = True
     # unused
-    batch_size: int = 8
+    batch_size: int = 2
     max_concurrent_batches: int = 2
     system_prompt: str = (
         "Describe the image in detail, mention visible objects, attributes, and relations."
@@ -55,10 +57,12 @@ class DescriptionStageConfig(BaseModel):
 class VocabularyStageConfig(BaseModel):
     enabled: bool = True
     # unused
-    batch_size: int = 16
+    batch_size: int = 2
     max_concurrent_batches: int = 2
     predicates_target: int = 50
     attributes_target: int = 25
+    source_mode: Literal["current_run", "frozen_file"] = "current_run"
+    frozen_file: Path | None = None
     extract_system_prompt: str = (
         "Extract practical predicates and attributes from the caption for scene graph use."
     )
@@ -77,6 +81,8 @@ class DraftSceneGraphStageConfig(BaseModel):
     max_concurrent_batches: int = 2
     save_som_images: bool = True
     use_som_image: bool = True
+    visual_mode: Literal["raw", "som"] = "som"
+    vocab_mode: Literal["open", "closed", "soft"] = "closed"
     som_output_dir: str = "som_images_draft"
     include_raw_response: bool = True
     som_show_bbox: bool = True
@@ -101,7 +107,9 @@ class ContextRotStageConfig(BaseModel):
     enabled: bool = True
     min_vocab_size: int = 10
     step: int = 5
-    strategy: Literal["semantic", "frequency", "random", "llm_drop", "random_drop"] = "semantic"
+    strategy: Literal["semantic", "frequency", "random", "llm_drop", "random_drop"] = (
+        "semantic"
+    )
     rounds_per_size: int = 1
     evaluate_against_ground_truth: bool = True
 
@@ -116,8 +124,9 @@ class EvaluationStageConfig(BaseModel):
     compute_pair_f1: bool = True
     compute_attribute_f1: bool = True
     compute_potency: bool = True
-    missing_policy: Literal["skip", "empty"] = "skip"
+    missing_policy: Literal["skip", "empty"] = "empty"
     complexity_bins: list[int] = Field(default_factory=lambda: [3, 5, 8, 12, 20])
+    bootstrap_rounds: int = 1000
 
 
 class PromptingConfig(BaseModel):

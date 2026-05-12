@@ -1,16 +1,16 @@
 import asyncio
-import logging
-import shutil
 from functools import partial
-from http.server import ThreadingHTTPServer
 from http.server import SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer
+import logging
 from pathlib import Path
+import shutil
 
 import click
 
-from ..config import load_experiment_config
 from ..annotation_app import build_annotation_bundle
 from ..annotation_app import import_annotation_export
+from ..config import load_experiment_config
 from ..harness.manifest import write_gqa_manifest
 from ..harness.manifest import write_local_manifest
 from ..harness.matrix import run_matrix
@@ -18,6 +18,7 @@ from ..harness.pipeline_batch import run_pipeline_batch
 from ..harness.reports import aggregate_runs
 from ..harness.templates import write_ground_truth_template
 from ..io import RunContext
+from ..io import resume_run
 from ..io import start_run
 from ..workflows.experiments import run_all_phases
 from ..workflows.experiments import run_context_rot
@@ -36,10 +37,34 @@ def main() -> None:
     """Research CLI for scene-graph experiments."""
 
 
-def _prepare(config_path: Path):
+def _config_from_metadata(metadata: dict):
+    raw_config = metadata.get("config")
+    if not isinstance(raw_config, dict):
+        raise click.ClickException(
+            "Run metadata does not contain a valid config object."
+        )
+    return load_experiment_config_from_raw(raw_config), raw_config
+
+
+def _prepare(config_path: Path, *, command: str):
     config, raw = load_experiment_config(config_path)
-    run = start_run(config.paths.output_root, config.name, config.experiment_id, raw)
+    run = start_run(
+        config.paths.output_root,
+        config.name,
+        config.experiment_id,
+        raw,
+        command=command,
+    )
     run.logger.info("Using config=%s", config_path)
+    return config, run
+
+
+def _prepare_or_resume(config_path: Path, run_dir: Path | None, *, command: str):
+    if run_dir is None:
+        return _prepare(config_path, command=command)
+    run, metadata = resume_run(run_dir)
+    config, _ = _config_from_metadata(metadata)
+    run.logger.info("Using resumed config from %s", run_dir / "run_metadata.json")
     return config, run
 
 
@@ -48,7 +73,7 @@ def _prepare(config_path: Path):
     "--config", "config_path", type=click.Path(path_type=Path), default=DEFAULT_CONFIG
 )
 def run_all_command(config_path: Path) -> None:
-    config, run = _prepare(config_path)
+    config, run = _prepare(config_path, command="run-all")
     asyncio.run(run_all_phases(config, run))
 
 
@@ -56,8 +81,9 @@ def run_all_command(config_path: Path) -> None:
 @click.option(
     "--config", "config_path", type=click.Path(path_type=Path), default=DEFAULT_CONFIG
 )
-def describe_command(config_path: Path) -> None:
-    config, run = _prepare(config_path)
+@click.option("--run", "run_dir", type=click.Path(path_type=Path), default=None)
+def describe_command(config_path: Path, run_dir: Path | None) -> None:
+    config, run = _prepare_or_resume(config_path, run_dir, command="describe")
     asyncio.run(run_descriptions(config, run))
 
 
@@ -65,8 +91,9 @@ def describe_command(config_path: Path) -> None:
 @click.option(
     "--config", "config_path", type=click.Path(path_type=Path), default=DEFAULT_CONFIG
 )
-def mine_vocab_command(config_path: Path) -> None:
-    config, run = _prepare(config_path)
+@click.option("--run", "run_dir", type=click.Path(path_type=Path), default=None)
+def mine_vocab_command(config_path: Path, run_dir: Path | None) -> None:
+    config, run = _prepare_or_resume(config_path, run_dir, command="mine-vocab")
     asyncio.run(run_vocabulary_mining(config, run))
 
 
@@ -74,8 +101,9 @@ def mine_vocab_command(config_path: Path) -> None:
 @click.option(
     "--config", "config_path", type=click.Path(path_type=Path), default=DEFAULT_CONFIG
 )
-def draft_sgg_command(config_path: Path) -> None:
-    config, run = _prepare(config_path)
+@click.option("--run", "run_dir", type=click.Path(path_type=Path), default=None)
+def draft_sgg_command(config_path: Path, run_dir: Path | None) -> None:
+    config, run = _prepare_or_resume(config_path, run_dir, command="draft-sgg")
     asyncio.run(run_draft_scene_graph(config, run))
 
 
@@ -83,8 +111,9 @@ def draft_sgg_command(config_path: Path) -> None:
 @click.option(
     "--config", "config_path", type=click.Path(path_type=Path), default=DEFAULT_CONFIG
 )
-def context_rot_command(config_path: Path) -> None:
-    config, run = _prepare(config_path)
+@click.option("--run", "run_dir", type=click.Path(path_type=Path), default=None)
+def context_rot_command(config_path: Path, run_dir: Path | None) -> None:
+    config, run = _prepare_or_resume(config_path, run_dir, command="context-rot")
     asyncio.run(run_context_rot(config, run))
 
 
@@ -92,8 +121,9 @@ def context_rot_command(config_path: Path) -> None:
 @click.option(
     "--config", "config_path", type=click.Path(path_type=Path), default=DEFAULT_CONFIG
 )
-def evaluate_sgg_command(config_path: Path) -> None:
-    config, run = _prepare(config_path)
+@click.option("--run", "run_dir", type=click.Path(path_type=Path), default=None)
+def evaluate_sgg_command(config_path: Path, run_dir: Path | None) -> None:
+    config, run = _prepare_or_resume(config_path, run_dir, command="evaluate-sgg")
     asyncio.run(run_scene_graph_evaluation(config, run))
 
 
@@ -104,7 +134,9 @@ def evaluate_sgg_command(config_path: Path) -> None:
     required=True,
     help="Dataset source to materialize into manifest.jsonl.",
 )
-@click.option("--images-dir", type=click.Path(path_type=Path), default=Path("data/subset"))
+@click.option(
+    "--images-dir", type=click.Path(path_type=Path), default=Path("data/subset")
+)
 @click.option("--out", type=click.Path(path_type=Path), required=True)
 @click.option("--max-samples", type=int, default=10)
 @click.option("--seed", type=int, default=42)
@@ -145,8 +177,15 @@ def run_matrix_command(matrix_path: Path) -> None:
 @main.command("make-gt-template")
 @click.option("--run", "run_dir", type=click.Path(path_type=Path), required=True)
 @click.option("--out", type=click.Path(path_type=Path), default=None)
-def make_gt_template_command(run_dir: Path, out: Path | None) -> None:
-    path = write_ground_truth_template(run_dir, out)
+@click.option(
+    "--prefill-draft/--blank",
+    default=False,
+    help="Prefill relationships from draft SGG or create blank annotation rows.",
+)
+def make_gt_template_command(
+    run_dir: Path, out: Path | None, prefill_draft: bool
+) -> None:
+    path = write_ground_truth_template(run_dir, out, prefill_draft=prefill_draft)
     click.echo(f"Wrote ground-truth template to {path}")
 
 
@@ -160,8 +199,7 @@ def evaluate_run_command(run_dir: Path, gt_path: Path) -> None:
     import json
 
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    raw_config = metadata["config"]
-    config = load_experiment_config_from_raw(raw_config)
+    config, _ = _config_from_metadata(metadata)
     shutil.copyfile(gt_path, run_dir / config.paths.ground_truth_scene_graph_file)
     logger = logging.getLogger(f"research.run.evaluate.{metadata['run_id']}")
     logger.setLevel(logging.INFO)

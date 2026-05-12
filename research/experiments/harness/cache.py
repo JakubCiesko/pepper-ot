@@ -10,9 +10,9 @@ from research.experiments.io import save_json
 
 
 def stable_hash(payload: Any) -> str:
-    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).encode(
-        "utf-8"
-    )
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, default=str
+    ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 

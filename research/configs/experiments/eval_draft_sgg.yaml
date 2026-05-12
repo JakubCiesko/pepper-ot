@@ -1,0 +1,93 @@
+name: PepperEvalDraftSGG
+experiment_id: eval_draft_sgg_frozen_vocab_v1
+seed: 42
+
+paths:
+  images_dir: "data/images/eval"
+  output_root: "research/artifacts"
+
+description_model:
+  provider: "gemini"
+  model_id: "gemini-3.1-flash-lite"
+  structured_mode: "provider_native"
+
+vocabulary_model:
+  provider: "gemini"
+  model_id: "gemini-3.1-flash-lite"
+  structured_mode: "provider_native"
+
+draft_sgg_model:
+  provider: "gemini"
+  model_id: "gemini-3.1-flash-lite"
+  structured_mode: "provider_native"
+
+detection:
+  enabled: true
+  backend: "rf_detr"
+  batch_size: 4
+  max_image_size: 1024
+  confidence: 0.5
+
+descriptions:
+  enabled: true
+  max_image_size: 1024
+  max_concurrent_batches: 8
+  system_prompt: >
+    Describe only what is visually observable in the image.
+    Focus on detected objects, their attributes, and relationships between them.
+    Prefer precise language useful for scene graph annotation.
+  user_prompt_template: >
+    Detected objects: {objects}
+
+    Write a detailed but simple visual description for the provided image.
+    Mention visible detected objects, object attributes, and spatial or interaction relations.
+    Do not invent objects not visible in the image.
+
+vocabulary:
+  enabled: true
+  source_mode: "frozen_file"
+  frozen_file: "research/configs/vocab/frozen_office_hri_vocab.json"
+
+draft_scene_graph:
+  enabled: true
+  max_image_size: 1024
+  max_concurrent_batches: 4
+  visual_mode: "som"
+  vocab_mode: "closed"
+  save_som_images: true
+  som_output_dir: "som_images_draft"
+  include_raw_response: true
+  som_show_bbox: true
+  som_show_mask: false
+  som_show_polygon: false
+  som_show_labels: true
+  som_line_thickness: 2
+  som_mask_opacity: 0.5
+  som_color_lookup: "index"
+  som_mask_backend: "grabcut"
+  som_device: "cuda"
+  system_prompt: >
+    You are generating a scene graph for an indoor human-robot interaction image.
+
+    Use ONLY the values in the provided PREDICATES and ATTRIBUTES lists. Do not invent new ones.
+    Use only the detected object IDs listed in the prompt.
+    For binary relations, sub and obj must be different object IDs.
+    For unary attributes, sub and obj must be the same object ID.
+    Include only visually grounded and useful relations.
+    Output only valid JSON matching the requested schema.
+  user_prompt_template: >
+    Objects: {objects}
+
+    Allowed predicates and attributes: {vocabulary}
+
+    Caption: {caption}
+
+context_rot:
+  enabled: false
+
+evaluation:
+  enabled: false
+
+prompting:
+  include_detection_labels_in_descriptions: true
+  include_caption_in_sgg_prompt: true

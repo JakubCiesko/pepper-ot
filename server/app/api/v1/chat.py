@@ -415,7 +415,7 @@ async def delete_conversation(chat_id: str):
 
 @router.post("/chat/pregenerate_qa", response_model=PregeneratedQAResponse)
 async def get_memory_pregenerated_qa(
-    request: PregeneratedQARequest | None = Body(default=None),
+    request: PregeneratedQARequest | None = None, #Body(default=None),
 ):
     request = request or PregeneratedQARequest()
     logger.info(

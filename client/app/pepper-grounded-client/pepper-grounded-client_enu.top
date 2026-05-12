@@ -7,7 +7,7 @@ dynamic: memory_attributes
 dynamic: memory_relations
 dynamic: memory_cached_questions
 
-# system introduction 
+# system introduction
 concept:(question_prefix) [
     "how do you"
     "how can you"
@@ -29,7 +29,7 @@ concept:(vision_action) [
     perceive the environment
     perceive the scene
     perceive your surroundings
-    process images 
+    process images
 
 ]
 
@@ -56,7 +56,7 @@ u:(~explain_system)
     Then I organize this information into a structured representation of the scene
 
     ^run(animations/Stand/Gestures/YouKnowWhat_6)
-    This allows me to answer questions about what I see and how things are related. 
+    This allows me to answer questions about what I see and how things are related.
     ^runTag(you)
     You can ask me more about how I work.
     u1:(["what can I ask" "what questions can I ask" "what can you tell me" "what else" "more" "continue" "anything else"])
@@ -75,16 +75,16 @@ u:(~explain_system)
 
         u2:(["memory" "how do you remember" "what do you remember"])
             ^goto(memory)
-        
+
         u2:(["{okay} thank you" "thanks" "I know {everything} {now}"])
             ^goto(exit)
-        
+
     u1:(["what objects can you detect" "what do you recognize" "what can you see"]) %objects
         ^runTag(explain)
         I can recognize many common objects such as chairs, tables, screens, books, and more.
 
         ^run(animations/Stand/Gestures/Show_1)
-        If the objects are visible and clear, I will try to detect them. 
+        If the objects are visible and clear, I will try to detect them.
         ^stayInScope
     u1:(["how fast are you" "are you fast" "is it quick" "how long does it take"]) %speed
         ^run(animations/Stand/Gestures/Explain_4)
@@ -98,7 +98,7 @@ u:(~explain_system)
         ^runTag(explain)
         A scan means I observe the environment from multiple directions. I will look around like this
         ^run(animations/Stand/Gestures/LookAround_1)
-        Then I combine the observations into a more complete understanding of the scene. 
+        Then I combine the observations into a more complete understanding of the scene.
         A quick look is a faster alternative of the full scan
         ^stayInScope
 
@@ -130,7 +130,7 @@ u:(~explain_system)
         Let's start talking about what I see then
 
 
-# perception 
+# perception
 # this is just one fast scan of the scene
 concept:(quick_look_action) [
     "what do you see"
@@ -162,7 +162,7 @@ concept:(panorama_scan_action) [
     "check everything"
     "scan closely"
     "look closely"
-] 
+]
 
 concept:(quick_look) [
     "{please} ~quick_look_action"
@@ -183,7 +183,7 @@ u:(~quick_look)
         "Let me take a quick look."
         "I will check the scene."
     ]
-    ^pCall(PepperGroundedClient.look("en")) 
+    ^pCall(PepperGroundedClient.look("en"))
     ^runTag(look)
     This will take {just} a [moment second].
 
@@ -301,7 +301,7 @@ u:(~refresh_memory_concepts)
     ^pCall(PepperGroundedClient.refreshMemoryConcepts("en"))
 
 
-# dynamic concept conversation 
+# dynamic concept conversation
 concept:(object_query_lead) [
     "tell me about"
     "what do you know about"
@@ -339,7 +339,7 @@ u:({~object_query_prefix} ~object_query_lead _~memory_objects {please})
     u1:(["{wow} that was interesting" "thanks" "{let's} focus on {something} else"])
         No problem, let's talk about something else
 
-# with fallbacks dynamic concepts 
+# with fallbacks dynamic concepts
 
 u:([what which list] [objects things] {do} you see)
     ^pCall(PepperGroundedClient.listObjects("en"))
@@ -381,7 +381,7 @@ u:(~present _~memory_objects {there})
 u:(~present _*)
     $query="do you see $1"
     ^pCall(PepperGroundedClient.ask("en", $query))
-    Let me see 
+    Let me see
 
 
 concept:(position) [
@@ -399,7 +399,7 @@ u:(~position _*)
     $query="where is $1 located"
     ^pCall(PepperGroundedClient.ask("en", $query))
     Let me think
-    
+
 
 u:(["what is happening" "describe the situation"])
     $query="describe the scene and what is happening"
@@ -437,7 +437,7 @@ u:("[what which] [color colour] is" _~memory_objects)
 
 
 u:("[what which] [objects things] [is are]" _~attribute)
-    $query="which objects are $1"    
+    $query="which objects are $1"
     ^pCall(PepperGroundedClient.ask("en", $query))
     Now! that is a question! Let me mine my own memory.
 
@@ -446,18 +446,18 @@ u:(["how is" "what is"] {the} _~memory_objects {like})
     ^pCall(PepperGroundedClient.ask("en", $query))
 
 u:("[what which] [relation relations attributes] [is are has have]" _~memory_objects {in})
-    $query="What relations and attributes do $1 have"    
+    $query="What relations and attributes do $1 have"
     ^pCall(PepperGroundedClient.ask("en", $query))
     I like $1! But this is really complex. Give me a moment.
 
 
 u:("[does is] [anything anybody anyone] {have} {the relation of}" _~memory_relations)
-    $query="Does anybody have relation or attribute $1 . If so, state who or what is it."    
+    $query="Does anybody have relation or attribute $1 . If so, state who or what is it."
     ^pCall(PepperGroundedClient.ask("en", $query))
     $1 is an interesting relation right? Let me think
 
 
-# cached_qa 
+# cached_qa
 concept:(ask_suggested_questions) [
     "what can [i I] ask"
     "suggest questions"
@@ -469,8 +469,7 @@ concept:(ask_suggested_questions) [
 
 u:(~ask_suggested_questions)
     "Okay I will show suggested questions from memory."
-    ^pCall(PepperGroundedClient.showMemory("en"))
-    ^pCall(PepperGroundedClient.listCachedQuestions("en"))
+    ^pCall(PepperGroundedClient.showMemoryAndSuggestQuestions("en"))
 
 u:(_~memory_cached_questions)
     ^pCall(PepperGroundedClient.answerCachedQuestion("en", $1))
@@ -479,4 +478,3 @@ u:(_~memory_cached_questions)
 u:(["Let me ask {this question}" "Tell me" "Answer me {this} question"] _*)
     I am on it
     ^pCall(PepperGroundedClient.ask("en", $1))
-

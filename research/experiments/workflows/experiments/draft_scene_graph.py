@@ -1,16 +1,11 @@
 import asyncio
-from io import BytesIO
 from pathlib import Path
 from time import perf_counter
-from typing import Any
 
-import numpy as np
-from PIL import Image
 from tqdm.auto import tqdm
 
 from research.experiments.adapters import ServerVLMAdapter
 from research.experiments.adapters.bootstrap import ensure_server_app_importable
-from research.experiments.adapters.utils import resize_pil
 from research.experiments.config.models import ExperimentConfig
 from research.experiments.io import RunContext
 from research.experiments.io import StageMetrics
@@ -18,43 +13,11 @@ from research.experiments.io import load_json
 from research.experiments.io import save_json
 from research.experiments.schemas import SceneGraphDraft
 
-
-def _render_template(template: str, values: dict[str, Any]) -> str:
-    rendered = template or ""
-    for key, value in values.items():
-        placeholder = "{" + key + "}"
-        if placeholder in rendered:
-            rendered = rendered.replace(placeholder, str(value))
-    return rendered
-
-
-def _to_detection_objects(raw_rows: list[dict]):
-    from app.inference.types import InferenceDetectionObject
-
-    objects: list[InferenceDetectionObject] = []
-    for idx, row in enumerate(raw_rows, start=1):
-        bbox = row.get("bbox")
-        if not isinstance(bbox, list) or len(bbox) != 4:
-            continue
-        object_id = row.get("object_id")
-        if object_id is None:
-            object_id = idx
-        objects.append(
-            InferenceDetectionObject(
-                class_id=int(row.get("class_id", idx)),
-                label=str(row.get("label", "object")),
-                confidence=float(row.get("confidence", 0.0)),
-                bbox=[float(v) for v in bbox],
-                object_id=object_id,
-            )
-        )
-    return objects
-
-
-def _pil_to_jpeg_bytes(image: Image.Image) -> bytes:
-    with BytesIO() as buf:
-        image.convert("RGB").save(buf, format="JPEG", quality=95)
-        return buf.getvalue()
+from .scene_graph_common import build_prompt_image
+from .scene_graph_common import objects_for_prompt
+from .scene_graph_common import pil_to_jpeg_bytes
+from .scene_graph_common import render_template
+from .scene_graph_common import vocabulary_for_prompt
 
 
 async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> dict:
@@ -93,6 +56,7 @@ async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> di
         model_id=config.draft_sgg_model.model_id,
         structured_mode=config.draft_sgg_model.structured_mode,
         device=config.draft_scene_graph.som_device,
+        base_url=config.draft_sgg_model.base_url,
     )
 
     painter = SoMPainter(
@@ -123,14 +87,7 @@ async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> di
 
                 caption = str(payload.get("text", "")).strip()
                 detected_rows = detections.get(image_path, [])
-                objects = [
-                    {
-                        "id": det.get("object_id"),
-                        "label": det.get("label"),
-                        "bbox": det.get("bbox"),
-                    }
-                    for det in detected_rows
-                ]
+                objects = objects_for_prompt(detected_rows)
 
                 render_values = {
                     "caption": (
@@ -138,45 +95,42 @@ async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> di
                         if config.prompting.include_caption_in_sgg_prompt
                         else ""
                     ),
-                    "vocabulary": vocabulary,
+                    "vocabulary": vocabulary_for_prompt(
+                        vocabulary, config.draft_scene_graph.vocab_mode
+                    ),
                     "objects": objects,
                 }
-                system_prompt = _render_template(
+                system_prompt = render_template(
                     config.draft_scene_graph.system_prompt, render_values
                 )
-                user_prompt = _render_template(
+                user_prompt = render_template(
                     config.draft_scene_graph.user_prompt_template, render_values
                 )
+                if config.draft_scene_graph.vocab_mode == "open":
+                    system_prompt = system_prompt.replace(
+                        "Use ONLY the values in the provided PREDICATES and ATTRIBUTES lists. Do not invent new ones.",
+                        "Use concise relation and attribute names grounded in the image. Do not invent objects.",
+                    )
+                    user_prompt = user_prompt.replace(
+                        "Allowed predicates and attributes: \n", ""
+                    )
 
-                with Image.open(path) as img:
-                    pil_image = img.convert("RGB")
-
-                image_np = np.asarray(pil_image)
-                det_objects = _to_detection_objects(detected_rows)
-                som_image_np = painter.paint(
-                    image_np,
-                    det_objects,
-                    bbox=config.draft_scene_graph.som_show_bbox,
-                    mask=config.draft_scene_graph.som_show_mask,
-                    polygon=config.draft_scene_graph.som_show_polygon,
-                    class_names=config.draft_scene_graph.som_show_labels,
+                prompt_image, som_image = build_prompt_image(
+                    image_path=path,
+                    detected_rows=detected_rows,
+                    config=config,
+                    painter=painter,
                 )
-                som_image = Image.fromarray(som_image_np.astype(np.uint8))
 
                 som_path: str | None = None
-                if config.draft_scene_graph.save_som_images:
+                if config.draft_scene_graph.save_som_images and som_image is not None:
                     som_file = som_dir / f"som_{path.name}"
                     som_image.save(som_file)
                     som_path = str(som_file)
-                prompt_image = som_image if config.draft_scene_graph.use_som_image else pil_image
-                if config.draft_scene_graph.max_image_size:
-                    prompt_image = resize_pil(
-                        prompt_image, config.draft_scene_graph.max_image_size
-                    )
                 raw_text, parsed = await vlm.generate_structured(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
-                    image_bytes=_pil_to_jpeg_bytes(prompt_image),
+                    image_bytes=pil_to_jpeg_bytes(prompt_image),
                     output_schema=SceneGraphDraft,
                 )
                 parsed_payload = (
@@ -186,10 +140,15 @@ async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> di
                 drafts[image_path] = {
                     "image_path": image_path,
                     "som_image_path": som_path,
-                    "used_som_image": config.draft_scene_graph.use_som_image,
+                    "visual_mode": (
+                        "raw"
+                        if not config.draft_scene_graph.use_som_image
+                        else config.draft_scene_graph.visual_mode
+                    ),
+                    "vocab_mode": config.draft_scene_graph.vocab_mode,
                     "caption": caption,
                     "objects": objects,
-                    "vocabulary": vocabulary,
+                    "vocabulary": render_values["vocabulary"],
                     **parsed_payload,
                 }
                 if config.draft_scene_graph.include_raw_response:
