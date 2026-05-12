@@ -26,7 +26,7 @@ def _counts_from_vocab(vocab: dict[str, Any], kind: str) -> Counter[str]:
     if not isinstance(provenance, dict):
         provenance = {}
 
-    count_key = "%s_counts" % kind
+    count_key = f"{kind}_counts"
     counts = provenance.get(count_key, {})
     if isinstance(counts, dict) and counts:
         return Counter(
@@ -64,12 +64,12 @@ def _image_support_from_candidates(
 def _load_run_counts(run_dir: Path) -> dict[str, Any] | None:
     vocab_path = run_dir / "vocabulary_final.json"
     if not vocab_path.exists():
-        print("Skipping %s: missing vocabulary_final.json" % run_dir)
+        print(f"Skipping {run_dir}: missing vocabulary_final.json" )
         return None
 
     vocab = load_json(vocab_path, default={})
     if not isinstance(vocab, dict):
-        print("Skipping %s: vocabulary_final.json is not an object" % run_dir)
+        print(f"Skipping {run_dir}: vocabulary_final.json is not an object")
         return None
 
     candidates = load_json(run_dir / "vocabulary_candidates.json", default={})
@@ -129,9 +129,9 @@ def _write_frequency_csv(
     for run_name in run_names:
         fieldnames.extend(
             [
-                "%s_mentions" % run_name,
-                "%s_image_support" % run_name,
-                "%s_image_support_rate" % run_name,
+                f"{run_name}_mentions",
+                f"{run_name}_image_support",
+                f"{run_name}_image_support_rate",
             ]
         )
 
@@ -162,9 +162,9 @@ def _write_frequency_csv(
             for run_name in run_names:
                 image_count = run_image_counts.get(run_name, 0)
                 support = per_run_image_support[run_name].get(term, 0)
-                row["%s_mentions" % run_name] = per_run_mentions[run_name].get(term, 0)
-                row["%s_image_support" % run_name] = support
-                row["%s_image_support_rate" % run_name] = (
+                row[f"{run_name}_mentions"] = per_run_mentions[run_name].get(term, 0)
+                row[f"{run_name}_image_support" ] = support
+                row[f"{run_name}_image_support_rate"] = (
                     support / float(image_count) if image_count else 0.0
                 )
             writer.writerow(row)
@@ -183,13 +183,12 @@ def _write_rank_plot(out_dir: Path, kind: str, counts: Counter[str]) -> None:
     ax.set_yscale("log")
     ax.set_xlabel("Term rank")
     ax.set_ylabel("Frequency across runs")
-    ax.set_title("%s rank-frequency distribution" % kind.capitalize())
+    ax.set_title(f"{kind.capitalize()} rank-frequency distribution")
     ax.grid(True, which="both", axis="y", alpha=0.25)
     fig.tight_layout()
-    fig.savefig(out_dir / ("%s_rank_frequency.png" % kind), dpi=180)
-    fig.savefig(out_dir / ("%s_rank_frequency.pdf" % kind))
+    fig.savefig(out_dir / f"{kind}_rank_frequency.png", dpi=180)
+    fig.savefig(out_dir / f"{kind}_rank_frequency.pdf")
     plt.close(fig)
-
 
 def _write_normalized_rank_plot(
     out_dir: Path,
@@ -212,11 +211,11 @@ def _write_normalized_rank_plot(
     ax.set_yscale("log")
     ax.set_xlabel("Term rank")
     ax.set_ylabel("Normalized image support")
-    ax.set_title("%s image-support distribution" % kind.capitalize())
+    ax.set_title(f"{kind.capitalize()} image-support distribution")
     ax.grid(True, which="both", axis="y", alpha=0.25)
     fig.tight_layout()
-    fig.savefig(out_dir / ("%s_image_support_rank_frequency.png" % kind), dpi=180)
-    fig.savefig(out_dir / ("%s_image_support_rank_frequency.pdf" % kind))
+    fig.savefig(out_dir / f"{kind}_image_support_rank_frequency.png", dpi=180)
+    fig.savefig(out_dir / f"{kind}_image_support_rank_frequency.pdf")
     plt.close(fig)
 
 
@@ -323,8 +322,6 @@ def _plot_color(kind: str) -> str | None:
     if kind == "attribute":
         return ATTRIBUTE_COLOR
     return None
-
-
 def _write_top_terms_plot(
     out_dir: Path,
     kind: str,
@@ -348,13 +345,13 @@ def _write_top_terms_plot(
     fig, ax = plt.subplots(figsize=(8.0, max(4.5, len(labels) * 0.22)))
     ax.barh(labels, values, color=_plot_color(kind))
     ax.set_xlabel(xlabel)
-    ax.set_title("Top %s %s" % (len(labels), kind))
+    ax.set_title(f"Top {len(labels)} {kind}")
     fig.tight_layout()
-    fig.savefig(out_dir / ("%s_%s.png" % (filename_prefix, kind)), dpi=180)
-    fig.savefig(out_dir / ("%s_%s.pdf" % (filename_prefix, kind)))
+    fig.savefig(out_dir / f"{filename_prefix}_{kind}.png", dpi=180)
+    fig.savefig(out_dir / f"{filename_prefix}_{kind}.pdf")
     if filename_prefix == "top_image_support":
-        fig.savefig(out_dir / ("top_%s.png" % kind), dpi=180)
-        fig.savefig(out_dir / ("top_%s.pdf" % kind))
+        fig.savefig(out_dir / f"top_{kind}.png", dpi=180)
+        fig.savefig(out_dir / f"top_{kind}.pdf")
     plt.close(fig)
 
 
@@ -377,12 +374,11 @@ def _write_overlap_plot(
     ax.set_xticks(xs)
     ax.set_xlabel("Number of runs containing term")
     ax.set_ylabel("Unique terms")
-    ax.set_title("%s cross-run overlap" % kind.capitalize())
+    ax.set_title(f"{kind.capitalize()} cross-run overlap")
     fig.tight_layout()
-    fig.savefig(out_dir / ("%s_run_overlap.png" % kind), dpi=180)
-    fig.savefig(out_dir / ("%s_run_overlap.pdf" % kind))
+    fig.savefig(out_dir / f"{kind}_run_overlap.png", dpi=180)
+    fig.savefig(out_dir / f"{kind}_run_overlap.pdf")
     plt.close(fig)
-
 
 def _write_plots(
     out_dir: Path,
@@ -478,7 +474,7 @@ def main() -> None:
         int(payload.get("image_count", 0)) for payload in run_counts.values()
     )
     for kind in ("predicates", "attributes"):
-        support_key = "%s_image_support" % kind[:-1]
+        support_key = f"{kind[:-1]}_image_support"
         total_mentions, run_presence, per_run_mentions = _aggregate(run_counts, kind)
         total_image_support, _, per_run_image_support = _aggregate(
             run_counts, support_key
@@ -490,7 +486,7 @@ def main() -> None:
             for run_name, payload in run_counts.items()
         }
         _write_frequency_csv(
-            out_dir / ("%s_frequencies.csv" % kind[:-1]),
+            out_dir / (f"{kind[:-1]}_frequencies.csv"),
             total_mentions,
             total_image_support,
             run_presence,
@@ -521,8 +517,8 @@ def main() -> None:
         total_image_observations,
     )
 
-    print("Processed %s runs" % len(run_counts))
-    print("Wrote vocabulary distribution report to %s" % out_dir)
+    print(f"Processed {len(run_counts)} runs")
+    print(f"Wrote vocabulary distribution report to {out_dir}")
 
 
 if __name__ == "__main__":
