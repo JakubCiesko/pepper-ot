@@ -64,7 +64,7 @@ def _image_support_from_candidates(
 def _load_run_counts(run_dir: Path) -> dict[str, Any] | None:
     vocab_path = run_dir / "vocabulary_final.json"
     if not vocab_path.exists():
-        print(f"Skipping {run_dir}: missing vocabulary_final.json" )
+        print(f"Skipping {run_dir}: missing vocabulary_final.json")
         return None
 
     vocab = load_json(vocab_path, default={})
@@ -163,7 +163,7 @@ def _write_frequency_csv(
                 image_count = run_image_counts.get(run_name, 0)
                 support = per_run_image_support[run_name].get(term, 0)
                 row[f"{run_name}_mentions"] = per_run_mentions[run_name].get(term, 0)
-                row[f"{run_name}_image_support" ] = support
+                row[f"{run_name}_image_support"] = support
                 row[f"{run_name}_image_support_rate"] = (
                     support / float(image_count) if image_count else 0.0
                 )
@@ -189,6 +189,7 @@ def _write_rank_plot(out_dir: Path, kind: str, counts: Counter[str]) -> None:
     fig.savefig(out_dir / f"{kind}_rank_frequency.png", dpi=180)
     fig.savefig(out_dir / f"{kind}_rank_frequency.pdf")
     plt.close(fig)
+
 
 def _write_normalized_rank_plot(
     out_dir: Path,
@@ -322,6 +323,8 @@ def _plot_color(kind: str) -> str | None:
     if kind == "attribute":
         return ATTRIBUTE_COLOR
     return None
+
+
 def _write_top_terms_plot(
     out_dir: Path,
     kind: str,
@@ -379,6 +382,7 @@ def _write_overlap_plot(
     fig.savefig(out_dir / f"{kind}_run_overlap.png", dpi=180)
     fig.savefig(out_dir / f"{kind}_run_overlap.pdf")
     plt.close(fig)
+
 
 def _write_plots(
     out_dir: Path,
