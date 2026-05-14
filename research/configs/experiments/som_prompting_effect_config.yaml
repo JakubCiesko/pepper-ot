@@ -1,0 +1,280 @@
+name: PepperSoMPromptingEffectMatrix
+base_config: eval_sgg_server_like_base.yaml
+
+reuse_artifacts:
+  from_run: "research/artifacts/human_eval/vocab/eval_draft_sgg_frozen_vocab_v1"
+  files:
+    - "detections.json"
+    - "descriptions.json"
+    - "vocabulary_final.json"
+
+common_overrides:
+  name: PepperSoMPromptingEffectMatrix
+  paths:
+    images_dir: "data/images/eval"
+    output_root: "research/artifacts/experiments/som_prompting_effect"
+  descriptions:
+    enabled: false
+  vocabulary:
+    enabled: false
+  context_rot:
+    enabled: false
+  evaluation:
+    enabled: false
+  prompting:
+    include_caption_in_sgg_prompt: false
+  draft_scene_graph:
+    max_concurrent_batches: 4
+    som_mask_backend: grabcut
+    som_mask_opacity: 0.35
+    som_grab_cut_scale: 0.80
+    som_grab_cut_iter_count: 10
+    som_use_roi_grab_cut: true
+    som_max_mask_workers: 4
+
+variants:
+  # - name: geminiR_raw_objects_vocab
+  #   overrides:
+  #     experiment_id: geminiR_raw_objects_vocab
+  #     draft_sgg_model:
+  #       provider: "gemini"
+  #       model_id: "gemini-robotics-er-1.6-preview"
+  #       structured_mode: "provider_native"
+  #     draft_scene_graph:
+  #       use_som_image: false
+  #       som_show_bbox: false
+  #       som_show_labels: false
+  #       som_show_mask: false
+  #       som_show_polygon: false
+  #       user_prompt_template: >
+  #         Focus on spatial, semantic, and functional relationships.
+  #         Provide relations and attributes of the listed objects only.
+  #         Use only the allowed predicates and attributes from the provided list.
+
+  #         Objects:
+  #         {objects}
+
+  #         Allowed relations and attributes:
+  #         {vocabulary}
+
+  # - name: geminiR_raw_objects_vocab_caption
+  #   overrides:
+  #     experiment_id: geminiR_raw_objects_vocab_caption
+  #     draft_sgg_model:
+  #       provider: "gemini"
+  #       model_id: "gemini-robotics-er-1.6-preview"
+  #       structured_mode: "provider_native"
+  #     prompting:
+  #       include_caption_in_sgg_prompt: true
+  #     draft_scene_graph:
+  #       use_som_image: false
+  #       som_show_bbox: false
+  #       som_show_labels: false
+  #       som_show_mask: false
+  #       som_show_polygon: false
+  #       user_prompt_template: >
+  #         Focus on spatial, semantic, and functional relationships.
+  #         Provide relations and attributes of the listed objects only.
+  #         Use only the allowed predicates and attributes from the provided list.
+
+  #         Scene description:
+  #         {caption}
+
+  #         Objects:
+  #         {objects}
+
+  #         Allowed relations and attributes:
+  #         {vocabulary}
+
+  # - name: geminiR_som_objects_vocab
+  #   overrides:
+  #     experiment_id: geminiR_som_objects_vocab
+  #     draft_sgg_model:
+  #       provider: "gemini"
+  #       model_id: "gemini-robotics-er-1.6-preview"
+  #       structured_mode: "provider_native"
+  #     draft_scene_graph:
+  #       use_som_image: true
+  #       visual_mode: "som"
+  #       som_show_bbox: true
+  #       som_show_labels: true
+  #       som_show_mask: false
+  #       som_show_polygon: false
+  #       user_prompt_template: >
+  #         Focus on spatial, semantic, and functional relationships.
+  #         Provide relations and attributes of the listed objects only.
+  #         Use only the allowed predicates and attributes from the provided list.
+
+  #         Objects:
+  #         {objects}
+
+  #         Allowed relations and attributes:
+  #         {vocabulary}
+
+  # - name: geminiR_som_objects_vocab_caption
+  #   overrides:
+  #     experiment_id: geminiR_som_objects_vocab_caption
+  #     draft_sgg_model:
+  #       provider: "gemini"
+  #       model_id: "gemini-robotics-er-1.6-preview"
+  #       structured_mode: "provider_native"
+  #     prompting:
+  #       include_caption_in_sgg_prompt: true
+  #     draft_scene_graph:
+  #       use_som_image: true
+  #       visual_mode: "som"
+  #       som_show_bbox: true
+  #       som_show_labels: true
+  #       som_show_mask: false
+  #       som_show_polygon: false
+  #       user_prompt_template: >
+  #         Focus on spatial, semantic, and functional relationships.
+  #         Provide relations and attributes of the listed objects only.
+  #         Use only the allowed predicates and attributes from the provided list.
+
+  #         Scene description:
+  #         {caption}
+
+  #         Objects:
+  #         {objects}
+
+  #         Allowed relations and attributes:
+  #         {vocabulary}
+
+  # - name: gpt5_raw_objects_vocab
+  #   overrides:
+  #     experiment_id: gpt5_raw_objects_vocab
+  #     draft_sgg_model:
+  #       provider: "openai"
+  #       model_id: "gpt-5.5-2026-04-23"
+  #       structured_mode: "provider_native"
+  #     draft_scene_graph:
+  #       use_som_image: false
+  #       som_show_bbox: false
+  #       som_show_labels: false
+  #       som_show_mask: false
+  #       som_show_polygon: false
+  #       user_prompt_template: >
+  #         Focus on spatial, semantic, and functional relationships.
+  #         Provide relations and attributes of the listed objects only.
+  #         Use only the allowed predicates and attributes from the provided list.
+
+  #         Objects:
+  #         {objects}
+
+  #         Allowed relations and attributes:
+  #         {vocabulary}
+
+  # - name: gpt5_raw_objects_vocab_caption
+  #   overrides:
+  #     experiment_id: gpt5_raw_objects_vocab_caption
+  #     draft_sgg_model:
+  #       provider: "openai"
+  #       model_id: "gpt-5.5-2026-04-23"
+  #       structured_mode: "provider_native"
+  #     prompting:
+  #       include_caption_in_sgg_prompt: true
+  #     draft_scene_graph:
+  #       use_som_image: false
+  #       som_show_bbox: false
+  #       som_show_labels: false
+  #       som_show_mask: false
+  #       som_show_polygon: false
+  #       user_prompt_template: >
+  #         Focus on spatial, semantic, and functional relationships.
+  #         Provide relations and attributes of the listed objects only.
+  #         Use only the allowed predicates and attributes from the provided list.
+
+  #         Scene description:
+  #         {caption}
+
+  #         Objects:
+  #         {objects}
+
+  #         Allowed relations and attributes:
+  #         {vocabulary}
+
+  # - name: gpt5_som_objects_vocab
+  #   overrides:
+  #     experiment_id: gpt5_som_objects_vocab
+  #     draft_sgg_model:
+  #       provider: "openai"
+  #       model_id: "gpt-5.5-2026-04-23"
+  #       structured_mode: "provider_native"
+  #     draft_scene_graph:
+  #       use_som_image: true
+  #       visual_mode: "som"
+  #       som_show_bbox: true
+  #       som_show_labels: true
+  #       som_show_mask: false
+  #       som_show_polygon: false
+  #       user_prompt_template: >
+  #         Focus on spatial, semantic, and functional relationships.
+  #         Provide relations and attributes of the listed objects only.
+  #         Use only the allowed predicates and attributes from the provided list.
+
+  #         Objects:
+  #         {objects}
+
+  #         Allowed relations and attributes:
+  #         {vocabulary}
+
+  # - name: gpt5_som_objects_vocab_caption
+  #   overrides:
+  #     experiment_id: gpt5_som_objects_vocab_caption
+  #     draft_sgg_model:
+  #       provider: "openai"
+  #       model_id: "gpt-5.5-2026-04-23"
+  #       structured_mode: "provider_native"
+  #     prompting:
+  #       include_caption_in_sgg_prompt: true
+  #     draft_scene_graph:
+  #       use_som_image: true
+  #       visual_mode: "som"
+  #       som_show_bbox: true
+  #       som_show_labels: true
+  #       som_show_mask: false
+  #       som_show_polygon: false
+  #       user_prompt_template: >
+  #         Focus on spatial, semantic, and functional relationships.
+  #         Provide relations and attributes of the listed objects only.
+  #         Use only the allowed predicates and attributes from the provided list.
+
+  #         Scene description:
+  #         {caption}
+
+  #         Objects:
+  #         {objects}
+
+  #         Allowed relations and attributes:
+  #         {vocabulary}
+  - name: Qwen3_6_35B_A3B_Q4_som_objects_vocab_caption
+    overrides:
+      experiment_id: Qwen3_6_35B_A3B_Q4
+      draft_sgg_model:
+        provider: "openai_compatible"
+        model_id: "unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_S"
+        structured_mode: "instructor"
+        base_url: "http://127.0.0.1:8080/v1"
+      prompting:
+        include_caption_in_sgg_prompt: true
+      draft_scene_graph:
+        use_som_image: true
+        visual_mode: "som"
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: false
+        som_show_polygon: false
+        user_prompt_template: >
+          Focus on spatial, semantic, and functional relationships.
+          Provide relations and attributes of the listed objects only.
+          Use only the allowed predicates and attributes from the provided list.
+
+          Scene description:
+          {caption}
+
+          Objects:
+          {objects}
+
+          Allowed relations and attributes:
+          {vocabulary}

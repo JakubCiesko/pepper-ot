@@ -1,0 +1,162 @@
+name: PepperSGGRawObjectsVsSoMMatrix
+base_config: eval_sgg_server_like_base.yaml
+
+reuse_artifacts:
+  from_run: "research/artifacts/human_eval/vocab/eval_draft_sgg_frozen_vocab_v1"
+  files:
+    - "detections.json"
+    - "descriptions.json"
+    - "vocabulary_final.json"
+
+common_overrides:
+  name: PepperSGGRawObjectsVsSoMMatrix
+  paths:
+    images_dir: "data/images/eval"
+    output_root: "research/artifacts/som_vs_no_som"
+  descriptions:
+    enabled: false
+  vocabulary:
+    enabled: false
+  context_rot:
+    enabled: false
+  evaluation:
+    enabled: false
+  prompting:
+    include_caption_in_sgg_prompt: false
+  draft_scene_graph:
+    max_concurrent_batches: 4
+    som_mask_backend: grabcut
+    som_mask_opacity: 0.35                                                                                                                                                                                  
+    som_grab_cut_scale: 0.80                                                                                                                                                                                
+    som_grab_cut_iter_count: 10                                                                                                                                                                              
+    som_use_roi_grab_cut: true                                                                                                                                                                              
+    som_max_mask_workers: 4   
+
+variants:
+  - name: gemini_raw_objects
+    overrides:
+      experiment_id: sgg_raw_objects_vs_som_gemini_raw_objects
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: false
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: false
+        som_show_polygon: false
+        user_prompt_template: >
+          Focus on spatial, semantic, and functional relationships.
+          Provide relations and attributes of the listed objects only.
+          Use only the allowed predicates and attributes from the provided list.
+
+          Objects:
+          {objects}
+
+          Allowed relations and attributes:
+          {vocabulary}
+
+  - name: gemini_som_vocab_only
+    overrides:
+      experiment_id: sgg_raw_objects_vs_som_gemini_som_vocab_only
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        visual_mode: "som"
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: true
+        som_show_polygon: false
+
+  - name: gemini_som_objects
+    overrides:
+      experiment_id: sgg_raw_objects_vs_som_gemini_som_objects
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        visual_mode: "som"
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: false
+        som_show_polygon: false
+        user_prompt_template: >
+          Focus on spatial, semantic, and functional relationships.
+          Provide relations and attributes of the listed objects only.
+          Use only the allowed predicates and attributes from the provided list.
+
+          Objects:
+          {objects}
+
+          Allowed relations and attributes:
+          {vocabulary}
+
+  - name: gpt_raw_objects
+    overrides:
+      experiment_id: sgg_raw_objects_vs_som_gpt_raw_objects
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: false
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: false
+        som_show_polygon: false
+        user_prompt_template: >
+          Focus on spatial, semantic, and functional relationships.
+          Provide relations and attributes of the listed objects only.
+          Use only the allowed predicates and attributes from the provided list.
+
+          Objects:
+          {objects}
+
+          Allowed relations and attributes:
+          {vocabulary}
+
+  - name: gpt_som_vocab_only
+    overrides:
+      experiment_id: sgg_raw_objects_vs_som_gpt_som_vocab_only
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        visual_mode: "som"
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: false
+        som_show_polygon: false
+
+  - name: gpt_som_objects
+    overrides:
+      experiment_id: sgg_raw_objects_vs_som_gpt_som_objects
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        visual_mode: "som"
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: false
+        som_show_polygon: false
+        user_prompt_template: >
+          Focus on spatial, semantic, and functional relationships.
+          Provide relations and attributes of the listed objects only.
+          Use only the allowed predicates and attributes from the provided list.
+
+          Objects:
+          {objects}
+
+          Allowed relations and attributes:
+          {vocabulary}

@@ -1,0 +1,683 @@
+levels:
+  - name: vocab_75_full
+    drop_unmapped: true
+    predicates:
+      - above
+      - below
+      - under
+      - left_of
+      - right_of
+      - in_front_of
+      - behind
+      - next_to
+      - in
+      - "on"
+      - mounted_on
+      - attached_to
+      - connected_to
+      - hanging_from
+      - stacked_on
+      - supporting
+      - part_of
+      - parallel_to
+      - perpendicular_to
+      - touching
+      - occluding
+      - facing
+      - looking_at
+      - pointing_at
+      - holding
+      - wearing
+      - carrying
+      - using
+      - interacting_with
+      - sitting_on
+      - standing_on
+      - lying_on
+      - leaning_on
+      - resting_on
+      - talking_to
+      - reading
+      - writing_on
+      - eating
+      - drinking
+      - working_on
+      - covering
+      - watching
+      - typing_on
+      - clicking_with
+      - lifting
+      - pulling
+      - pressing
+      - adjusting
+      - playing_with
+      - shaking_hands
+    attributes:
+      - black
+      - white
+      - gray
+      - red
+      - blue
+      - green
+      - yellow
+      - brown
+      - wooden
+      - metal
+      - plastic
+      - glass
+      - open
+      - closed
+      - large
+      - small
+      - rectangular
+      - round
+      - patterned
+      - smooth
+      - clear
+      - standing
+      - sitting
+      - multicolor
+      - facing_camera
+    predicate_map: {}
+    attribute_map: {}
+
+  - name: vocab_55_large
+    drop_unmapped: true
+
+    predicates:
+      - above
+      - below
+      - left_of
+      - right_of
+      - in_front_of
+      - behind
+      - next_to
+      - in
+      - "on"
+      - connected_to
+      - supporting
+      - part_of
+      - parallel_to
+      - perpendicular_to
+      - touching
+      - occluding
+      - facing
+      - looking_at
+      - pointing_at
+      - holding
+      - wearing
+      - carrying
+      - using
+      - interacting_with
+      - talking_to
+      - reading
+      - writing_on
+      - eating
+      - drinking
+      - working_on
+
+    attributes:
+      - black
+      - white
+      - gray
+      - red
+      - blue
+      - green
+      - yellow
+      - brown
+      - wooden
+      - metal
+      - plastic
+      - glass
+      - open
+      - closed
+      - large
+      - small
+      - rectangular
+      - round
+      - patterned
+      - smooth
+      - clear
+      - standing
+      - sitting
+      - multicolor
+      - facing_camera
+
+    predicate_map:
+      under: below
+
+      mounted_on: connected_to
+      attached_to: connected_to
+      hanging_from: connected_to
+
+      stacked_on: "on"
+      resting_on: "on"
+      sitting_on: "on"
+      standing_on: "on"
+      lying_on: "on"
+
+      leaning_on: touching
+
+      covering: occluding
+      watching: looking_at
+
+      typing_on: using
+      clicking_with: using
+
+      lifting: holding
+
+      pulling: interacting_with
+      pressing: interacting_with
+      adjusting: interacting_with
+      playing_with: interacting_with
+      shaking_hands: interacting_with
+
+    attribute_map: {}
+
+  - name: vocab_40_medium
+    drop_unmapped: true
+
+    predicates:
+      - above
+      - below
+      - left_of
+      - right_of
+      - in_front_of
+      - behind
+      - next_to
+      - in
+      - "on"
+      - connected_to
+      - supporting
+      - part_of
+      - touching
+      - occluding
+      - facing
+      - looking_at
+      - pointing_at
+      - holding
+      - wearing
+      - using
+      - interacting_with
+      - working_on
+
+    attributes:
+      - black
+      - white
+      - gray
+      - red
+      - blue
+      - brown
+      - colored
+      - wooden
+      - metallic
+      - plastic
+      - transparent
+      - open
+      - closed
+      - sized
+      - shaped
+      - textured
+      - posed
+      - oriented
+
+    predicate_map:
+      under: below
+
+      mounted_on: connected_to
+      attached_to: connected_to
+      hanging_from: connected_to
+
+      stacked_on: "on"
+      resting_on: "on"
+      sitting_on: "on"
+      standing_on: "on"
+      lying_on: "on"
+
+      leaning_on: touching
+
+      parallel_to: next_to
+      perpendicular_to: next_to
+
+      carrying: holding
+      lifting: holding
+
+      reading: using
+      writing_on: using
+      eating: using
+      drinking: using
+      typing_on: using
+      clicking_with: using
+
+      covering: occluding
+      watching: looking_at
+
+      talking_to: interacting_with
+      pulling: interacting_with
+      pressing: interacting_with
+      adjusting: interacting_with
+      playing_with: interacting_with
+      shaking_hands: interacting_with
+
+    attribute_map:
+      green: colored
+      yellow: colored
+      multicolor: colored
+
+      metal: metallic
+      glass: transparent
+      clear: transparent
+
+      large: sized
+      small: sized
+
+      rectangular: shaped
+      round: shaped
+
+      patterned: textured
+      smooth: textured
+
+      standing: posed
+      sitting: posed
+
+      facing_camera: oriented
+
+  - name: vocab_25_compact
+    drop_unmapped: true
+
+    predicates:
+      - above
+      - below
+      - left_of
+      - right_of
+      - next_to
+      - in
+      - "on"
+      - connected_to
+      - touching
+      - facing
+      - holding
+      - using
+
+    attributes:
+      - black
+      - white
+      - gray
+      - colored
+      - wooden
+      - metallic
+      - plastic
+      - transparent
+      - openable
+      - sized
+      - shaped
+      - textured
+      - posed
+
+    predicate_map:
+      under: below
+
+      in_front_of: next_to
+      behind: next_to
+      parallel_to: next_to
+      perpendicular_to: next_to
+
+      mounted_on: connected_to
+      attached_to: connected_to
+      hanging_from: connected_to
+      part_of: connected_to
+
+      stacked_on: "on"
+      sitting_on: "on"
+      standing_on: "on"
+      lying_on: "on"
+      resting_on: "on"
+
+      supporting: touching
+      leaning_on: touching
+      occluding: touching
+      covering: touching
+
+      looking_at: facing
+      pointing_at: facing
+      talking_to: facing
+      watching: facing
+
+      carrying: holding
+      lifting: holding
+
+      wearing: connected_to
+
+      interacting_with: touching
+      pulling: touching
+      pressing: touching
+      adjusting: touching
+      playing_with: touching
+      shaking_hands: touching
+
+      reading: using
+      writing_on: using
+      eating: using
+      drinking: using
+      working_on: using
+      typing_on: using
+      clicking_with: using
+
+    attribute_map:
+      red: colored
+      blue: colored
+      green: colored
+      yellow: colored
+      brown: colored
+      multicolor: colored
+
+      metal: metallic
+      glass: transparent
+      clear: transparent
+
+      open: openable
+      closed: openable
+
+      large: sized
+      small: sized
+
+      rectangular: shaped
+      round: shaped
+
+      patterned: textured
+      smooth: textured
+
+      standing: posed
+      sitting: posed
+      facing_camera: posed
+
+  - name: vocab_15_minimal
+    drop_unmapped: true
+
+    predicates:
+      - above
+      - below
+      - left_of
+      - right_of
+      - next_to
+      - in
+      - "on"
+      - using 
+      - touching
+
+    attributes:
+      - colored
+      - transparent
+      - openable
+      - sized
+      - shaped
+      - textured
+
+    predicate_map:
+      under: below
+
+      in_front_of: next_to
+      behind: next_to
+      parallel_to: next_to
+      perpendicular_to: next_to
+
+      mounted_on: "on"
+      stacked_on: "on"
+      sitting_on: "on"
+      standing_on: "on"
+      lying_on: "on"
+      resting_on: "on"
+
+      attached_to: touching
+      connected_to: touching
+      hanging_from: touching
+      supporting: touching
+      part_of: touching
+      leaning_on: touching
+
+      occluding: touching
+      covering: touching
+
+      facing: touching
+      looking_at: touching
+      pointing_at: touching
+      talking_to: touching
+      watching: touching
+
+      holding: touching
+      wearing: touching
+      carrying: touching
+
+      interacting_with: using
+
+      reading: using
+      writing_on: using
+      eating: using
+      drinking: using
+      working_on: using
+      typing_on: using
+      clicking_with: using
+
+      lifting: using
+      pulling: using
+      pressing: touching
+      adjusting: touching
+      playing_with: touching
+      shaking_hands: touching
+
+    attribute_map:
+      black: colored
+      white: colored
+      gray: colored
+      red: colored
+      blue: colored
+      green: colored
+      yellow: colored
+      brown: colored
+      multicolor: colored
+
+      wooden: textured
+      metal: textured
+      plastic: textured
+      glass: transparent
+      clear: transparent
+
+      open: openable
+      closed: openable
+
+      large: sized
+      small: sized
+
+      rectangular: shaped
+      round: shaped
+
+      patterned: textured
+      smooth: textured
+
+      standing: shaped
+      sitting: shaped
+      facing_camera: shaped
+  - name: vocab_10_small
+    drop_unmapped: true
+
+    predicates:
+      - left_of
+      - right_of
+      - next_to
+      - in
+      - "on"
+      - using
+      - touching
+
+    attributes:
+      - colored
+      - stateful
+      - formed
+    predicate_map:
+      above: next_to
+      below: next_to
+      under: next_to
+      in_front_of: next_to
+      behind: next_to
+      parallel_to: next_to
+      perpendicular_to: next_to
+
+      mounted_on: "on"
+      stacked_on: "on"
+      sitting_on: "on"
+      standing_on: "on"
+      lying_on: "on"
+      resting_on: "on"
+
+      attached_to: touching
+      connected_to: touching
+      hanging_from: touching
+      supporting: touching
+      part_of: touching
+      leaning_on: touching
+      occluding: touching
+      covering: touching
+
+      facing: touching
+      looking_at: touching
+      pointing_at: touching
+      talking_to: touching
+      watching: touching
+
+      holding: touching
+      wearing: touching
+      carrying: touching
+      interacting_with: touching
+      lifting: touching
+      pulling: touching
+      pressing: touching
+      adjusting: touching
+      playing_with: touching
+      shaking_hands: touching
+
+      reading: using
+      writing_on: using
+      eating: using
+      drinking: using
+      working_on: using
+      typing_on: using
+      clicking_with: using
+
+    attribute_map:
+      black: colored
+      white: colored
+      gray: colored
+      red: colored
+      blue: colored
+      green: colored
+      yellow: colored
+      brown: colored
+      wooden: colored
+      metal: colored
+      plastic: colored
+      glass: colored
+      multicolor: colored
+
+      open: stateful
+      closed: stateful
+      clear: stateful
+
+      large: formed
+      small: formed
+      rectangular: formed
+      round: formed
+      patterned: formed
+      smooth: formed
+      standing: formed
+      sitting: formed
+      facing_camera: formed
+
+  - name: vocab_5_micro
+    drop_unmapped: true
+
+    predicates:
+      - next_to
+      - in
+      - "on"
+      - touching
+
+    attributes:
+      - visible
+    predicate_map:
+      above: next_to
+      below: next_to
+      under: next_to
+      left_of: next_to
+      right_of: next_to
+      in_front_of: next_to
+      behind: next_to
+      parallel_to: next_to
+      perpendicular_to: next_to
+
+      mounted_on: "on"
+      stacked_on: "on"
+      sitting_on: "on"
+      standing_on: "on"
+      lying_on: "on"
+      resting_on: "on"
+
+      attached_to: touching
+      connected_to: touching
+      hanging_from: touching
+      supporting: touching
+      part_of: touching
+      leaning_on: touching
+      occluding: touching
+      covering: touching
+
+      facing: touching
+      looking_at: touching
+      pointing_at: touching
+      talking_to: touching
+      watching: touching
+
+      holding: touching
+      wearing: touching
+      carrying: touching
+      using: touching
+      interacting_with: touching
+      reading: touching
+      writing_on: touching
+      eating: touching
+      drinking: touching
+      working_on: touching
+      typing_on: touching
+      clicking_with: touching
+      lifting: touching
+      pulling: touching
+      pressing: touching
+      adjusting: touching
+      playing_with: touching
+      shaking_hands: touching
+
+    attribute_map:
+      black: visible
+      white: visible
+      gray: visible
+      red: visible
+      blue: visible
+      green: visible
+      yellow: visible
+      brown: visible
+      wooden: visible
+      metal: visible
+      plastic: visible
+      glass: visible
+      open: visible
+      closed: visible
+      large: visible
+      small: visible
+      rectangular: visible
+      round: visible
+      patterned: visible
+      smooth: visible
+      clear: visible
+      standing: visible
+      sitting: visible
+      multicolor: visible
+      facing_camera: visible

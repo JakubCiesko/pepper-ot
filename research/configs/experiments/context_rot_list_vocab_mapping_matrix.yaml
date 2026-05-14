@@ -1,0 +1,84 @@
+name: PepperContextRotListVocabMappingMatrix
+base_config: eval_sgg_server_like_base.yaml
+
+reuse_artifacts:
+  from_run: "research/artifacts/human_eval/vocab/eval_draft_sgg_frozen_vocab_v1"
+  files:
+    - "detections.json"
+    - "descriptions.json"
+    - "ground_truth_scene_graph.json"
+    - "vocabulary_final.json"
+
+common_overrides:
+  name: PepperContextRotListVocabMappingMatrix
+  paths:
+    images_dir: "data/images/eval"
+    output_root: "research/artifacts/experiments/context_rot_list_vocab_mapping"
+  descriptions:
+    enabled: false
+  vocabulary:
+    enabled: false
+  context_rot:
+    enabled: true
+    evaluate_against_ground_truth: true
+  evaluation:
+    enabled: false
+    keyspace: "gt_only"
+  prompting:
+    include_caption_in_sgg_prompt: true
+  draft_scene_graph:
+    enabled: false
+    max_concurrent_batches: 32
+    vocab_mode: "list"
+    use_som_image: true
+    visual_mode: "som"
+    som_show_bbox: true
+    som_show_labels: true
+    som_show_mask: false
+    som_show_polygon: false
+    som_mask_backend: "grabcut"
+    som_mask_opacity: 0.35
+    som_grab_cut_scale: 0.80
+    som_grab_cut_iter_count: 10
+    som_use_roi_grab_cut: true
+    som_max_mask_workers: 4
+  draft_sgg_model:
+    provider: "openai"
+    model_id: "gpt-5-nano-2025-08-07"
+    structured_mode: "provider_native"
+
+variants:
+  # - name: geminiR_context_rot_semantic
+  #   overrides:
+  #     experiment_id: geminiR_context_rot_semantic
+  #     context_rot:
+  #       levels_file: "research/configs/vocab/context_rot_levels.yaml"
+
+  # - name: geminiR_context_rot_frequency
+  #   overrides:
+  #     experiment_id: geminiR_context_rot_frequency
+  #     context_rot:
+  #       levels_file: "research/configs/vocab/context_rot_levels_frequency.yaml"
+
+  # - name: geminiR_context_rot_random
+  #   overrides:
+  #     experiment_id: geminiR_context_rot_random
+  #     context_rot:
+  #       levels_file: "research/configs/vocab/context_rot_levels_random.yaml"
+  - name: openai5_context_rot_semantic
+    overrides:
+      experiment_id: openai5_context_rot_semantic
+      context_rot:
+        levels_file: "research/configs/vocab/context_rot_levels.yaml"
+
+  - name: openai5_context_rot_frequency
+    overrides:
+      experiment_id: openai5_context_rot_frequency
+      context_rot:
+        levels_file: "research/configs/vocab/context_rot_levels_frequency.yaml"
+
+  - name: openai5_context_rot_random
+    overrides:
+      experiment_id: openai5_context_rot_random
+      context_rot:
+        levels_file: "research/configs/vocab/context_rot_levels_random.yaml"

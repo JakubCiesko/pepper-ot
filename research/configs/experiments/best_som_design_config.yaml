@@ -1,0 +1,547 @@
+name: PepperSGGServerLikeMatrix
+base_config: eval_sgg_server_like_base.yaml
+
+reuse_artifacts:
+  from_run: "research/artifacts/human_eval/vocab/eval_draft_sgg_frozen_vocab_v1"
+  files:
+    - "detections.json"
+    - "descriptions.json"
+    - "vocabulary_final.json"
+
+common_overrides:
+  name: PepperSGGServerLikeMatrix
+  paths:
+    images_dir: "data/images/eval"
+    output_root: "research/artifacts/experiments/best_som"
+  descriptions:
+    enabled: false
+  vocabulary:
+    enabled: false
+    source_mode: "frozen_file"
+    frozen_file: "research/configs/vocab/frozen_office_hri_vocab.json" # so which one really but they are the same...
+  context_rot:
+    enabled: false
+  evaluation:
+    enabled: false
+  prompting:
+    include_caption_in_sgg_prompt: false
+  draft_scene_graph:
+    max_concurrent_batches: 2
+
+variants:
+    # labels = WORDS, ID numbers used always when SoM Image is Used. 
+  - name: gemini_id_labels_bbox_mask
+    overrides:
+      experiment_id: gemini_id_labels_bbox_mask
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: true
+  
+  - name: gemini_id_labels_bbox
+    overrides:
+      experiment_id: gemini_id_labels_bbox
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: false 
+  - name: gemini_id_labels_mask
+    overrides:
+      experiment_id: gemini_id_labels_mask
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: true
+        som_show_mask: true
+  - name: gemini_id_labels
+    overrides:
+      experiment_id: gemini_id_labels
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: true
+        som_show_mask: false
+
+  - name: gemini_id_bbox_mask
+    overrides:
+      experiment_id: gemini_id_bbox_mask
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: false
+        som_show_mask: true
+  - name: gemini_id_bbox
+    overrides:
+      experiment_id: gemini_id_bbox
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: false
+        som_show_mask: false
+  - name: gemini_id_mask
+    overrides:
+      experiment_id: gemini_id_mask
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: true
+  - name: gemini_id
+    overrides:
+      experiment_id: gemini_id
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: false
+
+# gemini 3 1 pro 
+#   - name: geminiPRO_id_labels_bbox_mask
+#     overrides:
+#       experiment_id: geminiPRO_id_labels_bbox_mask
+#       draft_sgg_model:
+#         provider: "gemini"
+#         model_id: "gemini-3.1-pro-preview"
+#         structured_mode: "provider_native"
+#       draft_scene_graph:
+#         use_som_image: true
+#         som_show_bbox: true
+#         som_show_labels: true
+#         som_show_mask: true
+  
+#   - name: geminiPRO_id_labels_bbox
+#     overrides:
+#       experiment_id: geminiPRO_id_labels_bbox
+#       draft_sgg_model:
+#         provider: "gemini"
+#         model_id: "gemini-3.1-pro-preview"
+#         structured_mode: "provider_native"
+#       draft_scene_graph:
+#         use_som_image: true
+#         som_show_bbox: true
+#         som_show_labels: true
+#         som_show_mask: false 
+#   - name: geminiPRO_id_labels_mask
+#     overrides:
+#       experiment_id: geminiPRO_id_labels_mask
+#       draft_sgg_model:
+#         provider: "gemini"
+#         model_id: "gemini-3.1-pro-preview"
+#         structured_mode: "provider_native"
+#       draft_scene_graph:
+#         use_som_image: true
+#         som_show_bbox: false
+#         som_show_labels: true
+#         som_show_mask: true
+#   - name: geminiPRO_id_labels
+#     overrides:
+#       experiment_id: geminiPRO_id_labels
+#       draft_sgg_model:
+#         provider: "gemini"
+#         model_id: "gemini-3.1-pro-preview"
+#         structured_mode: "provider_native"
+#       draft_scene_graph:
+#         use_som_image: true
+#         som_show_bbox: false
+#         som_show_labels: true
+#         som_show_mask: false
+
+#   - name: geminiPRO_id_bbox_mask
+#     overrides:
+#       experiment_id: geminiPRO_id_bbox_mask
+#       draft_sgg_model:
+#         provider: "gemini"
+#         model_id: "gemini-3.1-pro-preview"
+#         structured_mode: "provider_native"
+#       draft_scene_graph:
+#         use_som_image: true
+#         som_show_bbox: true
+#         som_show_labels: false
+#         som_show_mask: true
+#   - name: geminiPRO_id_bbox
+#     overrides:
+#       experiment_id: geminiPRO_id_bbox
+#       draft_sgg_model:
+#         provider: "gemini"
+#         model_id: "gemini-3.1-pro-preview"
+#         structured_mode: "provider_native"
+#       draft_scene_graph:
+#         use_som_image: true
+#         som_show_bbox: true
+#         som_show_labels: false
+#         som_show_mask: false
+#   - name: geminiPRO_id_mask
+#     overrides:
+#       experiment_id: geminiPRO_id_mask
+#       draft_sgg_model:
+#         provider: "gemini"
+#         model_id: "gemini-3.1-pro-preview"
+#         structured_mode: "provider_native"
+#       draft_scene_graph:
+#         use_som_image: true
+#         som_show_bbox: false
+#         som_show_labels: false
+#         som_show_mask: true
+#   - name: geminiPRO_id
+#     overrides:
+#       experiment_id: geminiPRO_id
+#       draft_sgg_model:
+#         provider: "gemini"
+#         model_id: "gemini-3.1-pro-preview"
+#         structured_mode: "provider_native"
+#       draft_scene_graph:
+#         use_som_image: true
+#         som_show_bbox: false
+#         som_show_labels: false
+#         som_show_mask: false
+
+
+# gemini robotics: gemini-robotics-er-1.6-preview
+
+
+  - name: geminiR_id_labels_bbox_mask
+    overrides:
+      experiment_id: geminiR_id_labels_bbox_mask
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-robotics-er-1.6-preview"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: true
+  
+  - name: geminiR_id_labels_bbox
+    overrides:
+      experiment_id: geminiR_id_labels_bbox
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-robotics-er-1.6-preview"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: false 
+  - name: geminiR_id_labels_mask
+    overrides:
+      experiment_id: geminiR_id_labels_mask
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-robotics-er-1.6-preview"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: true
+        som_show_mask: true
+  - name: geminiR_id_labels
+    overrides:
+      experiment_id: geminiR_id_labels
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-robotics-er-1.6-preview"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: true
+        som_show_mask: false
+
+  - name: geminiR_id_bbox_mask
+    overrides:
+      experiment_id: geminiR_id_bbox_mask
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-robotics-er-1.6-preview"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: false
+        som_show_mask: true
+  - name: geminiR_id_bbox
+    overrides:
+      experiment_id: geminiR_id_bbox
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-robotics-er-1.6-preview"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: false
+        som_show_mask: false
+  - name: geminiR_id_mask
+    overrides:
+      experiment_id: geminiR_id_mask
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-robotics-er-1.6-preview"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: true
+  - name: geminiR_id
+    overrides:
+      experiment_id: geminiR_id
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-robotics-er-1.6-preview"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: false
+
+
+  # GPTs
+
+  - name: gpt_id_labels_bbox_mask
+    overrides:
+      experiment_id: gpt_id_labels_bbox_mask
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: true
+  
+  - name: gpt_id_labels_bbox
+    overrides:
+      experiment_id: gpt_id_labels_bbox
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: false 
+  - name: gpt_id_labels_mask
+    overrides:
+      experiment_id: gpt_id_labels_mask
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: true
+        som_show_mask: true
+  - name: gpt_id_labels
+    overrides:
+      experiment_id: gpt_id_labels
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: true
+        som_show_mask: false
+
+  - name: gpt_id_bbox_mask
+    overrides:
+      experiment_id: gpt_id_bbox_mask
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: false
+        som_show_mask: true
+  - name: gpt_id_bbox
+    overrides:
+      experiment_id: gpt_id_bbox
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: false
+        som_show_mask: false
+  - name: gpt_id_mask
+    overrides:
+      experiment_id: gpt_id_mask
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: true
+  - name: gpt_id
+    overrides:
+      experiment_id: gpt_id
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: false
+
+    # GPT 5 
+
+  - name: gpt5_id_labels_bbox_mask
+    overrides:
+      experiment_id: gpt5_id_labels_bbox_mask
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5.5-2026-04-23"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: true
+  
+  - name: gpt5_id_labels_bbox
+    overrides:
+      experiment_id: gpt5_id_labels_bbox
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5.5-2026-04-23"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: false 
+  - name: gpt5_id_labels_mask
+    overrides:
+      experiment_id: gpt5_id_labels_mask
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5.5-2026-04-23"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: true
+        som_show_mask: true
+  - name: gpt5_id_labels
+    overrides:
+      experiment_id: gpt5_id_labels
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5.5-2026-04-23"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: true
+        som_show_mask: false
+
+  - name: gpt5_id_bbox_mask
+    overrides:
+      experiment_id: gpt5_id_bbox_mask
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5.5-2026-04-23"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: false
+        som_show_mask: true
+  - name: gpt5_id_bbox
+    overrides:
+      experiment_id: gpt5_id_bbox
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5.5-2026-04-23"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: true
+        som_show_labels: false
+        som_show_mask: false
+  - name: gpt5_id_mask
+    overrides:
+      experiment_id: gpt5_id_mask
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5.5-2026-04-23"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: true
+  - name: gpt5_id
+    overrides:
+      experiment_id: gpt5_id
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5.5-2026-04-23"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: false
+
+
+
+
+
+
+
+
+
+
+

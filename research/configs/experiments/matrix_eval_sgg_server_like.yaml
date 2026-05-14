@@ -1,0 +1,164 @@
+name: PepperSGGServerLikeMatrix
+base_config: eval_sgg_server_like_base.yaml
+
+reuse_artifacts:
+  from_run: "research/artifacts/runs/eval_draft_sgg_frozen_vocab_v1"
+  files:
+    - "detections.json"
+    - "descriptions.json"
+    - "vocabulary_final.json"
+
+common_overrides:
+  name: PepperSGGServerLikeMatrix
+  paths:
+    images_dir: "data/images/eval"
+    output_root: "research/artifacts/best_som"
+  descriptions:
+    enabled: false
+  vocabulary:
+    enabled: false
+    source_mode: "frozen_file"
+    frozen_file: "research/configs/vocab/frozen_office_hri_vocab.json" # so which one really but they are the same...
+  context_rot:
+    enabled: false
+  evaluation:
+    enabled: false
+  prompting:
+    include_caption_in_sgg_prompt: false
+  draft_scene_graph:
+    max_concurrent_batches: 16
+
+variants:
+  - name: gemini_raw
+    overrides:
+      experiment_id: sgg_server_like_gemini_raw
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: false
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: false
+        som_show_polygon: false
+
+  - name: gemini_som_bbox_labels
+    overrides:
+      experiment_id: sgg_server_like_gemini_som_bbox_labels
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        visual_mode: "som"
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: false
+        som_show_polygon: false
+
+  - name: gemini_som_labels_only
+    overrides:
+      experiment_id: sgg_server_like_gemini_som_labels_only
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        visual_mode: "som"
+        som_show_bbox: false
+        som_show_labels: true
+        som_show_mask: false
+        som_show_polygon: false
+
+  - name: gemini_som_bbox_only
+    overrides:
+      experiment_id: sgg_server_like_gemini_som_bbox_only
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        visual_mode: "som"
+        som_show_bbox: true
+        som_show_labels: false
+        som_show_mask: false
+        som_show_polygon: false
+
+  - name: gemini_som_bbox_labels_mask
+    overrides:
+      experiment_id: sgg_server_like_gemini_som_bbox_labels_mask
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        visual_mode: "som"
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: true
+        som_show_polygon: false
+
+  - name: gpt_raw
+    overrides:
+      experiment_id: sgg_server_like_gpt_raw
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: false
+        som_show_bbox: false
+        som_show_labels: false
+        som_show_mask: false
+        som_show_polygon: false
+
+  - name: gpt_som_bbox_labels
+    overrides:
+      experiment_id: sgg_server_like_gpt_som_bbox_labels
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        use_som_image: true
+        visual_mode: "som"
+        som_show_bbox: true
+        som_show_labels: true
+        som_show_mask: false
+        som_show_polygon: false
+
+  # - name: qwen_raw
+  #   overrides:
+  #     experiment_id: sgg_server_like_qwen_raw
+  #     draft_sgg_model:
+  #       provider: "local_4bit"
+  #       model_id: "unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit"
+  #       structured_mode: "parse_output"
+  #     draft_scene_graph:
+  #       max_concurrent_batches: 1
+  #       use_som_image: false
+  #       som_show_bbox: true
+  #       som_show_labels: true
+  #       som_show_mask: false
+  #       som_show_polygon: false
+
+  # - name: qwen_som_bbox_labels
+  #   overrides:
+  #     experiment_id: sgg_server_like_qwen_som_bbox_labels
+  #     draft_sgg_model:
+  #       provider: "local_4bit"
+  #       model_id: "unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit"
+  #       structured_mode: "parse_output"
+  #     draft_scene_graph:
+  #       max_concurrent_batches: 1
+  #       use_som_image: true
+  #       visual_mode: "som"
+  #       som_show_bbox: true
+  #       som_show_labels: true
+  #       som_show_mask: false
+  #       som_show_polygon: false

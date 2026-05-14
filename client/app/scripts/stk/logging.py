@@ -30,6 +30,8 @@ class SafeLogger(object):
     def _wrap(self, method, msg, *args):
         msg = _safe_convert(msg)
         args = tuple(_safe_convert(a) for a in args)
+        if isinstance(msg, str):
+            return method(msg % args)
         return method(msg, *args)
 
     def info(self, msg, *args):

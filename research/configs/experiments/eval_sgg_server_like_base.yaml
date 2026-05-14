@@ -1,0 +1,97 @@
+name: PepperEvalSGGServerLike
+experiment_id: eval_sgg_server_like_base
+seed: 42
+
+paths:
+  images_dir: "data/images/eval"
+  output_root: "research/artifacts"
+
+description_model:
+  provider: "gemini"
+  model_id: "gemini-3.1-flash-lite"
+  structured_mode: "provider_native"
+
+vocabulary_model:
+  provider: "gemini"
+  model_id: "gemini-3.1-flash-lite"
+  structured_mode: "provider_native"
+
+draft_sgg_model:
+  provider: "gemini"
+  model_id: "gemini-3.1-flash-lite"
+  structured_mode: "provider_native"
+
+detection:
+  enabled: true
+  backend: "rf_detr"
+  batch_size: 4
+  max_image_size: 1024
+  confidence: 0.5
+
+descriptions:
+  enabled: true
+  max_image_size: 1024
+  max_concurrent_batches: 8
+  system_prompt: >
+    Describe only what is visually observable in the image.
+    Focus on detected objects, their attributes, and relationships between them.
+    Prefer precise language useful for scene graph annotation.
+  user_prompt_template: >
+    Detected objects: {objects}
+
+    Write a detailed but simple visual description for the provided image.
+    Mention visible detected objects, object attributes, and spatial or interaction relations.
+    Do not invent objects not visible in the image.
+
+vocabulary:
+  enabled: true
+  source_mode: "frozen_file"
+  frozen_file: "research/configs/vocab/frozen_office_hri_vocab.json"
+
+draft_scene_graph:
+  enabled: true
+  max_image_size: 1024
+  max_concurrent_batches: 4
+  visual_mode: "som"
+  vocab_mode: "closed"
+  save_som_images: true
+  som_output_dir: "som_images_draft"
+  include_raw_response: true
+  som_show_bbox: true
+  som_show_mask: false
+  som_show_polygon: false
+  som_show_labels: true
+  som_line_thickness: 2
+  som_mask_opacity: 0.5
+  som_color_lookup: "index"
+  som_mask_backend: "grabcut"
+  som_device: "cuda"
+  system_prompt: >
+    You are an expert Robotic Spatial Intelligence Engine. Your task is to analyze a visual scene and produce a machine-readable Scene Graph using object IDs.
+
+    Constraints:
+    Strict Vocabulary - Use ONLY the values in the provided RELATIONS and ATTRIBUTES list below. Do not invent new ones.
+    Object IDs - Only include objects labeled with numerical IDs visible in the scene.
+    Subject-Object Logic - For relationships, the "sub" and "obj" fields must reference different IDs.
+    Unary Attributes - Represent attributes by setting "sub" and "obj" to the same ID.
+    Exclusivity - Exclude any unlabeled objects, background elements, or inferred items.
+    Atomic Relations - Each relation must be atomic. Do not combine multiple predicates into one.
+    Clarity and Minimalism - Include only meaningful relationships. Avoid redundancy.
+    Format - Output only valid JSON matching the requested schema.
+  user_prompt_template: >
+    Focus on spatial, semantic, and functional relationships.
+    Provide relations and attributes of the LABELED objects only.
+    Use only the allowed predicates and attributes from the provided list.
+
+    Allowed relations and attributes:
+    {vocabulary}
+
+context_rot:
+  enabled: false
+
+evaluation:
+  enabled: false
+
+prompting:
+  include_detection_labels_in_descriptions: true
+  include_caption_in_sgg_prompt: false

@@ -1,0 +1,134 @@
+name: PepperVocabPresentationEffectMatrix
+base_config: eval_sgg_server_like_base.yaml
+
+reuse_artifacts:
+  from_run: "research/artifacts/human_eval/vocab/eval_draft_sgg_frozen_vocab_v1"
+  files:
+    - "detections.json"
+    - "descriptions.json"
+    - "vocabulary_final.json"
+
+common_overrides:
+  name: PepperVocabPresentationEffectMatrix
+  paths:
+    images_dir: "data/images/eval"
+    output_root: "research/artifacts/experiments/vocab_presentation_effect"
+  descriptions:
+    enabled: false
+  vocabulary:
+    enabled: false
+  context_rot:
+    enabled: false
+  evaluation:
+    enabled: false
+    keyspace: "gt_only"
+  prompting:
+    include_caption_in_sgg_prompt: true
+  draft_scene_graph:
+    max_concurrent_batches: 16
+    use_som_image: true
+    visual_mode: "som"
+    som_show_bbox: true
+    som_show_labels: true
+    som_show_mask: false
+    som_show_polygon: false
+    som_mask_backend: "grabcut"
+    som_mask_opacity: 0.35
+    som_grab_cut_scale: 0.80
+    som_grab_cut_iter_count: 10
+    som_use_roi_grab_cut: true
+    som_max_mask_workers: 4
+    user_prompt_template: >
+      Focus on spatial, semantic, and functional relationships.
+      Provide relations and attributes of the listed objects only.
+      Use only the allowed predicates and attributes from the provided list.
+
+      Scene description:
+      {caption}
+
+      Objects:
+      {objects}
+
+      Allowed relations and attributes:
+      {vocabulary}
+
+variants:
+  - name: geminiR_vocab_list
+    overrides:
+      experiment_id: geminiR_vocab_list
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-robotics-er-1.6-preview"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        vocab_mode: "list"
+
+  - name: geminiR_vocab_dict
+    overrides:
+      experiment_id: geminiR_vocab_dict
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-robotics-er-1.6-preview"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        vocab_mode: "closed"
+
+  - name: gemini_vocab_list
+    overrides:
+      experiment_id: gemini_vocab_list
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        vocab_mode: "list"
+
+  - name: gemini_vocab_dict
+    overrides:
+      experiment_id: gemini_vocab_dict
+      draft_sgg_model:
+        provider: "gemini"
+        model_id: "gemini-3.1-flash-lite"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        vocab_mode: "closed"
+
+  - name: gpt5_vocab_list
+    overrides:
+      experiment_id: gpt5_vocab_list
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5.5-2026-04-23"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        vocab_mode: "list"
+
+  - name: gpt5_vocab_dict
+    overrides:
+      experiment_id: gpt5_vocab_dict
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5.5-2026-04-23"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        vocab_mode: "closed"
+
+  - name: gpt_vocab_list
+    overrides:
+      experiment_id: gpt_vocab_list
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        vocab_mode: "list"
+
+  - name: gpt_vocab_dict
+    overrides:
+      experiment_id: gpt_vocab_dict
+      draft_sgg_model:
+        provider: "openai"
+        model_id: "gpt-5-nano-2025-08-07"
+        structured_mode: "provider_native"
+      draft_scene_graph:
+        vocab_mode: "closed"
