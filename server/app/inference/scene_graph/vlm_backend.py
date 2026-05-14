@@ -116,6 +116,22 @@ class VLMSceneGraphGenerator:
                     return []
             return []
 
+    @staticmethod
+    def _objects_for_prompt(
+        detections: list[InferenceDetectionObject] | None,
+    ) -> str:
+        objects = []
+        for idx, det in enumerate(detections or [], start=1):
+            object_id = det.object_id if det.object_id is not None else idx
+            objects.append(
+                {
+                    "id": object_id,
+                    "label": det.label,
+                    "bbox": [round(float(value), 2) for value in det.bbox],
+                }
+            )
+        return json.dumps(objects, ensure_ascii=False)
+
     async def _repair_json_output(self, image_bytes: bytes, raw: str) -> str:
         repair_system = (
             "You are a JSON repair engine. Return ONLY valid JSON with key "
@@ -130,9 +146,15 @@ class VLMSceneGraphGenerator:
         repaired, _ = await self.client.infer(repair_system, repair_user, None)
         return repaired
 
-    def _build_user_prompt(self, caption_text: str | None = None) -> str:
+    def _build_user_prompt(
+        self,
+        caption_text: str | None = None,
+        detections: list[InferenceDetectionObject] | None = None,
+    ) -> str:
         render_context = PromptRenderContext(
-            predicates=self.predicates, caption=caption_text
+            predicates=self.predicates,
+            caption=caption_text,
+            objects=self._objects_for_prompt(detections),
         )
         predicates_text = render_context.to_template_values().get("predicates", "")
         if self.user_prompt:
@@ -141,9 +163,15 @@ class VLMSceneGraphGenerator:
             return "Allowed predicates: " + predicates_text
         return "Focus on spatial, semantic, and functional relationships."
 
-    def _build_system_prompt(self, caption_text: str | None = None) -> str:
+    def _build_system_prompt(
+        self,
+        caption_text: str | None = None,
+        detections: list[InferenceDetectionObject] | None = None,
+    ) -> str:
         render_context = PromptRenderContext(
-            predicates=self.predicates, caption=caption_text
+            predicates=self.predicates,
+            caption=caption_text,
+            objects=self._objects_for_prompt(detections),
         )
         return render_prompt_template(self.system_prompt, render_context)
 
@@ -154,8 +182,8 @@ class VLMSceneGraphGenerator:
         caption_text: str | None = None,
     ) -> SceneGraph:
         image_bytes = self._serialize_image_bytes(image)
-        system_prompt = self._build_system_prompt(caption_text)
-        user_prompt = self._build_user_prompt(caption_text)
+        system_prompt = self._build_system_prompt(caption_text, detections)
+        user_prompt = self._build_user_prompt(caption_text, detections)
         output_schema: Any = SceneGraphStructuredResponse
         if self.config.structured_schema == "relationship_list":
             output_schema = list[SceneGraphRelation]

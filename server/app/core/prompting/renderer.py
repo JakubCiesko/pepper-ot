@@ -9,6 +9,7 @@ class PromptRenderContext:
     caption: str | None = None
     captions_recent: str | None = None
     predicates: Iterable[Any] | str | None = None
+    objects: Any | None = None
     extra: dict[str, Any] | None = None
 
     def to_template_values(self) -> dict[str, Any]:
@@ -16,6 +17,10 @@ class PromptRenderContext:
             predicates_text = self.predicates
         else:
             predicates_text = ", ".join(str(item) for item in (self.predicates or []))
+        if isinstance(self.objects, str):
+            objects_text = self.objects
+        else:
+            objects_text = str(self.objects or "")
         recent = self.captions_recent or ""
         values: dict[str, Any] = {
             "context": self.context or "",
@@ -23,6 +28,7 @@ class PromptRenderContext:
             "captions_recent": recent,
             "caption_recent": recent,
             "predicates": predicates_text,
+            "objects": objects_text,
         }
         if self.extra:
             values.update(self.extra)

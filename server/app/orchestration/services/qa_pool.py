@@ -178,7 +178,9 @@ class QAPoolService:
                 *(task for _, _, task in translation_tasks),
                 return_exceptions=True,
             )
-            for (entry_idx, target_key, _), result in zip(translation_tasks, results, strict=True):
+            for (entry_idx, target_key, _), result in zip(
+                translation_tasks, results, strict=True
+            ):
                 entry = prepared[entry_idx]
                 fallback = (
                     entry["question_en"]

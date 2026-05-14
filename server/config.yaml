@@ -52,7 +52,7 @@ scene_graph:
     user_prompt:
       path: "prompts/vlm_user.txt"
     ontology:
-      path: "ontology/scene_generation_ontology.yaml"
+      path: "ontology/sgg_ontology.yaml"
   rules:
     enabled: true
     rule_list:

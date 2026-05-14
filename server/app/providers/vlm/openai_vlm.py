@@ -28,8 +28,10 @@ class OpenAIVLMClient(BaseVLMClient):
     ):
         self.config = config
         self.client = AsyncOpenAI(**(client_kwargs or {}))
+        # TODO: Test whether JSON works every time. Tools does not work for small models it seems (without tool calls)
         self.instructor_client = instructor.from_openai(
-            self.client, mode=instructor.Mode.TOOLS
+            self.client,
+            mode=instructor.Mode.JSON,  # instructor.Mode.TOOLS #TODO: ERROR:  WARNING: instructor.Mode.JSON for some models without tool calling!
         )
         self.supports_native_structured = supports_native_structured
         logger.info(

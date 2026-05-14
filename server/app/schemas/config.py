@@ -180,6 +180,7 @@ class ChatConfig(LLMConfig):
     object_user_prompt: PromptSource | None = None
 
 
+# TODO: mode does nothing, so does **MOST** of the provider really.
 class CaptionConfig(LLMConfig):
     mode: Literal["unconditional", "prompted"] = "prompted"
     max_words: int | None = None

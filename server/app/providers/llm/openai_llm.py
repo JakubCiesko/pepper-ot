@@ -22,8 +22,10 @@ class OpenAITextProvider(BaseTextProvider):
     def __init__(self, client: AsyncOpenAI, supports_native_structured: bool):
         self.client = client
         self.supports_native_structured = supports_native_structured
+        # TODO: Test whether JSON works every time. Tools does not work for small models it seems (without tool calls)
         self.instructor_client = instructor.from_openai(
-            self.client, mode=instructor.Mode.TOOLS
+            self.client,
+            mode=instructor.Mode.JSON,  # instructor.Mode.TOOLS #TODO: ERROR:  WARNING: instructor.Mode.JSON for some models without tool calling!
         )
 
     async def generate(
