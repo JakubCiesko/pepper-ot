@@ -251,7 +251,7 @@ class PepperGroundedClient(object):
         if not getter:
             return error_output
         dynamic_concept = getter()
-        
+
         if not dynamic_concept:
             return error_output if not return_concept_only else dynamic_concept
 
@@ -269,7 +269,7 @@ class PepperGroundedClient(object):
 
         self.logger.info("listDynamicConcept retrieved lang_code=%s concept=%s, value=%s",
                          lang_code, concept, sample)
-        
+
         prefix = self.prefix_for_listing(lang_code, False)
         # TODO: add prefix of more grammar like form.
         prefix = text_utils.clean_text_unicode(prefix) + u" "
@@ -318,8 +318,8 @@ class PepperGroundedClient(object):
         question_for_fact = random.sample(facts, min(len(facts), 1))
         if question_for_fact:
             facts = facts.get(question_for_fact[0], None)
-        else: 
-            facts = None 
+        else:
+            facts = None
         self.logger.info("listCachedAnswers called lang_code=%s facts=%s",
                          lang_code, facts)
         lang_code = self._runtime_language(lang_code)

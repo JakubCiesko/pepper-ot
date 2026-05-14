@@ -15,7 +15,7 @@ For relations: "sub" != "obj"
 For attributes: "sub" = "obj"
 
 Example Input:
-An image of a red object with ID 2 being held by an object with ID 1. 
+An image of a red object with ID 2 being held by an object with ID 1.
 Object 3 is positioned on object 4.
 
 Example Output:

@@ -44,6 +44,7 @@ public_html/
 naoqi_docs/
 neural_motifs/
 reltr/
+client/**.ipynb
 
 tests/
 
