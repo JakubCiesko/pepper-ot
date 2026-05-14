@@ -251,6 +251,7 @@ class PepperGroundedClient(object):
         if not getter:
             return error_output
         dynamic_concept = getter()
+        
         if not dynamic_concept:
             return error_output if not return_concept_only else dynamic_concept
 
@@ -266,7 +267,11 @@ class PepperGroundedClient(object):
         else:
             sample = dynamic_concept
 
+        self.logger.info("listDynamicConcept retrieved lang_code=%s concept=%s, value=%s",
+                         lang_code, concept, sample)
+        
         prefix = self.prefix_for_listing(lang_code, False)
+        # TODO: add prefix of more grammar like form.
         prefix = text_utils.clean_text_unicode(prefix) + u" "
         sample = [text_utils.clean_text_unicode(s) for s in sample]
         return prefix + u", ".join([s.replace(u"_", u" ") for s in sample])
@@ -290,7 +295,7 @@ class PepperGroundedClient(object):
                                             "cached_questions",
                                             1,
                                             return_concept_only=True)
-        questions = random.sample(questions, min(len(questions), 1))
+        #questions = random.sample(questions, min(len(questions), 1))
         lang_code = self._runtime_language(lang_code)
         if questions:
             if lang_code == "cs":
@@ -303,6 +308,33 @@ class PepperGroundedClient(object):
             else:
                 text = u"You can ask anything you like. I have nothing prepared"
         self.say(text)#text_utils.clean_text_unicode(text))
+
+    @qi.bind(returnType=qi.Void, paramsType=[qi.String])
+    def listCachedAnswers(self, lang_code):
+        facts = self.listDynamicConcept(lang_code,
+                                            "cached_answers",
+                                            0,
+                                            return_concept_only=True)
+        question_for_fact = random.sample(facts, min(len(facts), 1))
+        if question_for_fact:
+            facts = facts.get(question_for_fact[0], None)
+        else: 
+            facts = None 
+        self.logger.info("listCachedAnswers called lang_code=%s facts=%s",
+                         lang_code, facts)
+        lang_code = self._runtime_language(lang_code)
+
+        if facts:
+            if lang_code == "cs":
+                text = u"Vím třeba tenhle fakt: %s" % facts
+            else:
+                text = u"I know that %s" % facts
+        else:
+            if lang_code == "cs":
+                text = u"Teď toho ještě moc nevím"
+            else:
+                text = u"I don't know much right now. Maybe later."
+        self.say(text)
 
     @qi.bind(returnType=qi.Void, paramsType=[qi.String])
     def showMemory(self, lang_code):

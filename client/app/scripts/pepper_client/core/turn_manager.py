@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 import threading
 
 from pepper_client.interaction import speech_policy
@@ -42,6 +44,7 @@ class TurnManager(object):
         self._lock = threading.RLock()
         self._busy = False
         self._active_turn = None
+        self._turn_local = threading.local()
 
     def start_look(self, lang_code):
         return self._start_async("look", lang_code, self._run_look, lang_code)
@@ -123,6 +126,7 @@ class TurnManager(object):
 
     def _start_async(self, kind, lang_code, target, *args):
         turn_id = ids.new_turn_id(kind)
+        started_at = time_utils.now_ts()
         speech_mode = self._speech_request_language(lang_code)
         runtime_lang = self._speech_lang(lang_code)
         with self._lock:
@@ -133,24 +137,43 @@ class TurnManager(object):
                     self._active_turn,
                 )
                 self._safe_say(fallback_message("busy", runtime_lang),
-                               speech_mode)
+                               speech_mode,
+                               phase="busy")
                 return False
             self._busy = True
-            self._active_turn = {"id": turn_id, "kind": kind}
+            self._active_turn = {
+                "id": turn_id,
+                "kind": kind,
+                "started_at": started_at,
+            }
+        self._log_latency_event(
+            "turn_started",
+            turn_id=turn_id,
+            kind=kind,
+            started_at=started_at,
+        )
         if self.config["behavior"].get("speak_acknowledgements", True):
             ack = speech_policy.acknowledgement(kind, runtime_lang)
             if ack:
-                self._safe_say(ack, speech_mode)
+                self._safe_say(
+                    ack,
+                    speech_mode,
+                    phase="ack",
+                    turn_id=turn_id,
+                    kind=kind,
+                    started_at=started_at,
+                )
         thread = threading.Thread(
             target=self._run_guarded,
             name="pepper-turn-%s" % turn_id,
-            args=(turn_id, kind, lang_code, target, args),
+            args=(turn_id, kind, lang_code, started_at, target, args),
         )
         thread.setDaemon(True)
         thread.start()
         return True
 
-    def _run_guarded(self, turn_id, kind, lang_code, target, args):
+    def _run_guarded(self, turn_id, kind, lang_code, started_at, target, args):
+        self._set_current_turn(turn_id, kind, started_at)
         self.logger.info("Starting turn id=%s kind=%s", turn_id, kind)
         try:
             target(*args)
@@ -160,6 +183,7 @@ class TurnManager(object):
             self._safe_say(
                 fallback_message("camera", self._speech_lang(lang_code)),
                 self._speech_request_language(lang_code),
+                phase="error",
             )
         except ServerTimeoutError as exc:
             self.logger.warning("Server timeout in turn %s: %s", turn_id, exc)
@@ -167,6 +191,7 @@ class TurnManager(object):
                 fallback_message("server_timeout",
                                  self._speech_lang(lang_code)),
                 self._speech_request_language(lang_code),
+                phase="error",
             )
         except ServerUnavailableError as exc:
             self.logger.warning("Server unavailable in turn %s: %s", turn_id,
@@ -175,6 +200,7 @@ class TurnManager(object):
                 fallback_message("server_unavailable",
                                  self._speech_lang(lang_code)),
                 self._speech_request_language(lang_code),
+                phase="error",
             )
         except MalformedResponseError as exc:
             self.logger.warning("Malformed server response in turn %s: %s",
@@ -182,6 +208,7 @@ class TurnManager(object):
             self._safe_say(
                 fallback_message("malformed", self._speech_lang(lang_code)),
                 self._speech_request_language(lang_code),
+                phase="error",
             )
         except Exception as exc:
             self.logger.error(
@@ -193,8 +220,10 @@ class TurnManager(object):
             self._safe_say(
                 fallback_message("unexpected", self._speech_lang(lang_code)),
                 self._speech_request_language(lang_code),
+                phase="error",
             )
         finally:
+            self._clear_current_turn()
             with self._lock:
                 self._busy = False
                 self._active_turn = None
@@ -211,6 +240,7 @@ class TurnManager(object):
                                                       True))
         publish = bool(self.config["server"].get("publish", True))
         language = speech_policy.server_language_for_runtime(runtime_lang)
+        self._log_latency_event("server_request_start", phase="caption")
         caption_response = self._caption_with_optional_retry(
             capture["image_bytes"],
             metadata,
@@ -218,8 +248,11 @@ class TurnManager(object):
             publish=publish,
             language=language,
         )
+        self._log_latency_event("server_response_received", phase="caption")
         self.session_store.update_after_caption(caption_response)
-        self._safe_say(caption_response["caption"], speech_mode)
+        self._safe_say(caption_response["caption"],
+                       speech_mode,
+                       phase="answer")
 
         if self.config.get("dialog", {}).get("refresh_after_detect", True):
             self._refresh_dynamic_concepts_from_server(lang_code, runtime_lang)
@@ -249,17 +282,22 @@ class TurnManager(object):
 
         if scan_planner.summary_after_scan(self.config):
             query = self._scan_summary_query(runtime_lang)
+            self._log_latency_event("server_request_start", phase="chat")
             chat_response = self.transport.chat_general(
                 query,
                 self.session_store.get_chat_id(),
                 runtime_lang,
             )
+            self._log_latency_event("server_response_received", phase="chat")
             self.session_store.update_after_chat(query, chat_response)
-            self._safe_say(chat_response["sentence"], speech_mode)
+            self._safe_say(chat_response["sentence"],
+                           speech_mode,
+                           phase="answer")
         else:
             self._safe_say(
                 speech_policy.generic_message("scan_complete", runtime_lang),
                 speech_mode,
+                phase="answer",
             )
 
     def _run_scan_panorama(self, scan_id):
@@ -350,13 +388,15 @@ class TurnManager(object):
         if should_refresh:
             self.logger.info("Refreshing visual context before chat")
             self._refresh_visual_context(lang_code, runtime_lang)
+        self._log_latency_event("server_request_start", phase="chat")
         chat_response = self.transport.chat_general(
             query,
             self.session_store.get_chat_id(),
             runtime_lang,
         )
+        self._log_latency_event("server_response_received", phase="chat")
         self.session_store.update_after_chat(query, chat_response)
-        self._safe_say(chat_response["sentence"], speech_mode)
+        self._safe_say(chat_response["sentence"], speech_mode, phase="answer")
 
     def _run_object_ask(self, lang_code, object_label, query):
         runtime_lang = self._speech_lang(lang_code)
@@ -371,14 +411,19 @@ class TurnManager(object):
         if not query:
             query = self._object_default_query(runtime_lang, object_label)
 
+        self._log_latency_event("server_request_start", phase="object_chat")
         chat_response = self.transport.chat_object(
             object_label=object_label,
             query=query,
             chat_id=self.session_store.get_chat_id(),
             language=runtime_lang,
         )
+        self._log_latency_event("server_response_received",
+                                phase="object_chat")
         self.session_store.update_after_chat(query, chat_response)
-        self._safe_say(chat_response.get("sentence"), speech_mode)
+        self._safe_say(chat_response.get("sentence"),
+                       speech_mode,
+                       phase="answer")
 
     def _run_show_memory_and_suggest_questions(self, lang_code):
         runtime_lang = self._speech_lang(lang_code)
@@ -394,11 +439,13 @@ class TurnManager(object):
             self._safe_say(
                 fallback_message("unexpected", runtime_lang),
                 speech_mode,
+                phase="error",
             )
             return
         self._safe_say(
             self._suggested_question_text(runtime_lang),
             speech_mode,
+            phase="answer",
         )
 
     def _run_cached_answer(self, lang_code, query):
@@ -421,17 +468,21 @@ class TurnManager(object):
         if answer:
             self.logger.info("Answering from pregenerated cache for query=%s",
                              query)
-            self._safe_say(answer, speech_mode)
+            self._safe_say(answer, speech_mode, phase="answer")
             return
         self.logger.info(
             "Cached answer miss, falling back to general chat query=%s", query)
+        self._log_latency_event("server_request_start", phase="chat")
         chat_response = self.transport.chat_general(
             query,
             self.session_store.get_chat_id(),
             runtime_lang,
         )
+        self._log_latency_event("server_response_received", phase="chat")
         self.session_store.update_after_chat(query, chat_response)
-        self._safe_say(chat_response.get("sentence"), speech_mode)
+        self._safe_say(chat_response.get("sentence"),
+                       speech_mode,
+                       phase="answer")
 
     def _run_show_memory(self, lang_code):
         runtime_lang = self._speech_lang(lang_code)
@@ -447,6 +498,7 @@ class TurnManager(object):
             self._safe_say(
                 fallback_message("unexpected", runtime_lang),
                 speech_mode,
+                phase="error",
             )
 
     def _load_memory_page(self, runtime_lang):
@@ -477,6 +529,7 @@ class TurnManager(object):
         if questions:
             question = text_utils.clean_text_unicode(questions[0])
             if runtime_lang == "cs":
+                # TODO: u s krouzkem
                 return u"Mužeš se zeptat třeba tohle: %s" % question
             return u"You can ask me like this: %s" % question
         if runtime_lang == "cs":
@@ -504,6 +557,7 @@ class TurnManager(object):
         self._safe_say(
             speech_policy.acknowledgement("reset", runtime_lang),
             speech_mode,
+            phase="answer",
         )
 
     def _refresh_visual_context(self, lang_code=None, runtime_lang=None):
@@ -553,13 +607,73 @@ class TurnManager(object):
                 language=language,
             )
 
-    def _safe_say(self, text, lang_code):
+    def _safe_say(self,
+                  text,
+                  lang_code,
+                  phase="speech",
+                  turn_id=None,
+                  kind=None,
+                  started_at=None):
         if not text:
             return
         try:
+            self._log_latency_event(
+                "speech_start",
+                phase=phase,
+                turn_id=turn_id,
+                kind=kind,
+                started_at=started_at,
+            )
             self.speech_adapter.say(text, lang_code)
         except Exception:
             self.logger.error("Speech failed for text: %s", text)
+
+    def _set_current_turn(self, turn_id, kind, started_at):
+        self._turn_local.turn_id = turn_id
+        self._turn_local.kind = kind
+        self._turn_local.started_at = started_at
+
+    def _clear_current_turn(self):
+        self._turn_local.turn_id = None
+        self._turn_local.kind = None
+        self._turn_local.started_at = None
+
+    def _log_latency_event(self,
+                           event,
+                           phase=None,
+                           turn_id=None,
+                           kind=None,
+                           started_at=None):
+        if turn_id is None:
+            turn_id = getattr(self._turn_local, "turn_id", None)
+        if kind is None:
+            kind = getattr(self._turn_local, "kind", None)
+        if started_at is None:
+            started_at = getattr(self._turn_local, "started_at", None)
+
+        now = time_utils.now_ts()
+        elapsed = None
+        if started_at is not None:
+            try:
+                elapsed = max(0.0, now - float(started_at))
+            except Exception:
+                elapsed = None
+        if elapsed is None:
+            elapsed = -1.0
+
+        # self.logger.info(
+        #     "LATENCY turn_id=%s kind=%s event=%s phase=%s elapsed_s=%.3f wall_ts=%.6f",
+        #     turn_id,
+        #     kind,
+        #     event,
+        #     phase,
+        #     elapsed,
+        #     now,
+        # )
+        self.logger.info(
+    "LATENCY turn_id=%s kind=%s event=%s phase=%s elapsed_s=%.3f wall_ts=%.6f"
+    % (turn_id, kind, event, phase, elapsed, now)
+)
 
     def _speech_lang(self, requested_lang):
         _, runtime_lang = speech_policy.resolve_language_state(
