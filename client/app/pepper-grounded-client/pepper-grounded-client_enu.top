@@ -177,14 +177,14 @@ concept:(panorama_scan) [
 ]
 
 u:(~quick_look)
-    ^mode(contextual)
+    #^mode(contextual) # TODO: should be pcall first so that it first sends the shit and talks later
+    ^pCall(PepperGroundedClient.look("en"))
     ^rand[
         "Okay I will take a quick look."
         "Let me take a quick look."
         "I will check the scene."
     ]
-    ^pCall(PepperGroundedClient.look("en"))
-    ^runTag(look)
+    #^runTag(look)
     This will take {just} a [moment second].
 
 u:(~panorama_scan)
@@ -351,6 +351,12 @@ u:([what which list] [relations] {do} you see)
     ^pCall(PepperGroundedClient.listRelations("en"))
 
 
+u:([what which] {facts} do you know about the scene)
+    ^pCall(PepperGroundedClient.listCachedAnswers("en"))
+
+u:(tell me [a some any] fact about the scene)
+    ^pCall(PepperGroundedClient.listCachedAnswers("en"))
+
 
 concept:(counts) [
    "{"tell me"} how many"
@@ -469,7 +475,8 @@ concept:(ask_suggested_questions) [
 
 u:(~ask_suggested_questions)
     "Okay I will show suggested questions from memory."
-    ^pCall(PepperGroundedClient.showMemoryAndSuggestQuestions("en"))
+    #^pCall(PepperGroundedClient.showMemoryAndSuggestQuestions("en"))
+    ^pCall(PepperGroundedClient.listCachedQuestions("en"))
 
 u:(_~memory_cached_questions)
     ^pCall(PepperGroundedClient.answerCachedQuestion("en", $1))

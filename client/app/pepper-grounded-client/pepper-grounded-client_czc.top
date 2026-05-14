@@ -6,6 +6,9 @@ dynamic: memory_attributes
 dynamic: memory_relations
 dynamic: memory_cached_questions
 
+
+# TODO: stop any movement of robot before taking pictures.
+
 # system introduction
 concept:(question_prefix) [
     "[jak jako]"
@@ -30,7 +33,7 @@ concept:(explain_system)[
 u:(~explain_system)
     ^mode(contextual)
     ^rand["Super, že se ptáš." "Skvělá otázka." ""]
-    ^runTag(explain)
+    ^startTag(explain)
     Používám kamery a umělou inteligenci, abych pochopil své okolí.
     ^run(animations/Stand/Gestures/Explain_1)
     Pořízuju obrázky, které pak odešlu na server ke zpracování.
@@ -40,10 +43,10 @@ u:(~explain_system)
     Pak tyto informace uspořádám do strukturované reprezentace obrazu
     ^run(animations/Stand/Gestures/YouKnowWhat_6)
     To mi umožňuje odpovídat na otázky o tom, co vidím a jak spolu věci souvisejí.
-    ^runTag(you)
+    ^startTag(you)
     Můžeš se mě zeptat více na to, jak pracuji.
     u1:(["{na} co se mohu zeptat" "{na} jaké otázky se mohu zeptat" "co mi můžeš říct" "víc" "pokračuj" "{a} dál"])
-        ^runTag(explain)
+        ^startTag(explain)
         ["Můžeš se zeptat třeba na skenování, detekci, rychlost skenování nebo paměť. Nebo se zeptej na to jak se ptát"
         "Můžeš se mě zeptat na to, co vidím, jak jsem rychlý, jak zpracovávám scény nebo co si pamatuji. Nebo se zeptej na to jak se ptát"]
         Co bys chtěl vědět
@@ -67,7 +70,7 @@ u:(~explain_system)
             ^goto(exit)
 
     u1:(["jaké objekty poznáš" "co dokážeš rozpoznat" "co vidíš"]) %objects
-        ^runTag(explain)
+        ^startTag(explain)
         Dokážu rozpoznat běžné objekty jako židle stoly obrazovky knihy a další
 
         ^run(animations/Stand/Gestures/Show_1)
@@ -85,7 +88,7 @@ u:(~explain_system)
 
 
     u1:(["co je skenování" "co znamená sken" "jak funguje skenování"]) %scan
-        ^runTag(explain)
+        ^startTag(explain)
         Skenování znamená že se dívám na okolí z víc uhlu
 
         ^run(animations/Stand/Gestures/LookAround_1)
@@ -101,7 +104,7 @@ u:(~explain_system)
         ^run(animations/Stand/Gestures/ShowSky_1)
         Server si ale informace ukládat může
 
-        ^runTag(explain)
+        ^startTag(explain)
         Díky tomu dokážu později odpovídat na otázky
         ^stayInScope
 
@@ -115,7 +118,7 @@ u:(~explain_system)
         ^run(animations/Stand/Gestures/Explain_1)
         Nebo co se děje ve scéně
 
-        ^runTag(yes)
+        ^startTag(yes)
         Pokusím se odpovědět co nejpřesněji
         #TODO: add this to english too
         Dokážu odpovědet i na obecní otázky když je uvedeš slovami Prosím tě odpověz mi na toto
@@ -192,7 +195,7 @@ u:(~panorama_scan)
         "Prohlédnu celé okolí"
     ]
     ^pCall(PepperGroundedClient.scan("cs"))
-    Může to trvat několik [sekund okamžiků] ["Prosím vydrž" "Chvilku počkej" ""]
+    Může to trvat několik [sekund] ["Prosím vydrž" "Chvilku počkej" ""]
 
 
 
@@ -234,13 +237,13 @@ u:(~reset_memory_only)
     Opravdu chceš abych všechno zapomněl?
 
     u1:(["ano" "ano udělej to" "potvrzuji" "pokračuj" "smaž" "vymaž"])
-        ^runTag(yes)
+        ^startTag(yes)
         Dobře jdu na to. Mažu paměť
         #TODO: why have lang here
         ^pCall(PepperGroundedClient.resetMemory("cs"))
 
     u1:(["ne" "zruš" "stop"])
-        ^runTag(no)
+        ^startTag(no)
         Dobře paměť je v cajku
 
 concept:(reset_conversation_only) [
@@ -251,8 +254,9 @@ concept:(reset_conversation_only) [
     "zapomeň konverzaci"
     "nová konverzace"
 ]
+
 u:(~reset_conversation_only)
-    ^runTag(explain)
+    ^startTag(explain)
     ["Dobře resetuji konverzaci" "Můžeme začít znovu"]
     ^pCall(PepperGroundedClient.resetConversation())
 
@@ -270,14 +274,14 @@ u:(~reset_all)
     Tímto se vymažeš paměť a restartuješ konverzaci. Chceš pokračovat?
 
     u1:(["ano" "potvrzuji" "udělej to"])
-        ^runTag(yes)
+        ^startTag(yes)
         Dobře restartuji vše
 
         ^pCall(PepperGroundedClient.resetMemory("cs"))
         ^pCall(PepperGroundedClient.resetConversation())
 
     u1:(["ne" "zruš"])
-        ^runTag(no)
+        ^startTag(no)
         Dobře nic nebudu resetovat
 
 
@@ -295,7 +299,7 @@ concept:(refresh_memory_concepts) [
 
 
 u:(~refresh_memory_concepts)
-    ^runTag(explain)
+    ^startTag(explain)
     Obnovuji jsi svou paměť.
     ^pCall(PepperGroundedClient.refreshMemoryConcepts("cs"))
 
@@ -321,7 +325,7 @@ concept:(object_query_prefix) [
 
 u:({~object_query_prefix} ~object_query_lead _~memory_objects)
     ^mode(contextual)
-    ^runTag(explain)
+    ^startTag(explain)
     ^pCall(PepperGroundedClient.askAboutObject("cs", $1))
 
     Dobře zaměřím se na $1
@@ -339,7 +343,7 @@ u:({~object_query_prefix} ~object_query_lead _~memory_objects)
         ^stayInScope
     u1:(["a co" "co třeba"] _~memory_objects)
         $last_object=$1
-        ^runTag(explain)
+        ^startTag(explain)
         Dobře podívám se na $1
         ^pCall(PepperGroundedClient.askAboutObject("cs", $1))
         ^stayInScope
@@ -351,15 +355,23 @@ u:({~object_query_prefix} ~object_query_lead _~memory_objects)
 
 # with fallbacks dynamic concepts
 #
-u:([co jaké které jmenuj] [objekty věci předměty] [vidíš vnímáš pozoruješ])
+u:([co jaké které jmenuj] [objekty věci předměty] [vidíš vnímáš pozoruješ "si pamatuješ"])
     ^pCall(PepperGroundedClient.listObjects("cs"))
 
-u:([co jaké které jmenuj] [vlastnosti atributy] [vidíš vnímáš pozoruješ])
+u:([co jaké které jmenuj] [vlastnosti atributy] [vidíš vnímáš pozoruješ "si pamatuješ"])
     ^pCall(PepperGroundedClient.listAttributes("cs"))
 
-u:([co jaké které jmenuj] [vztahy predikáty] [vidíš vnímáš pozoruješ])
+u:([co jaké které jmenuj] [vztahy predikáty] [vidíš vnímáš pozoruješ "si pamatuješ"])
     ^pCall(PepperGroundedClient.listRelations("cs"))
 
+u:([co jaké jaký] {fakt fakty} víš o scéně)
+    ^pCall(PepperGroundedClient.listCachedAnswers("cs"))
+
+u:(řekni {mi} [nějakej nějaký] fakt {"o scéně"})
+    ^pCall(PepperGroundedClient.listCachedAnswers("cs"))
+
+u:(řekni {mi} fakt {"o scéně"})
+    ^pCall(PepperGroundedClient.listCachedAnswers("cs"))
 
 
 concept:(counts) [
@@ -454,7 +466,7 @@ u:("[co něco některé] {[věci předměty]} [je jsou] " _~attribute)
     ^pCall(PepperGroundedClient.ask("cs", $query))
     Tak to je otázka. Musím se pořádně zamyslet.
 
-u:(["jaký je" "co je"] _~memory_objects {zač})
+u:(["jaký je" "co je" "jaká je" "jací jsou" "jaký jsou" "jaké jsou"] _~memory_objects {zač})
     $query="Jaký je $1"
     ^pCall(PepperGroundedClient.ask("cs", $query))
     $1?
@@ -483,8 +495,8 @@ concept:(ask_suggested_questions) [
 
 u:(~ask_suggested_questions)
     "Ukážu ti možné otázky"
-    ^pCall(PepperGroundedClient.showMemoryAndSuggestQuestions("cs"))
-    #^pCall(PepperGroundedClient.listCachedQuestions("cs"))
+    #^pCall(PepperGroundedClient.showMemoryAndSuggestQuestions("cs"))
+    ^pCall(PepperGroundedClient.listCachedQuestions("cs"))
 
 u:(_~memory_cached_questions)
     ^pCall(PepperGroundedClient.answerCachedQuestion("cs", $1))
