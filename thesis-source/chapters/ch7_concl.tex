@@ -2,22 +2,20 @@
 \chapter{Results, Discussion, and Conclusion}\label{chap:end}
 
 \section{Summary of the Thesis}
-\begin{itemize}
-    \item Recap the problem, the implemented system, and the main findings.
-    \item Summarize how the thesis connects Pepper sensing, server-side perception, dynamic scene memory, and grounded dialogue.
-\end{itemize}
+This thesis addressed a practical question in situated human--robot interaction: how a Pepper robot can answer questions about its surroundings in a way that is grounded in perception rather than in generic language-model knowledge. The central design choice was to treat Pepper as an embodied client and to move the expensive perception, memory, and language processing to a local external server. That split made it possible to combine robot-side interaction, server-side multimodal perception, persistent scene memory, and grounded dialogue into one working system.
 
-\section{Main Contributions Revisited}
-\begin{itemize}
-    \item Restate the final contributions in concise, evidence-backed form.
-    \item Make sure this section reflects what was actually implemented and evaluated, not only initial intentions.
-\end{itemize}
+The final system is intentionally hybrid. On the robot side, QiChat provides a deterministic dialogue front end, turn handling, and access to robot actions. On the server side, object detection, people metadata, scene graph generation, memory association, and language-model-driven response generation operate on the current scene state. This architecture matches the demands of the deployment setting: Pepper remains responsive as an interaction partner, while the heavy computation is handled by hardware better suited to modern perception and generation models.
 
-\section{Future Work}
-\begin{itemize}
-    \item Stronger long-term memory and user modeling.
-    \item Better open-vocabulary perception and relation modeling.
-    \item More principled multimodal grounding and uncertainty estimation.
-    \item Additional user studies and broader HRI evaluation.
-    \item Tighter integration with other Pepper behaviors and action-capable planners.
-\end{itemize}
+\section{Main Findings}
+The experiments confirmed that the system is most effective when perception is represented as structured memory rather than as an unstructured prompt alone. Scene graphs proved to be a useful intermediate representation because they preserve object identities, attributes, and relations in a form that can be queried by language models and reused across turns. At the same time, the results showed that scene graph generation remains sensitive to prompt design and visual grounding details.
+
+The strongest Set-of-Mark configuration was the one that combined numeric object IDs with class labels and bounding boxes. This setting was the most stable across model families, while mask overlays were less consistent. The evaluation also showed that Set-of-Mark is most useful when combined with a textual scene description: the caption provides scene semantics, while the marked image helps the model bind those semantics to concrete object IDs. In other words, the visual mark does not replace language context; it makes the language context referentially precise.
+
+The vocabulary experiments led to a similarly practical conclusion. The controlled predicate and attribute vocabulary is long-tailed, but the task does not always benefit from keeping every possible label. A compact semantic or frequency-based vocabulary preserved performance surprisingly well, while random reductions performed much worse. This indicates that the quality of the vocabulary matters at least as much as its size. Prompt formatting had a smaller but still measurable effect, and its impact depended on the model family: some models preferred a flat list, while others benefited from a structured predicate-attribute separation.
+
+The interaction measurements were more modest but still informative. Follow-up questions over existing scene memory were answered within a few seconds and were therefore usable in spoken interaction. Visual description turns were slower, mainly because the system must capture an image, transmit it to the server, process it, and then return the result to Pepper. The main bottleneck was not the final answer generation itself, but the construction of visual memory and the orchestration around it. This is a realistic limitation for a distributed robot system, and it suggests that expensive updates should be moved off the critical response path whenever possible.
+
+\section{Limitations and Future Work}
+The system is complete enough to demonstrate scene-aware dialogue, but it is not the end state of the problem. Its most obvious limitations are the dependence on external compute, the sensitivity of VLM-based prompting, and the remaining gap between strict scene-graph quality and conversational usefulness. In addition, the current memory is still scene-centric rather than truly long-term, and the robot does not yet maintain a richer model of user history, intention, or shared context across sessions.
+
+Future work should therefore focus on three directions. First, the memory layer should become more robust, with better handling of uncertainty, persistence, and conflicting observations. Second, relation prediction should be strengthened, either through better visual prompting, better vocabularies, or more specialized grounding models. Third, the system should be evaluated with more extensive user studies, because offline graph metrics and robot-side latency only describe part of the interaction quality. A broader HRI evaluation would show whether the architecture is not only technically workable, but also genuinely useful in real dialogue with people.
