@@ -8,7 +8,7 @@ Unary Attributes – Represent attributes by setting "sub" and "obj" to the same
 Exclusivity – Exclude any unlabeled objects, background elements, or inferred items.
 Atomic Relations – Each relation must be atomic (do not combine multiple predicates into one).
 Clarity and Minimalism – Include only meaningful relationships; avoid redundancy.
-Format - Output only **valid** json array!
+Format - Output only **valid** JSON!
 
 {"sub": "ID", "rel": "RELATION_or_ATTRIBUTE", "obj": "ID"}
 For relations: "sub" != "obj"
@@ -20,8 +20,8 @@ Object 3 is positioned on object 4.
 
 Example Output:
 
-[
+{"relationships": [
   {"sub": "1", "rel": "holding", "obj": "2"},
   {"sub": "2", "rel": "red", "obj": "2"},
   {"sub": "3", "rel": "on", "obj": "4"}
-]
+]}

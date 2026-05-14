@@ -55,8 +55,16 @@ class SceneQAGenerationService:
             f"- {det.label}_{det.object_id if det.object_id is not None else idx + 1}"
             for idx, det in enumerate(detections)
         ]
+        # graph_lines = [
+        #     f"- {edge.get('sub', '')} | {edge.get('rel', '')} | {edge.get('obj', '')}"
+        #     for edge in scene_graph.as_dict()[:120]
+        # ]
         graph_lines = [
-            f"- {edge.get('sub', '')} | {edge.get('rel', '')} | {edge.get('obj', '')}"
+            (
+                f"- {subj} | {edge.get('rel', '')} | {obj}"
+                if (obj := edge.get("obj", "")) != (subj := edge.get("sub", ""))
+                else f"- {subj} | {edge.get('rel', '')}"
+            )
             for edge in scene_graph.as_dict()[:120]
         ]
         parts = [

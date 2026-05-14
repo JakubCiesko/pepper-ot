@@ -4,7 +4,7 @@ system:
 detection:
   backend: "rf_detr"
   weights_path: null
-  confidence_threshold: 0.60
+  confidence_threshold: 0.50
   run_nms_post_filter: false
   nms_iou_threshold: 0.50
   nms_type: "per_class"
@@ -27,7 +27,7 @@ tracking:
     target_size: [384, 384]
     resampling_method: "BICUBIC"
     human_reid_enabled: false
-    human_reid_model: null
+    human_reid_model: "maennyn/personvit-reid-msmt17-vit-s"
     human_reid_target_size: [128, 256]
     human_labels: ["person", "human", "man", "woman", "boy", "girl"]
 
@@ -35,17 +35,17 @@ scene_graph:
   parallel_execution: false
   vlm:
     enabled: true
-    provider: "gemini"
-    model_id: "gemini-2.5-flash-lite"#"gemini-3.1-flash-lite-preview" #"gpt-5-mini-2025-08-07"
+    provider: "openai_compatible"#"gemini"
+    model_id: "unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_S"#"gemini-2.5-flash-lite"#"gemini-3.1-flash-lite-preview" #"gpt-5-mini-2025-08-07"
     device: "cuda"
-    base_url: null
-    api_key_env: "GEMINI_API_KEY" #pragma: allowlist secret
+    base_url: "http://127.0.0.1:8080/v1"#null
+    api_key_env: "OPENAI_API_KEY"#"GEMINI_API_KEY" #pragma: allowlist secret
     client_init_kwargs: {}
     call_kwargs: {}
       #temperature: 1.0
       #max_completion_tokens: 4096
     structured_output:
-      mode: "provider_native"
+      mode: "instructor"
       strict: true
     system_prompt:
       path: "prompts/vlm_system_complex.txt"
@@ -54,7 +54,7 @@ scene_graph:
     ontology:
       path: "ontology/sgg_ontology.yaml"
   rules:
-    enabled: true
+    enabled: false
     rule_list:
       - predicate: "left_of"
         type: "directional"
@@ -101,7 +101,7 @@ scene_graph:
         thresholds:
           min_iou: 0.85
   reltr:
-    enabled: true
+    enabled: false
     checkpoint_path: detection_models/reltr.pth
     device: "cuda"
     threshold: 0.3
