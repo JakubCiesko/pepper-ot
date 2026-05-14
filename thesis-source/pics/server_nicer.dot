@@ -107,7 +107,6 @@ digraph ServerArchitectureOverviewSimple {
     DIALOGUE_SERVICE -> WS [style = dashed, label = "messages"];
     STATE_SERVICE -> WS [style = dashed, label = "state changes"];
 
-	
+
     WS -> DASH [style = dashed];
 }
-

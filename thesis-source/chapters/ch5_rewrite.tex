@@ -1,6 +1,6 @@
 \chapter{Robot-Side Implementation}\label{chap:robot_side_rewrite}
 
-The robot-side client is the part of the system that turns the server architecture from Chapter~\ref{chap:server_side_rewrite} into an interaction with Pepper. It runs in Pepper's NAOqi environment, listens through QiChat, moves the head during scans, captures camera images, collects robot metadata, calls the server, speaks answers, and updates the tablet. 
+The robot-side client is the part of the system that turns the server architecture from Chapter~\ref{chap:server_side_rewrite} into an interaction with Pepper. It runs in Pepper's NAOqi environment, listens through QiChat, moves the head during scans, captures camera images, collects robot metadata, calls the server, speaks answers, and updates the tablet.
 
 \section{Runtime Structure}\label{sec:client-runtime-structure}
 
@@ -10,13 +10,13 @@ The robot-side client is the part of the system that turns the server architectu
 \caption{Robot-side client architecture. QiChat calls the PepperGroundedClient service's methods. The service delegates long actions to the turn manager, which collects robot context, builds metadata, calls the server transport, and updates speech, tablet output, local state, and dynamic dialogue concepts.}\label{fig:client-runtime-graph}
 \end{figure}
 
-Figure~\ref{fig:client-runtime-graph} shows the client as a NAOqi service boundary around smaller adapters. The main service is \texttt{PepperGroundedClient}. It exposes bound methods for quick look, scan, chat, object chat, cached answers, memory display, and reset. These methods are intentionally thin. They log the call, normalize small arguments, and delegate long-running work to the turn manager. 
+Figure~\ref{fig:client-runtime-graph} shows the client as a NAOqi service boundary around smaller adapters. The main service is \texttt{PepperGroundedClient}. It exposes bound methods for quick look, scan, chat, object chat, cached answers, memory display, and reset. These methods are intentionally thin. They log the call, normalize small arguments, and delegate long-running work to the turn manager.
 
 At startup, the service loads \texttt{client\_config.json} (containing setup information such as server url for detection and panorama detection, scan head degrees, etc.) and constructs the adapters. The camera adapter wraps \texttt{ALVideoDevice}; the pose adapter wraps \texttt{ALMotion}; the people, face, social, and sonar adapters read robot-native context from NAOqi services and \texttt{ALMemory}; the speech adapter wraps animated speech and text-to-speech; the dialog adapter updates ALDialog dynamic concepts; the tablet adapter opens the local tablet page; the server transport owns HTTP calls; and the session store keeps short-lived local state. In addition, the client code also support \texttt{FakeCameraAdapter} and \texttt{FakeTabletAdapter} usable for testing of unavailable services for virtual robot in Choregraphe, a software used for programming NAO and Pepper robots. This adapter structure is practical because it separates individual NAOqi services and makes it easier to manage each component. Moreover, the NAOqi services differ in availability and failure behavior so they need special treatment~\cite{softbank_python_sdk_2026}.
 
 \section{QiChat Grammar}\label{sec:client-qichat}
 
-The spoken interface is defined in English and Czech QiChat topic files. 
+The spoken interface is defined in English and Czech QiChat topic files.
 The grammar handles bounded interaction control; it decides whether a user asked for a quick look, a full scan, a memory display, a reset, an object-specific question, or a cached suggested question. It also provides system description and introduction so that user can find out what Pepper can do.
 The crucial point is the LLMs do not replace this layer. QiChat is the only way user can interact with the service, and consequently the server. Each rule maps the user's intent to a service method, and the server-side LLM is used after the action and relevant parameters are known. This keeps the interaction controllable while still allowing grounded open-ended answers.
 
@@ -52,7 +52,7 @@ Dynamic concepts are the main link between server memory and speech recognition.
 
 The operational center of the client is \texttt{TurnManager}. It implements quick look, full scan, general chat, object-focused chat, cached answering, memory display, visual refresh, and memory reset. A service method starts a turn by calling \texttt{\_start\_async}. The turn manager creates a turn identifier, checks whether the client is already busy, optionally speaks an acknowledgement, and starts a daemon thread for the actual work. This prevents long actions from blocking the NAOqi service method that QiChat or the tablet called.
 
-%The busy flag is important because Pepper is a physical robot. Two turns should not move the head, capture images, speak, or update the tablet at the same time. 
+%The busy flag is important because Pepper is a physical robot. Two turns should not move the head, capture images, speak, or update the tablet at the same time.
 MAYBE REDUNDANT: The turn manager therefore accepts one long-running action at a time. If another action arrives while the robot is busy, the client speaks a localized busy fallback and rejects the new turn. Every guarded turn releases the busy state in a \texttt{finally} block, so a timeout or malformed server response does not leave the robot permanently locked.
 
 \section{Visual Actions and Metadata}\label{sec:client-visual-actions}
@@ -86,4 +86,4 @@ THIS DOES NOT WORK WILL CHANGE: The tablet page also calls back into the robot s
 % The main limitation of the client is that it depends on the server for grounded intelligence. If the network, server URL, model provider, or response format fails, Pepper can only speak a fallback or use cached local state. A second limitation is the grammar interface. QiChat gives robust entry points and useful dynamic concepts, but it is still a grammar; the user must speak close enough to a recognized pattern for the intended method to be called. This is the tradeoff chosen in the implementation. The client keeps interaction control local and deterministic, while the server provides the open-ended perception and dialogue capability.
 
 
-In the next chapter we will try to evaluate this system with respect to latency and generation quality, etc. etc. something something. 
+In the next chapter we will try to evaluate this system with respect to latency and generation quality, etc. etc. something something.

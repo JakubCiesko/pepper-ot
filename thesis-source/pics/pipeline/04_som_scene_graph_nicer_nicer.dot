@@ -213,5 +213,3 @@ digraph PipelineStageSomSceneGraphClean {
     ENRICH -> OUT;
     NO_GRAPH -> OUT;
 }
-
-

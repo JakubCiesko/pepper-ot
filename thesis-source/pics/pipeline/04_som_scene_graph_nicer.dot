@@ -6,70 +6,70 @@ digraph PipelineStageSomSceneGraphClean {
     ranksep = 0.45;
     pad = 0.35;
     bgcolor = "white";
-    
+
     graph [fontname = "Helvetica";];
     node [fontname = "Helvetica"; fontsize = 10; shape = box; style = "rounded,filled"; color = "#000000"; penwidth = 1.1; margin = "0.12,0.08";];
     edge [fontname = "Helvetica"; fontsize = 8; color = "#000000"; penwidth = 1.0; arrowsize = 0.7;];
-    
+
     INPUTS [label = "Inputs\ntracked detections, image,\ncaption, scene memory state";fillcolor = "#F2D45C";];
-    
+
     SOM_MODE [label = "Render SoM?";shape = diamond;style = "filled";fillcolor = "#FFF2CC";margin = "0.08,0.05";];
-    
+
     SOM [label = "Set-of-Marks rendering\nboxes, masks, labels";fillcolor = "white";];
-    
+
     RAW [label = "Use raw image";fillcolor = "white";];
-    
+
     SG_IMAGE [label = "Image for scene-graph generation\nSoM image or raw image";fillcolor = "#F2D45C";];
-    
+
     SG_MODE [label = "Generate scene graph?";shape = diamond;style = "filled";fillcolor = "#FFF2CC";margin = "0.08,0.05";];
-    
+
     subgraph cluster_sg {
         label = "Scene graph generation";
         color = "#4E8B57";
         penwidth = 1.1;
         style = "rounded,dashed";
         bgcolor = "#E8F0F7";
-        
+
         FANOUT [label = "Backend execution\nsequential or parallel";fillcolor = "white";];
-        
+
         RULES [label = "Rule-based generator";fillcolor = "white";];
-        
+
         RELTR [label = "RelTR generator";fillcolor = "white";];
-        
+
         VLM [label = "VLM generator";fillcolor = "white";];
-        
+
         MERGE [label = "Merge and deduplicate";fillcolor = "white";];
-        
+
         ENRICH [label = "Enhance with robot API derived\nobject attributes";fillcolor = "white";];
-        
+
         FANOUT -> RULES;
         FANOUT -> RELTR;
         FANOUT -> VLM;
-        
+
         RULES -> MERGE;
         RELTR -> MERGE;
         VLM -> MERGE;
-        
+
         MERGE -> ENRICH;
     }
-    
+
     NO_GRAPH [label = "Empty Scene Graph";fillcolor = "white";];
-    
+
     OUT [label = "Current-frame scene graph";fillcolor = "#F2D45C";];
-    
+
     INPUTS -> SOM_MODE;
-    
+
     SOM_MODE -> SOM [label = "yes";];
     SOM_MODE -> RAW [label = "no";];
-    
+
     SOM -> SG_IMAGE;
     RAW -> SG_IMAGE;
-    
+
     SG_IMAGE -> SG_MODE;
-    
+
     SG_MODE -> FANOUT [label = "yes"; lhead = cluster_sg;];
     SG_MODE -> NO_GRAPH [label = "no";];
-    
+
     ENRICH -> OUT;
     NO_GRAPH -> OUT [style = dashed;];
 }

@@ -4,8 +4,8 @@ The server is the most important part of the system. Its role is to receive imag
 
 \section{Runtime Structure and Public Boundary}\label{sec:server-runtime-structure}
 
-The public process is a FastAPI Python application. 
-It exposes the REST API under \texttt{/api/v1}, serves the dashboard under \texttt{/dashboard}, mounts static dashboard assets, and opens a WebSocket endpoint for live dashboard events. 
+The public process is a FastAPI Python application.
+It exposes the REST API under \texttt{/api/v1}, serves the dashboard under \texttt{/dashboard}, mounts static dashboard assets, and opens a WebSocket endpoint for live dashboard events.
 This boundary keeps the Pepper-side NAOqi program separated from the inference stack. Pepper only sees the stable HTTP endpoints useable for detection, captioning, memory summaries, and chat; the server can then change detector backends, model providers, prompts, and runtime mode without changing the robot application in any way.
 
 \begin{figure}[h]
@@ -14,10 +14,10 @@ This boundary keeps the Pepper-side NAOqi program separated from the inference s
 \caption{Server architecture. Pepper and the dashboard communicate with the public FastAPI routes. Application services call a runtime adapter, which either uses an in-process perception pipeline or forwards the request to an internal worker process.}\label{fig:server-runtime-structure}
 \end{figure}
 
-Figure~\ref{fig:server-runtime-structure} shows the main server components. 
-The route layer is organized around system capabilities. Perception routes are \texttt{api/v1/detect}, \texttt{api/v1/detect/panorama}, and \texttt{api/v1/caption}. 
-Dialogue routes are \texttt{api/v1/chat} and \texttt{api/v1/vision\_chat}. 
-State routes provide memory CRUD operations, configuration update, and worker status management. 
+Figure~\ref{fig:server-runtime-structure} shows the main server components.
+The route layer is organized around system capabilities. Perception routes are \texttt{api/v1/detect}, \texttt{api/v1/detect/panorama}, and \texttt{api/v1/caption}.
+Dialogue routes are \texttt{api/v1/chat} and \texttt{api/v1/vision\_chat}.
+State routes provide memory CRUD operations, configuration update, and worker status management.
 
 \begin{figure}[h]
 \centering
@@ -25,7 +25,7 @@ State routes provide memory CRUD operations, configuration update, and worker st
 \caption{Server dashboard screenshot, main page. The dashboard exposes controls for the application runtime and displays the current state of memory and robot interaction. It also provides way for interacting with the LLMs and VLMs.}\label{fig:dashboard}
 \end{figure}
 
-The dashboard is served at \texttt{/dashboard} and provides way to control the runtime, and view all the processed inputs and memory state which are broadcasted to it using websocket. 
+The dashboard is served at \texttt{/dashboard} and provides way to control the runtime, and view all the processed inputs and memory state which are broadcasted to it using websocket.
 The user can also interact with all API endpoints through it directly, i. e. changing system prompts, switching between parallel and sequential pipeline execution, insert synthetic objects into memory or upload images for processing and chat with the RAG enhanced LLM. Dashboard screenshot is shown in Figure~\ref{fig:dashboard}.
 
 %The same route layer is used by the Pepper client and by the dashboard, although the dashboard also receives live updates through WebSocket broadcasts.
@@ -48,7 +48,7 @@ The main perception request is a multipart image upload with optional JSON robot
 
 Figure~\ref{fig:server-perception-pipeline} summarizes the pipeline. In the full configuration, the server can run captioning, object detection, tracking and memory association, Set-of-Mark rendering, scene graph generation, question generation, caption memory update, and scene graph memory update. Each stage records and logs timing metrics. Not all stages of the pipeline are needed, a request can still return useful detections and memory updates even if captioning or relation generation fails. Every pipeline stage is also configurable in the dashboard in the corresponding tabs, as well as the pipeline constitution can be changed --- some stages can be dropped.
 
-The pipeline has a sequential mode and a partially parallel mode. In sequential mode, captioning runs first, then detection, then the post-detection stages. In parallel mode, captioning and detection start at the same time on separate image copies. Detection can be offloaded to a thread and guarded by a detector lock, while the caption request can wait on a remote or local provider. After both branches are ready, the pipeline joins the outputs and continues with tracking, SoM rendering, scene graph generation, memory updates, and question generation. This parallelism is optional because the best choice depends on hardware, provider latency, and model memory pressure. Further parallelism of the pipeline is not possible as all the subsequent stages depend on the output of these two stages and on the output of the preceeding stage (e.g. scene graph generation can use captions in the user or system prompt if needed to provide hints for the VLM). 
+The pipeline has a sequential mode and a partially parallel mode. In sequential mode, captioning runs first, then detection, then the post-detection stages. In parallel mode, captioning and detection start at the same time on separate image copies. Detection can be offloaded to a thread and guarded by a detector lock, while the caption request can wait on a remote or local provider. After both branches are ready, the pipeline joins the outputs and continues with tracking, SoM rendering, scene graph generation, memory updates, and question generation. This parallelism is optional because the best choice depends on hardware, provider latency, and model memory pressure. Further parallelism of the pipeline is not possible as all the subsequent stages depend on the output of these two stages and on the output of the preceeding stage (e.g. scene graph generation can use captions in the user or system prompt if needed to provide hints for the VLM).
 
 There is a second parallelism switch inside scene graph generation. The scene graph service can run rules, RelTR \cite{cong_reltr_2023}, and the VLM backend sequentially, or it can run the rule and RelTR backends in worker threads while the VLM backend runs asynchronously. The generated graphs are then merged with a union and deduplication strategy. %The current configuration keeps this parallelism disabled, which favors simpler timing and easier debugging during development.
 

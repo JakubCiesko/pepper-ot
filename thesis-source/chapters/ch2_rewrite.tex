@@ -1,14 +1,14 @@
 \chapter{Background and Related Work}\label{chap:background}
 
 %TL;DR: The chapter separates background concepts from related work and prepares the formal vocabulary for the method chapters.
-Chapter~\ref{chap:intro} introduced the motivation for scene-aware dialogue on the Pepper robot. In this chapter, this motivation can be made technically more precise. The aim of this part is, however, not yet to describe the implemented system itself, but to introduce the concepts, assumptions, and previous approaches that are needed before the system can be understood. 
+Chapter~\ref{chap:intro} introduced the motivation for scene-aware dialogue on the Pepper robot. In this chapter, this motivation can be made technically more precise. The aim of this part is, however, not yet to describe the implemented system itself, but to introduce the concepts, assumptions, and previous approaches that are needed before the system can be understood.
 
 For this reason, the chapter combines two roles. It gives the theoretical background, that is, the academic ancestors of the work, and it also reviews related work, that is, alternative attempts by other authors to solve similar problems under slightly different assumptions.
 
 %TL;DR: The chapter follows the perception-to-dialogue pipeline used by the thesis.
-The order of the chapter follows the path from the robot's interaction setting to the final language response. We first discuss human-robot interaction and social robots, because these shape the overall domain of the project and explain why ordinary visual perception is not sufficient. We then define the problem setting of scene-aware dialogue. 
+The order of the chapter follows the path from the robot's interaction setting to the final language response. We first discuss human-robot interaction and social robots, because these shape the overall domain of the project and explain why ordinary visual perception is not sufficient. We then define the problem setting of scene-aware dialogue.
 
-After that, object detection is introduced alongisde tracking, and re-identification, which provide object-level perception and persistence. The next section explains grounding and scene graph generation, where detections are transformed into structured relational context. 
+After that, object detection is introduced alongisde tracking, and re-identification, which provide object-level perception and persistence. The next section explains grounding and scene graph generation, where detections are transformed into structured relational context.
 
 Next, we describe language models and vision-language models, because these models handle (generate and interpret) natural language in the proposed system. The final technical sections discuss Retrieval-Augmented Generation (RAG), Cache-Augmented Generation (CAG), GraphRAG, and the Pepper platform itself.
 
@@ -19,9 +19,9 @@ Next, we describe language models and vision-language models, because these mode
 \section{Human-Robot Interaction and Social Robots}\label{sec:hri-social-robots}
 
 %TL;DR: HRI is introduced as the field that makes interaction quality part of the technical problem.
-Human-robot interaction (HRI) studies how humans and robots interact, how these interactions can be designed, and how they should be evaluated. Goodrich and Schultz describe HRI as an interdisciplinary field in which robotics, human factors, psychology, design, linguistics, and computer science meet~\cite[203--216]{goodrich_human-robot_2007}. 
+Human-robot interaction (HRI) studies how humans and robots interact, how these interactions can be designed, and how they should be evaluated. Goodrich and Schultz describe HRI as an interdisciplinary field in which robotics, human factors, psychology, design, linguistics, and computer science meet~\cite[203--216]{goodrich_human-robot_2007}.
 
-From a design perspective, the HRI problem can be characterized, as per Goodrich and Schultz, as the problem of understanding and shaping interaction between humans and robots. They identify five key attributes through which interaction can be influenced: the level and behavior of autonomy, the nature of information exchange, the structure of the human-robot team, adaptation and learning of both the human and the robot, and the shape of the task~\cite[216--217]{goodrich_human-robot_2007}. 
+From a design perspective, the HRI problem can be characterized, as per Goodrich and Schultz, as the problem of understanding and shaping interaction between humans and robots. They identify five key attributes through which interaction can be influenced: the level and behavior of autonomy, the nature of information exchange, the structure of the human-robot team, adaptation and learning of both the human and the robot, and the shape of the task~\cite[216--217]{goodrich_human-robot_2007}.
 
 
 The level of autonomy determines how independently the robot can act and how control is shared between the human and the robot. The nature of information exchange describes how information is communicated, including modalities such as speech, vision, or interfaces, as well as the structure and clarity of that communication. The team structure defines the roles and relationships between humans and robots, for example whether the robot acts as a tool, assistant, peer, or supervisor. Adaptation and learning capture how both the human and the robot adjust their behavior over time through interaction. Finally, the shape of the task reflects how the introduction of the robot modifies or constrains the activity being performed~\cite[216--232]{goodrich_human-robot_2007}.
@@ -39,10 +39,10 @@ Sheridan distinguishes four broad application areas of HRI:\@supervisory control
 
 The present work belongs primarily to the last category, where the central challenge is not only detecting objects, but using them to support grounded, context-sensitive dialogue with humans.
 
-The present work clearly belongs primarily to the last category, as the central challenge is not only detecting objects, but using them to support grounded, context-sensitive dialogue with humans. Moreover, using the five attributes of an HRI problem, this thesis can be characterized as follows. Pepper operates with limited, interaction-triggered autonomy: it captures observations, updates scene memory, and produces grounded responses, but does not independently plan or act in the environment. The information exchange is multimodal, combining human speech and tablet input with robot speech, tablet output, camera images, robot-native metadata, scene memory, and scene graphs. The team structure is a proximate one-human-one-robot interaction, with an off-board server acting as computational infrastructure rather than as an independent teammate. Adaptation is implemented not as online model learning, but through interaction-time updates to memory, dynamic dialogue concepts, cached question-answer pairs, and conversation state. The task is open-ended but bounded: the robot supports situated dialogue about the visible environment rather than manipulation, navigation, or fully autonomous task execution. 
+The present work clearly belongs primarily to the last category, as the central challenge is not only detecting objects, but using them to support grounded, context-sensitive dialogue with humans. Moreover, using the five attributes of an HRI problem, this thesis can be characterized as follows. Pepper operates with limited, interaction-triggered autonomy: it captures observations, updates scene memory, and produces grounded responses, but does not independently plan or act in the environment. The information exchange is multimodal, combining human speech and tablet input with robot speech, tablet output, camera images, robot-native metadata, scene memory, and scene graphs. The team structure is a proximate one-human-one-robot interaction, with an off-board server acting as computational infrastructure rather than as an independent teammate. Adaptation is implemented not as online model learning, but through interaction-time updates to memory, dynamic dialogue concepts, cached question-answer pairs, and conversation state. The task is open-ended but bounded: the robot supports situated dialogue about the visible environment rather than manipulation, navigation, or fully autonomous task execution.
 
 
-Another important term is social robot. Its meaning is not entirely uniform in the literature. Henschel, Laban, and Cross note that there is no universally accepted definition and that social robots are often characterized by embodiment, some degree of autonomy, and interactional behavior interpreted by humans as social~\cite[11--12]{henschel_what_2021}. 
+Another important term is social robot. Its meaning is not entirely uniform in the literature. Henschel, Laban, and Cross note that there is no universally accepted definition and that social robots are often characterized by embodiment, some degree of autonomy, and interactional behavior interpreted by humans as social~\cite[11--12]{henschel_what_2021}.
 
 In this thesis, a social robot is understood as a physically embodied system that communicates or cooperates with humans in a socially interpretable manner. This definition does not require anthropomorphic form, but rather that the robot's behavior participates in social interaction with a human user. THIS\_MIGHT\_BE\_DROPPED\_TOO\_OPINIONATED
 
@@ -50,7 +50,7 @@ In this thesis, a social robot is understood as a physically embodied system tha
 This point is important because social embodiment changes user expectations. A user may reasonably expect that a robot standing in the same room can refer to objects in that room, distinguish people, or remember a previously mentioned item. Henschel et al. also discuss studies of Pepper users in which reciprocal conversation and the limitations of single-turn interaction become salient expectations~\cite[12]{henschel_what_2021}. The same issue appears in work on LLM-powered HRI;\@Language fluency can make users expect broader situational competence than the system actually has\@\cite{kim_understanding_2024,atuhurra_leveraging_2024}.
 
 %TL;DR: Related HRI work motivates grounding, but often does not solve persistent visual scene memory.
-Several recent systems connect social robots with the well-known abilities of LLMs or VLMs in order to improve interaction. Some focus on human-support in teaching and education~\cite{latif_physicsassistant_2024,sievers_humanoid_2025}; others focus on assistance, libraries, industry, or general conversational flexibility~\cite{trinquet_future_2025,brad_retrieval-augmented_2025,becerra_improving_2024}. 
+Several recent systems connect social robots with the well-known abilities of LLMs or VLMs in order to improve interaction. Some focus on human-support in teaching and education~\cite{latif_physicsassistant_2024,sievers_humanoid_2025}; others focus on assistance, libraries, industry, or general conversational flexibility~\cite{trinquet_future_2025,brad_retrieval-augmented_2025,becerra_improving_2024}.
 
 These systems are very much important to this current thesis as they are its academic siblings because they address the same broad problem: modern language models can make Pepper more flexible, yet the robot still needs a reliable connection to the physical context. They do, however, differ in their emphasis. Many of them use perception as an input to a specific task or response, whereas this thesis treats the scene as a persistent structured state that can be queried across dialogue turns. THIS LAST SENT TO BE DROPPED
 
@@ -125,7 +125,7 @@ We can summarize the HRI background as follows. If Pepper were only a camera, ob
   the reason why the next section first defines scene-aware dialogue as the problem setting, and why the later sections move from perception to structured memory and then to grounded dialogue.
 
 \section{Problem Setting: Scene-Aware Dialogue}\label{sec:problem-setting-scene-aware-dialogue}
-NICE BUT MIGHT BE DROPPED 
+NICE BUT MIGHT BE DROPPED
 %TL;DR: The section defines the task formally before discussing methods.
 Before introducing individual terms and methods, we need a more precise formulation of the task. In this thesis, scene-aware dialogue is not merely dialogue accompanied by an image. It is dialogue in which the robot maintains a structured representation of its perceived environment and uses that representation when answering the user. The problem therefore combines perception, temporal identity, relation extraction, memory update, and language generation.
 
@@ -134,7 +134,7 @@ Let the robot collect a sequence of visual observations
 \[
 O_1,O_2,\ldots,O_T,
 \]
-where each observation contains an image \(I_t\), robot metadata \(r_t\) such as head orientation or camera parameters, and possibly robot-native social perception signals. 
+where each observation contains an image \(I_t\), robot metadata \(r_t\) such as head orientation or camera parameters, and possibly robot-native social perception signals.
 
 Unlike a standard video sequence, these observations need not be temporally continuous. Pepper may scan the scene in discrete steps, for example by rotating the head by a fixed angle between captures. This distinction is important because many tracking methods assume adjacent frames with limited displacement, while the present setting may contain large viewpoint changes between observations.
 
@@ -143,7 +143,7 @@ The desired internal state after observation \(t\) is a memory
 \[
 M_t=(\mathcal{O}_t,\mathcal{G}_t,\mathcal{H}_t),
 \]
-where \(\mathcal{O}_t\) is a set of persistent object identities, \(\mathcal{G}_t\) is a scene graph over those identities, and \(\mathcal{H}_t\) stores relevant dialogue or observation history. 
+where \(\mathcal{O}_t\) is a set of persistent object identities, \(\mathcal{G}_t\) is a scene graph over those identities, and \(\mathcal{H}_t\) stores relevant dialogue or observation history.
 
 The update step can be written abstractly as
 \[
@@ -156,7 +156,7 @@ The conversation layer works like a classical question-answering system. At dial
 \[
 y_k \sim p_\theta(y\mid q_k,C_k).
 \]
-The central design question is how \(C_k\) should be constructed. 
+The central design question is how \(C_k\) should be constructed.
 
 A broad question such as \enquote{what do you see?} may require a compact summary of the whole scene. A targeted question such as \enquote{what is next to the laptop?} requires retrieval of a subgraph around a particular object. This distinction motivates the later use of CAG for broad cached context and structured graph retrieva, for targeted queries.
 

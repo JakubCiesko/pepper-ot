@@ -5,21 +5,21 @@ digraph Architecture {
     ranksep = 0.5;
     pad = 0.1;
     bgcolor = "white";
-    
+
     graph [fontname = "Helvetica";];
     node [fontname = "Helvetica"; fontsize = 16; shape = box; style = "rounded,filled"; color = "#000000"; penwidth = 1.2; margin = "0.14,0.10";];
     edge [fontname = "Helvetica"; fontsize = 16; color = "#000000"; penwidth = 1.0;];
-    
+
     U [label = "User";fillcolor = "#F2D45C";];
     P [label = "Pepper Robot\nClient";fillcolor = "#F2D45C";];
-    
+
     subgraph cluster_server {
         label = "Server";
         color = "#000000";
         penwidth = 1.4;
         style = "rounded";
         bgcolor = "#F2D45C";
-        
+
         D [label = "POST /api/v1/detect";fillcolor = "white";];
         C [label = "POST /api/v1/chat";fillcolor = "white";];
         M [label = "GET /api/v1/memory";fillcolor = "white";];
@@ -30,18 +30,18 @@ digraph Architecture {
         //     M;
         // }
     }
-    
-    
-    
+
+
+
     U -> P [label = "speech"; minlen = 1;];
     P -> U [label = "speech and tablet output"; minlen = 1;];
-    
+
     P -> D [label = "image + robot metadata"; minlen = 1;];
     D -> P [label = "detections + caption"; minlen = 1;];
-    
+
     P -> C [label = "query"; minlen = 1;];
     C -> P [label = "grounded reply"; minlen = 1;];
-    
+
     P -> M [label = "memory request"; minlen = 1;];
     M -> P [label = "memory summary"; minlen = 1;];
 }
