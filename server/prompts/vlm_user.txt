@@ -1,6 +1,12 @@
 Focus on spatial, semantic, and functional relationships.
-Use only LABELED objects.
-Use only allowed predicates and attributes.
+Provide relations and attributes of the listed objects only.
+Use only the allowed predicates and attributes from the provided list.
 
-Allowed predicates and attributes
-[{predicates}]
+Scene description:
+{caption}
+
+Objects:
+{objects}
+
+Allowed relations and attributes:
+{predicates}
