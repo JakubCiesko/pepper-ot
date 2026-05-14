@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from copy import deepcopy
 from pathlib import Path
+import shutil
 from typing import Any
 
 import yaml
@@ -33,6 +34,42 @@ def _write_variant_config(run_dir: Path, raw_config: dict[str, Any]) -> None:
         yaml.safe_dump(raw_config, f, sort_keys=False, allow_unicode=True)
 
 
+def _copy_reusable_artifacts(
+    run_dir: Path, reuse_config: dict[str, Any] | None
+) -> tuple[str | None, list[str]]:
+    if not reuse_config:
+        return None, []
+
+    source_raw = reuse_config.get("from_run")
+    if not source_raw:
+        raise RuntimeError("reuse_artifacts.from_run is required")
+    source_dir = Path(str(source_raw))
+    if not source_dir.is_absolute():
+        source_dir = (Path.cwd() / source_dir).resolve()
+    if not source_dir.exists():
+        raise RuntimeError(f"Reusable artifact source does not exist: {source_dir}")
+
+    files = reuse_config.get("files") or []
+    if not isinstance(files, list) or not files:
+        raise RuntimeError("reuse_artifacts.files must be a non-empty list")
+
+    copied: list[str] = []
+    for file_name in files:
+        relative = Path(str(file_name))
+        if relative.is_absolute() or ".." in relative.parts:
+            raise RuntimeError(
+                f"Reusable artifact path must be relative within the run: {file_name}"
+            )
+        source_path = source_dir / relative
+        if not source_path.exists():
+            raise RuntimeError(f"Missing reusable artifact: {source_path}")
+        target_path = run_dir / relative
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_path, target_path)
+        copied.append(str(relative))
+    return str(source_dir), copied
+
+
 async def run_matrix(matrix_path: Path) -> list[dict[str, Any]]:
     matrix = _load_yaml(matrix_path)
     base_config_path = Path(matrix["base_config"])
@@ -41,6 +78,7 @@ async def run_matrix(matrix_path: Path) -> list[dict[str, Any]]:
     base_raw = _load_yaml(base_config_path)
 
     common_overrides = matrix.get("common_overrides", {})
+    reuse_config = matrix.get("reuse_artifacts")
     variants = matrix.get("variants") or []
     if not variants:
         raise RuntimeError(f"No variants defined in {matrix_path}")
@@ -70,7 +108,12 @@ async def run_matrix(matrix_path: Path) -> list[dict[str, Any]]:
                     manifest_path.read_text(encoding="utf-8"), encoding="utf-8"
                 )
 
+        reused_from = None
+        reused_artifacts: list[str] = []
         try:
+            reused_from, reused_artifacts = _copy_reusable_artifacts(
+                run.run_dir, reuse_config
+            )
             outputs = await run_all_phases(config, run)
             result = {
                 "variant": name,
@@ -78,6 +121,8 @@ async def run_matrix(matrix_path: Path) -> list[dict[str, Any]]:
                 "run_dir": str(run.run_dir),
                 "ok": True,
                 "outputs": list(outputs.keys()),
+                "reused_artifacts_from": reused_from,
+                "reused_artifacts": reused_artifacts,
             }
         except Exception as exc:
             run.logger.exception("Variant failed: %s", name)
@@ -87,6 +132,8 @@ async def run_matrix(matrix_path: Path) -> list[dict[str, Any]]:
                 "run_dir": str(run.run_dir),
                 "ok": False,
                 "error": str(exc),
+                "reused_artifacts_from": reused_from,
+                "reused_artifacts": reused_artifacts,
             }
         save_json(run.run_dir / "matrix_result.json", result)
         results.append(result)

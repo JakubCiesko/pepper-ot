@@ -402,7 +402,7 @@ levels:
       - next_to
       - in
       - "on"
-      - using 
+      - using
       - touching
 
     attributes:

@@ -26,11 +26,11 @@ common_overrides:
   draft_scene_graph:
     max_concurrent_batches: 4
     som_mask_backend: grabcut
-    som_mask_opacity: 0.35                                                                                                                                                                                  
-    som_grab_cut_scale: 0.80                                                                                                                                                                                
-    som_grab_cut_iter_count: 10                                                                                                                                                                              
-    som_use_roi_grab_cut: true                                                                                                                                                                              
-    som_max_mask_workers: 4   
+    som_mask_opacity: 0.35
+    som_grab_cut_scale: 0.80
+    som_grab_cut_iter_count: 10
+    som_use_roi_grab_cut: true
+    som_max_mask_workers: 4
 
 variants:
   - name: gemini_raw_objects

@@ -192,7 +192,12 @@ def make_gt_template_command(
 @main.command("evaluate-run")
 @click.option("--run", "run_dir", type=click.Path(path_type=Path), required=True)
 @click.option("--gt", "gt_path", type=click.Path(path_type=Path), required=True)
-def evaluate_run_command(run_dir: Path, gt_path: Path) -> None:
+@click.option(
+    "--gt-only",
+    is_flag=True,
+    help="Evaluate only images present in the ground-truth file.",
+)
+def evaluate_run_command(run_dir: Path, gt_path: Path, gt_only: bool) -> None:
     metadata_path = run_dir / "run_metadata.json"
     if not metadata_path.exists():
         raise click.ClickException(f"Missing run metadata: {metadata_path}")
@@ -200,6 +205,8 @@ def evaluate_run_command(run_dir: Path, gt_path: Path) -> None:
 
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     config, _ = _config_from_metadata(metadata)
+    if gt_only:
+        config.evaluation.keyspace = "gt_only"
     shutil.copyfile(gt_path, run_dir / config.paths.ground_truth_scene_graph_file)
     logger = logging.getLogger(f"research.run.evaluate.{metadata['run_id']}")
     logger.setLevel(logging.INFO)
@@ -282,7 +289,7 @@ def serve_annotation_bundle_command(bundle_dir: Path, port: int) -> None:
         raise click.ClickException(f"Bundle directory does not exist: {bundle_dir}")
 
     handler = partial(SimpleHTTPRequestHandler, directory=str(bundle_dir))
-    server = ThreadingHTTPServer(("127.0.0.1", port), handler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), handler)
     click.echo(f"Serving {bundle_dir} at http://127.0.0.1:{port}/index.html")
     try:
         server.serve_forever()

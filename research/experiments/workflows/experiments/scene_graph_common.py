@@ -62,11 +62,23 @@ def objects_for_prompt(detected_rows: list[dict]) -> list[dict]:
     ]
 
 
-def vocabulary_for_prompt(vocabulary: dict, vocab_mode: str) -> dict | str:
+def vocabulary_for_prompt(vocabulary: dict, vocab_mode: str) -> dict | str | list[str]:
+    import random
+
     if vocab_mode == "open":
         return ""
     if vocab_mode == "soft":
         return {"suggested": vocabulary, "mode": "soft_guidance"}
+    if vocab_mode == "list":
+        vocab = []
+        predicates = vocabulary.get("predicates")
+        attributes = vocabulary.get("attributes")
+        if predicates:
+            vocab.extend(predicates)
+        if attributes:
+            vocab.extend(attributes)
+        random.shuffle(vocab)
+        return vocab
     return vocabulary
 
 
@@ -93,6 +105,10 @@ def build_prompt_image(
             mask=config.draft_scene_graph.som_show_mask,
             polygon=config.draft_scene_graph.som_show_polygon,
             class_names=config.draft_scene_graph.som_show_labels,
+            grab_cut_scale=config.draft_scene_graph.som_grab_cut_scale,
+            grab_cut_iter_count=config.draft_scene_graph.som_grab_cut_iter_count,
+            use_roi_grab_cut=config.draft_scene_graph.som_use_roi_grab_cut,
+            max_mask_workers=config.draft_scene_graph.som_max_mask_workers,
         )
         som_image = Image.fromarray(som_image_np.astype(np.uint8))
         prompt_image = som_image

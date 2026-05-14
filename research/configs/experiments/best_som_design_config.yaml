@@ -29,7 +29,7 @@ common_overrides:
     max_concurrent_batches: 2
 
 variants:
-    # labels = WORDS, ID numbers used always when SoM Image is Used. 
+    # labels = WORDS, ID numbers used always when SoM Image is Used.
   - name: gemini_id_labels_bbox_mask
     overrides:
       experiment_id: gemini_id_labels_bbox_mask
@@ -42,7 +42,7 @@ variants:
         som_show_bbox: true
         som_show_labels: true
         som_show_mask: true
-  
+
   - name: gemini_id_labels_bbox
     overrides:
       experiment_id: gemini_id_labels_bbox
@@ -54,7 +54,7 @@ variants:
         use_som_image: true
         som_show_bbox: true
         som_show_labels: true
-        som_show_mask: false 
+        som_show_mask: false
   - name: gemini_id_labels_mask
     overrides:
       experiment_id: gemini_id_labels_mask
@@ -129,7 +129,7 @@ variants:
         som_show_labels: false
         som_show_mask: false
 
-# gemini 3 1 pro 
+# gemini 3 1 pro
 #   - name: geminiPRO_id_labels_bbox_mask
 #     overrides:
 #       experiment_id: geminiPRO_id_labels_bbox_mask
@@ -142,7 +142,7 @@ variants:
 #         som_show_bbox: true
 #         som_show_labels: true
 #         som_show_mask: true
-  
+
 #   - name: geminiPRO_id_labels_bbox
 #     overrides:
 #       experiment_id: geminiPRO_id_labels_bbox
@@ -154,7 +154,7 @@ variants:
 #         use_som_image: true
 #         som_show_bbox: true
 #         som_show_labels: true
-#         som_show_mask: false 
+#         som_show_mask: false
 #   - name: geminiPRO_id_labels_mask
 #     overrides:
 #       experiment_id: geminiPRO_id_labels_mask
@@ -245,7 +245,7 @@ variants:
         som_show_bbox: true
         som_show_labels: true
         som_show_mask: true
-  
+
   - name: geminiR_id_labels_bbox
     overrides:
       experiment_id: geminiR_id_labels_bbox
@@ -257,7 +257,7 @@ variants:
         use_som_image: true
         som_show_bbox: true
         som_show_labels: true
-        som_show_mask: false 
+        som_show_mask: false
   - name: geminiR_id_labels_mask
     overrides:
       experiment_id: geminiR_id_labels_mask
@@ -347,7 +347,7 @@ variants:
         som_show_bbox: true
         som_show_labels: true
         som_show_mask: true
-  
+
   - name: gpt_id_labels_bbox
     overrides:
       experiment_id: gpt_id_labels_bbox
@@ -359,7 +359,7 @@ variants:
         use_som_image: true
         som_show_bbox: true
         som_show_labels: true
-        som_show_mask: false 
+        som_show_mask: false
   - name: gpt_id_labels_mask
     overrides:
       experiment_id: gpt_id_labels_mask
@@ -434,7 +434,7 @@ variants:
         som_show_labels: false
         som_show_mask: false
 
-    # GPT 5 
+    # GPT 5
 
   - name: gpt5_id_labels_bbox_mask
     overrides:
@@ -448,7 +448,7 @@ variants:
         som_show_bbox: true
         som_show_labels: true
         som_show_mask: true
-  
+
   - name: gpt5_id_labels_bbox
     overrides:
       experiment_id: gpt5_id_labels_bbox
@@ -460,7 +460,7 @@ variants:
         use_som_image: true
         som_show_bbox: true
         som_show_labels: true
-        som_show_mask: false 
+        som_show_mask: false
   - name: gpt5_id_labels_mask
     overrides:
       experiment_id: gpt5_id_labels_mask
@@ -534,14 +534,3 @@ variants:
         som_show_bbox: false
         som_show_labels: false
         som_show_mask: false
-
-
-
-
-
-
-
-
-
-
-

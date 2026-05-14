@@ -93,8 +93,17 @@ async def run_scene_graph_evaluation(config: ExperimentConfig, run: RunContext) 
         detections if isinstance(detections, dict) else {}, aliases
     )
 
-    keys = sorted(set(gt_items.keys()) | set(pred_items.keys()) | set(det_items.keys()))
-    run.logger.info("Evaluation keyspace size=%d", len(keys))
+    if config.evaluation.keyspace == "gt_only":
+        keys = sorted(gt_items.keys())
+    else:
+        keys = sorted(
+            set(gt_items.keys()) | set(pred_items.keys()) | set(det_items.keys())
+        )
+    run.logger.info(
+        "Evaluation keyspace size=%d mode=%s",
+        len(keys),
+        config.evaluation.keyspace,
+    )
 
     per_image: dict[str, dict] = {}
     eval_detections: dict[str, list[dict]] = {}
@@ -184,9 +193,14 @@ async def run_scene_graph_evaluation(config: ExperimentConfig, run: RunContext) 
                 metric_group="attribute",
                 rounds=config.evaluation.bootstrap_rounds,
             ),
-            "pair_f1": bootstrap_metric_ci(
+            "pair_ordered_f1": bootstrap_metric_ci(
                 per_image,
-                metric_group="pair",
+                metric_group="pair_ordered",
+                rounds=config.evaluation.bootstrap_rounds,
+            ),
+            "pair_unordered_f1": bootstrap_metric_ci(
+                per_image,
+                metric_group="pair_unordered",
                 rounds=config.evaluation.bootstrap_rounds,
             ),
         }
@@ -224,11 +238,12 @@ async def run_scene_graph_evaluation(config: ExperimentConfig, run: RunContext) 
     )
 
     run.logger.info(
-        "Evaluation summary images=%d strict_f1=%.4f attr_f1=%.4f pair_f1=%.4f",
+        "Evaluation summary images=%d strict_f1=%.4f attr_f1=%.4f pair_ordered_f1=%.4f pair_unordered_f1=%.4f",
         summary.get("images_evaluated", 0),
         summary.get("strict_triplet_micro", {}).get("f1", 0.0),
         summary.get("attribute_micro", {}).get("f1", 0.0),
-        summary.get("pair_micro", {}).get("f1", 0.0),
+        summary.get("pair_ordered_micro", {}).get("f1", 0.0),
+        summary.get("pair_unordered_micro", {}).get("f1", 0.0),
     )
     if potency_payload:
         run.logger.info(

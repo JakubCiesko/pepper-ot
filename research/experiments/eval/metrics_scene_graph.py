@@ -83,12 +83,20 @@ def evaluate_graph_pair(
         fn=len(gt_binary - pred_binary),
     )
 
-    gt_pairs = {(edge.sub, edge.obj) for edge in gt_binary}
-    pred_pairs = {(edge.sub, edge.obj) for edge in pred_binary}
-    pair = _prf(
-        tp=len(gt_pairs & pred_pairs),
-        fp=len(pred_pairs - gt_pairs),
-        fn=len(gt_pairs - pred_pairs),
+    gt_ordered_pairs = {(edge.sub, edge.obj) for edge in gt_binary}
+    pred_ordered_pairs = {(edge.sub, edge.obj) for edge in pred_binary}
+    pair_ordered = _prf(
+        tp=len(gt_ordered_pairs & pred_ordered_pairs),
+        fp=len(pred_ordered_pairs - gt_ordered_pairs),
+        fn=len(gt_ordered_pairs - pred_ordered_pairs),
+    )
+
+    gt_unordered_pairs = {tuple(sorted((edge.sub, edge.obj))) for edge in gt_binary}
+    pred_unordered_pairs = {tuple(sorted((edge.sub, edge.obj))) for edge in pred_binary}
+    pair_unordered = _prf(
+        tp=len(gt_unordered_pairs & pred_unordered_pairs),
+        fp=len(pred_unordered_pairs - gt_unordered_pairs),
+        fn=len(gt_unordered_pairs - pred_unordered_pairs),
     )
 
     gt_rel_counter = Counter(edge.rel for edge in gt_binary)
@@ -104,7 +112,8 @@ def evaluate_graph_pair(
         "strict_triplet": strict,
         "binary_triplet": binary_strict,
         "attribute": attribute,
-        "pair": pair,
+        "pair_ordered": pair_ordered,
+        "pair_unordered": pair_unordered,
         "predicate_only": predicate,
         "overgeneration_rate": overgeneration_rate,
         "undergeneration_rate": undergeneration_rate,
@@ -227,7 +236,8 @@ def summarize_per_image(
 
     strict_tp = strict_fp = strict_fn = 0
     binary_tp = binary_fp = binary_fn = 0
-    pair_tp = pair_fp = pair_fn = 0
+    pair_ordered_tp = pair_ordered_fp = pair_ordered_fn = 0
+    pair_unordered_tp = pair_unordered_fp = pair_unordered_fn = 0
     attr_tp = attr_fp = attr_fn = 0
     pred_tp = pred_fp = pred_fn = 0
     ged_values: list[float] = []
@@ -241,7 +251,8 @@ def summarize_per_image(
 
         strict_row = row.get("strict_triplet", {})
         binary_row = row.get("binary_triplet", {})
-        pair_row = row.get("pair", {})
+        pair_ordered_row = row.get("pair_ordered", {})
+        pair_unordered_row = row.get("pair_unordered", {})
         attr_row = row.get("attribute", {})
         pred_row = row.get("predicate_only", {})
 
@@ -253,9 +264,13 @@ def summarize_per_image(
         binary_fp += int(binary_row.get("fp", 0))
         binary_fn += int(binary_row.get("fn", 0))
 
-        pair_tp += int(pair_row.get("tp", 0))
-        pair_fp += int(pair_row.get("fp", 0))
-        pair_fn += int(pair_row.get("fn", 0))
+        pair_ordered_tp += int(pair_ordered_row.get("tp", 0))
+        pair_ordered_fp += int(pair_ordered_row.get("fp", 0))
+        pair_ordered_fn += int(pair_ordered_row.get("fn", 0))
+
+        pair_unordered_tp += int(pair_unordered_row.get("tp", 0))
+        pair_unordered_fp += int(pair_unordered_row.get("fp", 0))
+        pair_unordered_fn += int(pair_unordered_row.get("fn", 0))
 
         attr_tp += int(attr_row.get("tp", 0))
         attr_fp += int(attr_row.get("fp", 0))
@@ -281,7 +296,8 @@ def summarize_per_image(
 
     strict = _prf(strict_tp, strict_fp, strict_fn)
     binary = _prf(binary_tp, binary_fp, binary_fn)
-    pair = _prf(pair_tp, pair_fp, pair_fn)
+    pair_ordered = _prf(pair_ordered_tp, pair_ordered_fp, pair_ordered_fn)
+    pair_unordered = _prf(pair_unordered_tp, pair_unordered_fp, pair_unordered_fn)
     attribute = _prf(attr_tp, attr_fp, attr_fn)
     predicate_only = _prf(pred_tp, pred_fp, pred_fn)
 
@@ -291,7 +307,8 @@ def summarize_per_image(
         "edges_total_pred": total_pred,
         "strict_triplet_micro": strict,
         "binary_triplet_micro": binary,
-        "pair_micro": pair,
+        "pair_ordered_micro": pair_ordered,
+        "pair_unordered_micro": pair_unordered,
         "attribute_micro": attribute,
         "predicate_only_micro": predicate_only,
     }

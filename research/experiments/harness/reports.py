@@ -33,7 +33,8 @@ def _read_run_row(run_dir: Path) -> dict[str, Any]:
         "images_evaluated": summary.get("images_evaluated", 0),
         "strict_triplet_f1": _metric(summary, "strict_triplet_micro"),
         "binary_triplet_f1": _metric(summary, "binary_triplet_micro"),
-        "pair_f1": _metric(summary, "pair_micro"),
+        "pair_ordered_f1": _metric(summary, "pair_ordered_micro"),
+        "pair_unordered_f1": _metric(summary, "pair_unordered_micro"),
         "attribute_f1": _metric(summary, "attribute_micro"),
         "predicate_only_f1": _metric(summary, "predicate_only_micro"),
         "draft_ok": draft_metrics.get("ok", 0),
@@ -66,18 +67,19 @@ def write_report(out_dir: Path, rows: list[dict[str, Any]]) -> Path:
         "",
         f"Runs aggregated: {len(rows)}",
         "",
-        "| Variant | Model | SoM | Images | Strict F1 | Pair F1 | Attr F1 |",
-        "| --- | --- | --- | ---: | ---: | ---: | ---: |",
+        "| Variant | Model | SoM | Images | Strict F1 | Pair Ordered F1 | Pair Unordered F1 | Attr F1 |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     lines.extend(
         [
-            "| {variant} | {model} | {som} | {images} | {strict:.3f} | {pair:.3f} | {attr:.3f} |".format(
+            "| {variant} | {model} | {som} | {images} | {strict:.3f} | {pair_ordered:.3f} | {pair_unordered:.3f} | {attr:.3f} |".format(
                 variant=row.get("variant", ""),
                 model=row.get("model_id", ""),
                 som=row.get("use_som_image", ""),
                 images=row.get("images_evaluated", 0),
                 strict=float(row.get("strict_triplet_f1", 0.0)),
-                pair=float(row.get("pair_f1", 0.0)),
+                pair_ordered=float(row.get("pair_ordered_f1", 0.0)),
+                pair_unordered=float(row.get("pair_unordered_f1", 0.0)),
                 attr=float(row.get("attribute_f1", 0.0)),
             )
             for row in rows
@@ -102,7 +104,8 @@ def _write_basic_plots(out_dir: Path, rows: list[dict[str, Any]]) -> None:
 
     for metric, filename, ylabel in [
         ("strict_triplet_f1", "strict_triplet_f1.pdf", "Strict triplet F1"),
-        ("pair_f1", "pair_f1.pdf", "Pair F1"),
+        ("pair_ordered_f1", "pair_ordered_f1.pdf", "Pair Ordered F1"),
+        ("pair_unordered_f1", "pair_unordered_f1.pdf", "Pair Unordered F1"),
         ("attribute_f1", "attribute_f1.pdf", "Attribute F1"),
     ]:
         values = [float(row.get(metric, 0.0)) for row in rows]

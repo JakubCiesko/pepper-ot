@@ -82,7 +82,7 @@ class DraftSceneGraphStageConfig(BaseModel):
     save_som_images: bool = True
     use_som_image: bool = True
     visual_mode: Literal["raw", "som"] = "som"
-    vocab_mode: Literal["open", "closed", "soft"] = "closed"
+    vocab_mode: Literal["open", "closed", "soft", "list"] = "list"
     som_output_dir: str = "som_images_draft"
     include_raw_response: bool = True
     som_show_bbox: bool = True
@@ -101,6 +101,10 @@ class DraftSceneGraphStageConfig(BaseModel):
     user_prompt_template: str = (
         "Objects: {objects}\nAllowed predicates/attributes: {vocabulary}\nCaption: {caption}"
     )
+    som_grab_cut_scale: float = 0.35
+    som_grab_cut_iter_count: int = 8
+    som_use_roi_grab_cut: bool = True
+    som_max_mask_workers: int | None = 4
 
 
 class ContextRotStageConfig(BaseModel):
@@ -112,16 +116,18 @@ class ContextRotStageConfig(BaseModel):
     )
     rounds_per_size: int = 1
     evaluate_against_ground_truth: bool = True
+    levels_file: Path | None = None
 
 
 class EvaluationStageConfig(BaseModel):
     enabled: bool = False
+    keyspace: Literal["all", "gt_only"] = "all"
     strict_id_match: bool = True
     normalize_ids: bool = True
     normalize_relations: bool = True
     compute_ged: bool = False
     compute_per_predicate: bool = True
-    compute_pair_f1: bool = True
+    compute_pair_metrics: bool = True
     compute_attribute_f1: bool = True
     compute_potency: bool = True
     missing_policy: Literal["skip", "empty"] = "empty"
