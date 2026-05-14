@@ -112,20 +112,20 @@ A robot action may involve speaking an acknowledgement, moving the head, capturi
 The client therefore treats such actions as turns and prevents long-running turns from overlapping.
 This keeps Pepper from starting two scans, speaking two answers, or updating the tablet from two competing requests at the same time.
 
-\section{Runtime Robustness and Research Control}\label{sec:architecture-runtime-control}
+% \section{Runtime Robustness and Research Control}\label{sec:architecture-runtime-control}
 
-The system is also designed for experimentation.
-The server can expose the current memory, last detections, generated captions, scene graph outputs, model configuration, worker status, and timing information through the dashboard.
-The thesis compares different scene graph generation and prompting settings, so failures must be traceable rather than merely observable at the level of the final spoken answer.
-The dashboard helps identify whether an error comes from detection, object association, SoM rendering, relation generation, prompt construction, or the dialogue model.
+% The system is also designed for experimentation.
+% The server can expose the current memory, last detections, generated captions, scene graph outputs, model configuration, worker status, and timing information through the dashboard.
+% The thesis compares different scene graph generation and prompting settings, so failures must be traceable rather than merely observable at the level of the final spoken answer.
+% The dashboard helps identify whether an error comes from detection, object association, SoM rendering, relation generation, prompt construction, or the dialogue model.
 
-Provider adapters hide whether inference is served by cloud APIs or by local OpenAI-compatible runtimes such as llama.cpp or Ollama.
-This keeps the Pepper client unchanged when the server switches between cloud VLMs, local models, structured-output modes, or worker-process configurations.
+% Provider adapters hide whether inference is served by cloud APIs or by local OpenAI-compatible runtimes such as llama.cpp or Ollama.
+% This keeps the Pepper client unchanged when the server switches between cloud VLMs, local models, structured-output modes, or worker-process configurations.
 
-The architecture separates interaction robustness from inference robustness.
-If the server is slow, the robot can speak an acknowledgement and avoid silent waiting.
-If the server is unavailable or returns malformed data, the robot can speak a fallback message and release the current turn.
-If a heavy model allocates too much GPU memory, the server can isolate it in a worker process and restart that process without changing the robot-side program.
+% The architecture separates interaction robustness from inference robustness.
+% If the server is slow, the robot can speak an acknowledgement and avoid silent waiting.
+% If the server is unavailable or returns malformed data, the robot can speak a fallback message and release the current turn.
+% If a heavy model allocates too much GPU memory, the server can isolate it in a worker process and restart that process without changing the robot-side program.
 
-This design therefore treats Pepper as the social and physical interface, while the server acts as the replaceable perception, memory, and language backend.
-The following two chapters describe how this architecture is implemented: Chapter~\ref{chap:server_side_rewrite} focuses on the server runtime and perception pipeline, and Chapter~\ref{chap:robot_side_rewrite} focuses on the NAOqi client, QiChat integration, turn management, and tablet interaction.
+% This design therefore treats Pepper as the social and physical interface, while the server acts as the replaceable perception, memory, and language backend.
+% The following two chapters describe how this architecture is implemented: Chapter~\ref{chap:server_side_rewrite} focuses on the server runtime and perception pipeline, and Chapter~\ref{chap:robot_side_rewrite} focuses on the NAOqi client, QiChat integration, turn management, and tablet interaction.

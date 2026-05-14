@@ -2,7 +2,7 @@
 
 Chapter~\ref{chap:system_architecture_rewrite} described the robot client as the embodied front end of the system.
 This chapter describes the Pepper implementation.
-The client runs as a NAOqi service, binds QiChat rules to Python methods, captures images, collects robot metadata, calls the server from Chapter~\ref{chap:server_side_rewrite}, speaks answers, refreshes dynamic dialogue concepts, and displays scene memory on the tablet.
+The client runs as a NAOqi service, binds QiChat rules to Python methods, captures images, collects robot metadata, calls the server from Chapter~\ref{chap:server_side_rewrite}, speaks answers, and refreshes dynamic dialogue concepts.
 The emphasis is the robot-side boundary: service methods, turn execution, grammar integration, metadata payloads, and development adapters.
 
 \section{Runtime Structure}\label{sec:client-runtime-structure}
@@ -10,62 +10,35 @@ The emphasis is the robot-side boundary: service methods, turn execution, gramma
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{pics/client_clean_clean.pdf}
-\caption[Robot-side client architecture.]{Robot-side client architecture. QiChat rules call bound methods of the robot client service. Long-running work is delegated to the turn manager, which coordinates capture, robot metadata, server communication, speech, tablet output, local session state, and dynamic dialogue concepts.}
+\caption[Robot-side client architecture.]{Robot-side client architecture. QiChat rules call bound methods of the robot client service. Long-running work is delegated to the turn manager, which coordinates capture, robot metadata, server communication, speech, local session state, and dynamic dialogue concepts.}
 \label{fig:client-runtime-graph}
 \end{figure}
 
 Figure~\ref{fig:client-runtime-graph} shows the robot-side runtime.
 The main Python service is registered in the NAOqi session under the name used by the QiChat topics.
-After registration, a QiChat rule can call a bound method directly; for example, the quick-look rule in Listing~\ref{lst:qichat-client-sample} starts a visual turn.
+After registration, a QiChat rule can call a bound method directly; for example, the quick-look intent starts a visual turn.
 The service is kept as a thin boundary object.
-It exposes methods for quick look, scan, chat, object-focused chat, cached answers, memory display, memory reset, configuration reload, and status inspection, while slow work is delegated to specialized components.
+It exposes methods for quick look, scan, chat, object-focused chat, cached answers, memory reset, configuration reload, and status inspection, while slow work is delegated to specialized components.
 
 At startup, the service reads \texttt{client\_config.json} and constructs the client runtime.
 The \texttt{SessionStore} keeps temporary local state such as the current chat identifier, last caption, remembered object labels, relation names, attributes, and cached question-answer pairs.
 The \texttt{PepperServerTransport} owns HTTP communication with the server.
-The camera, pose, people, face, social, sonar, speech, tablet, and dialog adapters wrap the corresponding NAOqi services.
-The \texttt{RobotContextCollector} combines robot-native perception signals, and the \texttt{MetadataBuilder} turns those signals into the metadata payload sent with every visual request.
+The camera, pose, people, face, social, sonar, speech, and dialog adapters wrap the corresponding NAOqi services.
+The \texttt{Robot\-Con\-text\-Col\-lector} combines robot-native perception signals, and the \texttt{MetadataBuilder} turns those signals into the metadata payload sent with every visual request.
 The \texttt{TurnManager} receives all these dependencies and implements the actual interaction workflows.
 
 Adapters are practical on Pepper because NAOqi services differ in availability and failure behavior.
-The physical robot provides \texttt{ALVideoDevice} and \texttt{ALTabletService}; a virtual robot in Choregraphe does not reproduce the same camera and tablet behavior.
-The implementation therefore includes \texttt{FakeCameraAdapter}, which reads frames from a local directory, and \texttt{FakeTabletAdapter}, which serves the tablet HTML application through a small local HTTP server.
-Both adapters are selected through \texttt{client\_config.json}, so the same turn manager can be tested locally and then run on the physical robot.
+The physical robot provides \texttt{ALVideoDevice}; a virtual robot in Choregraphe does not reproduce the same camera behavior.
+The implementation therefore includes \texttt{FakeCameraAdapter}, which reads frames from a local directory.
+It is selected through \texttt{client\_config.json}, so the same turn manager can be tested locally and then run on the physical robot.
 
 \section{QiChat Grammar and Service Binding}\label{sec:client-qichat}
 
 The spoken interface is implemented with QiChat topics in English and Czech.
 The topic files define the phrases that Pepper can recognize and map them to service calls.
 QiChat therefore remains the deterministic action selector.
-The VLM and LLM components are called only after the grammar has selected quick look, scan, object question, memory display, cached answer, or open chat.
+The VLM and LLM components are called only after the grammar has selected quick look, scan, object question, cached answer, or open chat.
 This keeps the user-facing entry points predictable even when the server uses generative models downstream.
-
-Listing~\ref{lst:qichat-client-sample} shows the main pattern in simplified form.
-The topic declares dynamic concepts, defines a group of quick-look utterances, and maps a matched rule to a Python method.
-The second rule shows how a dynamic concept is captured.
-When the user asks about an object currently present in \texttt{memory\_objects}, QiChat stores the matched text in \texttt{\$1} and passes it to \texttt{askAboutObject}.
-The Czech topic mirrors the same structure with Czech phrases and \texttt{cs} as the runtime language argument.
-
-\begin{lstlisting}[caption={Simplified QiChat rules used by the robot client. Static rules trigger fixed actions, while dynamic concepts are populated from server memory at runtime.},label={lst:qichat-client-sample}]
-dynamic: memory_objects
-dynamic: memory_attributes
-dynamic: memory_relations
-dynamic: memory_cached_questions
-
-concept:(quick_look_action) [
-    "what do you see"
-    "describe the scene"
-    "what is in front of you"
-]
-
-u:({please} ~quick_look_action)
-    ^pCall(PepperGroundedClient.look("en"))
-    This will take just a moment.
-
-u:({please} ["tell me about" "describe"] _~memory_objects)
-    ^pCall(PepperGroundedClient.askAboutObject("en", $1))
-    Okay I will focus on the $1.
-\end{lstlisting}
 
 On the Python side, methods callable from QiChat are annotated with \texttt{@qi.bind}.
 For example, \texttt{look(lang\_code)} and \texttt{scan(lang\_code)} are bound as public service methods and simply forward the request to \texttt{TurnManager.start\_look} or \texttt{TurnManager.start\_scan}.
@@ -89,8 +62,7 @@ The full scene graph and object instances remain on the server, where grounding 
 
 As a result, the grammar changes with the perceived scene.
 If the server has recently detected a \texttt{chair}, a \texttt{bottle}, and a \texttt{laptop}, the object-focused rule can begin to recognize questions about those labels without changing the topic file.
-The same mechanism also enables cached question recognition.
-After the server pregenerates useful questions from scene memory, the robot can recognize one of those questions through \texttt{memory\_cached\_questions} and answer it immediately from the local cache.
+The same mechanism also enables cached question recognition from pregenerated questions in local session state.
 
 \section{Turn Management}\label{sec:client-turn-management}
 
@@ -126,7 +98,7 @@ Pepper can therefore speak a short caption as soon as the server returns it, whi
 \end{figure}
 
 Figure~\ref{fig:pepper-client-capture-example} shows an example of the visual input produced by the robot during testing.
-The image is not an offline benchmark image; it is representative of what the client sends from Pepper.
+%The image is not an offline benchmark image; it is representative of what the client sends from Pepper.
 The implementation must handle limited resolution, robot camera exposure, motion, and network transmission rather than assuming a clean image dataset.
 
 The scan action is the wider observation path.
@@ -142,45 +114,9 @@ The scan can optionally ask the server for a natural-language summary after dete
 
 \section{Robot Metadata Sent to the Server}\label{sec:client-metadata}
 
-Every visual request contains more than image bytes.
-The client also sends a metadata object describing the robot state at capture time.
-This object contains the frame identifier, scan identifier, capture mode, image size, camera field of view, head pose, body yaw, timestamp, and available people or social signals.
-Listing~\ref{lst:client-metadata-sample} shows a shortened example of this payload.
-
-\begin{lstlisting}[caption={Shortened robot metadata payload sent with a visual request. The real payload can include more social and diagnostic fields.},label={lst:client-metadata-sample}]
-{
-  "frame_id": "pepper_frame_...",
-  "scan_id": "pepper_scan_...",
-  "capture_mode": "scan",
-  "image_width": 640,
-  "image_height": 480,
-  "head_yaw": 0.618,
-  "head_pitch": -0.067,
-  "body_yaw": 0.000006,
-  "camera_hfov": 0.998,
-  "camera_vfov": 0.773,
-  "people": [
-    {"id": 37195, "yaw": 0.132, "pitch": -0.006, "distance": 0.746}
-  ],
-  "social_people": [
-    {
-      "id": 37195,
-      "gender": "female",
-      "age_bucket": "adult",
-      "is_sitting": true,
-      "is_looking_at_robot": false,
-      "gaze_direction": "left"
-    }
-  ]
-}
-\end{lstlisting}
-
-Metadata is useful here because Pepper is not a passive camera.
-The same image-space position has a different interpretation depending on head yaw, pitch, field of view, and scan step.
-People metadata also adds social information that a generic object detector may not reliably infer from the image alone, such as sitting detection, gaze direction, estimated distance, engagement zone, or waving.
-This payload is the robot-side origin of the metadata fusion described in Section~\ref{sec:server-pepper-fusion}.
-The server parses it into typed metadata objects and can use it during detection, memory update, scene graph generation, and social attribute construction.
-For example, distance from Pepper or the fact that a person is looking at the robot can become attributes of a tracked person and can later appear in the scene graph context.
+Every visual request contains image bytes and a metadata object describing the robot state at capture time.
+The client sends identifiers for the frame and scan, the capture mode, image dimensions, camera field of view, head pose, body yaw, timestamp, and any available people or social signals.
+This is the payload that reaches the server-side perception pipeline; the detailed parsing and fusion are described in Chapter~\ref{chap:server_side_rewrite}.
 
 \section{Server Communication and Local State}\label{sec:client-transport-state}
 
@@ -199,28 +135,7 @@ The client stores only temporary interaction state.
 The local session store remembers the current server conversation id, last caption, last detection timestamp, last scan id, last server response, remembered labels, remembered attributes, remembered relations, and cached question-answer pairs.
 It does not own persistent scene memory.
 Long-term visual memory and object association remain server responsibilities.
-The client mirrors only the parts needed for speech recognition, tablet rendering, and smooth interaction.
-
-\section{Tablet Memory UI and Cached Answers}\label{sec:client-tablet}
-
-Pepper's tablet displays a local packaged HTML application.
-It is not the server dashboard.
-The tablet page is loaded through Pepper's tablet service from the robot application package and receives a memory payload from the Python client.
-The payload contains object labels, label counts, attributes, relationships, an SVG scene graph, pregenerated question-answer pairs, and optional metadata.
-This gives the user a visible representation of what the robot currently remembers.
-
-The tablet adapter first loads the local application and shows the web view.
-It then waits until the page reports that its JavaScript bridge is ready.
-After that, it injects the serialized payload by executing JavaScript in the tablet web view.
-The tablet code uses an ES5-style global namespace to fit the limited Pepper tablet browser environment.
-The fake tablet adapter implements the same methods but serves the page locally on a configurable port, which makes the memory UI testable without the physical tablet.
-
-The tablet can also call back into the robot service.
-Its JavaScript connects through \texttt{qi.js}, resolves the \texttt{PepperGroundedClient} service, and calls \texttt{answerCachedQuestion} when the user taps a pregenerated question.
-The same method is used by the spoken dynamic question rule.
-If the question matches an answer stored in \texttt{SessionStore}, Pepper speaks the cached answer immediately.
-If the cache misses, the turn manager falls back to a normal server chat request.
-This gives the system a low-latency path for common scene questions while preserving the open-ended dialogue path.
+The client mirrors only the parts needed for speech recognition and smooth interaction.
 
 \section{Configuration and Development Modes}\label{sec:client-configuration}
 
@@ -228,7 +143,7 @@ The robot client is configured through its JSON configuration file.
 The \texttt{server} section defines the base URL, endpoint paths, timeouts, TLS verification, and whether responses should be published to the dashboard.
 The \texttt{capture} section controls camera settings, JPEG quality, scan yaw angles, head movement speed, scan pitch, settle time, and fake camera settings.
 The \texttt{dialog} section controls dynamic concept refresh and maximum concept sizes.
-The \texttt{panorama}, \texttt{social}, \texttt{tablet}, and \texttt{behavior} sections control scan mode, Pepper social-signal collection, tablet bridge behavior, acknowledgements, auto-refresh behavior, and retry policy.
+The \texttt{panorama}, \texttt{social}, and \texttt{behavior} sections control scan mode, Pepper social-signal collection, acknowledgements, auto-refresh behavior, and retry policy.
 
 Most configuration is read at service startup, which matches normal robot deployment.
 The service also exposes selected runtime helpers, such as server URL update, configuration reload, status inspection, and raw speech output.

@@ -249,17 +249,16 @@ It is a direct image-question path, not the main mechanism for maintaining persi
 
 \section{Dashboard, Configuration, and Worker Control}\label{sec:server-dashboard}
 
-\begin{figure}[p]
-\centering
-\includegraphics[width=1\linewidth]{pics/dashboard_screenshot.png}
-\caption{Main dashboard view. The dashboard shows the latest robot image, caption, memory graph, object state, chat log, and controls for interacting with the server state during development.}
-\label{fig:dashboard}
-\end{figure}
+% \begin{figure}[p]
+% \centering
+% \includegraphics[width=1\linewidth]{pics/dashboard_screenshot.png}
+% \caption{Main dashboard view. The dashboard shows the latest robot image, caption, memory graph, object state, chat log, and controls for interacting with the server state during development.}\label{fig:dashboard}
+% \end{figure}
 
 The dashboard is the developer-facing view of the same runtime state used by Pepper.
 It receives WebSocket events for detections, captions, memory updates, and chat messages.
 It also exposes the current image, caption, chat log, memory graph, object lists, relation lists, and generated question-answer pairs.
-Figure~\ref{fig:dashboard} shows the main dashboard page, which is used to inspect the current robot observation and the scene memory built from it.
+%Figure~\ref{fig:dashboard} shows the main dashboard page, which is used to inspect the current robot observation and the scene memory built from it.
 
 The dashboard also supports manual interaction with the server.
 A developer can send chat messages, inspect model outputs, reset memory, and insert or edit objects and relations.
@@ -269,8 +268,7 @@ The dashboard makes those intermediate states visible.
 \begin{figure}[p]
 \centering
 \includegraphics[width=1\linewidth]{pics/example_dashboard_translation_sgg_settings_vertical.png}
-\caption{Dashboard configuration views for translation and scene graph generation. The server exposes runtime settings for label, predicate, and attribute translation, as well as scene graph backend and Set-of-Mark controls.}
-\label{fig:dashboard-translation-sgg-settings}
+\caption{Dashboard configuration views for translation and scene graph generation. The server exposes runtime settings for label, predicate, and attribute translation, as well as scene graph backend and Set-of-Mark controls.}\label{fig:dashboard-translation-sgg-settings}
 \end{figure}
 
 Figure~\ref{fig:dashboard-translation-sgg-settings} shows two configuration views.
