@@ -49,6 +49,17 @@ Only compact recognition values are mirrored to the robot; the full graph and ob
 As a result, the grammar changes with the perceived scene.
 If the server has recently detected a \texttt{chair}, \texttt{bottle}, or \texttt{laptop}, object-focused rules can recognize those labels without changing the topic file, and the same mechanism supports cached question recognition.
 
+\section{Tablet Display Adapter}
+
+The robot client also contains a tablet display path for the same memory state that feeds dynamic concepts.
+The intended tablet view was not a separate reasoning component, but a visualization and interaction surface for object labels, attributes, relations, pregenerated questions, and the current scene-memory graph rendered as SVG.
+The service sends this payload through the same adapter interface used by \texttt{TabletAdapter} and \texttt{FakeTabletAdapter}, so the tablet remains a client-side consumer of server memory.
+
+In the final robot deployment, this path should be treated as partially implemented.
+The fake tablet adapter works and was useful for local testing: it serves the tablet page in a desktop browser, receives the memory payload, and renders the scene-memory view without requiring Pepper's physical tablet service.
+The physical Pepper tablet integration did not become reliable enough to use on the robot itself.
+Consequently, the present system relies on speech and dynamic concepts for interaction, while the tablet view should be reported as a working development interface and an unfinished extension of the embodied user interface.
+
 \section{Turn Management}\label{sec:client-turn-management}
 
 The operational center of the client is \texttt{TurnManager}.
