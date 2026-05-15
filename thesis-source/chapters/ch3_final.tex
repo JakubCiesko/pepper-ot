@@ -1,22 +1,19 @@
 \chapter{System Architecture and Design}\label{chap:system_architecture_rewrite}
 
 Chapter~\ref{chap:background} introduced the methods and platform constraints that shape the thesis.
-This chapter explains the design decisions behind the proposed scene-aware dialogue system: why it is distributed, how visual observations become persistent scene memory, and how that memory grounds dialogue.
-Chapter~\ref{chap:server_side_rewrite} then describes the server implementation, while Chapter~\ref{chap:robot_side_rewrite} describes the Pepper client.
+This chapter establishes the architectural level of the proposed scene-aware dialogue system: the client--server split, the flow from visual observation to scene memory, and the way that memory grounds dialogue.
+Chapters~\ref{chap:server_side_rewrite} and~\ref{chap:robot_side_rewrite} then describe the server and Pepper implementations.
 The code is publicly available at \url{https://github.com/JakubCiesko/pepper-ot}.
 
 \section{Design Goals and Constraints}\label{sec:architecture-goals}
 
-The system was designed around the constraints of using Pepper as an embodied dialogue platform.
-As discussed in Section~\ref{sec:pepper-specification}, Pepper is suitable as the social and physical interface, but the visual and language inference stack must run externally.
-
-The first design goal is grounding: spoken claims should be backed by detected objects, explicit attributes, and relations stored in the current scene state.
-The second goal is persistence: the robot needs memory that survives beyond one camera frame so that later turns can refer to earlier observations.
-The third goal is interaction robustness: perception and model calls may be slow or fail, so the client must stay responsive while the server remains inspectable and configurable for experimentation.
+The system is shaped by Pepper's role as an embodied dialogue platform.
+As discussed in Section~\ref{sec:pepper-specification}, Pepper provides the social and physical interface, but visual and language inference must run externally.
+The architecture therefore has three goals: grounded speech, where claims are backed by detected objects, attributes, and relations; persistence, where observations survive beyond a single camera frame; and interaction robustness, where slow or failed model calls do not leave the robot unresponsive.
 
 \section{Distributed Client--Server Architecture}\label{sec:architecture-client-server}
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=1\linewidth]{pics/architecture.pdf}
 \caption{High-level architecture of the proposed scene-aware dialogue system. The Pepper robot client handles user speech input, speech and tablet output, image capture, and robot metadata collection. The server exposes perception, chat, and memory services that create and use the scene representation.}
@@ -24,28 +21,19 @@ The third goal is interaction robustness: perception and model calls may be slow
 \end{figure}
 
 The system follows the distributed architecture shown in Figure~\ref{fig:overall-system-architecture}.
-Pepper acts as the embodied client.
-It listens to the user through QiChat, captures images, collects robot metadata, sends requests to the server, speaks answers, and updates the tablet.
-The server owns the computationally expensive and persistent parts of the system: perception, scene graph generation, scene memory, language-model calls, configuration, and monitoring.
+Pepper acts as the embodied client: it listens through QiChat, captures images, collects robot metadata, sends requests, speaks answers, and updates the tablet.
+The server owns the computationally expensive and persistent components: perception, scene graph generation, scene memory, language-model calls, configuration, and monitoring.
 
-This split is intentionally strict.
-The Pepper client does not need to know which detector, VLM, LLM, or scene graph backend is active.
-It depends only on stable request and response contracts.
-Model experimentation stays on the server side, where GPU resources, worker processes, logs, and dashboard controls are available.
-
-The boundary between the two sides is also designed around the physical robot.
-Visual requests carry images with robot metadata; dialogue requests carry the user query and optional object focus.
-The server returns captions, memory summaries, grounded answers, or updated scene state, which Pepper presents through speech and the tablet.
+The split is intentionally narrow.
+The Pepper client depends on stable request and response contracts, not on the active detector, VLM, LLM, or scene graph backend.
+Visual requests carry images with robot metadata, while dialogue requests carry the user query and optional object focus, i. e. object label.
+The server replies with captions, memory summaries, grounded answers, or updated scene state, leaving model experimentation on the side where GPU resources, worker processes, logs, and dashboard controls are available.
 
 \section{Interaction Modes and Data Flow}\label{sec:architecture-data-flow}
 
-The architecture supports several interaction modes because not every user request requires the same amount of perception.
-A quick look is the low-latency path: Pepper captures one image and asks for a caption, while heavier memory updates may continue in the background.
-A full scan is the memory-building path: the robot observes the room from multiple head poses, and the server updates persistent objects, attributes, and relations.
-
-General questions use the current scene memory without necessarily taking a new image.
-Object-focused questions add a recognized object label, allowing the server to build a narrower context around matching objects and neighboring relations.
-Finally, memory display exposes the robot's current belief state: Pepper mirrors the interaction-relevant subset into QiChat dynamic concepts and can show a compact summary on the tablet.
+The architecture supports several interaction modes because user requests do not require the same perceptual effort.
+A quick look captures one image and asks for a caption while heavier updates may continue in the background; a full scan observes the room from multiple head poses and builds persistent objects, attributes, and relations.
+General questions use the current scene memory without necessarily taking a new image, object-focused questions add a recognized label to narrow the context, and memory display exposes the robot's current belief state through QiChat dynamic concepts and the tablet.
 
 \section{Perception and Scene-Graph Pipeline Design}\label{sec:architecture-perception-pipeline}
 
@@ -62,55 +50,41 @@ One branch produces a fast caption for immediate speech; another detects objects
 
 After detection, object association connects frame-local detections to persistent memory entries.
 Scene graph generation is then built over these grounded objects.
-The system can combine geometric rules, RelTR, VLM-based relation generation, and robot-native metadata about people.
-The robot metadata path is important for social relations and attributes that may not be visible from pixels alone, such as distance from Pepper, engagement, waving, or looking at the robot.
-No relation source is treated as final authority; generated relations are normalized, filtered, merged, and stored in scene memory.
+Geometric rules, RelTR, VLM-based relation generation, and robot-native person metadata can all contribute evidence.
+The metadata path adds social facts that pixels alone may not expose, such as distance from Pepper, engagement, waving, or gaze.
+No relation source is treated as final authority; relations are normalized, filtered, merged, and stored in scene memory.
 
-Set-of-Mark prompting is the grounding mechanism for the VLM path described in Section~\ref{sec:set-of-mark}.
-The server can render persistent object identifiers, labels, boxes, masks, or polygons into the image so that the prompt asks for relations between known object instances rather than an unconstrained caption.
-The pipeline outputs updated memory, captions, object records, relations, attributes, and optionally pregenerated questions, all of which can be reused by later dialogue turns, the tablet, and the evaluation in Chapter~\ref{chap:experiment}.
+For the VLM path, Set-of-Mark prompting follows Section~\ref{sec:set-of-mark}: persistent identifiers, labels, boxes, masks, or polygons are rendered into the image so the prompt can ask about known object instances.
+The pipeline outputs updated memory, captions, object records, relations, attributes, and optionally pregenerated questions for later dialogue turns, tablet display, and the evaluation in Chapter~\ref{chap:experiment}.
 
 \section{Scene Memory as the Central Abstraction}\label{sec:architecture-scene-memory}
 
 Scene memory is the main abstraction between perception and dialogue.
-Raw detections are tied to one image, while dialogue needs stable references over time.
-The memory therefore stores grounded objects, relations, captions, robot-derived person facts, and cached question-answer pairs.
-It is the authoritative representation of what the robot currently knows about the scene.
+Raw detections are tied to one image, but conversation needs stable references over time.
+The memory therefore stores grounded objects, relations, captions, robot-derived person facts, and cached question-answer pairs as the authoritative representation of what the robot currently knows.
 
 This design avoids two competing world models.
-The server maintains the complete scene state, because it is the component that runs perception, relation generation, and language-model context construction.
-The robot client mirrors only the interaction-relevant subset, such as object labels, relation names, attributes, and cached questions.
-Those mirrored values are used to update QiChat dynamic concepts and the tablet display, but the full structured memory remains on the server.
+The server maintains the complete scene state because it runs perception, relation generation, and language-model context construction.
+The robot mirrors only the interaction-relevant subset used by QiChat and the tablet, such as object labels, relation names, attributes, cached questions, and cached answers which are used as quick facts about the scene.
 
-The memory representation also gives the language model a controlled source of grounding.
-Instead of passing the whole image history into every dialogue turn, the server serializes selected objects, attributes, relations, and recent captions into a compact context.
-This context can be further restricted for object-focused questions.
-The language model is therefore asked to answer from the scene state rather than from an unconstrained description of the image or from its parametric knowledge alone.
-
-The same abstraction supports inspection and correction.
-Because objects and relations are stored explicitly, the dashboard can show the current memory, the robot can display a memory summary, and the experiments can evaluate generated scene graphs against human annotations.
-For this reason, scene memory is treated as a first-class component of the architecture rather than as a temporary by-product of detection.
+The same representation gives the language model a controlled source of grounding.
+Instead of passing the whole image history into every dialogue turn, the server serializes selected objects, attributes, relations, and recent captions into a compact context, optionally narrowed for object-focused questions.
+Explicit storage also makes the state inspectable: the dashboard can show current memory, the robot can display a summary.
+For this reason, scene memory is a first-class component and a cornerstone of the system rather than a temporary by-product of detection.
 
 \section{Robot Dialogue Layer}\label{sec:architecture-dialogue-layer}
 
-The robot-side dialogue layer is deliberately not an open-ended LLM loop.
-QiChat remains the deterministic front-end that decides which system action should be called.
-It recognizes whether the user wants the robot to look, scan, answer a general question, answer a question about a remembered object, display memory, reset memory, or speak a cached answer.
+The robot-side dialogue layer is deliberately not an open-ended LLM loop. It is completely deterministic and works as a traditional rule-based dialogue management system.
+QiChat remains the front end that selects the system action: quick look, scan, general chat, object-focused chat, memory display, memory reset, or cached answer.
 Only after this intent is known does the system call the server and, when needed, a language model.
 
-This design keeps the embodied interaction controllable.
-The robot must coordinate speech, head motion, image capture, tablet updates, and network requests.
-If every utterance were sent directly to a language model, the model would also need to decide when the robot should move, when it should capture an image, and which local API should be called.
-In this system, QiChat and the robot client keep control of actions, while the server language model is used for grounded response generation.
+This keeps embodied action under local control.
+Speech, head motion, image capture, tablet updates, and network requests must be coordinated by the robot client; the server language model is used for grounded response generation, not for deciding which local robot API to call.
+Dynamic concepts, detailed in Section~\ref{sec:client-dynamic-concepts}, connect changing scene memory with the static QiChat grammar so Pepper can recognize objects and cached questions that were not known when the topic file was written.
 
-Dynamic concepts connect the changing scene memory with the static QiChat grammar.
-After the server updates memory, the client can refresh concepts for remembered objects, attributes, relation names, and cached questions.
-This allows Pepper to recognize questions about objects that were not known when the topic file was written.
-
-Turn management is another part of the dialogue design.
-A robot action may involve speaking an acknowledgement, moving the head, capturing one or more images, calling the server, waiting for a response, updating local state, and speaking the result.
-The client therefore treats such actions as turns and prevents long-running turns from overlapping.
-This keeps Pepper from starting two scans, speaking two answers, or updating the tablet from two competing requests at the same time.
+Turn management completes the dialogue design.
+A robot action may involve an acknowledgement, motion, one or more captures, a server request, local state updates, and a spoken result.
+The client therefore treats such actions as turns and prevents long-running turns from overlapping, as implemented in Section~\ref{sec:client-turn-management}.
 
 % \section{Runtime Robustness and Research Control}\label{sec:architecture-runtime-control}
 
