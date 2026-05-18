@@ -1,0 +1,20 @@
+```python
+dynamic: memory_objects
+dynamic: memory_attributes
+dynamic: memory_relations
+dynamic: memory_cached_questions
+
+concept:(quick_look_action) [
+    "what do you see"
+    "describe the scene"
+    "what is in front of you"
+]
+
+u:({please} ~quick_look_action)
+    ^pCall(PepperGroundedClient.look("en"))
+    This will take just a moment.
+
+u:({please} ["tell me about" "describe"] _~memory_objects)
+    ^pCall(PepperGroundedClient.askAboutObject("en", $1))
+    Okay I will focus on the $1.
+```

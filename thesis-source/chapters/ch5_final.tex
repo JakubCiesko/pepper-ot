@@ -30,7 +30,7 @@ The physical robot provides \texttt{ALVideoDevice}, while Choregraphe does not r
 
 The spoken interface is implemented with QiChat topics in English and Czech.
 Topic files define the phrases that Pepper can recognize and map to service calls, so QiChat remains the deterministic action selector introduced in Section~\ref{sec:architecture-dialogue-layer}.
-VLM and LLM components are called only after the grammar has selected quick look, scan, object question, cached answer, or open chat, keeping the user-facing entry points predictable even when generative models run downstream.
+VLM and LLM components are called only after the grammar has selected object-related or \enquote{open chat} questions based on the currently identified objects. The perception pipeline is controlled by quick look and scan rules. Simple facts about the scene are provided by the cached answer rule which comes from the pregenerated question answer pairs. All this keeps the user-facing entry points predictable even when generative models run downstream.
 
 On the Python side, methods callable from QiChat are annotated with \texttt{@qi.bind}.
 For example, \texttt{look(lang\_code)} and \texttt{scan(lang\_code)} are bound as public service methods and simply forward the request to \texttt{TurnManager.start\_look} or \texttt{TurnManager.start\_scan}.
@@ -116,7 +116,7 @@ The transport reads endpoint paths and timeouts from configuration and validates
 Network and response failures are converted into client-specific exceptions.
 Timeouts, unavailable endpoints, and structurally invalid responses are represented by dedicated client errors.
 Guarded turn execution catches these errors and speaks localized fallback messages.
-The user hears a robot-level failure response instead of raw HTTP details or silence.
+Thanks to this, the user can hear that their request failed and can continue in the conversation.
 
 The client stores only temporary interaction state.
 The local session store remembers the current server conversation id, last caption, last detection timestamp, last scan id, last server response, remembered labels, attributes, relations, and cached question-answer pairs.
@@ -130,7 +130,7 @@ The \texttt{server} section defines URL, endpoint paths, timeouts, TLS verificat
 
 Most configuration is read at service startup, matching normal robot deployment.
 The service also exposes selected runtime helpers, such as server URL update, configuration reload, status inspection, and raw speech output, to reduce Pepper's slow deployment cycle during testing.
-These helpers do not change the architecture: QiChat and the tablet still call the bound service, long actions still go through the turn manager, and grounded perception and memory remain server-side.
+%These helpers do not change the architecture: QiChat and the tablet still call the bound service, long actions still go through the turn manager, and grounded perception and memory remain server-side.
 
 Together, these implementation details complete the robot-side part of the system.
 The client provides the embodied interaction layer, while the server provides perception, scene memory, and language reasoning.

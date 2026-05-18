@@ -20,7 +20,7 @@ Figure~\ref{fig:server-runtime-structure} shows the main server components.
 The central dependency root, \texttt{AppState}, stores the active configuration and version, runtime adapter, chat and caption services, conversation service, question-answer pool, and last published dashboard state.
 Routes and orchestration services resolve their dependencies through this object, so configuration, runtime mode, prompts, providers, and memory access are coordinated in one place.
 
-Two runtime modes share the same public contracts.
+The two runtime modes share the same public contracts.
 In-process mode keeps the perception pipeline inside the very same,  public FastAPI process. It is convenient for debugging or fast prototyping, but it is not suitable for production.
 Worker mode starts a second internal FastAPI application and forwards heavy inference requests to it, which is preferred when detectors, caption models, embedding models, RelTR, or local VLMs allocate GPU memory that is difficult to release from a long-lived process. In this way, the worker can be killed and restarted on request or change of settings so as to release all GPU resources and reallocate them again.
 The route layer calls a runtime adapter in both cases: the in-process adapter opens the uploaded image and calls the local pipeline, while the worker adapter serializes the same request to the internal worker API.
@@ -28,7 +28,7 @@ The route layer calls a runtime adapter in both cases: the in-process adapter op
 \section{Public API and Request Handling}\label{sec:server-public-api}
 
 The public API is organized by robot-facing capabilities rather than by model internals.
-Detection routes process visual observations, caption routes support the quick-look path from Section~\ref{sec:architecture-data-flow},\footnote{Caption routes can too start the full processing pipeline which is even used by the robot in order to get very fast answer, the caption, but at the same time trigger a full processing of the input in the background.} chat routes answer text questions from scene memory, and vision-chat routes send an image-question pair directly to a VLM.
+Detection routes process visual observations, caption routes support the quick-look path from Section~\ref{sec:architecture-data-flow}, chat routes answer text questions from scene memory, and vision-chat routes send an image-question pair directly to a VLM.
 Memory, configuration, and worker routes expose scene state, runtime settings, and process control.
 
 The main detection request is a multipart image upload with optional JSON robot metadata.
@@ -38,14 +38,14 @@ At the API boundary, the metadata is parsed into Pydantic schemas so later pipel
 
 For scans, a request can contain several images with matching metadata.
 The server either processes frames independently, preserving per-frame geometry, or stitches them into a panorama that gives the detector and VLM wider visual context.
-Both modes are needed because Pepper scans by moving its head through several poses rather than by using a wide-angle camera.
+Both modes are needed because Pepper scans by moving its head through several poses rather than by using a wide-angle camera. However, the wider panorama picture ensures that the detected objects are labeled as different entities which makes the reidentification easier.
 
 Caption requests are optimized for quick look: the server receives one image and optional metadata, calls the configured caption service, and returns text with provider and model metadata.
-The same request can trigger the full detection pipeline in the background, allowing Pepper to speak first while detections, scene graph relations, memory, and pregenerated questions are updated for later turns.
+The same request can trigger the full detection pipeline in the background, allowing Pepper to speak first while detections, scene graph relations, memory, and pregenerated questions are updated for later turns. This route is preferred for the robot as it enables it to get a fast answer which can be presented to the user while the heavy processing runs on the server in the background.
 
 Chat requests are text-first but memory-grounded.
 The route receives the user query, language information, conversation identifier, and optional object-focus label; it stores the original user message, builds model-facing history, asks the chat service for an answer, stores the response, and broadcasts it to the dashboard.
-Keeping original and model-facing text separate supports bilingual interaction, where the spoken utterance and prompt language may differ.
+Keeping original and model-facing text separate supports bilingual interaction, where the spoken utterance and prompt language may differ. The automatic translation of user queries and model answers helps when local small LLMs are used which might not be trained on Czech data and thus are not able to speak Czech natively.
 
 \section{Perception Pipeline Implementation}\label{sec:server-perception-pipeline}
 
@@ -69,10 +69,10 @@ The thesis setup uses RF-DETR by default, with threshold and optional non-maximu
 
 As discussed in Sections~\ref{sec:object-detection-tracking-reid} and~\ref{sec:architecture-scene-memory}, detection is frame-local while dialogue needs persistent references.
 The tracking stage extracts a crop for each detection, computes a visual embedding, and matches current detections to existing tracks with the Hungarian algorithm.
-The weighted cost is based mainly on visual similarity and partly on image-space geometry, with label equality as a hard constraint so an existing chair track cannot silently become a detected person.
+The weighted cost is based mainly on visual similarity (the default visual similarity weight is 0.8) and partly on image-space geometry (geometric similarity weight is 0.2), with label equality as a hard constraint so an existing chair track cannot silently become a detected person.
 
 Generic object embeddings use \texttt{nvidia/C-RADIOv4-SO400M} by default~\cite{nvidia_cradiov4_so400m_2026, ranzinger_c-radiov4_2026}.
-For people, the implementation can use the Hugging Face port \url{https://huggingface.co/maennyn/personvit-reid-msmt17-vit-s}, based on the PersonViT project~\cite{hustvl_personvit_2026, hu2024personvitlargescaleselfsupervisedvision}.
+For people or people-like objects defined in the dashboard, the implementation can use the Hugging Face port \url{https://huggingface.co/maennyn/personvit-reid-msmt17-vit-s}, based on the PersonViT project~\cite{hustvl_personvit_2026, hu2024personvitlargescaleselfsupervisedvision}.
 This separates general object appearance matching from person-specific Re-ID when that mode is enabled.
 
 Matched detections keep their object IDs; unmatched detections create new tracks, and dormant tracks are aged for later pruning.
@@ -110,7 +110,7 @@ The marked image lets the VLM refer to visible object instances by identifier in
 
 The implemented scene graph service combines optional rule-based, RelTR, and VLM backends, as shown in Figure~\ref{fig:server-som-scene-graph}.
 Rules compute directional, proximity, and coarse color facts from boxes and crops.
-RelTR proposes learned visual relations and maps predicted boxes back to current detections.
+RelTR proposes learned visual relations and maps predicted boxes back to current detections~\cite{cong_reltr_2023}.
 The VLM backend uses the raw or SoM image, prompt templates, current detections, optional captions, and the allowed vocabulary to produce subject--predicate--object triples whose identifiers refer to tracked detections.
 
 Backend execution can be sequential or parallel.
@@ -125,7 +125,7 @@ Parsed relations are then filtered against current detection identifiers; triple
 
 Structured output is validated through the same Pydantic schemas regardless of provider.
 Cloud providers use native structured output when available, while local llama.cpp and Ollama-style servers are reached through OpenAI-compatible endpoints and can use Instructor with \texttt{Mode.JSON}~\cite{instructor_docs_2026}.
-In practice, this mode was more reliable than \texttt{Mode.TOOLS} for smaller local models, such as GGUF variants of Qwen3.5-0.8B~\cite{unsloth_qwen35_08b_gguf_2026}; if it fails, the server falls back to JSON text and schema validation.
+In practice, this mode was more reliable than \texttt{Mode.TOOLS} for smaller local models, such as GGUF variants of Qwen3.5-0.8B~\cite{unsloth_qwen35_08b_gguf_2026}, or even mid-sized models, such as 4-bit quantized version of~\cite{qwen_qwen35_35b_a3b_2026}; if it fails, the server falls back to JSON text and schema validation.
 
 \begin{figure}[!htbp]
 \centering
@@ -157,7 +157,7 @@ For example, if a cup was detected several minutes ago and has not been seen aga
 
 The memory API exposes this state as a first-class resource.
 Clients can request the full scene state, compact summaries, crops, object and relation lists, reset operations, and manual create, update, or delete operations.
-The summary used by the dashboard and robot tablet contains labels, counts, graph relations, an SVG graph, and pregenerated question-answer pairs.
+The summary used by the dashboard and also intended for the robot tablet contains labels, counts, graph relations, an SVG graph, and pregenerated question-answer pairs.
 
 \section{Dialogue, Captions, and Question Generation}\label{sec:server-dialogue-services}
 
@@ -166,7 +166,7 @@ The same orchestration code can call OpenAI, Gemini, local OpenAI-compatible ser
 The abstraction keeps stable interfaces for chat, VLM, captioning, structured generation, and translation without pretending that structured output and multimodal behavior are identical across providers.
 
 The chat service converts scene memory into prompt context as defined in Section~\ref{sec:architecture-scene-memory}.
-For general chat, it serializes remembered objects, attributes, relations, and recent captions, ordering objects by a salience heuristic that favors people, social facts, distance, recency, and hit count.
+For general chat, it serializes, in RAG or CAG manner, remembered objects, attributes, relations, and recent captions, ordering objects by a salience heuristic that favors people, social facts, distance, recency, and hit count.
 The language model is then asked to answer from this context rather than from parametric knowledge alone.
 
 Object-focused chat builds a narrower context.
@@ -180,11 +180,11 @@ This supports bilingual operation, because a Czech utterance may be displayed an
 The same distinction can be kept for assistant responses.
 
 Question generation is a latency optimization.
-After scene graph generation, the server can generate graph-grounded question-answer pairs and ingest them into a bounded QA pool when memory is updated.
+After scene graph generation, the server can generate graph-grounded question-answer pairs and ingest them into a bounded QA pool when memory is updated. The number of question-answer pairs, as well as their content or translation, is configurable in the dashboard.
 The robot can expose these questions through the tablet or QiChat dynamic concepts; cached questions are answered immediately, while other questions fall back to ordinary chat.
 
 The vision-chat route remains separate from memory-grounded chat.
-It sends an image and question directly to a VLM for dense visual reasoning that may not be represented in the current graph, but it is not the mechanism for maintaining persistent scene memory.
+It sends an image and question directly to a VLM for dense visual reasoning that may not be represented in the current graph, but it is not the mechanism for maintaining persistent scene memory and it is not used by the robot.
 
 \section{Dashboard, Configuration, and Worker Control}\label{sec:server-dashboard}
 

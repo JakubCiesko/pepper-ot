@@ -1,0 +1,891 @@
+
+
+
+
+
+
+
+
+
+ 
+  
+        
+
+
+
+
+
+
+
+
+
+
+
+    date        = //,
+    university  = mu,
+    faculty     = fi,
+    type        = mgr,
+    department  = Department of Machine Learning and Data Processing,
+    author      = Jakub Čieško,
+    gender      = m,
+    advisor     = doc. RNDr. Aleš Horák, Ph.D.,
+    title       = Scene-Aware Dialogue for the Pepper Robot Using Object Tracking and Large Language Models,
+    TeXtitle    = Scene-Aware Dialogue for the Pepper Robot Using Object Tracking and Large Language Models,
+keywords    = Social Robotics, Large Language Models, Vision-Language Models, Scene Graph Generation, Object Tracking, Object Detection, RAG, Pepper Robot,
+    TeXkeywords = Social Robotics, Large Language Models, Vision-Language Models, Scene Graph Generation, Object Tracking, Object Detection, RAG, Pepper Robot,
+    abstract    = 
+      The goal of the thesis is to design and implement a dialogue interface system for natural communication with the Pepper robot, based on its visual perception of its surroundings. The student will build upon an existing object detection solution and extend it with multi-frame video object tracking and the construction of a dynamic semantic scene model. The work will include detecting spatial relationships between objects (such as occlusion or relative position) and integrating these findings with the robot's internal modules (specifically ALPeoplePerception). The resulting structured representation of the environment will serve as a dynamic information source for the dialogue manager. The dialogue system will be implemented using Large Language Models (LLMs) and Retrieval-Augmented Generation (RAG) techniques, where the model uses the current scene context to conduct fluid and factually supported conversation about the objects and persons the robot sees in its surroundings.
+
+The final submission will consist of a textual part with overviews of related technologies and approaches and a detailed description of the implementation, evaluation and testing, as well as a working implementation of vision recognition and dialog with the Pepper robot about its surroundings.
+
+    ,
+    thanks      = 
+      I would not have been able to complete this thesis without the guidance of Doc. Horák, whose supervision provided both valuable direction and the freedom to explore methods of my own interest. I would also like to thank Dr. Rambousek for his patience during the robot testing process. Finally, I am deeply grateful to my close ones for their support and understanding throughout this particularly demanding period.
+    ,
+    bib         = bibliography_clean.bib,
+    
+    facultyLogo = fithesis-fi,
+
+      
+
+
+ 
+  
+      
+ 
+ 
+
+  basicstyle      = ,
+  identifierstyle = ,
+  keywordstyle    = ,
+  keywordstyle    = [2],
+  keywordstyle    = [3],
+  stringstyle     = ,
+  commentstyle    = magenta,
+  breaklines      = true,
+
+ 
+[table]capposition=top
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+Introduction
+Motivation
+
+Unlike screen-based assistants, social robots occupy the same physical space as their users. This embodiment changes what users expect from them. A person addressing a robot in a room may reasonably expect it to know what is nearby, who is present, and which objects are being discussed.
+
+Pepper is a humanoid social robot built around speech, expressive motion, camera input, tablet output, and perception services provided through the NAOqi platform. These capabilities make it suitable for situated dialogue, but they also expose a central limitation: a robot that speaks about its environment should be able to connect its utterances to what it perceives. In this thesis, Pepper is treated as a situated communication partner that answers questions about its surroundings.
+
+Recent Pepper systems show that this direction is technically and practically relevant. Pepper has been used as a teaching assistant and as a service robot, for example in library assistance with visual perception and OCR . Other systems connect Pepper or similar robots to external language, vision, or retrieval components to support grounded dialogue . These works show how modern AI components can extend situated interaction. The central problem of this thesis is therefore not simply to attach a language model to Pepper, but to ground its answers in an explicit, dynamically updated model of the perceived scene.
+
+Large language models (LLMs) make this goal more plausible. They can make robotic dialogue more flexible and natural than hand-written response templates or rigid dialogue states defined by dialogue management systems . However, an LLM does not automatically know what Pepper currently sees. If the robot is asked about a laptop or a chair placed in front of it, the answer must be supported by perception and memory rather than by the model's general language knowledge.
+
+Object detection alone is too thin a basis for this kind of dialogue. A detector can localize objects and return labels and bounding boxes, but many questions require relations: what is beside the laptop, what is on the table, or who is looking toward the robot. Scene graphs provide a structured layer between low-level perception and high-level dialogue by encoding objects, their attributes, and their relations , which makes them suitable for conversational grounding.
+
+Scene awareness also requires persistence. Real interaction is not limited to one image: Pepper may inspect a room, answer a question, move its head, observe another part of the scene, and later be asked about an object from an earlier view. The system therefore needs scene memory: it must preserve object identities across observations, update attributes and relations, and expose the resulting state to the dialogue layer.
+
+Pepper also imposes a technical constraint. Modern perception and language models are too demanding to run as a full pipeline on Pepper's onboard hardware. In this thesis, Pepper is therefore used as an embodied client, while an external machine performs the computationally expensive perception, memory, and language processing. This follows the same practical direction as previous Pepper systems that rely on external computation for modern perception or dialogue capabilities .
+
+The target setting is an ordinary indoor environment, such as an office, classroom, or computer laboratory. In this setting, the robot should be able to observe its surroundings, build a structured memory of relevant objects and relations, and use this memory when answering the user.
+
+Problem Statement and Objectives
+
+The central problem addressed in this thesis is how to enable the Pepper robot to conduct dialogue that is grounded in perception and persistent across observations. A scene-aware answer should not depend only on general language-model knowledge; it should also reflect what the robot has observed, which objects and people are present, and how these entities are related.
+
+The thesis is system-oriented. It does not propose a new object detector, scene graph model, or language-model architecture. Instead, it investigates how existing perception, vision-language, and language components can be selected, combined, and adapted for a Pepper-based interaction pipeline.
+
+The main objective is to design and implement a distributed architecture in which Pepper serves as the embodied interaction client, while an external server performs the demanding inference and state management. Within this architecture, the system detects relevant objects and people, preserves object identities across discontinuous observations, organizes perceived entities into structured scene memory, and uses that memory as grounding context for dialogue.
+
+Main Contributions
+
+The contribution of this thesis is the design, implementation, and evaluation of a complete scene-aware dialogue system for the Pepper robot. The system integrates robot-side interaction, server-side multimodal perception, persistent memory, and grounded language generation into a single pipeline.
+
+At the representation level, the thesis introduces a perception-to-memory pipeline that detects objects and people, supports identity persistence across discontinuous observations, and stores the perceived environment in a form suitable for dialogue.
+
+
+At the interaction level, it implements a dialogue layer that conditions answers on the stored scene state rather than on language-model knowledge alone.
+
+
+Finally, the evaluation covers graph quality, Set-of-Mark prompting, vocabulary design, prompt formatting, and robot-side interaction latency.
+
+Thesis Structure
+
+Chapter  reviews the background and related work needed for the thesis, focusing on HRI, Pepper, visual perception, scene graphs, vision-language models, large language models, and grounded dialogue. Chapter  develops the architecture and design of the proposed system. Chapters  and  detail the server-side and robot-side implementation. Chapter  reports the testing and evaluation, including scene graph generation, Set-of-Mark prompting, vocabulary sensitivity, prompt formatting, and latency. Chapter  concludes with the results, limitations, and possible future work.
+
+Background and Related Work
+Chapter  introduced the thesis problem: enabling Pepper to answer questions about its surroundings using visual perception, persistent scene memory, and language generation. This chapter reviews the background needed for that goal: HRI and Pepper dialogue, visual perception and object persistence, scene-graph grounding, Set-of-Mark prompting, and language-model context construction.
+
+Human-Robot Interaction and Pepper Dialogue
+Human-robot interaction (HRI) studies how humans and robots interact in shared tasks. Goodrich and Schultz frame HRI as work across robotics, human factors, psychology, design, linguistics, and computer science . In this setting, Pepper is not just a camera or a text generator; it is an embodied system that speaks, displays information, occupies the scene, and sometimes fails in front of a user.
+
+Sheridan distinguishes social interaction from supervisory control, teleoperation, and automated vehicles . This thesis belongs to the social-interaction setting. Pepper is not used as a manipulator or navigation platform, but as a communication partner that should answer questions about its perceived environment.
+
+Social robots are not defined by their shape. Henschel et al. note that the term [social robot] does not have a single universal definition, but that common elements include embodiment, autonomy, and behavior that people interpret as social . For Pepper, this means that even a simple scripted action can be interpreted as part of an interaction: speech, gaze, waiting, and physical presence are perceived together rather than as isolated software outputs.
+
+Embodiment raises expectations that a purely text-based assistant does not face. A user may assume that a robot standing in the same room can refer to nearby objects, distinguish people, or remember a previously mentioned item. Henschel et al. report that Pepper users expected reciprocal conversation and noticed the limits of single-turn interaction . LLM-supported HRI has a related risk: fluent language can suggest broader situational competence than the system actually has .
+
+Embodiment can also improve how users experience a conversational system. Gava et al. compared an embodied robot setup with an application using the same conversational framework and report more positive ratings for the robot condition in perceived reliability, awareness of system behavior, speech quality, and ease of mistake correction . The result is preliminary, but it supports a practical design assumption used here: the robot body is part of the interaction, not only a container for a chatbot. It makes failures of perception, latency, and memory visible, while also making successful grounded answers more useful.
+
+Pepper provides interaction services through NAOqi, including speech, tablet output, camera access, people perception, behavior control, and dialogue modules . These services make Pepper practical for situated dialogue because one application can listen, speak, move, display information, and capture images. However, the native stack does not by itself provide open-ended grounded answers about changing visual memory .
+
+Pepper dialogue is commonly built with ALDialog and QiChat-style topics. A topic defines patterns that match recognized utterances and proposals that the robot can say. This rule-based approach is reliable for bounded commands, confirmations, and menu-like interaction, but it does not infer arbitrary facts about the world. Its strength is that recognized language can be routed to deterministic actions, including Python-side methods that make the robot speak, move, show tablet content, or call external services, with low overhead .
+
+Dynamic concepts make this rule-based layer more flexible. Instead of hard-coding every possible object name or relation into the grammar, the application can update a concept at runtime with scene-dependent words . A scene-aware dialogue system can therefore use a relatively static QiChat topic for intent recognition while external perception and memory supply the current object labels, attributes, relations, or pregenerated questions.
+
+Object Detection and Object Persistence
+Object detection provides the first layer of visual evidence. It identifies object instances in an image and localizes them, most commonly by bounding boxes. A detector maps an image  to a finite set
+
+
+
+where  is a bounding box,  is a class label, and  is a confidence score .
+
+Modern object detection was strongly shaped by convolutional neural networks, which exploit spatial structure in images through learned local filters and hierarchical visual features . One influential practical family is YOLO, short for You Only Look Once. YOLO-style detectors process the image in a single forward pass and predict bounding boxes, confidence scores, and class probabilities from dense image features . This efficiency makes them attractive when latency matters, and modern YOLO implementations preserve the same general idea while adding improved backbones, multi-scale feature fusion, detection heads, confidence filtering, and usually non-maximum suppression .
+
+DETR-style detectors take a different view. Instead of treating detection primarily as dense prediction over spatial feature locations, DETR formulates it as set prediction . Learned object queries predict a set of hypotheses, and training matches predictions to ground-truth objects with bipartite matching. Thus, YOLO emphasizes efficient single-pass dense prediction, while DETR emphasizes direct set prediction and reduces dependence on heuristic duplicate removal. This family is relevant because the implemented system uses RF-DETR and RT-DETR as two possible detector backends; RF-DETR follows the real-time detection-transformer direction and is designed around accuracy-latency tradeoffs for practical detection .
+
+The aforementioned object detectors all belong to closed-vocabulary detectors. Closed-vocabulary detectors predict labels from a fixed ontology. COCO is a common example, containing everyday object categories widely used in detection benchmarks and pretrained detectors . This approach is practical and stable, but limited by the labels available during training. In an office, classroom, or computer laboratory, users may refer to objects that are too specific, rare, or task-dependent for the detector's fixed label set.
+
+Open-vocabulary detection addresses this limitation. Models such as OWL-ViT and OWLv2 compare visual regions with text queries, allowing labels to be supplied at inference time . This flexibility is attractive for dialogue about environment-specific objects, but it also makes detections sensitive to prompt wording, label granularity, and score calibration. Open-vocabulary outputs must therefore be treated as evidence rather than as guaranteed facts.
+
+Detection is inherently frame-local. It does not decide whether a chair seen now is the same chair seen earlier. In continuous video streams, this problem is usually handled by multi-object tracking. Tracking-by-detection methods such as SORT, Deep SORT, and ByteTrack associate detections across adjacent frames using motion, geometry, confidence, and sometimes appearance information . These methods work best when consecutive frames are temporally and spatially close.
+
+Pepper's observations in the implemented system are often discontinuous. The robot may capture one image, speak, move its head, capture another image from a different viewpoint, and later answer a follow-up question. Between such observations, an object may shift strongly in image coordinates or disappear from the field of view. Pure frame-to-frame tracking is therefore not sufficient for persistent scene memory.
+
+This motivates re-identification (Re-ID), which asks whether two observations correspond to the same physical instance across different times, views, or contexts . Here, the relevant mechanism is appearance-based matching of object crops. A crop from the current image can be compared with crops stored in a gallery; if the visual evidence is sufficiently similar and the labels are compatible, the system may treat the detections as the same object instance.
+
+Re-ID is often described as a query-gallery problem. The current crop is the query, and previously stored crops form the gallery. A feature extractor maps crops into an embedding space where instance-specific cues are preserved, while remaining robust to changes in lighting, scale, or viewpoint . The task is therefore different from category recognition: it is not enough to decide that two crops are both chairs; the system must decide whether they depict the same chair.
+
+Pepper also provides native people-perception modules through the NAOqi API. ALPeoplePerception can expose visible people and their associated IDs, which can be used to fetch related signals such as estimated age, distance from the robot, or gaze direction. ALFaceDetection can also detect and optionally recognize faces after learning.(See the Aldebaran documentation for ALPeoplePerception and ALFaceDetection: http://doc.aldebaran.com/2-4/naoqi/peopleperception/alpeopleperception.html and http://doc.aldebaran.com/2-4/naoqi/peopleperception/alfacedetection.html.) These modules are useful for human-centered interaction, but they are not a general object-persistence solution: they apply primarily to people and depend on visibility, pose, distance, and prior enrollment. In the thesis system, they are best understood as auxiliary robot metadata that can support visual memory.
+
+
+Grounding and Scene Graph Generation
+
+In robotics, grounding means linking linguistic expressions to entities, attributes, and relations in the perceived world. Lemaignan et al. describe situated grounding as a connection between perception, symbolic knowledge representation, and dialogue processing . Grounding is not achieved by adding an image to a prompt alone; the system needs a representation in which a phrase such as the object next to the laptop can be connected to perceived objects and relations.
+
+A list of detections is insufficient for many grounded questions. It may contain object labels and bounding boxes, but not the relational structure needed to answer whether a cup is on a table, a person is wearing glasses, or a keyboard lies to the left of a monitor.
+
+Captions can summarize a scene in natural language and have been used as grounding evidence in conversational robot systems . However, captions do not reliably expose object identities and relations in a reusable structure.
+
+Scene graphs provide a more suitable representation for this missing structure. Johnson et al. define a scene graph as a data structure that encodes object instances, object attributes, and relationships between objects . A simple formulation is
+
+
+
+where  is a set of object instances and  is a set of directed relationship edges. A binary relation can be written as a subject-predicate-object triplet , for example . Attributes can be stored as node properties or unary labels. Zhu et al. summarize scene graphs in the same practical way: as structured representations of objects, attributes, and relationships .
+
+Scene Graph Generation (SGG) is the task of producing this structure from visual input. Classical SGG is often organized in two stages: first detect objects, then predict predicates for candidate object pairs. Learned methods rely on object labels, visual features, pair geometry, context, and dataset priors to predict relation triplets correctly . The difficulty lies especially in relationship prediction. Predicate distributions are long-tailed, relation labels can be semantically ambiguous, and object-detection errors propagate into the graph. A missed object removes all relations involving that object; a wrong label or unstable identity can make a correct relation unusable in dialogue.
+
+
+RelTR is a representative of the one-stage alternative. It builds on the set-prediction idea from DETR, but predicts a sparse set of subject-predicate-object triplets directly instead of enumerating all possible object pairs and classifying predicates for each pair. RelTR uses entity representations, subject and object branches, and learned triplet queries to decode relation candidates. The final output includes subject and object classes and boxes together with a predicate label .
+
+
+A newer option is Vision-Language model (VLM) based SGG. Instead of treating relation prediction only as fixed predicate classification over detected object pairs, recent work formulates SGG as promptable image-to-text or image-to-sequence generation. This is attractive when the target vocabulary is open, domain-specific, or not well covered by standard SGG datasets.
+
+IndVisSGG is a relevant example. It uses VLMs for scene graph generation in industrial spatial-intelligence settings, with GPT-4V-based multi-agent processing over video frames. Its inputs include visual information, predefined object categories, predicate dictionaries, and positive and negative examples. The prompt specifies scene-graph information, triplet extraction criteria, and output-format requirements. The process extracts spatial-temporal triplets, checks omissions, redundant entities, and predicate-rule violations with multiple expert agents, and summarizes spatial and interactive relations into the final graph. Figure  illustrates this pipeline .
+
+
+Architecture of IndVisSGG. The method uses visual input, predefined objects and predicates, examples, extraction criteria, and a multi-agent GPT-4V process to extract, check, and summarize scene-graph triplets. Reproduced from Wang et al. .
+
+IndVisSGG is close to the methodological direction of this thesis even though the domain is different: it combines a constrained object and predicate vocabulary, prompt criteria, visual input, and correction around generated triplets. PGSG, or Pixels to Scene Graph Generation with Generative VLMs, provides another example. Li et al. formulate open-vocabulary SGG as generation of a textual scene-graph sequence from an image, using relation-aware tokens to represent subject-predicate-object structure and a relation-construction module to convert the generated sequence into instance-level triplets .
+
+PGSG also includes grounding and category conversion modules that recover bounding boxes and map generated words to benchmark object and predicate categories . Its methodological relevance here is twofold: VLMs can act as flexible relation generators for a domain-specific vocabulary, but their outputs still require grounding, normalization, filtering, and schema control before they can be stored in scene memory.
+
+The main limitation is output control. A generative model may invent unsupported relations, use inconsistent predicate names, ignore object identifiers, or produce malformed structure. If a VLM is asked to produce relations between detected objects, it must also refer to the same object instances as the detector and memory system. This need for reference alignment motivates Set-of-Mark prompting.
+
+Set-of-Mark Prompting
+Set-of-Mark prompting marks visible image regions with explicit identifiers before the image is passed to a VLM. Instead of asking the model to infer which of several similar chairs is meant by the chair, the prompt can ask about object 4. Yang et al. describe this as a visual prompting method in which the original image is transformed into a marked image before querying the VLM. Their central observation is that marks such as numbers and masks make image regions both visually highlighted and linguistically referable, which in turn produces more factually correct results . The technique is illustrated in Figure .
+
+
+Illustration of standard VLM prompting compared with Set-of-Mark prompting. Visual marks make image regions explicitly referable, reducing ambiguity when the model must answer about a specific object. Reproduced from Yang et al. .
+The method first partitions the image into meaningful regions, for example with segmentation or detection models, and then overlays each region with a unique number, letter, mask, box, or combination of marks. The mark must be easy for the VLM to perceive and easy for the language model to mention in text. Numeric or alphabetic labels are useful because the model can answer with region 3 or object B instead of uncertain coordinates. In low-resolution or cluttered images, however, marks can cover visual evidence or add noise that may degrade performance.
+
+For scene-aware dialogue, the main value of Set-of-Mark prompting is alignment. Detector IDs, graph nodes, VLM references, tablet visualization, and later spoken answers can be tied to the same marked object. This is particularly important in scenes with repeated objects, such as multiple chairs, monitors, books, or people.
+
+Language Models, Vision-Language Models, and Scene Context
+Large language models are useful in dialogue because they can generate fluent responses conditioned on an instruction and context. Instruction tuning and preference-based alignment make such models more suitable for interactive use than raw pretrained language models . For grounded robot dialogue, fluency must be constrained by evidence: the model can answer correctly about the scene only if the relevant scene state is present in its context or accessible through retrieval.
+
+Vision-language models extend language generation or visual representation learning with image input . Some models use shared image-text embedding spaces, which support retrieval and open-vocabulary perception. Others connect visual encoders to language models and generate text conditioned on both the prompt and the image. This property makes VLMs attractive for captioning and draft scene-graph generation, but it also creates risk: a VLM may hallucinate objects, ignore a required schema, or use relations outside the intended vocabulary.
+
+In a social robot, such mistakes are not only technical. The user may see the same room as the robot, so an unsupported answer can immediately break trust or fail to satisfy the user's information need. For this reason, grounded systems should treat LLM and VLM outputs as hypotheses to be constrained, checked, or stored with provenance rather than as direct truth.
+
+One way to lower hallucination risk is to provide relevant evidence. Retrieval-Augmented Generation (RAG) combines a generator with external evidence retrieval . In ordinary text settings, the evidence is often a set of document chunks retrieved by semantic similarity to the query.
+
+For scene-aware dialogue, the evidence is better viewed as scene memory: objects are nodes, attributes are node properties, and relationships are edges. A question such as what is next to the monitor? should retrieve the monitor and its graph neighborhood, not just the most semantically similar text fragment.
+
+Cache-Augmented Generation (CAG) uses a different assumption: if the relevant knowledge is bounded and fits into the model context or cache, it can be loaded once and reused without online retrieval . This idea fits small current-scene memories, where the full scene summary may fit into a prompt. Its limitation is shared by all context-construction methods: irrelevant or stale evidence can distract the model, while missing evidence prevents grounded answers.
+
+The practical consequence is that captions, scene graphs, cached questions, and object-focused summaries are different routes from visual memory to language-model input. The implementation details belong to later chapters; the common principle is that the dialogue model should answer from maintained scene state, not from pretrained world knowledge alone.
+
+Pepper Robot Specification
+Pepper is a humanoid social robot designed by Aldebaran Robotics in 2014 and manufactured until 2020. It provides speech output, microphones, cameras, a chest tablet, expressive head and arm motion, and a mobile base. In this thesis, Pepper is treated primarily as an embodied communication system rather than as a manipulation system. Its role is to support situated dialogue about the visible environment, not to physically modify that environment.
+
+Pepper's technical specification is relevant because it defines the computational and software constraints under which the system must operate. Public specifications list an Intel Atom E3845 CPU, 4 GB RAM, and 32 GB eMMC flash memory in the main CPU module, together with RGB cameras, microphones, speakers, sonars, lasers, bumpers, and the chest tablet.(See the Pepper technical specifications: https://aldebaran.com/support/kb/pepper/general/pepper-technical-specifications/.) These resources are appropriate for Pepper's native interaction, sensing, motion, and dialogue modules, but they provide limited headroom for computationally demanding neural inference.
+
+In addition, Pepper's NAOqi software environment relies on legacy Python 2 interfaces, while contemporary object-detection, vision-language, language-model, and scene-graph-generation frameworks are developed primarily for modern Python 3 ecosystems and often assume hardware acceleration. For this reason, these models are not deployed directly on the robot. Instead, Pepper is used as the embodied interaction client, while the more demanding perception and language-processing components are executed on an external machine. This constraint motivates the client-server architecture described later in the thesis.
+
+This chapter therefore establishes the concepts used by the rest of the thesis. Pepper dialogue supplies the interaction layer, hardware constraints motivate external computation, object detection and persistence provide visual entities, scene graphs organize those entities for grounding, Set-of-Mark prompting aligns visual references, and language models turn selected scene state into spoken answers.
+
+
+System Architecture and Design
+Chapter  introduced the methods and platform constraints that shape the thesis.
+This chapter establishes the architectural level of the proposed scene-aware dialogue system: the client-server split, the flow from visual observation to scene memory, and the way that memory grounds dialogue.
+Chapters  and  then describe the server and Pepper implementations.
+The code is publicly available at https://github.com/JakubCiesko/pepper-ot.
+
+Design Goals and Constraints
+The system is shaped by Pepper's role as an embodied dialogue platform.
+As discussed in Section , Pepper provides the social and physical interface, but visual and language inference must run externally.
+The architecture therefore has three goals: grounded speech, where claims are backed by detected objects, attributes, and relations; persistence, where observations survive beyond a single camera frame; and interaction robustness, where slow or failed model calls do not leave the robot unresponsive.
+
+Distributed Client-Server Architecture
+
+High-level architecture of the proposed scene-aware dialogue system. The Pepper robot client handles user speech input, speech and tablet output, image capture, and robot metadata collection. The server exposes perception, chat, and memory services that create and use the scene representation.
+
+The system follows the distributed architecture shown in Figure .
+Pepper acts as the embodied client: it listens through QiChat, captures images, collects robot metadata, sends requests, speaks answers, and updates the tablet.
+The server owns the computationally expensive and persistent components: perception, scene graph generation, scene memory, language-model calls, configuration, and monitoring.
+
+The split is intentionally narrow.
+The Pepper client depends on stable request and response contracts, not on the active detector, VLM, LLM, or scene graph backend.
+Visual requests carry images with robot metadata, while dialogue requests carry the user query and optional object focus, i. e. object label.
+The server replies with captions, memory summaries, grounded answers, or updated scene state, leaving model experimentation on the side where GPU resources, worker processes, logs, and dashboard controls are available.
+
+Interaction Modes and Data Flow
+The architecture supports several interaction modes because user requests do not require the same perceptual effort.
+A quick look captures one image and asks for a caption while heavier updates may continue in the background; a full scan observes the room from multiple head poses and builds persistent objects, attributes, and relations.
+General questions use the current scene memory without necessarily taking a new image, object-focused questions add a recognized label to narrow the context, and memory display exposes the robot's current belief state through QiChat dynamic concepts and the tablet.
+
+Perception and Scene-Graph Pipeline Design
+
+High-level perception and memory pipeline. A robot observation can produce a fast caption, detected objects, persistent identities, Set-of-Mark images, scene graph relations, pregenerated questions, and memory updates.
+
+Figure  shows the perception pipeline at the design level.
+The input is a robot observation: an image together with metadata about the camera, head pose, capture mode, and available robot perception signals.
+One branch produces a fast caption for immediate speech; another detects objects and creates the grounding layer used by memory and dialogue.
+
+After detection, object association connects frame-local detections to persistent memory entries.
+Scene graph generation is then built over these grounded objects.
+Geometric rules, RelTR, VLM-based relation generation, and robot-native person metadata can all contribute evidence.
+The metadata path adds social facts that pixels alone may not expose, such as distance from Pepper, engagement, waving, or gaze.
+No relation source is treated as final authority; relations are normalized, filtered, merged, and stored in scene memory.
+
+For the VLM path, Set-of-Mark prompting follows Section : persistent identifiers, labels, boxes, masks, or polygons are rendered into the image so the prompt can ask about known object instances.
+The pipeline outputs updated memory, captions, object records, relations, attributes, and optionally pregenerated questions for later dialogue turns, tablet display, and the evaluation in Chapter .
+
+Scene Memory as the Central Abstraction
+Scene memory is the main abstraction between perception and dialogue.
+Raw detections are tied to one image, but conversation needs stable references over time.
+The memory therefore stores grounded objects, relations, captions, robot-derived person facts, and cached question-answer pairs as the authoritative representation of what the robot currently knows.
+
+This design avoids two competing world models.
+The server maintains the complete scene state because it runs perception, relation generation, and language-model context construction.
+The robot mirrors only the interaction-relevant subset used by QiChat and the tablet, such as object labels, relation names, attributes, cached questions, and cached answers which are used as quick facts about the scene.
+
+The same representation gives the language model a controlled source of grounding.
+Instead of passing the whole image history into every dialogue turn, the server serializes selected objects, attributes, relations, and recent captions into a compact context, optionally narrowed for object-focused questions.
+Explicit storage also makes the state inspectable: the dashboard can show current memory, the robot can display a summary.
+For this reason, scene memory is a first-class component and a cornerstone of the system rather than a temporary by-product of detection.
+
+Robot Dialogue Layer
+The robot-side dialogue layer is deliberately not an open-ended LLM loop. It is completely deterministic and works as a traditional rule-based dialogue management system.
+QiChat remains the front end that selects the system action: quick look, scan, general chat, object-focused chat, memory display, memory reset, or cached answer.
+Only after this intent is known does the system call the server and, when needed, a language model.
+
+This keeps embodied action under local control.
+Speech, head motion, image capture, tablet updates, and network requests must be coordinated by the robot client; the server language model is used for grounded response generation, not for deciding which local robot API to call.
+Dynamic concepts, detailed in Section , connect changing scene memory with the static QiChat grammar so Pepper can recognize objects and cached questions that were not known when the topic file was written.
+
+Turn management completes the dialogue design.
+A robot action may involve an acknowledgement, motion, one or more captures, a server request, local state updates, and a spoken result.
+The client therefore treats such actions as turns and prevents long-running turns from overlapping, as implemented in Section .
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Server-Side Implementation
+Chapter  introduced the server as the external perception, memory, and language backend.
+This chapter follows that boundary into implementation: the FastAPI runtime, public API, perception pipeline, memory update semantics, provider adapters, translation support, worker control, and dashboard.
+
+Runtime Structure and Application State
+The public server process is a FastAPI application.
+It exposes /api/v1 for robot and dashboard calls, serves the dashboard under /dashboard, mounts static assets, and opens a WebSocket channel for live updates.
+As required by the split in Section , Pepper never constructs detector, VLM, LLM, tracking, or memory objects directly.
+
+
+Server runtime structure. Pepper and the dashboard communicate with the public FastAPI routes. Application services call a runtime adapter, which either uses an in-process perception pipeline or forwards the request to an internal worker process.
+
+Figure  shows the main server components.
+The central dependency root, AppState, stores the active configuration and version, runtime adapter, chat and caption services, conversation service, question-answer pool, and last published dashboard state.
+Routes and orchestration services resolve their dependencies through this object, so configuration, runtime mode, prompts, providers, and memory access are coordinated in one place.
+
+Two runtime modes share the same public contracts.
+In-process mode keeps the perception pipeline inside the very same,  public FastAPI process. It is convenient for debugging or fast prototyping, but it is not suitable for production.
+Worker mode starts a second internal FastAPI application and forwards heavy inference requests to it, which is preferred when detectors, caption models, embedding models, RelTR, or local VLMs allocate GPU memory that is difficult to release from a long-lived process. In this way, the worker can be killed and restarted on request or change of settings so as to release all GPU resources and reallocate them again.
+The route layer calls a runtime adapter in both cases: the in-process adapter opens the uploaded image and calls the local pipeline, while the worker adapter serializes the same request to the internal worker API.
+
+Public API and Request Handling
+The public API is organized by robot-facing capabilities rather than by model internals.
+Detection routes process visual observations, caption routes support the quick-look path from Section ,(Caption routes can too start the full processing pipeline which is even used by the robot in order to get very fast answer, the caption, but at the same time trigger a full processing of the input in the background.) chat routes answer text questions from scene memory, and vision-chat routes send an image-question pair directly to a VLM.
+Memory, configuration, and worker routes expose scene state, runtime settings, and process control.
+
+The main detection request is a multipart image upload with optional JSON robot metadata.
+The image can be resized before inference to control bandwidth and model cost.
+The metadata contains values such as head yaw, head pitch, camera field of view, image size, frame identifier, scan identifier, battery state, and Pepper people-perception outputs.
+At the API boundary, the metadata is parsed into Pydantic schemas so later pipeline stages receive normalized values rather than ad hoc dictionaries.
+
+For scans, a request can contain several images with matching metadata.
+The server either processes frames independently, preserving per-frame geometry, or stitches them into a panorama that gives the detector and VLM wider visual context.
+Both modes are needed because Pepper scans by moving its head through several poses rather than by using a wide-angle camera.
+
+Caption requests are optimized for quick look: the server receives one image and optional metadata, calls the configured caption service, and returns text with provider and model metadata.
+The same request can trigger the full detection pipeline in the background, allowing Pepper to speak first while detections, scene graph relations, memory, and pregenerated questions are updated for later turns.
+
+Chat requests are text-first but memory-grounded.
+The route receives the user query, language information, conversation identifier, and optional object-focus label; it stores the original user message, builds model-facing history, asks the chat service for an answer, stores the response, and broadcasts it to the dashboard.
+Keeping original and model-facing text separate supports bilingual interaction, where the spoken utterance and prompt language may differ.
+
+Perception Pipeline Implementation
+Figure  gives the design view of the perception flow.
+The server implements that flow in PerceptionPipeline.
+The full run can include captioning, detection, tracking and memory association, Set-of-Mark rendering, scene graph generation, question generation, memory updates, and timing finalization.
+Each stage records its name and timing metrics for dashboard inspection and the latency measurements in Chapter .
+
+The pipeline has sequential and partially parallel execution modes.
+In sequential mode, captioning runs first, then detection, followed by all post-detection stages.
+In parallel mode, captioning and detection start concurrently on copied image objects.
+The detector call is synchronous, so it is offloaded through asyncio.tothread and protected by a detector lock.
+This prevents simultaneous access to one detector instance from multiple requests.
+Later stages remain ordered because tracking depends on detections, SoM depends on tracked detections, and scene graph generation depends on detections and optionally the caption.
+
+Detection is implemented behind a service abstraction whose registry can load YOLO, RT-DETR, RF-DETR, and OWLv2.
+Regardless of backend, downstream stages receive normalized detections with class identifier, label, confidence, bounding box, and optional object identifier.
+The thesis setup uses RF-DETR by default, with threshold and optional non-maximum suppression controls kept configurable because detector settings affect dialogue as well as vision: a false positive can become a spoken claim, while an overly strict threshold can hide an object visible to the user.
+
+Tracking and Memory Association
+As discussed in Sections  and , detection is frame-local while dialogue needs persistent references.
+The tracking stage extracts a crop for each detection, computes a visual embedding, and matches current detections to existing tracks with the Hungarian algorithm.
+The weighted cost is based mainly on visual similarity and partly on image-space geometry, with label equality as a hard constraint so an existing chair track cannot silently become a detected person.
+
+Generic object embeddings use nvidia/C-RADIOv4-SO400M by default .
+For people, the implementation can use the Hugging Face port https://huggingface.co/maennyn/personvit-reid-msmt17-vit-s, based on the PersonViT project .
+This separates general object appearance matching from person-specific Re-ID when that mode is enabled.
+
+Matched detections keep their object IDs; unmatched detections create new tracks, and dormant tracks are aged for later pruning.
+Stable identifiers then carry the detections into SoM rendering and scene graph generation, allowing repeated observations to strengthen the same physical object instead of creating a new memory entry for every frame.
+
+Memory update separates low-level tracking state from dialogue-facing object state.
+Tracks keep visual features such as embedding, crop, box, confidence, hit count, and last-seen time; object records keep symbolic and embodied fields such as identifier, label, status, attributes, frame or scan identifier, bearing, robot distance, Pepper person identifier, and timestamps.
+
+Pepper Metadata Fusion
+Pepper metadata is fused with server detections after tracking, using the robot-side payload described in Section .
+The client can send head pose, field of view, image size, and NAOqi people-perception records with a Pepper person identifier, yaw, pitch, distance, and social cues such as engagement zone, sitting, waving, gaze, smile, or expression.
+Although noisy, these signals contain embodied information that an ordinary object detector does not provide.
+
+The server projects Pepper-reported people into the image coordinate frame and compares their angular-distance evidence with detected person boxes.
+When the match is plausible, the Pepper person identifier and social metadata are attached to the tracked object.
+If Pepper reports a visible person but the detector misses the box, the server can create a lower-confidence synthetic person detection from the robot-reported direction and distance, preserving a socially relevant hypothesis that would otherwise disappear.
+
+Robot-derived facts become object attributes in scene memory.
+Sitting, waving, gaze, distance, and engagement zone can later be injected into the scene graph as self-relations and serialized into the chat context, connecting ordinary image perception with Pepper-specific social perception.
+
+Set-of-Mark and Scene Graph Generation
+
+Set-of-Mark and scene graph stage. Tracked detections are rendered with persistent identifiers before the VLM scene graph backend is called. Rule-based, RelTR, and VLM relation sources are merged and filtered. Robot metadata can be added to person objects before memory is updated.
+
+Scene graph generation starts after detections have object identifiers.
+Following the Set-of-Mark design in Section , the painter can overlay boxes, labels, masks, polygons, and object identifiers.
+Runtime configuration controls line thickness, mask opacity, color lookup, and whether masks come from lightweight GrabCut or a SAM-based backend with fallback behavior.
+The marked image lets the VLM refer to visible object instances by identifier instead of ambiguous natural-language description.
+
+The implemented scene graph service combines optional rule-based, RelTR, and VLM backends, as shown in Figure .
+Rules compute directional, proximity, and coarse color facts from boxes and crops.
+RelTR proposes learned visual relations and maps predicted boxes back to current detections.
+The VLM backend uses the raw or SoM image, prompt templates, current detections, optional captions, and the allowed vocabulary to produce subject-predicate-object triples whose identifiers refer to tracked detections.
+
+Backend execution can be sequential or parallel.
+Sequential execution runs rules, RelTR, and VLM in a fixed order.
+Parallel execution can offload rules and RelTR to worker threads while the VLM backend runs asynchronously.
+The outputs are still merged in deterministic backend order.
+The merge is a union with deduplication, followed by enhancement with robot-derived attributes from scene memory.
+
+The VLM backend is deliberately constrained.
+It renders prompts from configured templates, calls the chosen provider, requests structured output when supported, and can ask the model to repair malformed JSON-like text without resending the image.
+Parsed relations are then filtered against current detection identifiers; triples that refer to missing or hallucinated object IDs are removed because visually plausible text is not necessarily grounded in the tracked object set.
+
+Structured output is validated through the same Pydantic schemas regardless of provider.
+Cloud providers use native structured output when available, while local llama.cpp and Ollama-style servers are reached through OpenAI-compatible endpoints and can use Instructor with Mode.JSON .
+In practice, this mode was more reliable than Mode.TOOLS for smaller local models, such as GGUF variants of Qwen3.5-0.8B ; if it fails, the server falls back to JSON text and schema validation.
+
+
+Example scene graph output. The image is marked with Set-of-Mark identifiers, and the corresponding graph combines detected objects with relations generated by scene graph backends.
+
+Figure  shows a concrete output of this stage.
+Relations are not stored as free text but normalized into graph edges whose subject and object refer to tracked detections, making the result usable by memory update, dashboard rendering, evaluation scripts, and later dialogue turns.
+
+Scene Memory and State
+Scene memory, introduced architecturally in Section , is implemented as the server's in-memory world model.
+It stores tracked objects, relationships, captions, object crops, and Pepper person bindings.
+In worker mode it lives in the worker process, which owns the active perception pipeline; API services access it through the runtime adapter or memory proxy so public route behavior remains unchanged.
+
+Object records combine visual and embodied fields: identifier, label, status, source, attributes, bounding box, timestamps, hit count, frame or scan identifier, bearing, Pepper person identifier, robot distance, and engagement zone.
+Relation records keep subject identifier, predicate, object identifier, first-seen time, last-seen time, and count, while caption records keep text with provider, model, source, frame or scan identifier, and timestamps.
+
+Scene graph memory update reads numeric graph edges.
+An edge whose subject and object are the same instance becomes a unary attribute; otherwise it creates or refreshes a binary relationship.
+Repeated relationships increment their count and update their last-seen timestamp, which is why scene graph backends must preserve correct object identifiers rather than relying on labels alone.
+
+Memory is bounded by age and capacity.
+Objects, relations, captions, tracks, and Pepper bindings are pruned when they become stale or exceed configured limits.
+This prevents the robot from treating old observations as current facts.
+For example, if a cup was detected several minutes ago and has not been seen again, it should not dominate the next answer as if it were still certainly present.
+
+The memory API exposes this state as a first-class resource.
+Clients can request the full scene state, compact summaries, crops, object and relation lists, reset operations, and manual create, update, or delete operations.
+The summary used by the dashboard and robot tablet contains labels, counts, graph relations, an SVG graph, and pregenerated question-answer pairs.
+
+Dialogue, Captions, and Question Generation
+The server uses provider adapters for language and vision-language models.
+The same orchestration code can call OpenAI, Gemini, local OpenAI-compatible servers, and local Hugging Face providers where configured.
+The abstraction keeps stable interfaces for chat, VLM, captioning, structured generation, and translation without pretending that structured output and multimodal behavior are identical across providers.
+
+The chat service converts scene memory into prompt context as defined in Section .
+For general chat, it serializes remembered objects, attributes, relations, and recent captions, ordering objects by a salience heuristic that favors people, social facts, distance, recency, and hit count.
+The language model is then asked to answer from this context rather than from parametric knowledge alone.
+
+Object-focused chat builds a narrower context.
+If the robot client sends an object label recognized by QiChat, the server matches current memory objects by normalized label and includes the relevant object records and neighboring relations.
+If the object has few structured facts but a stored crop is available, the service can request a caption of the crop as a fallback.
+This improves object-focused answers when detection succeeded but scene graph generation produced little information about the object.
+
+The conversation service stores recent message history.
+It preserves the original user-facing text and the model-facing text separately.
+This supports bilingual operation, because a Czech utterance may be displayed and logged as originally spoken while an English or normalized form is used for prompt history.
+The same distinction can be kept for assistant responses.
+
+Question generation is a latency optimization.
+After scene graph generation, the server can generate graph-grounded question-answer pairs and ingest them into a bounded QA pool when memory is updated.
+The robot can expose these questions through the tablet or QiChat dynamic concepts; cached questions are answered immediately, while other questions fall back to ordinary chat.
+
+The vision-chat route remains separate from memory-grounded chat.
+It sends an image and question directly to a VLM for dense visual reasoning that may not be represented in the current graph, but it is not the mechanism for maintaining persistent scene memory.
+
+Dashboard, Configuration, and Worker Control
+
+
+
+
+
+
+The dashboard is the developer-facing view of the same runtime state used by Pepper.
+It receives WebSocket events for detections, captions, memory updates, and chat messages, and exposes the current image, caption, chat log, memory graph, object lists, relation lists, and generated question-answer pairs.
+
+
+Manual controls allow a developer to send chat messages, inspect model outputs, reset memory, and insert or edit objects and relations.
+During testing, a wrong robot answer can originate in speech recognition, image capture, detector output, tracking, scene graph generation, prompt construction, translation, or the LLM response; the dashboard makes these intermediate states visible.
+
+
+Dashboard configuration views for translation and scene graph generation. The server exposes runtime settings for label, predicate, and attribute translation, as well as scene graph backend and Set-of-Mark controls.
+Figure  shows translation and scene graph configuration views.
+Translation settings map normalized labels, predicates, and attributes to robot-facing language output.
+Automatic translation uses googletrans .
+Scene graph settings expose backend and prompting controls, including rule-based relations, RelTR, VLM generation, Set-of-Mark rendering, labels, boxes, masks, polygons, and related thresholds.
+
+Configuration changes are divided into hot updates and hard reloads.
+Thresholds, prompt paths, selected runtime flags, translation mappings, and some provider parameters can be pushed into a running runtime; changes that rebuild model objects require a hard reload.
+In worker mode, that reload restarts only the worker process, keeping the public API separate from model teardown and GPU memory release.
+
+The worker manager tracks state, process identifier, configuration version, inflight requests, health checks, idle shutdown, restart counts, crash counts, and last errors.
+This separation lets the public server keep serving status and fallback responses while a local model process slows down, fails, or releases GPU memory.
+
+The server implementation is therefore an integration layer under embodied constraints.
+It does not contribute a new detector or language model; it connects configurable perception, tracking, robot metadata fusion, scene graph generation, memory, and language services into a runtime that Pepper can call.
+Chapter  describes the client side of that boundary.
+
+
+Robot-Side Implementation
+Chapter  described the robot client as the embodied front end of the system.
+This chapter describes the Pepper implementation: a NAOqi service that binds QiChat rules to Python methods, captures images, collects robot metadata, calls the server from Chapter , speaks answers, and refreshes dynamic dialogue concepts.
+The emphasis is the robot-side boundary: service methods, turn execution, grammar integration, metadata payloads, and development adapters.
+
+Runtime Structure
+
+[Robot-side client architecture.]Robot-side client architecture. QiChat rules call bound methods of the robot client service. Long-running work is delegated to the turn manager, which coordinates capture, robot metadata, server communication, speech, local session state, and dynamic dialogue concepts.
+
+Figure  shows the robot-side runtime.
+The main Python service is registered in the NAOqi session under the name used by the QiChat topics.
+After registration, a QiChat rule can call a bound method directly; for example, the quick-look intent starts a visual turn.
+The service remains a thin boundary object: it exposes methods for quick look, scan, chat, object-focused chat, cached answers, memory reset, configuration reload, and status inspection, while slow work is delegated to specialized components.
+
+At startup, the service reads clientconfig.json and constructs the client runtime.
+SessionStore keeps temporary local state, and PepperServerTransport owns HTTP communication.
+Camera, pose, people, face, social, sonar, speech, and dialog adapters wrap the corresponding NAOqi services.
+RobotContextCollector combines robot-native perception signals, MetadataBuilder turns them into the payload described in Section , and TurnManager receives these dependencies to run the interaction workflows.
+
+Adapters are practical because NAOqi services differ in availability and failure behavior.
+The physical robot provides ALVideoDevice, while Choregraphe does not reproduce the same camera behavior; FakeCameraAdapter can therefore read frames from a local directory under configuration control, allowing the same turn manager to be tested locally and then run on Pepper.
+
+QiChat Grammar and Service Binding
+The spoken interface is implemented with QiChat topics in English and Czech.
+Topic files define the phrases that Pepper can recognize and map to service calls, so QiChat remains the deterministic action selector introduced in Section .
+VLM and LLM components are called only after the grammar has selected quick look, scan, object question, cached answer, or open chat, keeping the user-facing entry points predictable even when generative models run downstream.
+
+On the Python side, methods callable from QiChat are annotated with @qi.bind.
+For example, look(langcode) and scan(langcode) are bound as public service methods and simply forward the request to TurnManager.startlook or TurnManager.startscan.
+This keeps the QiChat-facing method short.
+The method logs the call, normalizes the minimal argument, and returns quickly, while the turn manager performs camera capture, server requests, speech, and memory refresh in a background thread.
+
+Dynamic Concepts and Scene-Aware Dialogue
+Dynamic concepts are the main bridge from the server-side scene memory in Section  back into robot speech recognition.
+The English and Czech topics declare memory concepts for objects, attributes, relations, and cached questions, but their values are refreshed from the server after perception updates, memory display, startup, and reset operations.
+
+The refresh path calls the memory summary endpoint, stores returned labels, counts, graph edges, and pregenerated question-answer pairs in local session state, and maps unary edges to attributes while keeping other edges as relations.
+DialogAdapter then writes cleaned and capped values into ALDialog through setConcept.
+Only compact recognition values are mirrored to the robot; the full graph and object instances remain on the server.
+
+As a result, the grammar changes with the perceived scene.
+If the server has recently detected a chair, bottle, or laptop, object-focused rules can recognize those labels without changing the topic file, and the same mechanism supports cached question recognition.
+
+Tablet Display Adapter
+
+The robot client also contains a tablet display path for the same memory state that feeds dynamic concepts.
+The intended tablet view was not a separate reasoning component, but a visualization and interaction surface for object labels, attributes, relations, pregenerated questions, and the current scene-memory graph rendered as SVG.
+The service sends this payload through the same adapter interface used by TabletAdapter and FakeTabletAdapter, so the tablet remains a client-side consumer of server memory.
+
+In the final robot deployment, this path should be treated as partially implemented.
+The fake tablet adapter works and was useful for local testing: it serves the tablet page in a desktop browser, receives the memory payload, and renders the scene-memory view without requiring Pepper's physical tablet service.
+The physical Pepper tablet integration did not become reliable enough to use on the robot itself.
+Consequently, the present system relies on speech and dynamic concepts for interaction, while the tablet view should be reported as a working development interface and an unfinished extension of the embodied user interface.
+
+Turn Management
+The operational center of the client is TurnManager.
+Every slow action is exposed as a start* method that creates a turn identifier, checks a busy flag, optionally speaks an acknowledgement, and starts a daemon thread.
+The original QiChat or tablet call can then return quickly instead of blocking the NAOqi service while the robot captures images or waits for the server.
+
+The busy flag is a simple but important part of the implementation.
+Pepper should not start two camera captures, head scans, speech actions, or memory refreshes at the same time.
+If a new long-running turn arrives while another turn is active, the turn manager rejects it and speaks a localized busy fallback.
+All guarded turns clear the busy flag in a finally block.
+This prevents a camera error, timeout, malformed server response, or unexpected exception from leaving the robot permanently locked.
+
+The turn manager also records latency events: turn start, server request start, server response receipt, and speech start.
+These timestamps support the response-time measurements in Chapter  and make acknowledgement utterances measurable: the robot can begin speaking immediately while the server request runs in the background.
+
+Quick Look and Panorama Scan
+The quick-look action implements the low-latency path from Section .
+The client captures one JPEG frame, collects robot metadata, and calls the server caption endpoint, optionally asking the server to run detection in the background.
+Pepper can speak a short caption as soon as it returns, while detections, scene graph relations, memory, and later dynamic concepts continue updating on the server.
+
+
+Example of a real image captured by Pepper during testing. The client sends frames of this kind together with robot metadata to the server. The example also illustrates the limited resolution and quality of practical robot-side visual input.
+
+Figure  shows the kind of visual input produced by the robot during testing.
+
+The implementation must handle limited resolution, robot camera exposure, motion, and network transmission rather than assuming a clean image dataset.
+
+The scan action is the wider observation path.
+Before scanning, the client records the current head pose, moves through configured yaw angles, waits for the head to settle, captures a frame at each pose, and restores the original head pose when configured to do so.
+In the current configuration, the scan uses yaw angles around , , and , but these values are read from clientconfig.json.
+The captured frames can be sent to the server as one panorama detection request or as separate sequential detection requests.
+The panorama request gives the server a wider visual context, while sequential mode preserves each head pose as an independent observation.
+
+Quick look is the fast path for answering "what do you see?" with minimal delay; panorama scan is the richer path for updating scene memory from multiple viewing directions.
+The scan can optionally request a natural-language summary after detection, but its main purpose is to improve memory for subsequent dialogue.
+
+Robot Metadata Sent to the Server
+Every visual request contains image bytes and a metadata object describing the robot state at capture time.
+The client sends identifiers for the frame and scan, capture mode, image dimensions, camera field of view, head pose, body yaw, timestamp, and any available people or social signals.
+This is the payload parsed and fused by the server in Section .
+
+Server Communication and Local State
+All server calls go through PepperServerTransport.
+Image endpoints use multipart form uploads, while chat, memory, reset, and pregenerated question-answer requests use JSON.
+The transport reads endpoint paths and timeouts from configuration and validates the basic response shape before returning data to the turn manager: captions must contain text, detections an object list, and chat responses a sentence with conversation identifier.
+
+Network and response failures are converted into client-specific exceptions.
+Timeouts, unavailable endpoints, and structurally invalid responses are represented by dedicated client errors.
+Guarded turn execution catches these errors and speaks localized fallback messages.
+The user hears a robot-level failure response instead of raw HTTP details or silence.
+
+The client stores only temporary interaction state.
+The local session store remembers the current server conversation id, last caption, last detection timestamp, last scan id, last server response, remembered labels, attributes, relations, and cached question-answer pairs.
+Persistent scene memory and object association remain server responsibilities; the client mirrors only what speech recognition and smooth interaction require.
+
+Configuration and Development Modes
+The robot client is configured through its JSON configuration file.
+The server section defines URL, endpoint paths, timeouts, TLS verification, and dashboard publishing; capture controls camera settings, JPEG quality, scan yaw angles, head motion, settle time, and fake camera input.
+dialog, panorama, social, and behavior configure dynamic concept refresh, concept limits, scan mode, social-signal collection, acknowledgements, auto-refresh behavior, and retry policy.
+
+Most configuration is read at service startup, matching normal robot deployment.
+The service also exposes selected runtime helpers, such as server URL update, configuration reload, status inspection, and raw speech output, to reduce Pepper's slow deployment cycle during testing.
+These helpers do not change the architecture: QiChat and the tablet still call the bound service, long actions still go through the turn manager, and grounded perception and memory remain server-side.
+
+Together, these implementation details complete the robot-side part of the system.
+The client provides the embodied interaction layer, while the server provides perception, scene memory, and language reasoning.
+The next chapter evaluates the resulting system experimentally, including scene graph generation quality and robot response latency.
+
+
+Testing and Evaluation
+This chapter evaluates the thesis system in the order in which the underlying design decisions matter. It starts with the controlled vocabulary that constrains scene-graph generation, moves to Set-of-Mark prompting and the quality of the resulting graphs, then studies how prompt compression and formatting affect the same task, and finishes with the latency of the full robot interaction loop. The earlier chapters introduced the architecture; the experiments here ask how well that architecture behaves in practice.
+
+Perception and Scene-Memory Results
+
+Scene-memory quality depends on the vocabulary that the system is allowed to use. A generic Visual Genome style list is too broad for the intended deployment setting, because the robot is expected to speak about offices, computer laboratories, classrooms, corridors, and similar indoor spaces. The vocabulary therefore has to contain relations and attributes that are both visually observable and useful in dialogue, such as leftof, rightof, near, on, lookingat, sittingon, black, or wooden.
+
+To build that vocabulary, we ran a separate mining experiment on images drawn from the same kind of environment. The corpus contained 449 training images in total. Of these, 189 came from our own data collection, including ordinary phone photographs and images captured during robot experiments, and the rest were sampled from the MIT Indoor 67 dataset.(https://web.mit.edu/torralba/www/indoor.html) We selected categories close to the deployment setting: bedroom, children room, dining room, corridor, living room, restaurant, game room, classroom, wet laboratory, office, computer room, TV studio, and meeting room. The intention was to broaden the corpus without changing the task itself. The evaluation split was kept separate and was reserved for scene-graph evaluation and annotation.
+
+All images were processed with the same detector setup. RF-DETR ran locally on a laptop with an NVIDIA GeForce RTX 5050 GPU, images were resized to a maximum side length of 1024 pixels, and detections were filtered with confidence threshold 0.5. The detected labels were then inserted into the description prompt, so the language model was not asked to describe the image in isolation. It was explicitly steered toward the detected objects and toward the attributes and relations that those objects suggest. This keeps the mined vocabulary tied to the same detector output that later feeds the scene memory and the scene-graph generator. Set-of-Mark prompting was not used at this stage; it is evaluated later as part of the graph-generation ablation.
+
+The mining itself was repeated with several language-model configurations and reruns. We ran 6 experiments with cloud models, such as gpt-5-nano-2025-08-07, gemini-3.1-flash-lite, and 1 experiment with local quantized version of Qwen3.6-35B-A3B,(See model specification at: https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/blob/main/Qwen3.6-35B-A3B-UD-Q4_K_S.gguf) Each run produced up to 100 predicate candidates and 50 attribute candidates, but none of the runs was treated as a final vocabulary on its own. They were only noisy candidate generators.
+
+For every image, the model extracted predicates and attributes from the generated description, and these terms were aggregated across the training split. This gives two complementary signals: how often a term is mentioned, and in how many image-run observations it appears at least once. Since the same images are processed by every run, the latter value was normalized by the number of completed observations. This does not turn the runs into independent samples, but it does make the frequencies comparable across repeated mining passes.
+
+The mined vocabulary is strongly long-tailed. Figure  shows that a small number of terms occur frequently, while the tail contains many rare, model-specific, or overly specific candidates. That shape is the first reason the raw model output cannot be used as a final vocabulary without consolidation and human review.
+
+
+
+Rank-frequency distribution of mined predicate and attribute candidates across vocabulary-building runs. Both curves show a long-tailed structure: a small number of terms occur often, while many candidates are rare.
+The head of the distribution is shown more explicitly in Table . Instead of a single raw count, the table reports image-support rate across the mining runs. For each run, a term is counted at most once per image, and the count is divided by the number of images in that run. The table then reports the minimum, mean, and maximum of those rates across runs. These values are descriptive rather than inferential, but they confirm that the most common terms are not an artifact of one isolated run. The same small set of spatial predicates and visual attributes dominates repeatedly.
+
+
+Most frequent predicate and attribute candidates by per-run image support. Min, mean, and max are computed across the completed vocabulary-mining runs.
+
+The final vocabulary was selected manually from the candidate lists and frequency tables. We kept 50 predicates and 25 attributes, favoring terms that are visually grounded, general enough to apply across office and computer-lab scenes, and still useful in dialogue. Terms that were too tied to one object category, too vague, duplicated by a better synonym, or unlikely to be useful in conversation were removed. The result is then a controlled experimental resource rather than an unfiltered language-model output.
+
+The final predicate set is data-informed rather than purely data-derived. Out of the 50 selected predicates, 38 appeared directly in the mined candidate vocabularies. The remaining predicates were added manually because they are useful in the target setting, especially in offices, classrooms, and computer laboratories. These include action predicates such as using, reading, typingon, clickingwith, and workingon. During curation we also collapsed inverse or passive variants when the inverse can be inferred, and we normalized orientation variants such as orientedtoward and facingtowards to facing.
+
+The final attribute set is more directly supported by the mining results. All 25 selected attributes appeared in the mined candidate set. Manual curation was still needed, because the raw candidates contained spelling variants and overly specific phrases. For example, multicolored, multicolored, and multi-colored were collapsed into the single attribute multicolor. The final frozen vocabulary used in the following scene-graph experiments is shown in Table .
+
+
+Frozen controlled predicate and attribute vocabulary used for scene graph generation. Predicates are grouped by function only for readability; the implementation uses one flat allowed vocabulary.@p0.20X@
+Group & Terms 
+
+Spatial predicates & above, below, under, leftof, rightof, infrontof, behind, nextto, in, on 
+
+Support and attachment & mountedon, attachedto, connectedto, hangingfrom, stackedon, supporting, partof 
+
+Geometry and visibility & parallelto, perpendicularto, touching, occluding, facing, lookingat, pointingat 
+
+Human-object interaction & holding, wearing, carrying, using, interactingwith, covering, watching 
+
+Posture and contact & sittingon, standingon, lyingon, leaningon, restingon 
+
+Task actions & talkingto, reading, writingon, eating, drinking, workingon, typingon, clickingwith, lifting, pulling, pressing, adjusting, playingwith, shakinghands 
+
+Color attributes & black, white, gray, red, blue, green, yellow, brown 
+
+Material attributes & wooden, metal, plastic, glass 
+
+State and size attributes & open, closed, large, small 
+
+Shape and appearance attributes & rectangular, round, patterned, smooth, clear, multicolor 
+
+Human pose attributes & standing, sitting, facingcamera 
+
+
+Scene Graph Quality Results
+
+With the vocabulary fixed, the next question was how to ground it in visual prompting. We therefore evaluated scene-graph generation on the annotated evaluation subset and asked which Set-of-Mark (SoM) rendering is most useful for ID-grounded prediction. The task is stricter than ordinary captioning: the model must output edges of the form subjectid, relation, objectid, where IDs refer to detected objects in the image. For unary attributes, the subject and object IDs are the same.
+
+The evaluation used 113 manually corrected images from the evaluation split. The detector output was frozen, so all runs reused the same RF-DETR detections that were used when the human annotations were created. This is necessary because the ground truth is ID-based: rerunning the detector could change the order of detections and therefore change the meaning of object IDs. The evaluated images contained 5.96 detected objects on average.
+All models used the same frozen vocabulary of 50 predicates and 25 attributes. Captions were not included in this first scene-graph prompt; the model received only the image or SoM image together with the allowed vocabulary.
+
+We then compared several SoM renderings. All variants displayed numeric object IDs; the ablation varied whether class labels, bounding boxes, and mask overlays were shown.
+The evaluated models covered the Gemini Flash, Gemini Robotics, Gemini Pro,
+GPT nano, and GPT-5.5 families. Specifically, the experiments used
+gemini-3.1-flash-lite,
+gemini-3.1-pro-preview,
+gemini-robotics-er-1.6-preview,
+gpt-5.5-2026-04-23, and
+gpt-5-nano-2025-08-07.
+The main metric is strict triplet F1, which requires the subject ID, predicate or attribute, and object ID to all match the human annotation. We also report attribute F1, ordered object-pair F1, and unordered object-pair F1. The pair metrics ignore the predicate and measure whether the model links the correct objects, either with direction preserved or direction ignored.
+
+
+[Best SoM rendering per model family.]Best Set-of-Mark rendering for each evaluated model family. The best run is selected by strict triplet F1.
+
+Table  and Figure  show that the same setting was best for four of the five evaluated model families: numeric IDs with class labels and bounding boxes. The only exception was the Gemini Pro run, where adding a mask gave the highest strict F1, but that did not hold across the other models. The model comparison itself is secondary here; the main result is that the preferred visual prompting design is stable across different VLM families.
+
+
+Strict triplet F1 for the evaluated SoM renderings. Each group corresponds to one visual prompting setting and each bar corresponds to one VLM family. The black line shows the mean across available models for the given setting.
+
+Top SoM settings averaged across available model families. Settings are ordered by mean strict triplet F1.
+
+The aggregate results in Table  support the same conclusion. Class labels matter: variants with labels outperform variants that only show numeric IDs and boxes. Bounding boxes further improve strict triplet F1 by helping the model associate the label and ID with the correct visual region. Mask overlays do not consistently improve strict scene graph generation. They can slightly improve object-pair matching in some cases, but they also add visual clutter and tend to reduce exact relation or attribute correctness. It must be noted that we used, for computational reasons, GrabCut to generate masks, whereas the original SoM paper used SAM. For this reason, we use ID + class label + bounding box as the default SoM rendering in the following comparisons.
+
+The next question was whether the selected SoM rendering actually helps compared with an unmarked raw image. This experiment used the two strongest VLM families from the previous ablation, Gemini Robotics and GPT-5.5. All conditions received the same frozen object detections and the same frozen vocabulary. The raw-image conditions received the original image, the object list, and the vocabulary. The SoM conditions received the marked image with IDs, labels, and bounding boxes, again together with the object list and vocabulary. Both variants were also tested with and without the generated scene description.
+
+
+Strict triplet F1 for raw-image and Set-of-Mark scene graph prompting. Both evaluated models perform best when SoM is combined with the object list, vocabulary, and scene description.
+
+[Effect of SoM and scene descriptions.]Effect of raw-image prompting, Set-of-Mark prompting, and scene descriptions on scene graph generation. All conditions include the frozen object list and vocabulary.@lXrrrr@
+Model & Condition & Strict & Attr. & Pair-O & Pair-U 
+
+Gemini Robotics & Raw & 0.359 & 0.447 & 0.515 & 0.664 
+
+Gemini Robotics & Raw+caption & 0.379 & 0.507 & 0.482 & 0.663 
+
+Gemini Robotics & SoM & 0.350 & 0.441 & 0.499 & 0.675 
+
+Gemini Robotics & SoM+caption & 0.396 & 0.515 & 0.523 & 0.697 
+
+GPT-5.5 & Raw & 0.358 & 0.407 & 0.510 & 0.663 
+
+GPT-5.5 & Raw+caption & 0.361 & 0.426 & 0.516 & 0.656 
+
+GPT-5.5 & SoM & 0.321 & 0.341 & 0.521 & 0.655 
+
+GPT-5.5 & SoM+caption & 0.376 & 0.431 & 0.527 & 0.682 
+
+
+Figure  and Table  show that SoM is most useful as a grounding layer, not as a replacement for semantic context. The raw image with an object list and vocabulary was already a strong baseline. Adding SoM without a caption slightly reduced strict F1 for Gemini Robotics, from 0.359 to 0.350, and more clearly for GPT-5.5, from 0.358 to 0.321. Once the scene description was included, however, the marked image produced the best result for both models. Gemini Robotics improved from 0.379 to 0.396, and GPT-5.5 improved from 0.361 to 0.376. The caption supplies scene-level semantics; SoM anchors those semantics to detector IDs and visible object regions.
+
+This interpretation also fits the evaluation set and the real Pepper deployment. Many images are low-resolution, blurred, or visually dense. In those cases, labels and boxes can become clutter if the marked image is the only source of scene semantics. This eems to hint on the fact that in such cases the textual information on the image content helps the model when it can't see it itself. The per-image results show the same tension. On a cleaner office image, SoM without a caption improved strict F1 for both models: Gemini Robotics rose from 0.320 to 0.467, and GPT-5.5 from 0.333 to 0.400. On a cluttered living-room image, SoM alone reduced performance, but SoM with a caption outperformed the raw image with a caption for both models: Gemini Robotics improved from 0.513 to 0.653, and GPT-5.5 from 0.464 to 0.500. SoM is therefore useful for object-ID grounding, but it is most reliable when paired with a textual scene description.
+
+The gap between pair metrics and strict triplet F1 is also informative. In the SoM-design ablation, the best runs reached unordered pair F1 around 0.59-0.61 while strict triplet F1 remained around 0.35. In the SoM-versus-raw prompting experiment, the best condition increased unordered pair F1 to 0.697 and strict triplet F1 to 0.396. The pattern is consistent: the models often detect that two objects should be related, but still fail on the exact predicate, relation direction, or attribute assignment. For dialogue, that distinction matters. Knowing that two objects are related may be enough for some follow-up questions, but exact spatial or attribute questions require the stricter graph representation.
+
+We also examined whether the generated scene graphs were too dense or too sparse compared with the human annotations. This was computed over the SoM-design experiment by comparing each generated graph to the same human-labeled graph. The absolute label counts are therefore aggregated over repeated model runs; the ratios matter more. The main pattern is that the models do not simply overgenerate or undergenerate all graph edges uniformly. Instead, they tend to overgenerate unary attributes and undergenerate binary relations. For example, the Gemini Robotics ID+label+bbox run produced only 0.80 times as many total edges as the human annotation, but 1.59 times as many attributes and only 0.46 times as many binary relations. GPT-5.5 was denser overall, with 1.12 times as many total edges, but still showed the same shift toward attributes: 1.90 times as many attributes and 0.79 times as many binary relations.
+
+
+Generation density for representative SoM-design runs. Ratios compare the number of generated edges to the number of human-annotated edges.
+
+The label-level analysis gives a more concrete explanation of this behavior and mirrors the long-tail difficulty discussed in Section . Among binary relations, broad spatial predicates were most often missed. The relation nextto was generated at only 0.28 times its human-annotated frequency, rightof at 0.42, above at 0.40, below at 0.27, and supporting at 0.14. In contrast, infrontof and sittingon were overgenerated, at 1.18 and 1.97 times their annotated frequency respectively. The best classified relations were visually concrete or action-like. The strongest was holding (F1 0.80), followed by lyingon (0.63) and workingon (0.59). The common spatial predicate on was also comparatively reliable, with F1 0.49 and a generation ratio close to one.
+
+
+Selected label-level generation patterns aggregated over the SoM-design experiment.
+
+For attributes, the opposite error profile appears. The models often assign visually plausible attributes too broadly. Shape and size terms are especially affected: rectangular was generated 7.28 times more often than in the human annotations and large 5.00 times more often, but both had low precision. Color attributes were easier. The best attribute was red, with F1 0.77, followed by common attributes such as black, standing, green, gray, and wooden. This supports the interpretation that VLMs are relatively strong at assigning salient appearance attributes, but weaker at producing complete and correctly directed relational graphs.
+
+The ground truth annotations were produced by manually correcting drafted scene graphs. This makes annotation faster and keeps the labels aligned with the detector IDs, but it can also anchor the final labels to the style of the initial drafts. The ranking should therefore be read cautiously. The more robust conclusion is the visualization result: across the evaluated VLMs, object IDs combined with class labels and bounding boxes provide the strongest and most stable SoM representation for ID-grounded scene graph generation.
+
+Vocabulary Size Sensitivity
+
+The previous experiments used the full frozen vocabulary of 50 predicates and 25 attributes. While this maximizes the expressive space available to the model, it also increases prompt length and token cost, and may make predicate selection less reliable by introducing more semantically similar alternatives. We therefore ran a vocabulary-size sensitivity experiment to test whether scene-graph quality depends mainly on the number of available labels or also on how those labels are compressed.
+
+All runs used the same evaluation split, the same frozen detections, the same SoM setting with IDs, class labels, and bounding boxes, and the same Gemini Robotics model. The prompt used a flat shuffled vocabulary list, so predicates and attributes were not separated. For each vocabulary level, both the generated scene graph and the ground truth were mapped into the reduced vocabulary before evaluation. If sittingon was mapped to on, for example, then both prediction and ground truth were evaluated with the reduced label on. The experiment therefore measures whether a smaller controlled vocabulary preserves enough task-relevant information, not whether the model can predict labels that were removed from the prompt.
+
+We compared three reduction strategies. The semantic strategy was manually designed by grouping related concepts, for example mapping sittingon, standingon, lyingon, and restingon to on, or mapping many appearance attributes to coarser labels such as colored, sized, shaped, and textured. The frequency strategy kept the most frequent labels in the human-labeled evaluation graphs and mapped removed labels to retained labels from a related group when possible. The random strategy used the same vocabulary sizes but selected and mapped labels randomly with a fixed seed. This random baseline separates the effect of having fewer labels from the effect of choosing a meaningful reduced vocabulary.
+
+
+Strict triplet F1 under different vocabulary-size reductions. Semantic and frequency-based reductions preserve performance much better than random reductions, showing that vocabulary constitution matters, not only vocabulary size.
+
+Selected strict triplet F1 values from the vocabulary-size sensitivity experiment.
+
+The results in Figure  and Table  show that vocabulary constitution has a clear effect. Random reductions underperform the semantic and frequency-based reductions at every reduced vocabulary size. That is expected: random compression can remove central spatial labels and map semantically different relations to arbitrary labels. The model receives a shorter prompt, but the remaining labels are less coherent for the task.
+
+The semantic and frequency strategies are much closer to each other. That is also expected, because the most frequent terms in this domain are already semantically central: nextto, leftof, rightof, above, below, and on for predicates, and common color and material attributes for unary labels. The difference is largest at the smallest vocabularies. With only five terms, the semantic mapping reaches strict F1 of 0.470, while the frequency mapping reaches 0.328. This does not mean that a five-term vocabulary is sufficient for the final system. It means that an extremely coarse semantic mapping can inflate strict F1 by collapsing many distinctions into a few broad labels such as nextto, on, touching, and visible. The task becomes easier because many originally different annotations become equivalent after mapping.
+
+The more useful region is the middle of the curve. At 15-25 terms, the semantic and frequency reductions already approach or exceed the full-vocabulary strict F1. The semantic 25-term vocabulary reached 0.388, compared with 0.375 for the full 75-term vocabulary. The frequency vocabulary reached 0.360 with 15 terms and 0.374 with 25 terms. Adding more terms after this point did not produce a clear improvement. This suggests that most of the dialogue-relevant scene-graph information in this dataset is carried by a small core vocabulary. Larger vocabularies add expressivity, but they also add more possible near-miss labels and more prompt tokens.
+
+The compact vocabularies also make this interpretation intuitive. The semantic 15-term level keeps the predicates above, below, leftof, rightof, nextto, in, on, using, and touching, plus coarse attributes for color, transparency, openness, size, shape, and texture. The frequency 15-term level keeps mostly the same spatial core, but preserves concrete frequent attributes such as black, white, wooden, green, red, and gray. In both cases, the reduced vocabulary still preserves the main relations that matter for office and robot-dialogue scenes. The random vocabulary lacks this structure, which explains its weaker performance.
+
+We therefore interpret vocabulary reduction as a useful design tool rather than only an ablation. A compact vocabulary of roughly 15-25 well-chosen concepts appears to be enough for much of the evaluated scene-graph task, while being cheaper to prompt with and easier to control. The full vocabulary remains useful when more detailed dialogue is required, but the sensitivity experiment shows that simply adding more labels is not always beneficial under strict graph metrics.
+
+Vocabulary Presentation Format
+
+Finally, we tested whether the format in which the vocabulary is presented to the VLM affects scene-graph generation. All runs used the same evaluation split, frozen detections, full frozen vocabulary, SoM image with IDs, class labels, and bounding boxes, object list, and scene description. The only changed variable was the vocabulary rendering in the prompt. In the list condition, predicates and attributes were merged into one flat shuffled list. In the dictionary condition, the same terms were presented as a structured object with separate predicate and attribute lists.
+
+
+Effect of vocabulary presentation format. The list format presents predicates and attributes as one shuffled flat list; the dictionary format separates predicates from attributes.
+
+The result is not a universal win for either representation. The two Gemini-family models performed better with the dictionary presentation. Gemini Flash improved from strict F1 0.331 to 0.367, and Gemini Robotics improved from 0.396 to 0.412. The attribute metric improved in both cases, which suggests that explicitly separating predicates from attributes may help these models avoid some label-role confusion. In contrast, the GPT-family models performed better with the flat list. GPT nano improved from 0.262 to 0.313 strict F1 when using the list, and GPT-5.5 improved from 0.361 to 0.378. For GPT-5.5, the ordered pair metric was almost unchanged, which suggests that the main difference was not object pairing but exact label selection.
+
+We therefore treat this experiment as inconclusive at the system level, but informative for prompt design. Vocabulary presentation is a model-dependent prompt detail. The safer conclusion is that vocabulary constitution and visual grounding matter more than the exact list-versus-dictionary formatting. However, when optimizing for a specific model family, the formatting should be treated as a small but measurable hyperparameter. In our experiments, structured dictionary presentation was preferable for Gemini models, while a flat shuffled list was preferable for GPT models.
+
+Dialogue and Interaction Results
+
+Besides offline evaluation, we also measured the latency of the complete robot interaction loop. We report the time to first spoken answer, which is analogous to time-to-first-token in text generation systems, but measured at the robot interaction level. This value includes ASR and dialogue dispatch, robot-side method scheduling, image transfer, server processing, network communication, and TTS startup. The measurement combines two sources. First, we logged the client-side time from the accepted QiChat turn to the moment when the final answer was sent to the robot speech system. Second, we measured several complete interactions manually with a phone stopwatch, because that better captures the perceived delay from the user's point of view. When two manual values are reported, the first value denotes the moment when the robot started an acknowledgement or introductory sentence, and the second value denotes the moment when the substantive answer started.
+
+
+[Robot-side latency by turn type.]Robot-side latency by turn type, in seconds. Answer time is measured from the accepted dialogue turn to the start of final answer speech. Server and pre-server columns split that interval around the client request.
+
+The latency profile separates visual perception from memory-based dialogue. Follow-up questions over existing memory were answered with a median latency of 4.33 seconds, which is acceptable for spoken human-robot interaction when the robot gives short acknowledgement feedback. Visual description turns were slower, with a median latency of 11.36 seconds. Only 3.47 seconds of that median interval was spent waiting for the server response; the larger part, 7.49 seconds, happened before the client issued the server request.
+
+This pre-server delay has several sources. Part of it comes from the robot-side interaction pipeline, image acquisition, and the placement of some acknowledgement utterances in QiChat before the bound Python method starts executing. In such cases, the robot speaks an introductory sentence before the method has started, so perception cannot run concurrently with the acknowledgement. That is useful from the user's perspective because it removes silence while the robot appears to be processing the request, but it also means that some computation starts later than necessary. Moving such acknowledgements into the client method, or starting the method before longer introductory speech, would allow perception to run while the robot is already speaking.
+
+Another source of latency is the distributed deployment itself. In the real robot setup, the image must be captured on Pepper, sent to the server, processed locally and/or by cloud VLM services, and the resulting answer must then be returned to the robot. Therefore, the measured latency includes not only model inference, but also network transfer and communication overhead between Pepper, the local server, and external cloud services. This is especially visible for VLM-based scene-graph construction, where the image and prompt may leave the robot-server loop and go through a cloud model before the answer returns.
+
+For comparison, we also ran the same kind of visual processing with a virtual robot in Choregraphe, where the image was already available on the server machine and did not have to be captured and transmitted from Pepper. In two such runs, the backend wall-processing time was 7.47 seconds and 3.98 seconds. The corresponding scene-graph generation times were 4.49 seconds and 2.38 seconds. These values are lower than the slower real-robot interaction cases and indicate that robot capture, transfer, cloud communication, and turn orchestration contribute substantially to the end-to-end latency.
+
+We also tested several backend configurations manually. The local LLM setup used a small Qwen3.5-0.8B GGUF model from Unsloth,(https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF) served through llama.cpp on an NVIDIA RTX 5050 with 8 GB VRAM. The same GPU also hosted detection, embedding computation, and other visual components, so the setup represents a constrained local deployment rather than an isolated benchmark. In this configuration, normal question answering was still usable for dialogue. The expensive operations were not short chat answers, but VLM-based scene-graph generation and pregeneration of suggested questions.
+
+This distinction is important for deployment. Pregenerated questions are useful because cached answers are effectively immediate: in the logged run, the cached answer latency was 0.009 seconds. However, the pregeneration itself does not have to be part of the interactive robot-server loop. It can be run offline, scheduled after perception, or replaced by administrator-authored questions uploaded to the robot. This keeps the benefit of immediate answers without forcing the user to wait for question generation.
+
+The fastest measured backend configuration was the rule/RELTR-based scene-graph path without VLM scene-graph generation. In the manual notes this setup had server wall-processing times below one second, with scene-graph generation around a tenth of a second. This shows that the system can be responsive when the expensive VLM reasoning path is disabled. The VLM path is more expressive and useful for richer memory construction, but it should be treated as an optional or asynchronous memory-building process rather than a blocking step for every spoken response.
+
+Overall, these measurements suggest that the architecture is practical for memory-based dialogue. Once the scene memory exists, follow-up questions can be answered within a few seconds, and cached answers are immediate. The remaining latency problem is mainly in visual memory construction, cloud and network communication, and in the ordering of robot acknowledgements relative to method execution. Therefore, the practical deployment strategy is to answer from existing memory whenever possible, use cached or curated questions for common interactions, and run expensive scene-graph updates outside the critical response path.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Conclusion
+Summary of the Thesis
+This thesis addressed a practical question in situated human-robot interaction: how a Pepper robot can answer questions about its surroundings from perception rather than from generic language-model knowledge. The central design choice was to keep Pepper as the embodied conversational interface while moving expensive perception, memory, and language processing to a local external server. This split made it possible to combine robot-side interaction, multimodal scene analysis, persistent memory, and grounded dialogue in a single working system.
+
+The resulting architecture is intentionally hybrid. QiChat provides deterministic dialogue flow, turn handling, and access to robot actions, while the server maintains the heavier perception and reasoning pipeline: detection, people metadata, scene graph generation, memory association, and language-model-based response generation. The design therefore respects Pepper's limits without reducing the robot to a passive terminal. Pepper remains the social interface; the server supplies the perceptual and semantic machinery needed for scene-aware dialogue.
+
+Main Findings
+The experiments support the central premise of the thesis: perception becomes more useful for dialogue when it is stored as structured memory rather than passed to the language model as an unstructured prompt alone. Scene graphs are a useful intermediate representation because they preserve object identities, attributes, and relations in a form that can be queried and reused across turns. The results also show, however, that such graphs are not produced reliably by prompting alone. Their quality depends on visual grounding, vocabulary design, and the way contextual evidence is presented to the model.
+
+The strongest Set-of-Mark configuration combined numeric object IDs with class labels and bounding boxes. This setting was the most stable across model families, whereas mask overlays were less consistent. Set-of-Mark was also most reliable when paired with a textual scene description. The caption provides scene-level semantics, and the marked image binds those semantics to concrete detector IDs. The visual mark therefore does not replace language context; it makes that context referentially precise.
+
+The vocabulary experiments point in the same direction. The controlled predicate and attribute space is long-tailed, but more labels did not automatically produce better graphs. Compact semantic and frequency-based vocabularies preserved performance surprisingly well, while random reductions degraded it. The important variable was not only vocabulary size, but whether the remaining labels still formed a coherent visual and conversational ontology. Prompt formatting had a smaller but measurable effect, with different model families preferring either a flat list or a structured predicate-attribute separation.
+
+The interaction measurements were more modest, but they clarify where the architecture is practical. Follow-up questions over existing scene memory were answered within a few seconds, which is usable in spoken interaction. Visual description turns were slower because the system must capture an image, transfer it to the server, run perception and generation, and return the response to Pepper. The main bottleneck was not final answer generation, but visual memory construction and the orchestration around it. For deployment, this argues for answering from existing memory whenever possible and moving expensive updates outside the critical response path.
+
+Limitations and Future Work
+The system is complete enough to demonstrate scene-aware dialogue, but it is not an endpoint. Its main limitations are dependence on external compute, sensitivity to VLM prompting, and the remaining gap between strict scene-graph quality and conversational usefulness. The memory layer is also still scene-centric rather than truly long-term: it does not yet maintain a rich model of user history, intention, or shared context across sessions.
+
+Future work should therefore focus on three directions: more robust memory, stronger relation grounding, and broader human-robot evaluation. The memory layer should handle uncertainty, persistence, and conflicting observations more explicitly. Relation prediction should be improved through better visual prompting, better vocabularies, or more specialized grounding models. Finally, the system should be tested in richer user studies, because offline graph metrics and robot-side latency describe only part of interaction quality.
+
+The contribution of this thesis is therefore not a final solution to embodied visual dialogue, but a concrete and tested path toward it. It shows that a legacy social robot can be connected to modern perception and language models without abandoning explicit state, controlled grounding, or inspectable memory. That combination is essential: a robot that speaks about the world should not merely sound plausible, but should be able to point its words back to what it has seen.
+
+
+
+
+[heading=bibintoc]
+

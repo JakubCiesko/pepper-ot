@@ -62,12 +62,16 @@
     advisor     = {doc. RNDr. Aleš Horák, Ph.D.},
     title       = {Scene-Aware Dialogue for the Pepper Robot Using Object Tracking and Large Language Models},
     TeXtitle    = {Scene-Aware Dialogue for the Pepper Robot Using Object Tracking and Large Language Models},
-keywords    = {Social Robotics, Large Language Models, Vision-Language Models, Scene Graph Generation, Object Tracking, Object Detection, RAG, Pepper Robot},
-    TeXkeywords = {Social Robotics, Large Language Models, Vision-Language Models, Scene Graph Generation, Object Tracking, Object Detection, RAG, Pepper Robot},
+keywords    = {Social Robotics, Scene Graph Generation, Object Tracking, Object Detection, RAG, Pepper Robot},
+    TeXkeywords = {Social Robotics, Scene Graph Generation, Object Tracking, Object Detection, RAG, Pepper Robot},
     abstract    = {%
-      The goal of the thesis is to design and implement a dialogue interface system for natural communication with the Pepper robot, based on its visual perception of its surroundings. The student will build upon an existing object detection solution and extend it with multi-frame video object tracking and the construction of a dynamic semantic scene model. The work will include detecting spatial relationships between objects (such as occlusion or relative position) and integrating these findings with the robot's internal modules (specifically ALPeoplePerception). The resulting structured representation of the environment will serve as a dynamic information source for the dialogue manager. The dialogue system will be implemented using Large Language Models (LLMs) and Retrieval-Augmented Generation (RAG) techniques, where the model uses the current scene context to conduct fluid and factually supported conversation about the objects and persons the robot sees in its surroundings.
 
-The final submission will consist of a textual part with overviews of related technologies and approaches and a detailed description of the implementation, evaluation and testing, as well as a working implementation of vision recognition and dialog with the Pepper robot about its surroundings.
+    This thesis presents a scene-aware dialogue system for the Pepper robot. The goal is to enable Pepper to answer questions about its surroundings using visual perception, persistent scene memory, and language generation.
+
+    The proposed architecture uses Pepper as a lightweight robot client responsible for interaction and image capture. Computationally demanding processing is moved to an external server. The server performs object detection, appearance-based object association, scene memory updates, Pepper people-perception metadata fusion, Set-of-Mark rendering, scene graph generation, question generation, and memory-grounded dialogue with large language models.
+
+    The evaluation focuses on the quality of generated scene graphs, the effect of Set-of-Mark prompting, predicate and attribute vocabularies, vocabulary-size reduction, prompt formatting, and robot-side interaction latency. The results show that visual grounding for dialogue is feasible in this setting, but also sensitive to prompt design, vocabulary construction, detector quality, and latency. 
+
 
     },
     thanks      = {%
