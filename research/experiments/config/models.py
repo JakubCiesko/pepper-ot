@@ -8,6 +8,10 @@ from pydantic import Field
 
 
 class PathsConfig(BaseModel):
+    """
+    Artifact naming contract for a run. These fields decide where each phase reads
+    previous outputs from and where it writes its own JSON artifacts.
+    """
     images_dir: Path
     manifest_file: Path | None = None
     output_root: Path = Path("research/artifacts")
@@ -143,6 +147,10 @@ class PromptingConfig(BaseModel):
 
 
 class ExperimentConfig(BaseModel):
+    """
+    Top-level experiment contract. Every CLI phase receives this normalized config
+    and uses its paths, model settings, stage toggles, and prompt controls.
+    """
     name: str = "scene_graph_research"
     seed: int = 42
     paths: PathsConfig

@@ -1,0 +1,80 @@
+research/experiments/models/data_generation.py:21:    # TODO: Right now, vendor-locked for OpenAI, might change for future
+server/app/schemas/chat.py:12:    # TODO: implement these in chat service really
+server/app/schemas/chat.py:92:# TODO: send the bare minimum for bigger throughput?
+server/app/schemas/config.py:120:    # TODO: think about this, whether it is ok to ALwAYS resolve to the path, and not just upon init
+server/app/schemas/config.py:138:# TODO: use this in object detection
+server/app/schemas/config.py:183:# TODO: mode does nothing, so does **MOST** of the provider really.
+server/app/schemas/config.py:303:# TODO: preset map is useless anymore, i think
+client/app/pepper-grounded-client/pepper-grounded-client_czc.top:10:# TODO: stop any movement of robot before taking pictures.
+client/app/pepper-grounded-client/pepper-grounded-client_czc.top:123:        #TODO: add this to english too
+client/app/pepper-grounded-client/pepper-grounded-client_czc.top:242:        #TODO: why have lang here
+client/app/pepper-grounded-client/pepper-grounded-client_czc.top:306:# TODO: problematic
+server/app/schemas/scene.py:95:# TODO: look in creation in memoy_graph_render.py ask yourself whther
+client/app/pepper-grounded-client/pepper-grounded-client_enu.top:180:    #^mode(contextual) # TODO: should be pcall first so that it first sends the shit and talks later
+server/app/schemas/robot.py:25:    )  # TODO: think of use for this
+server/app/schemas/robot.py:27:    gender_code: float | None = None  # TODO: maybe redundant but kept.
+research/experiments/workflows/experiments/descriptions.py:22:#  TODO: cache save?
+server/app/providers/translation/google_trans.py:5:# TODO: add translate gemma? otherwise enforce translation via prompt engineering
+server/app/providers/translation/google_trans.py:134:# TODO: user might speak czech -> make it english -> pass to llm -> llm output enforce czech again
+research/experiments/workflows/data_generation/distillation/teacher.py:16:# TODO: decide whether to resize images BEFORE detection or AFTER detection
+research/experiments/workflows/data_generation/distillation/teacher.py:43:        # TODO: maybe move this to config
+research/experiments/workflows/data_generation/distillation/teacher.py:110:            "val": "images/train",  # TODO: no validation yet
+server/app/orchestration/services/chat.py:54:    # TODO: needs to check whether awaitable?
+server/app/orchestration/services/chat.py:82:        # TODO: what if memory fkcsup ? need to filter only presnet in obj_id_to_label?
+server/app/orchestration/services/chat.py:248:    # TODO: think about better wording
+server/app/orchestration/services/chat.py:309:        # TODO: Think about better wording
+server/app/orchestration/services/chat.py:333:                # TODO: think about more than one-hop away dist.
+research/notebooks/unsloth_compiled_cache/BatchNorm3d.py:81:        # TODO: if statement only here to tell the jit to skip emitting this when it is None
+research/experiments/workflows/data_generation/scene_graph/painter.py:40:    # TODO: multiprocessing or multithreading (is cpu bound?)
+server/app/providers/caption/client.py:39:    # TODO: WORK ON THIS MAINLY INFER, STUPID
+research/experiments/eval/metrics_potency.py:11:# TODO: presuppose each is paired with opther object just once
+research/experiments/workflows/data_generation/scene_graph/generate.py:121:# TODO: Use DINO or my RF-DETR?
+server/app/orchestration/services/qa_pool.py:8:# TODO: this is done in the outside-facing parts of the code, thing whether not put to the system interla parts.
+client/app/scripts/pepper_client/utils/text.py:52:#TODO: maybe removal
+server/app/providers/vlm/openai_vlm.py:31:        # TODO: Test whether JSON works every time. Tools does not work for small models it seems (without tool calls)
+server/app/providers/vlm/openai_vlm.py:34:            mode=instructor.Mode.JSON,  # instructor.Mode.TOOLS #TODO: ERROR:  WARNING: instructor.Mode.JSON for some models without tool calling!
+research/notebooks/unsloth_compiled_cache/UnslothOnlineDPOTrainer.py:1518:            # TODO: does this work with FSDP?
+research/experiments/workflows/training/detector.py:5:# TODO: decide whether ultralytics or roboflow
+server/app/orchestration/services/memory_graph_render.py:66:        # TODO: think whether to send this -> will slow down communication,
+server/app/orchestration/services/memory_graph_render.py:76:    # TODO: probably get rid of _ids because it fucks it up
+server/app/providers/llm/openai_llm.py:25:        # TODO: Test whether JSON works every time. Tools does not work for small models it seems (without tool calls)
+server/app/providers/llm/openai_llm.py:28:            mode=instructor.Mode.JSON,  # instructor.Mode.TOOLS #TODO: ERROR:  WARNING: instructor.Mode.JSON for some models without tool calling!
+server/app/api/v1/detect.py:59:    # TODO: instantiating service each time?
+research/notebooks/visual_pipeline.ipynb:112:    "# TODO: maybe set to float16, no need for float32\n",
+research/notebooks/visual_pipeline.ipynb:568:    "    # TODO: Right now, vendor-locked for OpenAI, might change for future\n",
+server/app/api/v1/chat.py:108:# TODO: need to invert the language so that I can have like MODEL_FACING_LANGUAGE, i have input, output language, lets havemodel_facing_language
+server/app/inference/memory/state_store/store.py:242:            # TODO: maybe fishy, check
+research/notebooks/unsloth_compiled_cache/BatchNorm2d.py:81:        # TODO: if statement only here to tell the jit to skip emitting this when it is None
+server/app/api/v1/config.py:17:# TODO: think about the vocabulary_translator whether to have it here
+client/app/scripts/pepper_client/core/transport.py:156:    #TODO: is this properly used? the language
+server/app/providers/common/utils.py:1:# TODO: Rework this whole fucking mess
+server/app/inference/tracking/associator.py:34:        # TODO: this aligning of multiple dimensions might be fishy.
+server/app/inference/tracking/associator.py:73:                # TODO: here aling_embeddings but it is faulty, so now just sim
+server/app/providers/common/io.py:141:# todo: prompt tools one source of truth, for both system, user, {context}, {caption}, {last:captions}
+server/app/inference/scene_graph/vlm_backend.py:24:# TODO: post filtering of invalid graphs
+server/app/inference/scene_graph/vlm_backend.py:145:        # TODO: check whether this works properly, not sending the image anymore
+server/app/inference/memory/state_store/social.py:8:    # TODO: maybe tinker with this
+server/app/inference/scene_graph/reltr_backend.py:22:# TODO: needs to be killed and started each time..
+server/app/inference/scene_graph/reltr_backend.py:97:            # TODO: test this properly, not having the last condition proved to make weird shit
+client/app/scripts/peppergroundedclient.py:220:    # TODO: could be used like: I know these facts:
+client/app/scripts/peppergroundedclient.py:276:        # TODO: add prefix of more grammar like form.
+client/app/scripts/peppergroundedclient.py:281:    # TODO: make the 10 tunable
+client/app/scripts/peppergroundedclient.py:373:    #TODO: this should not be used anywhere really lots of binded functions are useless now
+research/notebooks/unsloth_compiled_cache/UnslothRLOOTrainer.py:1723:            # TODO: does this work with FSDP?
+research/notebooks/unsloth_compiled_cache/BatchNorm1d.py:81:        # TODO: if statement only here to tell the jit to skip emitting this when it is None
+server/app/inference/types.py:59:        # TODO: maybe use the new look only
+server/app/inference/types.py:152:        # TODO: test whether get back to edges= self.no_label... or edges = self.edges as now.
+server/app/inference/scene_graph/rules_backend.py:242:    # TODO: test, vibe coded
+client/app/scripts/pepper_client/core/turn_manager.py:533:                # TODO: u s krouzkem
+client/app/scripts/pepper_client/perception/camera_adapter.py:4:# todo: time utils use instead of time module
+client/app/scripts/pepper_client/perception/camera_adapter.py:88:            # TODO: check whether this works
+client/app/scripts/pepper_client/perception/camera_adapter.py:122:# TODO: remove this, this is here just for now for use with virtual robot
+server/app/inference/detection/detectors.py:23:# TODO: maybe set to float16, no need for float32
+client/app/scripts/pepper_client/perception/social_adapter.py:63:    #TODO: check this more
+client/app/scripts/pepper_client/interaction/dialog_adapter.py:32:        # TODO: here is the problem
+client/app/scripts/pepper_client/interaction/dialog_adapter.py:34:        # TODO: do i need to clear them?
+client/app/scripts/pepper_client/interaction/dialog_adapter.py:39:        # TODO: look at this properly
+server/app/inference/qa/service.py:32:            "Write in English."  # TODO: maybe passable language? But english is safe choice for all LLMs
+server/app/inference/qa/service.py:36:        # TODO: double update for llm and then this
+server/app/core/runtime/state.py:118:    # TODO: resolve()? or str() and resolve just on init of the first state, well, yes this is it!
+client/app/scripts/pepper_client/interaction/speech_adapter.py:84:            #TODO: never do this?

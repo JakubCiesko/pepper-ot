@@ -27,6 +27,8 @@ from ..workflows.experiments import run_draft_scene_graph
 from ..workflows.experiments import run_scene_graph_evaluation
 from ..workflows.experiments import run_vocabulary_mining
 
+# Default experiment config used by CLI commands when --config is not provided.
+# Individual commands may start a fresh run or resume from run_metadata.json.
 DEFAULT_CONFIG = (
     Path(__file__).resolve().parents[2] / "configs" / "experiments" / "default.yaml"
 )
@@ -47,6 +49,10 @@ def _config_from_metadata(metadata: dict):
 
 
 def _prepare(config_path: Path, *, command: str):
+    """
+    Load a config from disk and create a new run directory with metadata, logging,
+    config hash, git state, and artifact output paths.
+    """
     config, raw = load_experiment_config(config_path)
     run = start_run(
         config.paths.output_root,
@@ -60,6 +66,10 @@ def _prepare(config_path: Path, *, command: str):
 
 
 def _prepare_or_resume(config_path: Path, run_dir: Path | None, *, command: str):
+    """
+    Resume commands reuse the exact config stored in the previous run metadata so
+    later phases stay reproducible even if the source YAML has changed.
+    """
     if run_dir is None:
         return _prepare(config_path, command=command)
     run, metadata = resume_run(run_dir)
