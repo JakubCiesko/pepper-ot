@@ -113,7 +113,8 @@ USE_NGROK=False uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 When connecting the Pepper client, configure
 `client/app/scripts/client_config.json` so `server.base_url` points either to
-the local server URL or to the ngrok public URL.
+the local server URL or to the ngrok public URL. 
+Currently it is set to the public ngrok URL which is tied to our NGROK auth token.
 
 ## Pepper Client Setup
 

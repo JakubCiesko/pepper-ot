@@ -11,7 +11,3 @@ for experiment_id in $(yq ".variants[].overrides.experiment_id" research/configs
 	echo "--";
 	echo;
 done
-
-
-
-
