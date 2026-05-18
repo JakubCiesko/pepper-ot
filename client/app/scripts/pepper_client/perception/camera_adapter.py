@@ -8,6 +8,9 @@ from pepper_client.utils.error_policy import CameraCaptureError
 
 
 class CameraAdapter(object):
+    """
+    Class Wrapper for ALVideoDevice. Builds camera metadata and takes picture.
+    """
 
     def __init__(self, services, config, logger):
         self.services = services
@@ -121,7 +124,9 @@ class CameraAdapter(object):
 
 # TODO: remove this, this is here just for now for use with virtual robot
 class FakeCameraAdapter(object):
-
+    """
+    Class used for Virtual Robot. Provides way to upload locally stored images to the server as images caputered by the robot.
+    """
     def __init__(self, folder, logger):
         import os
         self.folder = folder

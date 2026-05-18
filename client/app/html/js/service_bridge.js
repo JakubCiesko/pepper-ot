@@ -32,7 +32,8 @@
 
     tryCandidate(0);
   }
-
+  // Connect to the Python NAOqi service through qi.js. In fake-tablet mode there
+  // is no robot service, so this connection path is skipped.
   function ensureServiceConnected() {
     if (state.appState.fakeMode) {
       return;

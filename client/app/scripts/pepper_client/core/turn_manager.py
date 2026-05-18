@@ -15,7 +15,12 @@ from pepper_client.utils.error_policy import (CameraCaptureError,
 
 
 class TurnManager(object):
-    """Serializes capture, server calls, speech, and tablet updates by turn."""
+    """
+    Coordinates one robot interaction turn at a time. A turn may capture images,
+    move the head, call the server, update memory concepts, speak, and update the
+    tablet. This class owns concurrency and failure handling.
+    """
+
 
     def __init__(
         self,
@@ -126,6 +131,10 @@ class TurnManager(object):
         self.speech_adapter.stop()
 
     def _start_async(self, kind, lang_code, target, *args):
+        """
+        starts a deamon with safe execution of method with provided arguments.
+        if previous turn is still active, emits busy message
+        """
         turn_id = ids.new_turn_id(kind)
         started_at = time_utils.now_ts()
         speech_mode = self._speech_request_language(lang_code)
@@ -174,6 +183,9 @@ class TurnManager(object):
         return True
 
     def _run_guarded(self, turn_id, kind, lang_code, started_at, target, args):
+        """
+        records turn-local latency context, maps expected failures to user-friendly speech, and always clears the busy flag.
+        """
         self._set_current_turn(turn_id, kind, started_at)
         self.logger.info("Starting turn id=%s kind=%s", turn_id, kind)
         try:
@@ -230,6 +242,10 @@ class TurnManager(object):
                 self._active_turn = None
 
     def _run_look(self, lang_code):
+        """
+        Quick visual turn: capture one frame, send it to the caption endpoint, cache the response, 
+        speak the caption, then optionally refresh dialog concepts.
+        """
         self.logger.info("Running look method with lang code: %s", lang_code)
         runtime_lang = self._speech_lang(lang_code)
         speech_mode = self._speech_request_language(lang_code)
@@ -259,6 +275,11 @@ class TurnManager(object):
             self._refresh_dynamic_concepts_from_server(lang_code, runtime_lang)
 
     def _run_scan(self, lang_code):
+        """
+        Slow multiturn visual look: sweep the head through configured yaw positions, run detection in
+        panorama or sequential mode, restore the original head pose, and optionally
+        ask the server for a spoken memory summary.
+        """
         runtime_lang = self._speech_lang(lang_code)
         speech_mode = self._speech_request_language(lang_code)
         scan_id = ids.new_scan_id(self.config["capture"].get(
@@ -346,6 +367,10 @@ class TurnManager(object):
             raise ServerUnavailableError("No scan frame completed")
 
     def _prepare_scan_captures(self, scan_id):
+        """
+        Move the head through the configured scan angles and collect image+metadata
+        payloads. The server uses scan_id and capture_mode to group these captures. Uses pose adapter.
+        """
         captures = []
         scan_steps = scan_planner.planned_yaws_radians(self.config)
         pitch = scan_planner.scan_pitch(self.config)
@@ -370,6 +395,10 @@ class TurnManager(object):
         return captures
 
     def _run_ask(self, lang_code, query, force_refresh):
+        """
+        General chat turn. It may refresh visual memory first if the last detection is
+        too old, then sends the user query with the current chat_id.
+        """
         runtime_lang = self._speech_lang(lang_code)
         speech_mode = self._speech_request_language(lang_code)
         max_chars = int(self.config["behavior"].get("max_query_chars", 320))
@@ -400,6 +429,10 @@ class TurnManager(object):
         self._safe_say(chat_response["sentence"], speech_mode, phase="answer")
 
     def _run_object_ask(self, lang_code, object_label, query):
+        """
+        Object-grounded chat turn. The object label tells the server which remembered
+        object should anchor the answer.
+        """
         runtime_lang = self._speech_lang(lang_code)
         speech_mode = self._speech_request_language(lang_code)
         object_label = str(object_label or "").strip()
@@ -450,6 +483,9 @@ class TurnManager(object):
         )
 
     def _run_cached_answer(self, lang_code, query):
+        """
+        Uses dynamic concepts for fast answers on user query which is cached.
+        """
         runtime_lang = self._speech_lang(lang_code)
         speech_mode = self._speech_request_language(lang_code)
         max_chars = int(self.config["behavior"].get("max_query_chars", 320))
@@ -486,6 +522,9 @@ class TurnManager(object):
                        phase="answer")
 
     def _run_show_memory(self, lang_code):
+        """
+        Displays memory state on tablet, uses tablet adapter.
+        """
         runtime_lang = self._speech_lang(lang_code)
         speech_mode = self._speech_request_language(lang_code)
         summary, qa_response = self._load_memory_page(runtime_lang)
@@ -503,6 +542,10 @@ class TurnManager(object):
             )
 
     def _load_memory_page(self, runtime_lang):
+        """
+        Fetch the current visual memory and pregenerated Q/A pairs needed by the tablet UI. 
+        Q/A generation is just optional so the memory page can still render without it.
+        """
         render_limit = scan_planner.memory_render_limit(self.config)
         summary = self.transport.memory_summary(
             render_limit=render_limit,
@@ -723,6 +766,10 @@ class TurnManager(object):
         return self._refresh_dynamic_concepts_from_summary(summary)
 
     def _refresh_dynamic_concepts_from_summary(self, summary):
+        """
+        Convert server scene-graph edges into ALDialog dynamic concept lists. Edges
+        where subject == object are treated as attributes; other edges are relations.
+        """
         if self.dialog_adapter is None:
             return False
         labels = list(summary.get("labels") or [])
@@ -756,6 +803,7 @@ class TurnManager(object):
         return max(1, value)
 
     def _build_memory_page_payload(self, summary, qa_response, ui_language):
+        """Creates payload for displaying at tablet"""
         summary = summary or {}
         scene_graph = list(summary.get("scene_graph") or [])
         attributes = []

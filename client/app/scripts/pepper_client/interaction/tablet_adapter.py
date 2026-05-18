@@ -22,6 +22,7 @@ except ImportError:
 
 
 class TabletAdapter(object):
+    """Adapter used for tablet utilities, showing and hiding (memory) pages."""
 
     def __init__(self, services, config, logger):
         self.services = services
@@ -242,6 +243,10 @@ class FakeTabletAdapter(object):
         return True
 
     def push_memory_payload(self, payload):
+        """
+        Inject a JSON payload into the tablet page. The retry loop handles the common
+        race where the webview is visible before the JavaScript bridge is ready.
+        """
         with self._lock:
             self._latest_payload = copy.deepcopy(payload or {})
         return True

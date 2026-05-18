@@ -6,7 +6,7 @@ from pepper_client.utils.error_policy import SpeechError
 
 
 class SpeechAdapter(object):
-
+    """TTS adapter used for speaking and setting language"""
     def __init__(self, services, config, logger):
         self.tts = services.ALTextToSpeech
         self.animated = services.ALAnimatedSpeech

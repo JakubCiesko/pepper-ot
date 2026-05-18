@@ -6,7 +6,9 @@ from pepper_client.utils import timing as time_utils
 
 
 class SessionStore(object):
-
+    """
+    Manages state of the session, updates and resets conversations and states, has access to dynamic concepts.
+    """
     def __init__(self, logger=None):
         self.logger = logger
         self._lock = threading.RLock()

@@ -2,6 +2,7 @@ from pepper_client.utils import timing as time_utils
 
 
 class PoseAdapter(object):
+    """Class wrapper used for extracting robot pose metadata and moving the robot."""
 
     def __init__(self, services, logger):
         self.motion = services.ALMotion

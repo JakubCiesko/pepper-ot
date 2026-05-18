@@ -1,4 +1,5 @@
 class SonarAdapter(object):
+    """Class wrapper for using robot depth sonars. Currently without a use."""
     LEFT_KEY = "Device/SubDeviceList/US/Left/Sensor/Value"
     RIGHT_KEY = "Device/SubDeviceList/US/Right/Sensor/Value"
 

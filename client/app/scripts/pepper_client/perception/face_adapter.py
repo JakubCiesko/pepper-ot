@@ -2,6 +2,8 @@ TEXT_TYPES = (str, )
 
 
 class FaceAdapter(object):
+    """Class wrapper around ALMemory and ALFaceDetection. 
+    Builds metadata about people faces used for attribution on server-side"""
 
     def __init__(self, services, config, logger):
         self.services = services

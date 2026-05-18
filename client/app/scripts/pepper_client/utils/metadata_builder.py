@@ -9,6 +9,10 @@ class MetadataBuilder(object):
               frame_id,
               scan_id=None,
               capture_mode=None):
+        """B
+        uild the server RobotMetadata payload from camera capture data and robot-local
+        context. The server uses this for geometry fusion, person binding, and memory.
+        """
         pose = context.get("pose") or {}
         metadata = {
             "head_yaw": pose.get("head_yaw", 0.0),

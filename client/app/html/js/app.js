@@ -1,4 +1,5 @@
 (function (window) {
+
   var state = window.PepperMemoryState;
   var render = window.PepperMemoryRender;
   var service = window.PepperMemoryService;
@@ -16,7 +17,8 @@
         return true;
       }
     };
-
+    // Python waits for PepperMemoryPageReady and then calls this bridge with the
+    // latest memory payload through ALTabletService.executeJS.
     window.PepperMemoryPageReady = true;
 
     if (state.appState.fakeMode) {

@@ -119,6 +119,9 @@
     refreshButtonAvailability();
   }
 
+  // Main render entrypoint for both the real tablet bridge and fake tablet polling.
+  // The payload shape is produced by TurnManager._build_memory_page_payload.
+
   function render(payload) {
     payload = utils.asObject(payload);
     state.appState.payload = payload;
@@ -155,7 +158,7 @@
   }
 
   window.PepperMemoryRender = {
-    _questionClickHandler: function () {},
+    _questionClickHandler: function () { },
     setServiceStatus: setServiceStatus,
     showQaError: showQaError,
     renderObjects: renderObjects,
