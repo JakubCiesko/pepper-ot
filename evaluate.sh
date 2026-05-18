@@ -1,5 +1,5 @@
 echo "Running evaluation script"
-for experiment_id in $(yq ".variants[].overrides.experiment_id" research/configs/experiments/vocab_presentation_effect_config.yaml); do 
+for experiment_id in $(yq ".variants[].overrides.experiment_id" research/configs/experiments/vocab_presentation_effect_config.yaml); do
 	echo "";
 	echo "--";
 	echo "Evaluating $experiment_id";
@@ -14,4 +14,4 @@ done
 
 
 
-  
+

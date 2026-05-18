@@ -37,6 +37,12 @@ package and the `research` packages on `PYTHONPATH`:
 python -m pip install -e .
 ```
 
+Check with
+
+```bash
+pip show pepper_ot
+```
+
 The dependency list includes model, GPU, and research packages, so installation
 can take a while and may require a CUDA-compatible environment for the full
 pipeline.
