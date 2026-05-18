@@ -3,7 +3,6 @@ from pathlib import Path
 from setuptools import find_namespace_packages
 from setuptools import setup
 
-
 ROOT = Path(__file__).parent
 
 
@@ -21,7 +20,7 @@ def read_requirements():
 
 
 server_packages = ["app"] + [
-    "app.%s" % package
+    f"app.{package}"
     for package in find_namespace_packages(
         where="server/app",
         include=[
