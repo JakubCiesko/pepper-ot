@@ -102,6 +102,7 @@ The final submission will consist of a textual part with overviews of related te
 \usepackage[babel]{csquotes} %% Context-sensitive quotation marks
 
 
+\setlength{\emergencystretch}{3em}
 
 \begin{document}
 %% The \chapter* command can be used to produce unnumbered chapters:
@@ -129,6 +130,19 @@ The final submission will consist of a textual part with overviews of related te
 %% Temporary drafting state: print the full bibliography while shaping the related-work chapter.
 
 % \nocite{*}
+\chapter*{Appendices}
+
+The electronic appendix submitted in the IS MU Archive consists of the following archives:
+
+\begin{itemize}
+    \item \texttt{code.zip}: source code, configuration files, project documentation, scripts, and instructions for installing required third-party dependencies and models.
+    \item \texttt{experiments\_and\_results.zip}: experiment configurations, evaluation outputs, measurement results, result tables, plots, logs, and other generated artifacts used in the thesis evaluation.
+    \item \texttt{data.zip}: a sample of the data used for experiments. Instructions for obtaining or preparing additional data are provided in the \texttt{README.md} file in \texttt{code.zip}.
+\end{itemize}
+
+The submitted archives do not contain third-party software packages, virtual environments, downloaded model weights, or external datasets. These are referenced through installation and download instructions included in the project documentation.
+
+
 \printbibliography[heading=bibintoc]
 
 \end{document}
