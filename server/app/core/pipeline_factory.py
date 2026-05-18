@@ -15,6 +15,18 @@ from app.schemas.config import AppConfig
 
 
 def build_perception_pipeline(config: AppConfig) -> PerceptionPipeline:
+    """
+    Construct the complete in-process perception pipeline from AppConfig.
+
+    Args:
+        config: Active application configuration with detection, tracking,
+            scene graph, caption, QA, visualization, and pipeline-control fields.
+
+    Returns:
+        A PerceptionPipeline wired with detector, scene memory, SoM painter,
+        scene graph service, optional caption service, and optional QA service.
+    """
+
     base_dir = (
         config._config_path.parent if config._config_path is not None else Path.cwd()
     )

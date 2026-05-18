@@ -22,6 +22,26 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AppState:
+    """
+    Process-wide runtime container for config, inference, worker, and services.
+
+    FastAPI routes access this singleton through app_state. It owns the currently
+    active AppConfig, either an in-process PerceptionPipeline or WorkerManager,
+    and the orchestration services that sit above inference and memory.
+
+    Attributes:
+        config: Active application configuration.
+        pipeline: In-process pipeline when worker mode is disabled.
+        worker_manager: Worker lifecycle and RPC manager.
+        chat_service: Grounded chat service.
+        conversation_service: Conversation history store.
+        caption_service: Caption orchestration service.
+        qa_pool_service: Pregenerated QA pool service.
+        initialized: Whether startup initialization has completed.
+        last_state: Optional persisted dashboard/runtime state loaded at startup.
+        config_version: Monotonic version incremented whenever config is applied.
+    """
+
     config: AppConfig | None = None
     pipeline: PerceptionPipeline | None = None
     worker_manager: WorkerManager | None = None
@@ -34,6 +54,18 @@ class AppState:
     config_version: int = 0
 
     async def initialize(self, config_path: str | None = None):
+        """
+        Load initial configuration and build runtime services.
+
+        Args:
+            config_path: Optional config file path. Defaults to config.yaml when
+                omitted.
+
+        Side Effects:
+            Loads persisted last state when enabled, applies the config,
+            initializes worker or in-process inference, and marks AppState ready.
+        """
+
         logger.info("Initializing App State")
         if self.initialized:
             logger.info("App State already initialized. Returning.")
@@ -62,6 +94,18 @@ class AppState:
         logger.info("AppState initialized")
 
     async def apply_config(self, config: AppConfig):
+        """
+        Apply a validated config to all runtime components.
+
+        Args:
+            config: Fully validated AppConfig instance to activate.
+
+        Side Effects:
+            Increments config_version, updates or starts the worker manager,
+            switches runtime mode, warms vocabulary translations, rebuilds chat,
+            caption, and QA services, and finalizes worker startup if needed.
+        """
+
         self.config = config
         self.config_version += 1
         await self._ensure_worker_manager()
@@ -90,6 +134,14 @@ class AppState:
         await self.worker_manager.update_config(self.config)
 
     async def _apply_runtime_mode(self):
+        """
+        Switch between in-process inference and worker-managed inference.
+
+        When worker mode is enabled, the local pipeline is cleared and the
+        WorkerManager owns inference. When disabled, the pipeline is built in
+        this process and any worker monitor/process is stopped.
+        """
+
         assert self.config is not None
         if self.config.worker.enabled:
             logger.info(

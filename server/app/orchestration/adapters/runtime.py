@@ -15,12 +15,46 @@ from app.schemas.scene import TrackedObjectState
 
 
 class InProcessRuntimeAdapter:
+    """
+    Exposes in-process pipeline and memory operations to orchestration services.
+
+    This adapter is used when worker mode is disabled. API/orchestration code
+    calls the same methods regardless of runtime mode, while this implementation
+    executes directly against AppState.pipeline and its in-memory SceneMemory.
+
+    Attributes:
+        state: Global application state containing the in-process pipeline.
+    """
+
     def __init__(self, state: AppState):
+        """
+        Initialize the adapter with process-local application state.
+
+        Args:
+            state: Global AppState instance with pipeline and services.
+        """
+
         self.state = state
 
     async def detect(
         self, image_bytes: bytes, metadata: RobotMetadata
     ) -> dict[str, Any]:
+        """
+        Run local perception and normalize the result for API callers.
+
+        Args:
+            image_bytes: Uploaded image bytes from a detection request.
+            metadata: Robot metadata parsed from the request form.
+
+        Returns:
+            Dictionary matching the runtime adapter response contract used by
+            DetectService, including objects, scene_graph, memory, metrics,
+            image dimensions, caption fields, and executed stage names.
+
+        Raises:
+            RuntimeError: If the in-process pipeline is not initialized.
+        """
+
         if self.state.pipeline is None:
             raise RuntimeError("Pipeline not initialized")
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
@@ -128,7 +162,25 @@ class InProcessRuntimeAdapter:
 
 
 class WorkerRuntimeAdapter:
+    """
+    Forwards orchestration calls to the managed worker process.
+
+    This adapter is used when worker mode is enabled. It preserves the same
+    method surface as InProcessRuntimeAdapter but serializes calls over the
+    WorkerManager HTTP/RPC boundary.
+
+    Attributes:
+        worker_manager: Manager responsible for worker lifecycle and requests.
+    """
+
     def __init__(self, worker_manager: WorkerManager):
+        """
+        Initialize the adapter with a worker manager.
+
+        Args:
+            worker_manager: WorkerManager used to send internal worker requests.
+        """
+
         self.worker_manager = worker_manager
 
     async def detect(
@@ -246,7 +298,13 @@ class WorkerRuntimeAdapter:
 
 
 class WorkerInternalRuntimeAdapter:
-    """Adapter used inside the worker process for internal routes."""
+    """
+    Exposes worker-local runtime operations to internal worker routes.
+
+    The worker process uses this adapter on its own internal API routes so the
+    route layer can call scene memory operations without knowing the concrete
+    WorkerRuntime implementation.
+    """
 
     def __init__(self, runtime):
         self.runtime = runtime

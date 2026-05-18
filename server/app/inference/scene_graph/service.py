@@ -15,7 +15,20 @@ logger = logging.getLogger(__name__)
 
 
 class SceneGraphService:
-    """Runs enabled scene graph backends and merges robot scene state."""
+    """
+    Runs enabled scene graph backends and merges their outputs.
+
+    The service is the scene-graph stage used by PerceptionPipeline. It can run
+    deterministic rules, RelTR, and VLM generation either sequentially or in
+    parallel, then combines their SceneGraph outputs with the SceneGraph union
+    operator and enriches the result with current robot memory attributes.
+
+    Attributes:
+        vlm_backend: VLM-backed scene graph generator.
+        rule_backend: Deterministic rule-based graph generator.
+        reltr_backend: RelTR visual-relation graph generator.
+        parallel_execution: Whether enabled backends should run concurrently.
+    """
 
     def __init__(
         self,
@@ -24,6 +37,16 @@ class SceneGraphService:
         reltr_backend: RelTRSceneGraphGenerator,
         parallel_execution: bool = False,
     ):
+        """
+        Initialize the scene graph service with all available backends.
+
+        Args:
+            vlm_backend: Backend that prompts a vision-language model.
+            rule_backend: Backend that derives graph edges from configured rules.
+            reltr_backend: Backend that maps RelTR predictions to current detections.
+            parallel_execution: Whether generate() should dispatch enabled backends concurrently.
+        """
+
         self.vlm_backend = vlm_backend
         self.rule_backend = rule_backend
         self.reltr_backend = reltr_backend
@@ -38,6 +61,20 @@ class SceneGraphService:
         caption_text: str | None = None,
         scene_state: SceneState | None = None,
     ) -> SceneGraph:
+        """
+        Generate a merged scene graph for the current frame.
+
+        Args:
+            detections: Current tracked detections with object IDs.
+            som_image: Optional Set-of-Mark image, preferred for VLM prompting.
+            raw_image: Raw RGB image, used by rules/RelTR and as VLM fallback.
+            caption_text: Optional caption included in VLM prompts.
+            scene_state: Optional current memory state used for robot-data enrichment.
+
+        Returns:
+            Merged SceneGraph from all enabled backends plus memory-derived attributes.
+        """
+
         if self.parallel_execution:
             return await self.generate_parallel(
                 detections,
@@ -63,6 +100,20 @@ class SceneGraphService:
         caption_text: str | None = None,
         scene_state: SceneState | None = None,
     ) -> SceneGraph:
+        """
+        Run enabled scene graph backends one after another.
+
+        Args:
+            detections: Current tracked detections with object IDs.
+            som_image: Optional Set-of-Mark image for VLM prompting.
+            raw_image: Raw RGB image for rules, RelTR, and VLM fallback.
+            caption_text: Optional caption included in VLM prompts.
+            scene_state: Optional current memory state used for enrichment.
+
+        Returns:
+            Merged and enriched SceneGraph.
+        """
+
         vlm_image = som_image if som_image is not None else raw_image
         enabled_backends = self._enabled_backends()
         logger.info(
@@ -109,6 +160,20 @@ class SceneGraphService:
         caption_text: str | None = None,
         scene_state: SceneState | None = None,
     ) -> SceneGraph:
+        """
+        Run enabled scene graph backends concurrently where possible.
+
+        Args:
+            detections: Current tracked detections with object IDs.
+            som_image: Optional Set-of-Mark image for VLM prompting.
+            raw_image: Raw RGB image for rules, RelTR, and VLM fallback.
+            caption_text: Optional caption included in VLM prompts.
+            scene_state: Optional current memory state used for enrichment.
+
+        Returns:
+            Merged and enriched SceneGraph.
+        """
+
         vlm_image = som_image if som_image is not None else raw_image
         enabled_backends = self._enabled_backends()
         logger.info(
@@ -177,6 +242,16 @@ class SceneGraphService:
 
     @staticmethod
     def _copy_image_for_parallel(image: Any):
+        """
+        Copy image-like values before handing them to concurrent backends.
+
+        Args:
+            image: PIL image, NumPy-like object, or None.
+
+        Returns:
+            Copied image-like value when possible; otherwise the original value.
+        """
+
         if image is None:
             return None
         if isinstance(image, Image.Image):
@@ -201,6 +276,18 @@ class SceneGraphService:
         detections: list[InferenceDetectionObject],
         scene_state: SceneState,
     ) -> SceneGraph:
+        """
+        Add current memory attributes for detected objects to the generated graph.
+
+        Args:
+            graph: SceneGraph produced by model/rule backends.
+            detections: Current detections used to determine which memory objects are visible.
+            scene_state: Current persisted scene memory state.
+
+        Returns:
+            Original graph merged with unary attribute edges from visible memory objects.
+        """
+
         if not scene_state or not detections:
             return graph
         current_ids = {

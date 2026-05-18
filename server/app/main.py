@@ -17,6 +17,14 @@ APPLICATION_PORT = 8000
 
 
 class ServerSettings(BaseSettings):
+    """
+    Environment-backed process settings for server URL and optional ngrok tunneling.
+
+    Attributes:
+        BASE_URL: Public base URL advertised by the server.
+        USE_NGROK: Whether startup should open an ngrok tunnel for APPLICATION_PORT.
+    """
+
     BASE_URL: str = "http://localhost:8000"
     USE_NGROK: bool = os.environ.get("USE_NGROK", "False") == "True"
 
@@ -25,6 +33,14 @@ SERVER_SETTINGS = ServerSettings()
 
 
 def setup_logging():
+    """
+    Configure process logging.
+
+    Returns:
+        Logger for this module after the root logger and uvicorn loggers are
+        configured to use the same colored stream handler.
+    """
+
     handler = colorlog.StreamHandler()
     handler.setFormatter(
         colorlog.ColoredFormatter(
@@ -62,6 +78,16 @@ logger.info(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Manage FastAPI startup and shutdown resources.
+
+    Args:
+        app: FastAPI application instance passed by the lifespan protocol.
+
+    Yields:
+        Control to FastAPI while the initialized AppState is active.
+    """
+
     logger.info("Startup: Initializing AppState...")
     await app_state.initialize("./config.yaml")
     logger.info("Startup: AppState ready.")
