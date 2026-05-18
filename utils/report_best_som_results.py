@@ -57,6 +57,7 @@ def load_rows(runs_dir: Path) -> list[dict]:
         )
     return rows
 
+
 def print_metric_row(row: dict) -> None:
     print(
         f"{row['run']:<36} "
@@ -109,8 +110,12 @@ def print_setting_averages(rows: list[dict]) -> None:
         averaged, key=lambda item: item[2], reverse=True
     ):
         print(
-            "%-24s n=%d strict=%.4f attr=%.4f pair_ord=%.4f pair_unord=%.4f"
-            % (setting, n, strict, attr, pair_ordered, pair_unordered)
+            f"{setting:<24} "
+            f"n={n} "
+            f"strict={strict:.4f} "
+            f"attr={attr:.4f} "
+            f"pair_ord={pair_ordered:.4f} "
+            f"pair_unord={pair_unordered:.4f}"
         )
 
 
@@ -155,8 +160,10 @@ def print_images(row: dict, limit: int) -> None:
     per_image_path = row["run_dir"] / "metrics_scene_graph_per_image.json"
     if not per_image_path.exists():
         return
+
     per_image = load_json(per_image_path)
     image_rows = []
+
     for image_path, metrics in per_image.items():
         image_rows.append(
             (
@@ -168,21 +175,33 @@ def print_images(row: dict, limit: int) -> None:
                 int(metrics.get("n_pred_edges", 0)),
             )
         )
+
     print(f"\nEasiest images for {row['run']}")
+
     for image_path, strict, attr, pair_unordered, n_gt, n_pred in sorted(
         image_rows, key=lambda item: item[1], reverse=True
     )[:limit]:
         print(
-            "%s strict=%.3f attr=%.3f pair_unord=%.3f gt=%d pred=%d"
-            % (Path(image_path).name, strict, attr, pair_unordered, n_gt, n_pred)
+            f"{Path(image_path).name} "
+            f"strict={strict:.3f} "
+            f"attr={attr:.3f} "
+            f"pair_unord={pair_unordered:.3f} "
+            f"gt={n_gt} "
+            f"pred={n_pred}"
         )
+
     print(f"\nHardest images for {row['run']}")
+
     for image_path, strict, attr, pair_unordered, n_gt, n_pred in sorted(
         image_rows, key=lambda item: item[1]
     )[:limit]:
         print(
-            "%s strict=%.3f attr=%.3f pair_unord=%.3f gt=%d pred=%d"
-            % (Path(image_path).name, strict, attr, pair_unordered, n_gt, n_pred)
+            f"{Path(image_path).name} "
+            f"strict={strict:.3f} "
+            f"attr={attr:.3f} "
+            f"pair_unord={pair_unordered:.3f} "
+            f"gt={n_gt} "
+            f"pred={n_pred}"
         )
 
 

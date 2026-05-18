@@ -176,10 +176,10 @@ def summarize_turns(rows):
 
 def print_latency_summary(rows, completed, errors):
     print("# Robot Latency Summary\n")
-    print("Source: `%s`\n" % LATENCY_LOG)
-    print("- Parsed latency rows: `%d`" % len(rows))
-    print("- Turns with final answers: `%d`" % len(completed))
-    print("- Error turns: `%d`" % len(errors))
+    print(f"Source: `{LATENCY_LOG}`\n")
+    print(f"- Parsed latency rows: `{len(rows)}`")
+    print(f"- Turns with final answers: `{len(completed)}`")
+    print(f"- Error turns: `{len(errors)}`")
     print()
 
     print("## Main Table\n")
@@ -193,41 +193,45 @@ def print_latency_summary(rows, completed, errors):
         ("ask", "Ask question"),
         ("cached_answer", "Cached answer"),
     ]
+
     for kind, label in labels:
         items = [item for item in completed if item["kind"] == kind]
         print(
-            "| %s | %d | %s | %s | %s | %s | %s |"
-            % (
-                label,
-                len(items),
-                fmt(median([item["answer_latency"] for item in items])),
-                fmt_mean_sd([item["answer_latency"] for item in items]),
-                fmt(median([item["server_duration"] for item in items])),
-                fmt(median([item["server_start"] for item in items])),
-                fmt(median([item["silent_after_ack"] for item in items])),
-            )
+            f"| {label} | {len(items)} | "
+            f"{fmt(median([item['answer_latency'] for item in items]))} | "
+            f"{fmt_mean_sd([item['answer_latency'] for item in items])} | "
+            f"{fmt(median([item['server_duration'] for item in items]))} | "
+            f"{fmt(median([item['server_start'] for item in items]))} | "
+            f"{fmt(median([item['silent_after_ack'] for item in items]))} |"
         )
+
     print()
 
     print("## Error Turns\n")
+
     if not errors:
         print("No error turns found.\n")
     else:
         print("| Kind | n | Error latency median | Error latency mean +/- sd |")
         print("|---|---:|---:|---:|")
+
         for kind in sorted(set(item["kind"] for item in errors)):
             items = [item for item in errors if item["kind"] == kind]
             values = [item["error_latency"] for item in items]
             print(
-                "| %s | %d | %s | %s |"
-                % (kind, len(items), fmt(median(values)), fmt_mean_sd(values))
+                f"| {kind} | {len(items)} | "
+                f"{fmt(median(values))} | "
+                f"{fmt_mean_sd(values)} |"
             )
+
         print()
 
     print("## Useful Interpretation\n")
+
     look_items = [item for item in completed if item["kind"] == "look"]
     ask_items = [item for item in completed if item["kind"] == "ask"]
     cached_items = [item for item in completed if item["kind"] == "cached_answer"]
+
     look_med = median([item["answer_latency"] for item in look_items])
     look_server = median([item["server_duration"] for item in look_items])
     look_pre = median([item["server_start"] for item in look_items])
@@ -236,25 +240,20 @@ def print_latency_summary(rows, completed, errors):
     cached_med = median([item["answer_latency"] for item in cached_items])
 
     print(
-        "For scene description turns, the median time to final answer speech "
-        "was %s. The median server request itself took %s, while the median "
-        "delay before the server request was %s. This means a substantial part "
-        "of the observed response time happened before the server call, for "
-        "example during robot-side turn handling, acknowledgement speech, and "
-        "image capture/preparation. For direct question answering, the median "
-        "final-answer latency was %s, with a median server time of %s. Cached "
-        "or pregenerated answers were effectively instant in this run (%s), "
-        "which supports using pregenerated or administrator-provided Q&A items "
-        "when immediate answers are important."
-        % (
-            fmt(look_med),
-            fmt(look_server),
-            fmt(look_pre),
-            fmt(ask_med),
-            fmt(ask_server),
-            fmt(cached_med, digits=3),
-        )
+        f"For scene description turns, the median time to final answer speech "
+        f"was {fmt(look_med)}. The median server request itself took "
+        f"{fmt(look_server)}, while the median delay before the server request "
+        f"was {fmt(look_pre)}. This means a substantial part of the observed "
+        f"response time happened before the server call, for example during "
+        f"robot-side turn handling, acknowledgement speech, and image "
+        f"capture/preparation. For direct question answering, the median "
+        f"final-answer latency was {fmt(ask_med)}, with a median server time "
+        f"of {fmt(ask_server)}. Cached or pregenerated answers were effectively "
+        f"instant in this run ({fmt(cached_med, digits=3)}), which supports "
+        f"using pregenerated or administrator-provided Q&A items when immediate "
+        f"answers are important."
     )
+
     print()
 
 

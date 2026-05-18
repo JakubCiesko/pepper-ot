@@ -203,7 +203,7 @@ def main():
         )
         print_report(totals, added_by_rule, out_path)
     except Exception as exc:
-        print("error: %s" % exc, file=sys.stderr)
+        print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0
 
