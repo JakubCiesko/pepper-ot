@@ -1,5 +1,5 @@
 class PeopleAdapter(object):
-    """Class wrapper around ALMemory and ALFaceDetection. 
+    """Class wrapper around ALMemory and ALFaceDetection.
     Builds metadata about people position used for attribution on server-side"""
 
     def __init__(self, services, config, logger):

@@ -8,6 +8,20 @@ The server is a FastAPI application with three major responsibilities:
 
 The entrypoint is `server/app/main.py`. It creates the FastAPI app, mounts `/static`, includes `/api/v1` routes, includes the dashboard router, and initializes global `app_state` during lifespan startup.
 
+## Architectural Shape
+
+The code is intentionally layered:
+
+```text
+HTTP route
+  -> orchestration service
+  -> runtime adapter
+  -> in-process pipeline or worker RPC
+  -> inference services and scene memory
+```
+
+Routes should stay thin. They parse request transport details, validate Pydantic request models, and call orchestration services. Orchestration services own API-level behavior: choosing runtime mode, formatting responses, broadcasting WebSocket events, persisting last state, and updating process-level services such as the QA pool or conversation history. The inference package owns model work and memory mutation. The worker package mirrors inference operations behind internal HTTP so the public API does not need separate worker-specific behavior.
+
 ## Top-Level Runtime Pieces
 
 ### FastAPI App
@@ -38,6 +52,8 @@ File: `server/app/core/runtime/state.py`
 
 This is the dependency root for API service classes. API handlers instantiate lightweight orchestration services and pass `app_state` into them.
 
+The most important invariant is that `AppState.pipeline` exists only in in-process mode. In worker mode the authoritative pipeline and scene memory are inside `WorkerRuntime`; API code must go through a runtime adapter or memory proxy instead of touching `app_state.pipeline`.
+
 ### Runtime Adapter Layer
 
 File: `server/app/orchestration/adapters/runtime.py`
@@ -49,6 +65,8 @@ API services do not call the pipeline directly. They call a runtime adapter:
 - `WorkerInternalRuntimeAdapter` exposes the same memory/runtime shape inside the worker process.
 
 This abstraction lets memory, detect, caption, and chat code stay mostly the same whether worker mode is enabled.
+
+Runtime adapters normalize the process boundary. In-process methods can return Python objects directly. Worker methods must serialize images, metadata, detections, graph edges, memory state, metrics, and stage names through Pydantic RPC models. If a new pipeline output must be visible in API responses, it has to cross this adapter layer and the worker RPC contract.
 
 ### Worker Process
 
@@ -83,6 +101,12 @@ Flow:
 6. The returned runtime payload is normalized into `DetectionResponse`, WebSocket payload, memory payload, and QA pool ingestion.
 7. If `publish=true`, dashboard clients receive a `detection` event and then memory state is available for the dashboard memory panel.
 8. If `storage.persist_last_state=true`, last-state persistence code saves the latest payload.
+
+Ownership detail:
+
+- `api/v1/detect.py` owns multipart parsing, optional image resize, panorama stitching, and response model binding.
+- `DetectService` owns metadata validation, runtime selection, response normalization, QA-pool ingestion, WebSocket publishing, and last-state persistence.
+- `PerceptionPipeline` owns stage execution and returns a `PipelineResult`; it does not know about public HTTP responses or dashboard clients.
 
 ## Request Flow: Panorama Detect
 
@@ -130,6 +154,8 @@ Files:
 
 The design preserves original text for UI/debugging and model-facing text for consistent prompt history.
 
+Object chat uses scene memory as grounding. In in-process mode the chat service can read memory from the pipeline. In worker mode it reads through `WorkerChatMemoryProxy`, because the worker process owns the current `SceneMemory`.
+
 ## Request Flow: Vision Chat
 
 Files:
@@ -159,6 +185,8 @@ Scene memory stores:
 - last crop bytes per tracked object
 
 Memory is updated by the pipeline after tracking and scene graph generation. It can also be manually edited through memory CRUD API endpoints.
+
+Memory has two roles. During inference it is an identity and grounding store: it assigns persistent IDs, keeps crops and embeddings, carries robot/social metadata, and stores graph facts. During chat/dashboard use it is a queryable state snapshot: memory routes and summaries expose objects, relationships, captions, crops, and graph visualization.
 
 ## Scene Graph
 
@@ -203,3 +231,5 @@ The config system intentionally separates:
 - per-call request overrides such as caption prompt or chat language
 
 The source of truth is `server/config.yaml`, validated by `server/app/schemas/config.py`. Runtime patch logic lives under `server/app/core/config` and `server/app/core/config/mutations`.
+
+When changing config, decide whether the field can be hot-applied to already constructed services. Prompt text, thresholds, pipeline toggles, visualization switches, and some runtime limits can usually be patched. Model/provider/backend changes usually require a hard reload because live model instances have to be rebuilt, and in worker mode that means restarting the worker process.

@@ -35,6 +35,8 @@ Response fields:
 - `caption_provider`
 - `caption_model_id`
 
+The public HTTP response is intentionally compact. When `publish=true`, the dashboard WebSocket payload carries the richer runtime state: base64 image, objects, scene graph, QA pairs, caption metadata, memory snapshot, metrics, and executed stage names. If you need pipeline metrics from an HTTP workflow, use the dashboard event payload, memory/debug endpoints, or the research `pipeline-batch` command rather than expecting them in `DetectionResponse`.
+
 ### `POST /api/v1/detect/panorama`
 
 Multipart form fields:
@@ -51,6 +53,8 @@ Behavior:
 - `stick_together=false`: process images independently and combine object lists in response.
 
 Use this route for robot scan sweeps.
+
+When images are stitched, `RobotMetadata.merge_robot_metadata_for_panorama` adjusts the frame geometry so person yaw values line up with the panorama coordinate frame. When images are processed independently, the returned HTTP response merges only object lists; richer per-frame graph, metric, and memory detail is not preserved in that compact response.
 
 ## Caption
 

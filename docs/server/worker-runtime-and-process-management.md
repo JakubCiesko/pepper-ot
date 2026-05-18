@@ -2,6 +2,8 @@
 
 Worker mode isolates heavy inference in a child FastAPI process. The public API process remains the orchestrator, dashboard server, config manager, and chat/conversation owner.
 
+The public API should not expose whether a request was processed in-process or by the worker. Worker mode is an implementation detail for lifecycle and VRAM control. The contract is preserved by runtime adapters and Pydantic RPC models.
+
 ## Main Files
 
 Worker client in API process:
@@ -33,6 +35,8 @@ Worker mode exists to keep GPU-heavy model objects out of the API process. Benef
 - API process can keep dashboard/config/chat alive
 - worker can lazy-start and idle-stop
 - internal API gives clear process boundary for detect/memory operations
+
+The boundary is especially important for model reloads. A hard detector, VLM, RelTR, SAM, or caption model change can restart the worker without tearing down the dashboard, public API server, conversation history, or QA pool.
 
 ## WorkerManager
 
@@ -142,6 +146,8 @@ Important models:
 - `WorkerConfigRPCRequest`: full config dict.
 - `WorkerStatusResponse`: state, pid, uptime, inflight count, counters, last error.
 
+Treat these models as the wire contract between processes. If `PipelineResult` gains a field that the API or dashboard needs, the same field must be added to the worker runtime response construction, the RPC response model, the worker manager decode path, and the runtime adapter normalization.
+
 ## Public Worker Control API
 
 File: `server/app/api/v1/worker.py`
@@ -199,6 +205,8 @@ Important methods:
 
 The worker builds its pipeline lazily on first warmup/detect/memory operation.
 
+`WorkerRuntime` is the worker-side equivalent of the inference part of `AppState`. It owns the worker-local config and pipeline, but it does not own public chat history, dashboard WebSocket connections, or API response formatting.
+
 ## Hot Config in Worker Mode
 
 Public config PATCH calls `WorkerManager.apply_hot_config(new_config, version)`. If worker is running, manager posts `/internal/config/hot_update`.
@@ -231,6 +239,8 @@ Public detect path:
 4. Worker decodes image, runs `pipeline.process`, encodes SoM output image, returns objects/graph/QA/caption/memory/metrics/stages.
 5. API process ingests QA pairs into its own `QAPoolService` and publishes dashboard events.
 
+The worker returns memory state as part of the detect response because memory is worker-owned in this mode. The API process can then broadcast the same dashboard payload shape as in in-process mode without directly accessing worker memory objects.
+
 ## Common Failure Modes
 
 - Worker disabled but adapter requested: `WorkerUnavailableError`.
@@ -238,6 +248,8 @@ Public detect path:
 - Startup health timeout: `WorkerStartupTimeoutError`.
 - Restart thrashing: `WorkerCircuitOpenError`.
 - Invalid worker response shape: `WorkerProtocolError`.
+
+When debugging worker failures, check status first, then worker stdout/stderr forwarding, then the internal route that failed. Avoid debugging only from the public API response; several errors are intentionally normalized before they reach clients.
 
 ## Where To Change Things
 

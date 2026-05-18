@@ -71,8 +71,8 @@ As discussed in Sections~\ref{sec:object-detection-tracking-reid} and~\ref{sec:a
 The tracking stage extracts a crop for each detection, computes a visual embedding, and matches current detections to existing tracks with the Hungarian algorithm.
 The weighted cost is based mainly on visual similarity and partly on image-space geometry, with label equality as a hard constraint so an existing chair track cannot silently become a detected person.
 
-Generic object embeddings use \texttt{nvidia/C-RADIOv4-SO400M} by default~\cite{nvidia_cradiov4_so400m_2026}.
-For people, the implementation can use the Hugging Face port \url{https://huggingface.co/maennyn/personvit-reid-msmt17-vit-s}, based on the PersonViT project~\cite{hustvl_personvit_2026}.
+Generic object embeddings use \texttt{nvidia/C-RADIOv4-SO400M} by default~\cite{nvidia_cradiov4_so400m_2026, ranzinger_c-radiov4_2026}.
+For people, the implementation can use the Hugging Face port \url{https://huggingface.co/maennyn/personvit-reid-msmt17-vit-s}, based on the PersonViT project~\cite{hustvl_personvit_2026, hu2024personvitlargescaleselfsupervisedvision}.
 This separates general object appearance matching from person-specific Re-ID when that mode is enabled.
 
 Matched detections keep their object IDs; unmatched detections create new tracks, and dormant tracks are aged for later pruning.

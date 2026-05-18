@@ -2,6 +2,8 @@
 
 Scene graph generation turns tracked detections into semantic triples and object attributes. It can combine deterministic rules, RelTR predictions, VLM output over a Set-of-Mark image, and robot-derived memory attributes.
 
+The graph is designed for grounded conversation and memory updates, not just visualization. A relation must refer to current object IDs so the server can store facts like "person_1 holding cup_2" and later answer questions about the same tracked objects.
+
 ## Main Files
 
 - `server/app/inference/scene_graph/service.py`
@@ -24,6 +26,15 @@ There is no single `scene_graph.mode` field in the current code. Scene graph gen
 
 `SceneGraphService.generate` runs every enabled backend and merges the results.
 
+Backend roles:
+
+| Backend | Best at | Typical risk |
+|---|---|---|
+| Rules | Deterministic geometry, configured label pairs, simple attributes such as color | Limited semantic range; only sees what rules encode |
+| RelTR | Visual Genome-style visual relations from a relation model | Box-to-detection matching errors and predicate vocabulary mismatch |
+| VLM | Open-ended or prompt-constrained relations over SoM object IDs | Hallucinated IDs, malformed JSON, vocabulary drift |
+| Robot-data enhancement | Social/pose attributes already fused into memory | Only available for objects currently present in memory/detections |
+
 Backend execution can be sequential or parallel:
 
 - `scene_graph.parallel_execution=false`: enabled backends run in deterministic order.
@@ -45,6 +56,8 @@ The id-only edge list is preferred for memory updates because object labels can 
 `SceneGraph.from_list(data)` accepts dicts with `sub`, `rel`, and `obj`, builds label edges as provided, and derives no-label edges by extracting trailing numeric ids.
 
 `SceneGraph.__add__` merges edge lists and raw outputs. `SceneGraph.__post_init__` deduplicates edges.
+
+Use `edges` for human-readable debugging and dashboard display. Use `no_label_edges` for memory updates and evaluation when object IDs are the stable contract. If a backend produces only label-bearing text without recoverable numeric IDs, memory update cannot reliably ground that relation.
 
 ## Service Merge Flow
 
@@ -156,11 +169,15 @@ Flow:
 
 Filtering keeps only relations whose normalized subject/object IDs appear in current detections. It also rebuilds label references using detection labels.
 
+The VLM backend is where prompt design matters most. The prompt must tell the model that binary relations use different IDs and unary attributes use the same ID for `sub` and `obj`. The SoM image exists to make these IDs visually available to the model; the detection list exists so the prompt and post-filter agree on the valid ID set.
+
 ## SoM Rendering
 
 File: `server/app/inference/scene_graph/som.py`
 
 SoM means Set-of-Mark. It overlays detection IDs, boxes, masks, polygons, and labels onto the image. The VLM backend can use this marked image so it references object IDs visible in the scene.
+
+The server and research package both use this idea. In the server it is part of the live perception pipeline. In research experiments it is varied systematically to compare raw images, boxes, labels, masks, and vocabulary prompts.
 
 Config fields under `visualization` control rendering:
 
@@ -216,6 +233,27 @@ When scene graph memory update runs:
 - binary no-label edge `sub rel obj` becomes or refreshes a `Relationship`
 
 This means relation correctness depends on `no_label_edges` carrying stable numeric IDs.
+
+Example:
+
+```text
+1 is_red 1      -> attribute "is_red" on object 1
+1 holding 2     -> relationship subject=1 predicate=holding object=2
+```
+
+The memory store refreshes existing facts instead of blindly appending duplicates. Repeated observations increase relationship counts and update timestamps, which lets summaries prefer recently seen and repeatedly confirmed facts.
+
+## Debugging Graph Problems
+
+Use this order when a graph looks wrong:
+
+1. Check `PipelineResult.executed_stages` and `metrics.scene_graph_generation_time` to confirm the stage ran.
+2. Check current detections and object IDs; VLM and memory update can only ground IDs that exist.
+3. Check whether `som_image` was produced and whether IDs are visible enough for the model.
+4. Check enabled backend flags under `scene_graph.rules`, `scene_graph.reltr`, and `scene_graph.vlm`.
+5. Inspect raw VLM output or RelTR raw output if enabled.
+6. Check `edges` and `no_label_edges`; dashboard text may look right while memory update fails if ID extraction failed.
+7. Check robot-data enhancement only after backend graph output is correct.
 
 ## Structured Output
 

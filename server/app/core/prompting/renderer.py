@@ -8,6 +8,7 @@ class PromptRenderContext:
     """
     Dataclass used for storing values for prompt template rendering.
     """
+
     context: str | None = None
     caption: str | None = None
     captions_recent: str | None = None

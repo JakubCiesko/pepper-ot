@@ -68,5 +68,5 @@ setup(
     },
     install_requires=read_requirements(),
     author="Jakub Ciesko",
-    author_email="jakub.ciesko@gmail.com"
+    author_email="jakub.ciesko@gmail.com",
 )

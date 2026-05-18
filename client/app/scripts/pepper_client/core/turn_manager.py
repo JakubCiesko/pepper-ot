@@ -243,7 +243,7 @@ class TurnManager(object):
 
     def _run_look(self, lang_code):
         """
-        Quick visual turn: capture one frame, send it to the caption endpoint, cache the response, 
+        Quick visual turn: capture one frame, send it to the caption endpoint, cache the response,
         speak the caption, then optionally refresh dialog concepts.
         """
         self.logger.info("Running look method with lang code: %s", lang_code)
@@ -543,7 +543,7 @@ class TurnManager(object):
 
     def _load_memory_page(self, runtime_lang):
         """
-        Fetch the current visual memory and pregenerated Q/A pairs needed by the tablet UI. 
+        Fetch the current visual memory and pregenerated Q/A pairs needed by the tablet UI.
         Q/A generation is just optional so the memory page can still render without it.
         """
         render_limit = scan_planner.memory_render_limit(self.config)

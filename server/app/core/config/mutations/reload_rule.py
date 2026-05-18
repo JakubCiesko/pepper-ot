@@ -19,6 +19,7 @@ class ReloadRule:
     """
     Config Reload Rule. ReloadMode is either hot or hard, if hard, the whole process is restarted, if hot, it is changed in place.
     """
+
     path: str
     getter: Callable[[Any], Any]
     mode: ReloadMode

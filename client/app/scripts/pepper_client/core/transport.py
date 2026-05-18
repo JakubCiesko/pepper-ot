@@ -237,8 +237,8 @@ class PepperServerTransport(object):
 
     def _request(self, method, path, timeout_seconds, **kwargs):
         """
-        Common utility: Shared request path: add base URL, apply timeout/TLS settings, 
-        translate network failures to client exceptions, reject HTTP errors, and parse JSON. 
+        Common utility: Shared request path: add base URL, apply timeout/TLS settings,
+        translate network failures to client exceptions, reject HTTP errors, and parse JSON.
         """
         url = "%s%s" % (self.base_url, path)
         self.logger.info("HTTP %s %s", method.upper(), url)

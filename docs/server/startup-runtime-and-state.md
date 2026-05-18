@@ -36,6 +36,8 @@ File: `server/app/core/runtime/state.py`
 
 `AppState.initialize()` loads config, optionally restores persisted last state, then delegates to `apply_config()`.
 
+`AppState` should be read as the server composition root. If a service needs config, runtime access, memory access, chat state, or worker access, it should receive `AppState` or a service built from it rather than constructing global state itself.
+
 ## Config Application
 
 `AppState.apply_config(config)` does the following:
@@ -51,6 +53,8 @@ File: `server/app/core/runtime/state.py`
 7. Initializes or updates `QAPoolService` max size.
 8. Optionally warm-starts worker if `worker.auto_warmup_on_startup=true`.
 
+This is the single full-application reconfiguration path. Dashboard config patches and config reload endpoints eventually reduce to either a hot patch against existing objects or a full `apply_config`/worker reload when live objects cannot be safely mutated.
+
 ## Runtime Mode Selection
 
 ### In-Process Mode
@@ -60,6 +64,8 @@ In-process mode is active when `config.worker.enabled=false`.
 `AppState.pipeline` is a real `PerceptionPipeline` built by `server/app/core/pipeline_factory.py`. API requests run model inference in the same process as FastAPI.
 
 Use in-process mode when debugging code paths or avoiding child-process orchestration. It is less useful for VRAM lifecycle control because heavy model objects remain in the API process.
+
+In-process mode is simpler to debug because breakpoints and stack traces stay in one process. It is also easier to reason about when changing the pipeline contract. The tradeoff is that model memory, API memory, dashboard, and chat all share one process lifetime.
 
 ### Worker Mode
 
@@ -73,6 +79,10 @@ Worker mode is useful because:
 - Worker can idle-shutdown to release VRAM.
 - Hard config changes can restart only the worker process.
 - API process remains responsive while worker lifecycle changes.
+
+Worker mode changes ownership, not the public contract. The public `/api/v1/detect`, `/caption`, memory, and vision-chat routes still go through the same orchestration services. Those services use `WorkerRuntimeAdapter`, which serializes work to internal worker routes and normalizes the response back into the public shape.
+
+Use worker mode for realistic GPU-heavy operation. Use in-process mode when implementing or debugging a new stage until the `PipelineResult` contract is stable, then update the worker RPC path.
 
 ## Service Initialization Details
 
@@ -93,9 +103,13 @@ It builds the chat memory adapter:
 
 Then it creates `ChatService`. `ConversationService(max_messages=10)` is created once and kept across config hot updates.
 
+The chat service is API-owned in both runtime modes. In worker mode only the memory read side is proxied; conversation history and language normalization remain in the API process.
+
 ### Caption Component
 
 `_initialize_caption_component(base_dir)` resolves caption prompts and creates or updates `CaptionService`. In worker mode, it does not rebuild local caption clients unnecessarily; the worker handles its own caption client.
+
+There are two caption paths. `/api/v1/caption` uses the API-level caption orchestration service. The full detection pipeline uses the pipeline caption stage, which is in-process only when the pipeline is in-process and worker-local when worker mode is enabled.
 
 ### QA Pool Component
 
@@ -133,3 +147,4 @@ Events currently include:
 - `QAPoolService` is process memory and is not persisted across server restarts.
 - Worker internal memory is the source of truth in worker mode.
 - Dashboard memory and chat displays are eventually consistent through WebSocket events and API refreshes.
+- A config field that changes model/provider/backend construction should be treated as a hard reload field unless a mutation rule explicitly proves it can be applied safely.

@@ -4,6 +4,8 @@ The frame pipeline is implemented by `server/app/inference/pipeline.py` and cons
 
 It takes a PIL RGB image plus optional `RobotMetadata` and returns a `PipelineResult` containing detections, SoM image, scene graph, caption, generated QA pairs, metrics, and executed stage names.
 
+The pipeline is deliberately transport-agnostic. It does not parse HTTP requests, publish WebSocket events, persist dashboard state, or update the API-level QA pool. Those side effects happen in orchestration services. The pipeline's job is to transform one image and optional robot metadata into one structured perception result.
+
 ## Construction
 
 File: `server/app/core/pipeline_factory.py`
@@ -40,6 +42,23 @@ Fields:
 - `caption_model_id`: caption model id.
 - `qa_pairs`: generated English Q/A pairs from scene graph facts.
 
+`PipelineResult` is the contract that must be preserved across both runtime modes. In worker mode it is serialized through `DetectRPCResponse`, so adding a new field requires changes in the pipeline result, worker runtime, worker RPC schema, runtime adapter normalization, detection orchestration response, and dashboard rendering when applicable.
+
+## Data Flow Contract
+
+| Stage | Main input | Main output | Consumer |
+|---|---|---|---|
+| Caption | Raw image and caption prompts | Caption text and provider metadata | Scene graph prompt context and caption memory update |
+| Detection | Raw image | Frame detections | Tracking, SoM, rules/RelTR/VLM filtering |
+| Tracking/memory | Detections and `RobotMetadata` | Persistent object IDs, object state, crops, robot/social attributes | Scene graph, chat memory, dashboard memory |
+| SoM painting | Image and tracked detections | Marked prompt image | VLM scene graph backend and dashboard preview |
+| Scene graph | Image/SoM, detections, memory state, caption | `SceneGraph` edges | QA generation and graph memory update |
+| QA generation | Scene graph, detections, caption | English Q/A pairs | API-process `QAPoolService` via `DetectService` |
+| Caption memory update | Caption and metadata | `SceneCaptionState` in scene memory | Memory summaries and chat grounding |
+| Scene graph memory update | Scene graph no-label edges | Object attributes and relationships in scene memory | Memory summaries, chat, dashboard |
+
+This is why object IDs matter. Detection and tracking establish IDs, SoM makes those IDs visible to the VLM, scene graph generation returns relationships over those IDs, and memory update stores graph facts by ID. If IDs are disabled or inconsistent, downstream graph memory and object chat become less reliable.
+
 ## Execution Modes
 
 `PerceptionPipeline.process(image, robot_metadata)` is the public entrypoint. It dispatches to one of two execution modes:
@@ -64,6 +83,8 @@ Sequential mode runs stages in this order when enabled by `pipeline_controls`:
 9. Total metrics finalization
 
 The actual executed stage names are appended to `PipelineResult.executed_stages` and returned to API/dashboard payloads.
+
+If SoM painting is disabled or fails to produce an overlay, the pipeline keeps a usable image path for scene graph generation by falling back to the original image as the prompt image. The `paint_som` stage is only recorded when the SoM rendering stage actually ran.
 
 ### Parallel Pipeline Mode
 
@@ -190,6 +211,8 @@ Enabled backends are selected independently:
 
 All enabled backend outputs are merged with `SceneGraph.__add__`, which deduplicates edges. After merging, `SceneGraphService.enhance_scene_graph_with_robot_data` adds current-object memory attributes derived from Pepper/social metadata.
 
+Scene graph generation receives both label-bearing detections and current scene memory. Backends may produce label edges, id-only edges, or both. Memory update prefers id-only `no_label_edges` because translated or changed object labels should not change the identity of a relationship.
+
 Metric key: `scene_graph_generation_time`.
 
 Executed stage: `scene_graph`.
@@ -240,6 +263,8 @@ The pipeline itself only returns pairs. `DetectService` ingests them into the pr
 
 If a caption was produced, it is stored as a `SceneCaptionState` in scene memory. Captions are keyed by frame or generated id, carry provider/model/source/frame/scan metadata, and are pruned by caption age and caption cap.
 
+Caption memory does not require scene graph generation. It gives chat and summaries a natural-language observation history even when graph generation is disabled or fails.
+
 Metric key: `caption_memory_update_time`.
 
 Executed stage: `update_caption_memory`.
@@ -253,6 +278,8 @@ Rules:
 - unary graph edge where `sub == obj` becomes an object attribute
 - binary graph edge becomes a `Relationship(subject_id, predicate, object_id)`
 - existing relationships increment `count` and refresh `last_seen`
+
+The memory update stage does not re-run graph inference. It only projects the current `SceneGraph` into persistent memory. If `scene_graph` is disabled, `update_scene_memory` must also be disabled by config validation.
 
 Metric key: `scene_graph_memory_update_time`.
 

@@ -185,6 +185,7 @@ def _git_state() -> dict[str, Any]:
         Dictionary containing commit, dirty flag, and short status output.
         Values may be None when git is unavailable or the command times out.
     """
+
     def run_git(args: list[str]) -> str | None:
         try:
             completed = subprocess.run(

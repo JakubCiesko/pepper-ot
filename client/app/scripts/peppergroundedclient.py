@@ -37,7 +37,7 @@ from pepper_client.utils.metadata_builder import MetadataBuilder
 
 class PepperGroundedClient(object):
     """
-    NAOqi service entrypoint for grounded dialogue adapters and turns, exposed in QiChat via binded methods.      
+    NAOqi service entrypoint for grounded dialogue adapters and turns, exposed in QiChat via binded methods.
     it creates adapters, exposes small Qi-bound methods, and delegates long-running work to TurnManager.
     """
 
