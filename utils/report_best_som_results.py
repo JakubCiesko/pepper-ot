@@ -57,18 +57,14 @@ def load_rows(runs_dir: Path) -> list[dict]:
         )
     return rows
 
-
 def print_metric_row(row: dict) -> None:
     print(
-        "%-36s strict=%.4f attr=%.4f pair_ord=%.4f pair_unord=%.4f n=%d"
-        % (
-            row["run"],
-            row["strict"],
-            row["attribute"],
-            row["pair_ordered"],
-            row["pair_unordered"],
-            row["images"],
-        )
+        f"{row['run']:<36} "
+        f"strict={row['strict']:.4f} "
+        f"attr={row['attribute']:.4f} "
+        f"pair_ord={row['pair_ordered']:.4f} "
+        f"pair_unord={row['pair_unordered']:.4f} "
+        f"n={row['images']}"
     )
 
 
@@ -80,12 +76,15 @@ def print_top_runs(rows: list[dict], limit: int) -> None:
 
 def print_best_per_family(rows: list[dict]) -> None:
     print("\nBest run per model family")
+
     families: dict[str, list[dict]] = defaultdict(list)
+
     for row in rows:
         families[row["family"]].append(row)
+
     for family in sorted(families):
         best = max(families[family], key=lambda item: item["strict"])
-        print("%-10s %-24s " % (family, best["setting"]), end="")
+        print(f"{family:<10} {best['setting']:<24} ", end="")
         print_metric_row(best)
 
 

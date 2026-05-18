@@ -171,20 +171,23 @@ def output_path(args):
 
 
 def print_report(totals, added_by_rule, out_path):
-    print("Images processed: %d" % totals["images"])
-    print("Original edges: %d" % totals["original_edges"])
-    print("Malformed skipped: %d" % totals["malformed_skipped"])
-    print("Duplicate existing/derived skipped: %d" % totals["duplicate_skipped"])
-    print("Added edges: %d" % totals["added_edges"])
-    print("Final edges: %d" % totals["final_edges"])
-    print("Output: %s" % out_path)
+    print(f"Images processed: {totals['images']}")
+    print(f"Original edges: {totals['original_edges']}")
+    print(f"Malformed skipped: {totals['malformed_skipped']}")
+    print(f"Duplicate existing/derived skipped: {totals['duplicate_skipped']}")
+    print(f"Added edges: {totals['added_edges']}")
+    print(f"Final edges: {totals['final_edges']}")
+    print(f"Output: {out_path}")
+
     if not added_by_rule:
         print("Added by rule: none")
         return
+
     print()
     print("Added by rule:")
+
     for (source, derived), count in added_by_rule.most_common():
-        print("  %s -> %s: %d" % (source, derived, count))
+        print(f"  {source} -> {derived}: {count}")
 
 
 def main():
