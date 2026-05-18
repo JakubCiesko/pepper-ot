@@ -243,8 +243,7 @@ def markdown_table(headers: list[str], rows: list[list[object]]) -> str:
     out = []
     out.append("| " + " | ".join(headers) + " |")
     out.append("| " + " | ".join(["---"] * len(headers)) + " |")
-    for row in rows:
-        out.append("| " + " | ".join(str(item) for item in row) + " |")
+    out.extend(["| " + " | ".join(str(item) for item in row) + " |" for row in rows])
     return "\n".join(out)
 
 
@@ -407,7 +406,9 @@ def main() -> None:
         run_summaries.append(summary)
         for key, counter in counts.items():
             aggregate_counts.setdefault(key, Counter()).update(counter)
-        per_run_label_rows.extend([{"run": run_dir.name, **row} for row in label_rows(counts)])
+        per_run_label_rows.extend(
+            [{"run": run_dir.name, **row} for row in label_rows(counts)]
+        )
 
     aggregate_label_rows = label_rows(aggregate_counts)
     report = build_report(

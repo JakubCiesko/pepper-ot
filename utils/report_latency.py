@@ -58,6 +58,7 @@ def fmt(value, digits=2):
         return "n/a"
     return ("%." + str(digits) + "f s") % value
 
+
 def fmt_mean_sd(values):
     values = clean_values(values)
     if not values:
@@ -65,6 +66,7 @@ def fmt_mean_sd(values):
     if len(values) == 1:
         return fmt(values[0])
     return f"{statistics.mean(values):.2f} +/- {statistics.stdev(values):.2f} s"
+
 
 def clean_values(values):
     return [v for v in values if v is not None and not math.isnan(v)]
@@ -370,7 +372,7 @@ def print_manual_summary(sections):
         wall, section = fastest[0]
         print(
             f"Fastest backend setup in the manual notes: `{section["name"]}`, with median "
-            f"`wall_processing_time` {fmt(wall)}." 
+            f"`wall_processing_time` {fmt(wall)}."
         )
         print()
 
@@ -394,6 +396,6 @@ def main():
 
         print()
 
-    
+
 if __name__ == "__main__":
     main()
