@@ -1,3 +1,5 @@
+"""Pydantic contracts for research experiment configs and matrix variants."""
+
 from pathlib import Path
 from typing import Literal
 

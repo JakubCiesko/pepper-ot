@@ -35,6 +35,8 @@ async def stage_timer(step_name: str, metrics: dict[str, float | str]):
 
 
 class PerceptionPipeline:
+    """Coordinates perception stages and memory updates for one image."""
+
     def __init__(
         self,
         detector: Any,

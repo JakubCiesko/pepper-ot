@@ -73,6 +73,7 @@ def _prepare_or_resume(config_path: Path, run_dir: Path | None, *, command: str)
     "--config", "config_path", type=click.Path(path_type=Path), default=DEFAULT_CONFIG
 )
 def run_all_command(config_path: Path) -> None:
+    """Run all enabled experiment phases from a config."""
     config, run = _prepare(config_path, command="run-all")
     asyncio.run(run_all_phases(config, run))
 
@@ -83,6 +84,7 @@ def run_all_command(config_path: Path) -> None:
 )
 @click.option("--run", "run_dir", type=click.Path(path_type=Path), default=None)
 def describe_command(config_path: Path, run_dir: Path | None) -> None:
+    """Generate image descriptions for a new or resumed run."""
     config, run = _prepare_or_resume(config_path, run_dir, command="describe")
     asyncio.run(run_descriptions(config, run))
 
@@ -93,6 +95,7 @@ def describe_command(config_path: Path, run_dir: Path | None) -> None:
 )
 @click.option("--run", "run_dir", type=click.Path(path_type=Path), default=None)
 def mine_vocab_command(config_path: Path, run_dir: Path | None) -> None:
+    """Mine and consolidate scene graph vocabulary from descriptions."""
     config, run = _prepare_or_resume(config_path, run_dir, command="mine-vocab")
     asyncio.run(run_vocabulary_mining(config, run))
 
@@ -103,6 +106,7 @@ def mine_vocab_command(config_path: Path, run_dir: Path | None) -> None:
 )
 @click.option("--run", "run_dir", type=click.Path(path_type=Path), default=None)
 def draft_sgg_command(config_path: Path, run_dir: Path | None) -> None:
+    """Generate draft scene graphs for run images."""
     config, run = _prepare_or_resume(config_path, run_dir, command="draft-sgg")
     asyncio.run(run_draft_scene_graph(config, run))
 
@@ -113,6 +117,7 @@ def draft_sgg_command(config_path: Path, run_dir: Path | None) -> None:
 )
 @click.option("--run", "run_dir", type=click.Path(path_type=Path), default=None)
 def context_rot_command(config_path: Path, run_dir: Path | None) -> None:
+    """Run context-rot sensitivity evaluation over vocabulary levels."""
     config, run = _prepare_or_resume(config_path, run_dir, command="context-rot")
     asyncio.run(run_context_rot(config, run))
 
@@ -123,6 +128,7 @@ def context_rot_command(config_path: Path, run_dir: Path | None) -> None:
 )
 @click.option("--run", "run_dir", type=click.Path(path_type=Path), default=None)
 def evaluate_sgg_command(config_path: Path, run_dir: Path | None) -> None:
+    """Evaluate generated scene graphs for a new or resumed run."""
     config, run = _prepare_or_resume(config_path, run_dir, command="evaluate-sgg")
     asyncio.run(run_scene_graph_evaluation(config, run))
 
@@ -149,6 +155,7 @@ def make_manifest_command(
     seed: int,
     dataset_name: str,
 ) -> None:
+    """Create a manifest.jsonl from local images or GQA samples."""
     if source == "local":
         rows = write_local_manifest(
             images_dir=images_dir,
@@ -170,6 +177,7 @@ def make_manifest_command(
 @main.command("run-matrix")
 @click.option("--config", "matrix_path", type=click.Path(path_type=Path), required=True)
 def run_matrix_command(matrix_path: Path) -> None:
+    """Run every variant defined in an experiment matrix file."""
     results = asyncio.run(run_matrix(matrix_path))
     click.echo(f"Completed {len(results)} variants")
 
@@ -185,6 +193,7 @@ def run_matrix_command(matrix_path: Path) -> None:
 def make_gt_template_command(
     run_dir: Path, out: Path | None, prefill_draft: bool
 ) -> None:
+    """Write a human-editable ground-truth scene graph template."""
     path = write_ground_truth_template(run_dir, out, prefill_draft=prefill_draft)
     click.echo(f"Wrote ground-truth template to {path}")
 
@@ -198,6 +207,7 @@ def make_gt_template_command(
     help="Evaluate only images present in the ground-truth file.",
 )
 def evaluate_run_command(run_dir: Path, gt_path: Path, gt_only: bool) -> None:
+    """Evaluate an existing run against a ground-truth scene graph file."""
     metadata_path = run_dir / "run_metadata.json"
     if not metadata_path.exists():
         raise click.ClickException(f"Missing run metadata: {metadata_path}")
@@ -235,6 +245,7 @@ def evaluate_run_command(run_dir: Path, gt_path: Path, gt_only: bool) -> None:
     default=Path("research/artifacts/reports/latest"),
 )
 def plot_runs_command(runs_root: Path, out_dir: Path) -> None:
+    """Aggregate run metrics into report tables and plots."""
     rows = aggregate_runs(runs_root, out_dir)
     click.echo(f"Aggregated {len(rows)} runs into {out_dir}")
 
@@ -252,6 +263,7 @@ def plot_runs_command(runs_root: Path, out_dir: Path) -> None:
 def pipeline_batch_command(
     server_config: Path, manifest: Path, out_dir: Path, preset: str, limit: int | None
 ) -> None:
+    """Run the server perception pipeline over a manifest batch."""
     result = asyncio.run(
         run_pipeline_batch(
             server_config=server_config,
@@ -268,6 +280,7 @@ def pipeline_batch_command(
 @click.option("--run", "run_dir", type=click.Path(path_type=Path), required=True)
 @click.option("--out", "out_dir", type=click.Path(path_type=Path), required=True)
 def export_annotation_bundle_command(run_dir: Path, out_dir: Path) -> None:
+    """Export a static annotation bundle for a completed run."""
     path = build_annotation_bundle(run_dir, out_dir)
     click.echo(f"Exported annotation bundle to {path}")
 
@@ -276,6 +289,7 @@ def export_annotation_bundle_command(run_dir: Path, out_dir: Path) -> None:
 @click.option("--run", "run_dir", type=click.Path(path_type=Path), required=True)
 @click.option("--annotations", type=click.Path(path_type=Path), required=True)
 def import_annotation_export_command(run_dir: Path, annotations: Path) -> None:
+    """Import annotation UI exports as run ground truth."""
     out = import_annotation_export(run_dir, annotations)
     click.echo(f"Wrote imported annotations to {out}")
 
@@ -284,6 +298,7 @@ def import_annotation_export_command(run_dir: Path, annotations: Path) -> None:
 @click.option("--bundle", "bundle_dir", type=click.Path(path_type=Path), required=True)
 @click.option("--port", type=int, default=8000)
 def serve_annotation_bundle_command(bundle_dir: Path, port: int) -> None:
+    """Serve an exported annotation bundle over local HTTP."""
     bundle_dir = bundle_dir.resolve()
     if not bundle_dir.exists():
         raise click.ClickException(f"Bundle directory does not exist: {bundle_dir}")

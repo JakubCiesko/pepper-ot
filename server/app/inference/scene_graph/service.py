@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class SceneGraphService:
+    """Runs enabled scene graph backends and merges robot scene state."""
+
     def __init__(
         self,
         vlm_backend: VLMSceneGraphGenerator,

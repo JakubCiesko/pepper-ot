@@ -476,4 +476,3 @@ If you need to change theory-driven behavior quickly, start here:
 - This page documents **implemented architecture and explicit thesis background links**.
 - Some cited works are conceptual framing, not one-to-one code implementations.
 - The exact active runtime choices are controlled by `server/config.yaml` and `client/app/scripts/client_config.json`.
-

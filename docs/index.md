@@ -8,6 +8,31 @@ It is intended to grow into package-level documentation for:
 - `research/`
 - any additional support packages or deployment components
 
+## Viewing The Docs
+
+Install the Python dependencies from the repository root:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+For local browsing with live reload, run:
+
+```bash
+mkdocs serve
+```
+
+MkDocs serves the site at `http://127.0.0.1:8000` by default.
+
+To build static HTML output instead, run:
+
+```bash
+mkdocs build
+```
+
+The generated site is written to `site/`. Treat `site/` as build output; the
+documentation source is `docs/` plus `mkdocs.yml`.
+
 ## Available Sections
 
 - [System Description](./system_description.md)

@@ -15,6 +15,7 @@ from pepper_client.utils.error_policy import (CameraCaptureError,
 
 
 class TurnManager(object):
+    """Serializes capture, server calls, speech, and tablet updates by turn."""
 
     def __init__(
         self,

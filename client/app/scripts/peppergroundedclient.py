@@ -36,6 +36,8 @@ from pepper_client.utils.metadata_builder import MetadataBuilder
 
 
 class PepperGroundedClient(object):
+    """NAOqi service entrypoint for grounded dialogue adapters and turns."""
+
     APP_ID = "PepperGroundedClient"
 
     def __init__(self, qiapp):

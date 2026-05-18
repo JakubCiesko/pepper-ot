@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 import urllib.request
-
+import os 
 from rfdetr import RFDETRLarge
 import torch
 from ultralytics import RTDETR
@@ -32,6 +32,7 @@ class DetectionModelRegistry:
 
     MODELS_DIR = Path(__file__).resolve().parents[3] / "detection_models"
 
+
     # Registry of models used in the project; can be expanded
     REGISTRY = {
         DetectionModelType.RT_DETR: "https://github.com/ultralytics/assets/releases/download/v8.3.0/rtdetr-x.pt",
@@ -52,13 +53,19 @@ class DetectionModelRegistry:
             Path | None: Path to the model file, or None if no file is required (e.g., RF-DETR or OWL-V2).
         """
         logger.info("Ensuring model %s", model_name)
+        
+        cls.MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
+        if model_name == DetectionModelType.RF_DETR:
+            os.environ["RF_HOME"] = str(cls.MODELS_DIR)
+            return cls.MODELS_DIR / "rf-detr-large-2026.pth"
+        
         url = cls.REGISTRY[model_name]
         if url is None:
             return None
 
         path = cls.MODELS_DIR / Path(url).name
         if not path.exists():
-            cls.MODELS_DIR.mkdir(parents=True, exist_ok=True)
             urllib.request.urlretrieve(url, path)
         return path
 
@@ -94,7 +101,7 @@ class DetectionModelRegistry:
                 return UltralyticsDetector(RTDETR(str(path)), device, threshold)
             case DetectionModelType.RF_DETR:
                 logger.info("Loading detection model with Roboflow RF-DETR Backend")
-                return RoboflowDetector(RFDETRLarge(device=device), device, threshold)
+                return RoboflowDetector(RFDETRLarge(device=device, pretrain_weights=str(path)), device, threshold)
             case DetectionModelType.OWL_V2:
                 logger.info(
                     "Loading detection model with Google OpenVocab OwlV2 Backend"

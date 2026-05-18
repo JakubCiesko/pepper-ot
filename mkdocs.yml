@@ -38,6 +38,8 @@ nav:
   - Home: index.md
   - System Description: system_description.md
   - Theory And Model Rationale: theory_and_model_rationale.md
+  - Research:
+      - Overview: research/index.md
   - Server:
       - Overview: server/index.md
       - Architecture:

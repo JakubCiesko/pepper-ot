@@ -23,7 +23,7 @@ File: `client/app/manifest.xml`
 Key facts:
 
 - Package uuid is `pepper-grounded-client`.
-- Package version is currently `0.1.24`.
+- Package version is currently `0.1.39`.
 - Supported languages are `en_US` and `cs_CZ`.
 - Dialog content includes both English and Czech topic files.
 - NAOqi requirement is min/max `2.5`.

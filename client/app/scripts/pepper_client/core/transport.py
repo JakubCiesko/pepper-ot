@@ -11,6 +11,7 @@ from pepper_client.utils.error_policy import (MalformedResponseError,
 
 
 class PepperServerTransport(object):
+    """HTTP client for Pepper-facing perception, chat, and memory endpoints."""
 
     def __init__(self, config, logger):
         self.logger = logger
