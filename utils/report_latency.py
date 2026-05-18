@@ -58,15 +58,13 @@ def fmt(value, digits=2):
         return "n/a"
     return ("%." + str(digits) + "f s") % value
 
-
 def fmt_mean_sd(values):
     values = clean_values(values)
     if not values:
         return "n/a"
     if len(values) == 1:
         return fmt(values[0])
-    return "%.2f +/- %.2f s" % (statistics.mean(values), statistics.stdev(values))
-
+    return f"{statistics.mean(values):.2f} +/- {statistics.stdev(values):.2f} s"
 
 def clean_values(values):
     return [v for v in values if v is not None and not math.isnan(v)]
@@ -215,7 +213,7 @@ def print_latency_summary(rows, completed, errors):
         print("| Kind | n | Error latency median | Error latency mean +/- sd |")
         print("|---|---:|---:|---:|")
 
-        for kind in sorted(set(item["kind"] for item in errors)):
+        for kind in sorted({item["kind"] for item in errors}):
             items = [item for item in errors if item["kind"] == kind]
             values = [item["error_latency"] for item in items]
             print(
@@ -333,7 +331,7 @@ def parse_manual_notes(path):
 
 def print_manual_summary(sections):
     print("## Manual Phone Notes And Backend Metrics\n")
-    print("Source: `%s`\n" % MANUAL_NOTES)
+    print(f"Source: `{MANUAL_NOTES}`\n")
     if not sections:
         print("No manual notes parsed.\n")
         return
@@ -342,25 +340,24 @@ def print_manual_summary(sections):
         "| Section | ranges n | feedback median | final median | silent median | singles n | single median | wall median | sgg median | qa median |"
     )
     print("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+
     for section in sections:
         ranges = section["phone_ranges"]
         singles = section["phone_singles"]
         metrics = section["metrics"]
         print(
-            "| %s | %d | %s | %s | %s | %d | %s | %s | %s | %s |"
-            % (
-                section["name"].replace("|", "/"),
-                len(ranges),
-                fmt(median([item[0] for item in ranges])),
-                fmt(median([item[1] for item in ranges])),
-                fmt(median([item[2] for item in ranges])),
-                len(singles),
-                fmt(median(singles)),
-                fmt(median(metrics.get("wall_processing_time", []))),
-                fmt(median(metrics.get("scene_graph_generation_time", []))),
-                fmt(median(metrics.get("qa_generation_time", []))),
-            )
+            f"| {section['name'].replace('|', '/')} | "
+            f"{len(ranges)} | "
+            f"{fmt(median([item[0] for item in ranges]))} | "
+            f"{fmt(median([item[1] for item in ranges]))} | "
+            f"{fmt(median([item[2] for item in ranges]))} | "
+            f"{len(singles)} | "
+            f"{fmt(median(singles))} | "
+            f"{fmt(median(metrics.get('wall_processing_time', [])))} | "
+            f"{fmt(median(metrics.get('scene_graph_generation_time', [])))} | "
+            f"{fmt(median(metrics.get('qa_generation_time', [])))} |"
         )
+
     print()
 
     fastest = []
@@ -372,8 +369,8 @@ def print_manual_summary(sections):
         fastest.sort(key=lambda item: item[0])
         wall, section = fastest[0]
         print(
-            "Fastest backend setup in the manual notes: `%s`, with median "
-            "`wall_processing_time` %s." % (section["name"], fmt(wall))
+            f"Fastest backend setup in the manual notes: `{section["name"]}`, with median "
+            f"`wall_processing_time` {fmt(wall)}." 
         )
         print()
 
@@ -391,10 +388,12 @@ def main():
         print("## Parsed Event Counts\n")
         print("| Kind | latency rows |")
         print("|---|---:|")
+
         for kind, count in sorted(counts.items()):
-            print("| %s | %d |" % (kind, count))
+            print(f"| {kind} | {count} |")
+
         print()
 
-
+    
 if __name__ == "__main__":
     main()

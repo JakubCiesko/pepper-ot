@@ -407,8 +407,7 @@ def main() -> None:
         run_summaries.append(summary)
         for key, counter in counts.items():
             aggregate_counts.setdefault(key, Counter()).update(counter)
-        for row in label_rows(counts):
-            per_run_label_rows.append({"run": run_dir.name, **row})
+        per_run_label_rows.extend([{"run": run_dir.name, **row} for row in label_rows(counts)])
 
     aggregate_label_rows = label_rows(aggregate_counts)
     report = build_report(

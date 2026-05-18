@@ -151,8 +151,11 @@ def print_terms(row: dict, attrs: set[str], limit: int) -> None:
             filtered, key=lambda item: item[3], reverse=True
         )[:limit]:
             print(
-                "%-18s f1=%.3f precision=%.3f recall=%.3f support=%d"
-                % (term, score, precision, recall, support)
+                f"{term:<18} "
+                f"f1={score:.3f} "
+                f"precision={precision:.3f} "
+                f"recall={recall:.3f} "
+                f"support={support}"
             )
 
 
