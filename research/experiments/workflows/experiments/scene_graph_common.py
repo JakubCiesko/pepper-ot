@@ -13,6 +13,17 @@ from research.experiments.config.models import ExperimentConfig
 
 
 def render_template(template: str, values: dict[str, Any]) -> str:
+    """Replace simple `{name}` placeholders in a prompt template.
+
+    Args:
+        template: Prompt template text. Empty or None-like values render as an
+            empty string.
+        values: Placeholder names and replacement values.
+
+    Returns:
+        Rendered prompt text. Placeholders without a matching value are left
+        unchanged.
+    """
     rendered = template or ""
     for key, value in values.items():
         placeholder = "{" + key + "}"
@@ -22,6 +33,20 @@ def render_template(template: str, values: dict[str, Any]) -> str:
 
 
 def to_detection_objects(raw_rows: list[dict]):
+    """Convert serialized detection rows into server inference objects.
+
+    Args:
+        raw_rows: Detection dictionaries containing bbox, label, confidence,
+            optional class_id, and optional object_id.
+
+    Returns:
+        List of InferenceDetectionObject instances suitable for the server SoM
+        painter. Rows without a four-value bbox are skipped.
+
+    Side Effects:
+        Ensures the server application package is importable before importing
+        the inference type.
+    """
     ensure_server_app_importable()
     from app.inference.types import InferenceDetectionObject
 
@@ -46,12 +71,30 @@ def to_detection_objects(raw_rows: list[dict]):
 
 
 def pil_to_jpeg_bytes(image: Image.Image) -> bytes:
+    """Serialize a PIL image as high-quality RGB JPEG bytes.
+
+    Args:
+        image: PIL image to send to a VLM adapter.
+
+    Returns:
+        JPEG-encoded bytes after converting the image to RGB.
+    """
     with BytesIO() as buf:
         image.convert("RGB").save(buf, format="JPEG", quality=95)
         return buf.getvalue()
 
 
 def objects_for_prompt(detected_rows: list[dict]) -> list[dict]:
+    """Build the compact object list inserted into SGG prompts.
+
+    Args:
+        detected_rows: Detection rows loaded from the run detection artifact.
+
+    Returns:
+        List of dictionaries with id, label, and bbox fields. The function keeps
+        the detector identifiers as-is so prompts match downstream evaluation
+        object IDs.
+    """
     return [
         {
             "id": det.get("object_id"),
@@ -63,6 +106,17 @@ def objects_for_prompt(detected_rows: list[dict]) -> list[dict]:
 
 
 def vocabulary_for_prompt(vocabulary: dict, vocab_mode: str) -> dict | str | list[str]:
+    """Format vocabulary according to the configured prompt mode.
+
+    Args:
+        vocabulary: Final or sliced vocabulary with predicates and attributes.
+        vocab_mode: One of open, soft, list, or the default structured mode.
+
+    Returns:
+        Empty string for open mode, a soft-guidance wrapper for soft mode, a
+        shuffled flat term list for list mode, or the original vocabulary
+        dictionary for structured modes.
+    """
     import random
 
     if vocab_mode == "open":
@@ -89,6 +143,23 @@ def build_prompt_image(
     config: ExperimentConfig,
     painter,
 ) -> tuple[Image.Image, Image.Image | None]:
+    """Load and optionally paint the image used for draft SGG prompting.
+
+    Args:
+        image_path: Source image path from the run artifacts.
+        detected_rows: Detection rows used to draw SoM marks.
+        config: Experiment configuration controlling visual mode, SoM overlays,
+            and maximum image size.
+        painter: Server SoMPainter instance used when visual_mode is som.
+
+    Returns:
+        A tuple of the prompt image sent to the model and the full SoM image.
+        The SoM image is None when raw visual mode is used.
+
+    Side Effects:
+        Reads the image from disk and may invoke the SoM painter with masks,
+        boxes, polygons, and labels according to config.
+    """
     with Image.open(image_path) as img:
         pil_image = img.convert("RGB")
 

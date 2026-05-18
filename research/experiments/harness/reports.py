@@ -9,6 +9,7 @@ from research.experiments.io import save_json
 
 
 def _metric(summary: dict[str, Any], group: str, key: str = "f1") -> float:
+    """Read a numeric metric value from a nested summary group."""
     value = summary.get(group, {})
     if isinstance(value, dict):
         return float(value.get(key, 0.0))
@@ -16,6 +17,16 @@ def _metric(summary: dict[str, Any], group: str, key: str = "f1") -> float:
 
 
 def _read_run_row(run_dir: Path) -> dict[str, Any]:
+    """Collect reportable metadata and metric fields from one run directory.
+
+    Args:
+        run_dir: Completed run directory containing metadata and optional metric
+            artifacts.
+
+    Returns:
+        Flat row used by CSV, JSON, Markdown report, and plots. Missing
+        artifacts default to zero or empty values.
+    """
     metadata = load_json(run_dir / "run_metadata.json", default={})
     matrix = load_json(run_dir / "matrix_result.json", default={})
     summary = load_json(run_dir / "metrics_scene_graph_summary.json", default={})
@@ -46,6 +57,19 @@ def _read_run_row(run_dir: Path) -> dict[str, Any]:
 
 
 def aggregate_runs(runs_root: Path, out_dir: Path) -> list[dict[str, Any]]:
+    """Aggregate all run directories under a root into report artifacts.
+
+    Args:
+        runs_root: Directory containing run subdirectories.
+        out_dir: Destination report directory.
+
+    Returns:
+        Flat report rows, one per run directory.
+
+    Side Effects:
+        Writes metrics_summary.csv when rows exist, metrics_summary.json,
+        report.md, and optional plot files.
+    """
     run_dirs = sorted(path for path in runs_root.iterdir() if path.is_dir())
     rows = [_read_run_row(run_dir) for run_dir in run_dirs]
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -62,6 +86,18 @@ def aggregate_runs(runs_root: Path, out_dir: Path) -> list[dict[str, Any]]:
 
 
 def write_report(out_dir: Path, rows: list[dict[str, Any]]) -> Path:
+    """Write a Markdown report summarizing run metrics.
+
+    Args:
+        out_dir: Destination directory.
+        rows: Flat rows from aggregate_runs.
+
+    Returns:
+        Path to report.md.
+
+    Side Effects:
+        Writes report.md.
+    """
     lines = [
         "# Experiment Report",
         "",
@@ -92,6 +128,17 @@ def write_report(out_dir: Path, rows: list[dict[str, Any]]) -> Path:
 
 
 def _write_basic_plots(out_dir: Path, rows: list[dict[str, Any]]) -> None:
+    """Write basic F1 and latency plots when matplotlib is available.
+
+    Args:
+        out_dir: Directory where PDF and PNG plots are written.
+        rows: Flat report rows from aggregate_runs.
+
+    Side Effects:
+        Writes plot files for strict triplet F1, pair F1, attribute F1, and
+        draft latency. If matplotlib is unavailable or rows are empty, no files
+        are written.
+    """
     if not rows:
         return
     try:

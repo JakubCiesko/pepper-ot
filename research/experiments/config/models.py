@@ -29,6 +29,13 @@ class PathsConfig(BaseModel):
 
 
 class LLMModelConfig(BaseModel):
+    """Model adapter settings used by caption, vocabulary, and draft SGG phases.
+
+    The provider selects the adapter implementation, model_id selects the model
+    within that provider, structured_mode controls how typed responses are
+    obtained, and base_url/api_key support OpenAI-compatible or hosted backends.
+    """
+
     provider: Literal["openai", "gemini", "openai_compatible", "local_hf", "local_4bit"]
     model_id: str
     structured_mode: Literal["provider_native", "parse_output", "instructor"] = (
@@ -39,6 +46,13 @@ class LLMModelConfig(BaseModel):
 
 
 class DetectionStageConfig(BaseModel):
+    """Object detection settings for the description phase.
+
+    When enabled, detections are generated before captioning and saved as the
+    run detection artifact. When disabled, the phase expects detections to
+    already exist at paths.detections_file if prompts need object labels.
+    """
+
     enabled: bool = True
     backend: Literal["yolo", "rt_detr", "rf_detr", "owl_v2"] = "rf_detr"
     batch_size: int = 4
@@ -47,6 +61,13 @@ class DetectionStageConfig(BaseModel):
 
 
 class DescriptionStageConfig(BaseModel):
+    """Caption generation settings for image descriptions.
+
+    The phase reads images from paths.images_dir or paths.manifest_file, builds
+    prompts from the configured templates, and writes descriptions plus stage
+    metrics into the run directory.
+    """
+
     enabled: bool = True
     # unused
     batch_size: int = 2
@@ -61,6 +82,13 @@ class DescriptionStageConfig(BaseModel):
 
 
 class VocabularyStageConfig(BaseModel):
+    """Vocabulary mining settings for predicates and attributes.
+
+    current_run mode extracts candidates from generated descriptions and
+    consolidates them through the configured vocabulary model. frozen_file mode
+    copies an existing vocabulary artifact and skips candidate extraction.
+    """
+
     enabled: bool = True
     # unused
     batch_size: int = 2
@@ -81,6 +109,13 @@ class VocabularyStageConfig(BaseModel):
 
 
 class DraftSceneGraphStageConfig(BaseModel):
+    """Draft scene graph generation and prompt-image settings.
+
+    The phase consumes descriptions, detections, and final vocabulary; formats
+    prompts according to vocab_mode; optionally paints SoM images; and writes
+    parsed relationships plus prompt/debug metadata for each image.
+    """
+
     enabled: bool = True
     # unused
     batch_size: int = 8
@@ -114,6 +149,13 @@ class DraftSceneGraphStageConfig(BaseModel):
 
 
 class ContextRotStageConfig(BaseModel):
+    """Vocabulary-reduction sensitivity settings.
+
+    Context-rot creates automatic or manual vocabulary levels, reruns draft SGG
+    under each reduced vocabulary, remaps predictions into that level, and can
+    evaluate each level against ground truth.
+    """
+
     enabled: bool = True
     min_vocab_size: int = 10
     step: int = 5
@@ -126,6 +168,13 @@ class ContextRotStageConfig(BaseModel):
 
 
 class EvaluationStageConfig(BaseModel):
+    """Scene graph evaluation settings.
+
+    These flags control key alignment, missing GT/prediction behavior,
+    normalization, optional graph edit and per-predicate metrics, potency
+    diagnostics, and bootstrap confidence intervals.
+    """
+
     enabled: bool = False
     keyspace: Literal["all", "gt_only"] = "all"
     strict_id_match: bool = True
@@ -142,6 +191,8 @@ class EvaluationStageConfig(BaseModel):
 
 
 class PromptingConfig(BaseModel):
+    """Cross-phase prompt switches shared by description and SGG prompts."""
+
     include_detection_labels_in_descriptions: bool = True
     include_caption_in_sgg_prompt: bool = True
 

@@ -15,6 +15,18 @@ from research.experiments.io import save_json
 
 @dataclass(frozen=True)
 class BundleImage:
+    """Serializable image item used by the annotation bundle builder.
+
+    Attributes:
+        image_path: Source image key from the run artifacts.
+        raw_image_uri: Bundle-relative URI for the raw image asset.
+        som_image_uri: Optional bundle-relative URI for the SoM image asset.
+        caption: Caption shown to annotators.
+        objects: Object rows with IDs, labels, boxes, and confidences.
+        vocabulary: Allowed predicates and attributes for the item.
+        relationships: Draft relationships used as the initial annotation state.
+    """
+
     image_path: str
     raw_image_uri: str
     som_image_uri: str | None
@@ -25,12 +37,14 @@ class BundleImage:
 
 
 def _safe_name(idx: int, path: str, prefix: str) -> str:
+    """Build a filesystem-safe asset name for copied bundle images."""
     base = Path(path).name
     base = re.sub(r"[^A-Za-z0-9._-]+", "_", base)
     return f"{idx:05d}_{prefix}_{base}"
 
 
 def _json_for_html(payload: Any) -> str:
+    """Serialize JSON for safe embedding inside an HTML script context."""
     text = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     text = text.replace("</", "<\\/")
     text = text.replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
@@ -40,6 +54,16 @@ def _json_for_html(payload: Any) -> str:
 def _collect_objects(
     item: dict[str, Any], detections: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
+    """Collect object rows from a draft item or fallback detection artifact.
+
+    Args:
+        item: Draft scene graph row for one image.
+        detections: Detection rows for the same image.
+
+    Returns:
+        Object dictionaries with id, label, bbox, and confidence. Existing
+        draft objects take precedence over fallback detections.
+    """
     objects = item.get("objects")
     if isinstance(objects, list) and objects:
         return objects
@@ -57,6 +81,15 @@ def _collect_objects(
 
 
 def _collect_relationships(item: dict[str, Any]) -> list[dict[str, str]]:
+    """Normalize draft relationships for annotation UI initialization.
+
+    Args:
+        item: Draft scene graph payload for one image.
+
+    Returns:
+        Relationship rows with string sub, rel, and obj fields. Malformed rows
+        are skipped.
+    """
     relationships = item.get("relationships")
     if not isinstance(relationships, list):
         return []
@@ -76,6 +109,15 @@ def _collect_relationships(item: dict[str, Any]) -> list[dict[str, str]]:
 def _collect_vocabulary(
     item: dict[str, Any], run_vocab: dict[str, Any]
 ) -> dict[str, list[str]]:
+    """Choose item-specific vocabulary or fall back to the run vocabulary.
+
+    Args:
+        item: Draft scene graph payload that may include prompt vocabulary.
+        run_vocab: Final run vocabulary artifact.
+
+    Returns:
+        Dictionary with predicates and attributes string lists.
+    """
     vocab = item.get("vocabulary")
     if isinstance(vocab, dict):
         predicates = [str(x) for x in vocab.get("predicates", []) if str(x).strip()]
@@ -87,6 +129,20 @@ def _collect_vocabulary(
 
 
 def build_annotation_bundle(run_dir: Path, out_dir: Path) -> Path:
+    """Build a static HTML annotation bundle from a completed run.
+
+    Args:
+        run_dir: Run directory with run_metadata.json, detections.json,
+            descriptions.json, draft_scene_graph.json, and vocabulary_final.json.
+        out_dir: Destination directory for the static annotation app.
+
+    Returns:
+        The resolved output directory.
+
+    Side Effects:
+        Copies raw and SoM image assets into out_dir/assets, writes bundle.json,
+        app.js, style.css, and index.html with embedded bundle data.
+    """
     run_dir = run_dir.resolve()
     out_dir = out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -184,6 +240,18 @@ def build_annotation_bundle(run_dir: Path, out_dir: Path) -> Path:
 def _extract_annotation_payload(
     payload: Any,
 ) -> dict[str, dict[str, list[dict[str, str]]]]:
+    """Normalize annotation export JSON into ground-truth graph payloads.
+
+    Args:
+        payload: Either a raw annotations mapping or an object containing an
+            annotations mapping.
+
+    Returns:
+        Mapping from image key to relationships in {sub, rel, obj} form.
+
+    Raises:
+        ValueError: If the export root is not a JSON object.
+    """
     if (
         isinstance(payload, dict)
         and "annotations" in payload
@@ -215,6 +283,19 @@ def _extract_annotation_payload(
 
 
 def import_annotation_export(run_dir: Path, annotations_path: Path) -> Path:
+    """Import a static annotation UI export as run ground truth.
+
+    Args:
+        run_dir: Run directory where the normalized ground-truth file is written.
+        annotations_path: JSON export produced by the annotation UI.
+
+    Returns:
+        Path to ground_truth_scene_graph.json.
+
+    Side Effects:
+        Reads annotations_path and writes normalized relationships into
+        run_dir/ground_truth_scene_graph.json.
+    """
     run_dir = run_dir.resolve()
     annotations = json.loads(annotations_path.read_text(encoding="utf-8"))
     normalized = _extract_annotation_payload(annotations)

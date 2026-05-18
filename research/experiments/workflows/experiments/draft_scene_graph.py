@@ -21,6 +21,28 @@ from .scene_graph_common import vocabulary_for_prompt
 
 
 async def run_draft_scene_graph(config: ExperimentConfig, run: RunContext) -> dict:
+    """Generate draft scene graphs from descriptions, detections, and vocabulary.
+
+    Args:
+        config: Experiment configuration containing draft SGG prompt settings,
+            SoM rendering settings, VLM model settings, and artifact paths.
+        run: Run context containing previous phase artifacts and receiving draft
+            outputs.
+
+    Returns:
+        Mapping from image path to a draft scene graph payload. Each payload
+        includes image metadata, prompt objects, prompt vocabulary, parsed
+        relationships, and optionally the raw model response.
+
+    Raises:
+        RuntimeError: If descriptions or final vocabulary are missing. Adapter
+            setup errors may also propagate before per-image processing starts.
+
+    Side Effects:
+        Reads descriptions.json, detections.json, and vocabulary_final.json;
+        optionally writes SoM prompt images; writes draft_scene_graph.json and
+        metrics_draft_scene_graph.json under run.run_dir.
+    """
     run.logger.info("Starting draft scene graph phase")
     stage_metrics = StageMetrics(stage="draft_scene_graph")
     descriptions = load_json(run.run_dir / config.paths.descriptions_file, default={})

@@ -22,6 +22,16 @@ ATTRIBUTE_COLOR = "#0000dc"
 
 
 def _counts_from_vocab(vocab: dict[str, Any], kind: str) -> Counter[str]:
+    """Extract term mention counts from a final vocabulary artifact.
+
+    Args:
+        vocab: Parsed vocabulary_final.json payload.
+        kind: Singular term kind, either predicate or attribute.
+
+    Returns:
+        Counter keyed by term. Provenance counts are preferred; older artifacts
+        without counts contribute each selected final term once.
+    """
     provenance = vocab.get("provenance", {})
     if not isinstance(provenance, dict):
         provenance = {}
@@ -50,6 +60,15 @@ def _image_support_from_candidates(
     candidates: dict[str, Any],
     kind: str,
 ) -> Counter[str]:
+    """Count how many images mention each candidate term.
+
+    Args:
+        candidates: Parsed vocabulary_candidates.json keyed by image path.
+        kind: Candidate list key, usually predicates or attributes.
+
+    Returns:
+        Counter where each image contributes at most one count per term.
+    """
     support: Counter[str] = Counter()
     for row in candidates.values():
         if not isinstance(row, dict):
@@ -62,6 +81,16 @@ def _image_support_from_candidates(
 
 
 def _load_run_counts(run_dir: Path) -> dict[str, Any] | None:
+    """Load vocabulary frequency inputs from one run directory.
+
+    Args:
+        run_dir: Experiment run directory containing vocabulary_final.json and
+            optionally vocabulary_candidates.json.
+
+    Returns:
+        Counts for predicates, attributes, image support, and image count, or
+        None when the run lacks a usable final vocabulary artifact.
+    """
     vocab_path = run_dir / "vocabulary_final.json"
     if not vocab_path.exists():
         print(f"Skipping {run_dir}: missing vocabulary_final.json")
@@ -93,6 +122,16 @@ def _aggregate(
     run_counts: dict[str, dict[str, Any]],
     key: str,
 ) -> tuple[Counter[str], Counter[str], dict[str, Counter[str]]]:
+    """Aggregate one count family across runs.
+
+    Args:
+        run_counts: Mapping from run name to count payloads from _load_run_counts.
+        key: Count family to aggregate, such as predicates or predicate_image_support.
+
+    Returns:
+        Total counts across runs, number of runs containing each term, and the
+        original per-run counters.
+    """
     total_counts: Counter[str] = Counter()
     run_presence: Counter[str] = Counter()
     per_run: dict[str, Counter[str]] = {}
@@ -116,6 +155,21 @@ def _write_frequency_csv(
     per_run_image_support: dict[str, Counter[str]],
     run_image_counts: dict[str, int],
 ) -> None:
+    """Write per-term frequency and image-support statistics to CSV.
+
+    Args:
+        path: Destination CSV path.
+        total_mentions: Raw mention counts aggregated across runs.
+        total_image_support: Image-support counts aggregated across runs.
+        run_presence: Number of runs containing each term.
+        per_run_mentions: Raw mention counts by run.
+        per_run_image_support: Image-support counts by run.
+        run_image_counts: Number of candidate images per run.
+
+    Side Effects:
+        Creates the parent directory and writes a CSV sorted by image support,
+        raw mentions, and term name.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     run_names = list(per_run_mentions.keys())
     total_image_observations = sum(run_image_counts.values())
@@ -171,6 +225,7 @@ def _write_frequency_csv(
 
 
 def _write_rank_plot(out_dir: Path, kind: str, counts: Counter[str]) -> None:
+    """Write a log-scale raw rank-frequency plot for one term kind."""
     if not counts:
         return
     import matplotlib.pyplot as plt
@@ -197,6 +252,7 @@ def _write_normalized_rank_plot(
     image_support: Counter[str],
     total_image_observations: int,
 ) -> None:
+    """Write a log-scale rank plot normalized by total image observations."""
     if not image_support or not total_image_observations:
         return
     import matplotlib.pyplot as plt
@@ -226,6 +282,7 @@ def _write_combined_normalized_rank_plot(
     attribute_image_support: Counter[str],
     total_image_observations: int,
 ) -> None:
+    """Write predicate and attribute normalized image-support curves together."""
     if (
         not predicate_image_support
         or not attribute_image_support
@@ -279,6 +336,7 @@ def _write_combined_raw_rank_plot(
     predicate_counts: Counter[str],
     attribute_counts: Counter[str],
 ) -> None:
+    """Write predicate and attribute raw rank-frequency curves together."""
     if not predicate_counts or not attribute_counts:
         return
     import matplotlib.pyplot as plt
@@ -318,6 +376,7 @@ def _write_combined_raw_rank_plot(
 
 
 def _plot_color(kind: str) -> str | None:
+    """Return the configured plot color for a vocabulary term kind."""
     if kind == "predicate":
         return PREDICATE_COLOR
     if kind == "attribute":
@@ -334,6 +393,20 @@ def _write_top_terms_plot(
     xlabel: str = "Frequency across runs",
     filename_prefix: str = "top",
 ) -> None:
+    """Write a horizontal bar chart for the top terms of one kind.
+
+    Args:
+        out_dir: Directory where PNG and PDF plots are written.
+        kind: Term kind label used in titles and file names.
+        counts: Term counts to rank.
+        top_k: Number of terms to include.
+        denominator: Optional denominator for normalized rates.
+        xlabel: Axis label for the plotted value.
+        filename_prefix: Prefix used for output file names.
+
+    Side Effects:
+        Writes PNG and PDF plots when counts are non-empty.
+    """
     if not counts:
         return
     import matplotlib.pyplot as plt
@@ -364,6 +437,7 @@ def _write_overlap_plot(
     run_presence: Counter[str],
     run_total: int,
 ) -> None:
+    """Write a histogram of how many runs contain each term."""
     if not run_presence:
         return
     import matplotlib.pyplot as plt
@@ -394,6 +468,22 @@ def _write_plots(
     total_image_observations: int,
     top_k: int,
 ) -> None:
+    """Write all vocabulary distribution plots for one term kind.
+
+    Args:
+        out_dir: Destination directory for plot files.
+        kind: Singular term kind, predicate or attribute.
+        total_mentions: Aggregated raw mention counts.
+        total_image_support: Aggregated image-support counts.
+        run_presence: Count of runs containing each term.
+        run_total: Number of runs included.
+        total_image_observations: Sum of candidate image counts across runs.
+        top_k: Number of terms to show in bar charts.
+
+    Side Effects:
+        Writes rank, normalized-rank, top-term, and overlap plots when
+        matplotlib is installed. Prints a message and skips plots otherwise.
+    """
     try:
         import matplotlib  # noqa: F401
     except ImportError:
@@ -428,6 +518,12 @@ def _write_plots(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line options for vocabulary distribution reporting.
+
+    Returns:
+        argparse Namespace with runs_root, optional run list, output_dir, and
+        top_k.
+    """
     parser = argparse.ArgumentParser(
         description="Plot predicate and attribute frequency distributions across vocabulary runs."
     )
@@ -457,6 +553,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Aggregate vocabulary term distributions and write CSV/plot reports.
+
+    Side Effects:
+        Reads vocabulary artifacts from selected run directories, writes
+        predicate_frequencies.csv and attribute_frequencies.csv, writes any
+        available plots, and prints a short completion summary. Raises SystemExit
+        when none of the requested runs contain usable vocabulary artifacts.
+    """
     args = parse_args()
     runs_root = Path(args.runs_root)
     out_dir = Path(args.output_dir)

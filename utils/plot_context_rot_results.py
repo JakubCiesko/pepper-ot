@@ -5,9 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
-
+import re
 
 METRICS = [
     ("strict_triplet_micro", "Strict triplet F1"),
@@ -80,9 +79,7 @@ def parse_rows(context_rot: dict) -> list[dict]:
         row = {
             "name": name,
             "vocab_size": size,
-            "relationship_count_avg": float(
-                value.get("relationship_count_avg", 0.0)
-            ),
+            "relationship_count_avg": float(value.get("relationship_count_avg", 0.0)),
         }
         for metric, _ in METRICS:
             row[metric] = metric_f1(summary, metric)
@@ -186,7 +183,9 @@ def load_run_rows(run_dir: Path) -> list[dict]:
     return parse_rows(load_json(context_rot_path))
 
 
-def plot_strict_comparison(run_rows: list[tuple[Path, list[dict]]], out_dir: Path) -> None:
+def plot_strict_comparison(
+    run_rows: list[tuple[Path, list[dict]]], out_dir: Path
+) -> None:
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=(10.8, 6.4))

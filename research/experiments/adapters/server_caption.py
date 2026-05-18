@@ -9,6 +9,12 @@ from .utils import resize_pil
 
 
 class ServerCaptionAdapter:
+    """In-process adapter around the server caption inference service.
+
+    The description phase uses this adapter to apply research prompts while
+    sharing the same caption provider configuration path as the server.
+    """
+
     def __init__(
         self,
         model_provider: str,
@@ -16,6 +22,14 @@ class ServerCaptionAdapter:
         system_prompt: str,
         base_url: str | None = None,
     ):
+        """Create a caption adapter from research model and prompt settings.
+
+        Args:
+            model_provider: Caption provider name understood by the server.
+            model_id: Provider-specific model identifier.
+            system_prompt: System prompt used by the caption service.
+            base_url: Optional OpenAI-compatible endpoint base URL.
+        """
         ensure_server_app_importable()
         from app.inference.caption.service import CaptionInferenceService
         from app.schemas.config import CaptionConfig
@@ -41,6 +55,19 @@ class ServerCaptionAdapter:
         prompt_override: str | None = None,
         max_image_size: int | None = None,
     ) -> dict[str, Any]:
+        """Caption one image with an optional per-image prompt override.
+
+        Args:
+            image: PIL image to caption.
+            prompt_override: Optional user prompt built by the description
+                workflow.
+            max_image_size: Optional longest-side resize limit before
+                inference.
+
+        Returns:
+            Caption payload as a dictionary, typically including generated text
+            and provider metadata.
+        """
         if max_image_size:
             image = resize_pil(image, max_image_size)
         result = await self._service.caption_image(
@@ -57,6 +84,19 @@ class ServerCaptionAdapter:
         max_concurrent: int = 4,
         max_image_size: int | None = None,
     ) -> dict[str, dict[str, Any]]:
+        """Caption multiple image paths concurrently.
+
+        Args:
+            image_paths: Image paths to load and caption.
+            prompt_builder: Callable that receives each Path and returns the
+                user prompt override.
+            max_concurrent: Maximum concurrent caption requests.
+            max_image_size: Optional longest-side resize limit before
+                inference.
+
+        Returns:
+            Mapping from resolved image path to caption payload.
+        """
         semaphore = asyncio.Semaphore(max_concurrent)
         output: dict[str, dict[str, Any]] = {}
 

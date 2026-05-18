@@ -12,10 +12,9 @@ This is a local reporting helper. It reads existing metric JSON files and prints
 from __future__ import annotations
 
 import argparse
-import json
 from collections import defaultdict
+import json
 from pathlib import Path
-
 
 MODEL_PREFIXES = ["geminiPRO", "geminiR", "gemini", "gpt5", "gpt"]
 

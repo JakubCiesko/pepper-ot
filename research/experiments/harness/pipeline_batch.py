@@ -20,6 +20,25 @@ async def run_pipeline_batch(
     preset: str = "full",
     limit: int | None = None,
 ) -> dict[str, Any]:
+    """Run the server perception pipeline over every image in a manifest.
+
+    Args:
+        server_config: Server AppConfig YAML loaded before pipeline creation.
+        manifest: Manifest JSONL containing image_id and image_path rows.
+        out_dir: Output directory for batch artifacts.
+        preset: Pipeline controls preset applied to the server config.
+        limit: Optional maximum number of manifest rows to process.
+
+    Returns:
+        Dictionary with per_image rows and a summary. Successful per-image rows
+        include pipeline metrics, executed stages, detections, optional scene
+        graph, and duration; failed rows include an error string.
+
+    Side Effects:
+        Imports the server app, builds an in-process perception pipeline, reads
+        image files, and writes pipeline_batch_per_image.json plus
+        pipeline_batch_summary.json.
+    """
     ensure_server_app_importable()
     from app.core.pipeline_factory import build_perception_pipeline
     from app.schemas.config import AppConfig
@@ -98,4 +117,5 @@ async def run_pipeline_batch(
 
 
 def run_pipeline_batch_sync(**kwargs) -> dict[str, Any]:
+    """Synchronous wrapper around run_pipeline_batch for CLI-style callers."""
     return asyncio.run(run_pipeline_batch(**kwargs))

@@ -5,11 +5,20 @@ from .normalization import split_unary_binary
 
 
 def _safe_div(num: float, den: float) -> float:
+    """Divide two numbers and return 0.0 for an empty denominator."""
     return float(num / den) if den else 0.0
 
 
-# TODO: presuppose each is paired with opther object just once
 def _stats(values: list[float]) -> dict[str, float]:
+    """Summarize a numeric vector for potency reports.
+
+    Args:
+        values: Numeric observations across images.
+
+    Returns:
+        Count, mean, variance, standard deviation, min, max, and selected
+        percentiles. Empty inputs return zeros for every field.
+    """
     if not values:
         return {
             "count": 0,
@@ -47,6 +56,23 @@ def compute_image_potency(
     normalize_ids: bool = True,
     normalize_relations: bool = True,
 ) -> tuple[dict[str, dict], dict]:
+    """Compute relation and attribute density diagnostics per image.
+
+    Args:
+        detections: Mapping from image key to detection rows. Rows with an
+            object_id contribute to object count.
+        gt_graphs: Mapping from image key to ground-truth graph payload.
+        pred_graphs: Mapping from image key to predicted graph payload.
+        normalize_ids: Normalize object IDs before graph counting.
+        normalize_relations: Normalize relation and attribute labels.
+
+    Returns:
+        Tuple of per-image potency rows and a summary dictionary. Per-image rows
+        include object count, ordered-pair potential, GT/pred relation counts,
+        GT/pred attribute counts, relation density, effective potency, and
+        attribute potency. The summary contains descriptive statistics for the
+        main potency fields.
+    """
     per_image: dict[str, dict] = {}
 
     for image_path, det_rows in detections.items():

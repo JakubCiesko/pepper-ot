@@ -16,6 +16,15 @@ from .artifacts import save_json
 
 @dataclass
 class RunContext:
+    """Runtime handles shared by experiment phases.
+
+    Attributes:
+        run_id: Stable run identifier used in paths and logs.
+        run_dir: Directory where run artifacts are read and written.
+        log_path: Path to the run log file.
+        logger: Logger configured for console and run.log output.
+    """
+
     run_id: str
     run_dir: Path
     log_path: Path
@@ -23,6 +32,15 @@ class RunContext:
 
 
 def _build_logger(run_id: str, log_path: Path) -> logging.Logger:
+    """Create the per-run logger used by CLI and workflow phases.
+
+    Args:
+        run_id: Run identifier included in the logger name.
+        log_path: File path receiving persistent logs.
+
+    Returns:
+        Logger with stream and file handlers attached.
+    """
     logger = logging.getLogger(f"research.run.{run_id}")
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
@@ -48,6 +66,23 @@ def start_run(
     *,
     command: str | None = None,
 ) -> RunContext:
+    """Create a run directory and write immutable run metadata.
+
+    Args:
+        output_root: Root directory that contains the runs subdirectory.
+        experiment_name: Human-readable experiment name.
+        run_id: Optional explicit run ID; generated when None.
+        config_raw: Raw config dictionary saved into metadata and hashed.
+        command: Optional CLI command name that started the run.
+
+    Returns:
+        RunContext for the new run directory.
+
+    Side Effects:
+        Creates output_root/runs/run_id, opens run.log, and writes
+        run_metadata.json with Python/platform info, git state, config hash,
+        optional manifest hash, model metadata, and the raw config.
+    """
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     if run_id is None:
         run_id = f"{experiment_name}_{ts}_{str(uuid4())[:8]}"
@@ -76,6 +111,20 @@ def start_run(
 
 
 def resume_run(run_dir: Path) -> tuple[RunContext, dict[str, Any]]:
+    """Recreate a RunContext from an existing run directory.
+
+    Args:
+        run_dir: Directory containing run_metadata.json.
+
+    Returns:
+        Tuple of RunContext and parsed metadata.
+
+    Raises:
+        FileNotFoundError: If run_metadata.json is missing.
+
+    Side Effects:
+        Reopens the run logger and appends resume messages to run.log.
+    """
     metadata_path = run_dir / "run_metadata.json"
     if not metadata_path.exists():
         raise FileNotFoundError(f"Missing run metadata: {metadata_path}")
@@ -93,6 +142,7 @@ def resume_run(run_dir: Path) -> tuple[RunContext, dict[str, Any]]:
 
 
 def _stable_hash(payload: dict[str, Any]) -> str:
+    """Return a stable SHA-256 hash for a JSON-serializable config payload."""
     import json
 
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
@@ -100,6 +150,14 @@ def _stable_hash(payload: dict[str, Any]) -> str:
 
 
 def _file_hash(path_value: object) -> str | None:
+    """Return a SHA-256 hash for an existing file path value.
+
+    Args:
+        path_value: Path-like value from config, or a falsey value.
+
+    Returns:
+        Hex digest when the path exists and is a file, otherwise None.
+    """
     if not path_value:
         return None
     path = Path(str(path_value))
@@ -113,6 +171,7 @@ def _file_hash(path_value: object) -> str | None:
 
 
 def _manifest_path_from_config(config_raw: dict[str, Any]) -> object:
+    """Extract the manifest_file value from a raw config dictionary."""
     paths = config_raw.get("paths")
     if not isinstance(paths, dict):
         return None
@@ -120,6 +179,12 @@ def _manifest_path_from_config(config_raw: dict[str, Any]) -> object:
 
 
 def _git_state() -> dict[str, Any]:
+    """Capture best-effort git commit and dirty-state metadata.
+
+    Returns:
+        Dictionary containing commit, dirty flag, and short status output.
+        Values may be None when git is unavailable or the command times out.
+    """
     def run_git(args: list[str]) -> str | None:
         try:
             completed = subprocess.run(
@@ -143,6 +208,7 @@ def _git_state() -> dict[str, Any]:
 
 
 def _model_metadata(config_raw: dict[str, Any]) -> dict[str, Any]:
+    """Extract model configuration blocks for run provenance metadata."""
     return {
         key: config_raw.get(key)
         for key in ("description_model", "vocabulary_model", "draft_sgg_model")

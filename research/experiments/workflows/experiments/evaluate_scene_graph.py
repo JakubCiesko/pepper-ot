@@ -18,6 +18,16 @@ from research.experiments.io import save_json
 
 
 def _manifest_aliases(config: ExperimentConfig, run: RunContext) -> dict[str, str]:
+    """Build aliases that map image paths and IDs onto canonical manifest IDs.
+
+    Args:
+        config: Experiment configuration that may point at the original manifest.
+        run: Run context that may contain a copied manifest.jsonl.
+
+    Returns:
+        Mapping from image_id, relative image path, and resolved image path to
+        canonical image_id. Returns an empty mapping when no manifest exists.
+    """
     manifest_path = run.run_dir / "manifest.jsonl"
     if not manifest_path.exists() and config.paths.manifest_file:
         manifest_path = Path(config.paths.manifest_file)
@@ -38,6 +48,16 @@ def _manifest_aliases(config: ExperimentConfig, run: RunContext) -> dict[str, st
 def _canonicalize_payload_keys(
     items: dict[str, object], aliases: dict[str, str]
 ) -> dict[str, object]:
+    """Rewrite artifact keys to the canonical keyspace used for evaluation.
+
+    Args:
+        items: Mapping loaded from a run artifact, keyed by image path or ID.
+        aliases: Alias mapping produced by _manifest_aliases.
+
+    Returns:
+        New mapping keyed by canonical IDs when an alias exists, otherwise the
+        original string key.
+    """
     out: dict[str, object] = {}
     for key, value in items.items():
         canonical = aliases.get(str(key)) or aliases.get(str(Path(key))) or str(key)
@@ -46,6 +66,17 @@ def _canonicalize_payload_keys(
 
 
 def _valid_ids(detections: object, *, normalize_ids: bool) -> set[str]:
+    """Extract valid object identifiers from detection rows.
+
+    Args:
+        detections: Detection rows for a single image.
+        normalize_ids: When true, keep only the trailing numeric component of
+            each object ID to match scene graph normalization.
+
+    Returns:
+        Set of valid object IDs. Non-list detection payloads produce an empty
+        set, disabling invalid-reference diagnostics for that image.
+    """
     if not isinstance(detections, list):
         return set()
     ids: set[str] = set()
@@ -64,6 +95,29 @@ def _valid_ids(detections: object, *, normalize_ids: bool) -> set[str]:
 
 
 async def run_scene_graph_evaluation(config: ExperimentConfig, run: RunContext) -> dict:
+    """Evaluate draft scene graphs against ground-truth scene graphs.
+
+    Args:
+        config: Experiment configuration controlling artifact paths, keyspace
+            selection, missing-pair policy, normalization, bootstrap rounds, and
+            optional potency/per-predicate metrics.
+        run: Run context containing prediction, ground-truth, detection,
+            vocabulary, and context-rot artifacts.
+
+    Returns:
+        Dictionary with per_image metric rows, summary metrics, optional potency
+        metrics, and sensitivity tables.
+
+    Raises:
+        RuntimeError: If ground-truth or prediction artifacts are missing, empty,
+            or not dictionaries.
+
+    Side Effects:
+        Writes metrics_scene_graph_per_image.json,
+        metrics_scene_graph_summary.json, optional image_potency_metrics.json,
+        sensitivity_metrics.json, and metrics_scene_graph_evaluation_stage.json.
+        The function also logs aggregate F1 and potency summaries.
+    """
     run.logger.info("Starting scene graph evaluation phase")
     stage_metrics = StageMetrics(stage="scene_graph_evaluation")
 

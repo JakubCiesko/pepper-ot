@@ -26,10 +26,30 @@ from .scene_graph_common import vocabulary_for_prompt
 
 
 def _frequency_order(items: list[str], counts: dict[str, int]) -> list[str]:
+    """Order vocabulary terms by descending observed frequency.
+
+    Args:
+        items: Candidate vocabulary terms.
+        counts: Provenance counts from vocabulary_final.json.
+
+    Returns:
+        Terms sorted by highest count first, with alphabetical ordering as the
+        deterministic tie-breaker.
+    """
     return sorted(items, key=lambda item: (-int(counts.get(item, 0)), item))
 
 
 def _semantic_order(items: list[str]) -> list[str]:
+    """Build a deterministic pseudo-semantic ordering for vocabulary terms.
+
+    Args:
+        items: Candidate vocabulary terms.
+
+    Returns:
+        Terms interleaved by a coarse prefix key. This is a local deterministic
+        approximation used when no learned or LLM-based semantic ordering is
+        available.
+    """
     groups: dict[str, list[str]] = {}
     for item in items:
         key = item.split("_", 1)[0] if "_" in item else item[:4]
@@ -45,6 +65,17 @@ def _semantic_order(items: list[str]) -> list[str]:
 def _slice_terms(
     predicates: list[str], attributes: list[str], size: int
 ) -> tuple[list[str], list[str]]:
+    """Keep a proportional predicate/attribute prefix for a target slice size.
+
+    Args:
+        predicates: Ordered predicate terms.
+        attributes: Ordered attribute terms.
+        size: Desired total number of kept terms.
+
+    Returns:
+        A pair of kept predicate and attribute lists whose combined length is at
+        most size and preserves the predicate/attribute ratio where possible.
+    """
     total = len(predicates) + len(attributes)
     if total <= size:
         return predicates, attributes
@@ -61,6 +92,22 @@ def _slice_terms(
 def _build_vocab_slices(
     vocab: dict, min_size: int, step: int, strategy: str, seed: int, rounds: int
 ) -> list[dict]:
+    """Construct automatic vocabulary levels for context-rot experiments.
+
+    Args:
+        vocab: Full vocabulary dictionary with predicates, attributes, and
+            optional provenance counts.
+        min_size: Smallest requested combined predicate/attribute vocabulary
+            size.
+        step: Increment between requested vocabulary sizes.
+        strategy: Ordering strategy, such as random, frequency, or semantic.
+        seed: Base random seed for random strategies.
+        rounds: Number of shuffled rounds to create for each size.
+
+    Returns:
+        List of slice records. Each record contains size, requested_size, round,
+        strategy, and a reduced vocabulary dictionary.
+    """
     predicates_base = list(vocab.get("predicates", []))
     attributes_base = list(vocab.get("attributes", []))
     provenance = (
@@ -107,12 +154,35 @@ def _build_vocab_slices(
 
 
 def _as_terms(value: object) -> list[str]:
+    """Normalize an arbitrary YAML/JSON value into non-empty term strings.
+
+    Args:
+        value: Expected list-like source of vocabulary terms.
+
+    Returns:
+        Stripped string terms, or an empty list when value is not a list.
+    """
     if not isinstance(value, list):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
 
 
 def _load_manual_vocab_levels(levels_file: Path, full_vocab: dict) -> list[dict]:
+    """Load and validate manually authored context-rot vocabulary levels.
+
+    Args:
+        levels_file: YAML file containing a top-level levels list.
+        full_vocab: Full run vocabulary used to validate remap sources.
+
+    Returns:
+        Normalized level records containing names, sizes, mapping dictionaries,
+        drop policy, and reduced vocabularies.
+
+    Raises:
+        RuntimeError: If no levels are defined, a level is malformed, a remap
+            source is missing from the full vocabulary, or a remap target is not
+            present in the reduced level vocabulary.
+    """
     with levels_file.open("r", encoding="utf-8") as f:
         payload = yaml.safe_load(f) or {}
     raw_levels = payload.get("levels", [])
@@ -189,6 +259,17 @@ def _load_manual_vocab_levels(levels_file: Path, full_vocab: dict) -> list[dict]
 
 
 def _relationship_rows(payload: object) -> list[dict]:
+    """Extract relationship rows from supported graph payload shapes.
+
+    Args:
+        payload: None, a list of relationship dictionaries, a graph dictionary
+            with relationships/edges/no_label_edges, or a single relationship
+            dictionary with sub, rel, and obj.
+
+    Returns:
+        Relationship dictionaries only. Unsupported payloads and non-dictionary
+        rows are ignored.
+    """
     if payload is None:
         return []
     if isinstance(payload, list):
@@ -212,6 +293,23 @@ def _remap_graph_payload(
     attribute_map: dict[str, str],
     drop_unmapped: bool,
 ) -> dict:
+    """Map a graph payload onto a reduced context-rot vocabulary.
+
+    Args:
+        payload: Graph payload in any supported relationship shape.
+        vocabulary: Reduced vocabulary with allowed predicates and attributes.
+        predicate_map: Mapping from full-vocabulary predicate terms to reduced
+            predicate terms.
+        attribute_map: Mapping from full-vocabulary attribute terms to reduced
+            attribute terms.
+        drop_unmapped: When true, remove rows that cannot be mapped into the
+            reduced vocabulary.
+
+    Returns:
+        Dictionary with relationships after remapping and a dropped counter by
+        reason, such as malformed, unmapped_predicate, oov_attribute, or
+        duplicate_after_remap.
+    """
     allowed_predicates = set(_as_terms(vocabulary.get("predicates")))
     allowed_attributes = set(_as_terms(vocabulary.get("attributes")))
     rows = []
@@ -260,6 +358,31 @@ def _remap_graph_payload(
 
 
 async def run_context_rot(config: ExperimentConfig, run: RunContext) -> dict:
+    """Evaluate draft SGG behavior under reduced vocabulary contexts.
+
+    Args:
+        config: Experiment configuration containing context-rot settings, draft
+            SGG model settings, prompt settings, and evaluation normalization
+            flags.
+        run: Run context containing descriptions, detections, vocabulary, and
+            optionally ground-truth scene graphs.
+
+    Returns:
+        Mapping from vocabulary-level key to aggregate statistics for that
+        level. Each value includes the slice metadata, relationship counts, and,
+        when ground truth is enabled, scene graph metric summaries.
+
+    Raises:
+        RuntimeError: If descriptions or vocabulary are missing, or if a manual
+            levels file is invalid.
+
+    Side Effects:
+        Writes context_rot_vocab_slices.json, one context_rot_levels directory
+        per vocabulary level, context_rot.json, and metrics_context_rot.json.
+        Per-level directories contain the sliced vocabulary, prompt vocabularies,
+        raw predictions, remapped predictions, and optional remapped ground truth
+        and metrics.
+    """
     run.logger.info("Starting context-rot phase")
     stage_metrics = StageMetrics(stage="context_rot")
     descriptions = load_json(run.run_dir / config.paths.descriptions_file, default={})

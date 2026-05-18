@@ -13,6 +13,17 @@ from research.experiments.io.dataset import SUPPORTED_EXTENSIONS
 
 @dataclass(frozen=True)
 class ManifestRow:
+    """One image row in an experiment manifest JSONL file.
+
+    Attributes:
+        image_id: Stable ID used to align artifacts and metrics.
+        image_path: Absolute or relative path to the image file.
+        dataset: Dataset name used for provenance and reporting.
+        split: Dataset split label, usually eval.
+        tags: Optional labels for filtering or provenance.
+        scene_graph_source: Optional upstream source for ground-truth graphs.
+    """
+
     image_id: str
     image_path: str
     dataset: str
@@ -21,17 +32,35 @@ class ManifestRow:
     scene_graph_source: str | None = None
 
     def to_json(self) -> dict:
+        """Serialize the manifest row without None-valued fields."""
         payload = asdict(self)
         return {key: value for key, value in payload.items() if value is not None}
 
 
 def _iter_images(images_dir: Path) -> Iterable[Path]:
+    """Yield supported image files from a directory tree in stable order.
+
+    Args:
+        images_dir: Root directory to scan recursively.
+
+    Returns:
+        Resolved image paths with extensions supported by the experiment IO
+        layer.
+    """
     for path in sorted(images_dir.rglob("*")):
         if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
             yield path.resolve()
 
 
 def load_manifest(path: Path) -> list[ManifestRow]:
+    """Load manifest rows from JSONL.
+
+    Args:
+        path: Manifest file containing one JSON object per non-empty line.
+
+    Returns:
+        List of ManifestRow instances in file order.
+    """
     rows: list[ManifestRow] = []
     with path.open("r", encoding="utf-8") as f:
         for line in f:
@@ -44,6 +73,16 @@ def load_manifest(path: Path) -> list[ManifestRow]:
 
 
 def save_manifest(path: Path, rows: Iterable[ManifestRow]) -> None:
+    """Write manifest rows to JSONL.
+
+    Args:
+        path: Destination JSONL path.
+        rows: Manifest rows to serialize.
+
+    Side Effects:
+        Creates the parent directory and writes one sorted-key JSON object per
+        row.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         for row in rows:
@@ -61,6 +100,23 @@ def write_local_manifest(
     seed: int = 42,
     tags: list[str] | None = None,
 ) -> list[ManifestRow]:
+    """Create a manifest from local image files.
+
+    Args:
+        images_dir: Directory scanned recursively for supported image files.
+        out: Manifest JSONL path to write.
+        dataset: Dataset label used in image IDs and row metadata.
+        split: Split label written to each row.
+        max_samples: Optional maximum number of images to keep.
+        seed: Sampling seed used when max_samples truncates the image set.
+        tags: Optional tags assigned to every row.
+
+    Returns:
+        Manifest rows written to out.
+
+    Side Effects:
+        Writes the manifest JSONL file.
+    """
     image_paths = list(_iter_images(images_dir))
     if max_samples is not None and len(image_paths) > max_samples:
         rng = random.Random(seed)
@@ -87,6 +143,25 @@ def write_gqa_manifest(
     seed: int = 42,
     split: str = "eval",
 ) -> list[ManifestRow]:
+    """Create a manifest by streaming samples from the GQA scene graph dataset.
+
+    Args:
+        out: Manifest JSONL path to write.
+        image_root: Directory where sampled images are materialized.
+        max_samples: Maximum number of streamed samples to inspect.
+        seed: Reserved for API symmetry with local manifest creation.
+        split: Split label written to manifest rows.
+
+    Returns:
+        Manifest rows for samples whose images were available and written.
+
+    Raises:
+        RuntimeError: If the optional datasets package is not installed.
+
+    Side Effects:
+        Creates image_root, saves or copies sampled JPEG images, and writes the
+        manifest JSONL file.
+    """
     try:
         from datasets import load_dataset
     except ImportError as exc:

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
+from collections import Counter
+from collections import defaultdict
 import math
+from pathlib import Path
 import re
 import statistics
-from collections import Counter, defaultdict
-from pathlib import Path
-
 
 LATENCY_LOG = Path("latency.logs")
 MANUAL_NOTES = Path("latencies.txt")
@@ -65,8 +65,7 @@ def fmt_mean_sd(values):
         return "n/a"
     if len(values) == 1:
         return fmt(values[0])
-    return "%.2f +/- %.2f s" % (statistics.mean(values),
-                                statistics.stdev(values))
+    return "%.2f +/- %.2f s" % (statistics.mean(values), statistics.stdev(values))
 
 
 def clean_values(values):
@@ -134,10 +133,12 @@ def summarize_turns(rows):
         if answer is not None:
             answer_latency = answer["elapsed"]
             ack_latency = ack["elapsed"] if ack is not None else None
-            server_start_elapsed = (server_start["elapsed"]
-                                    if server_start is not None else None)
-            server_end_elapsed = (server_end["elapsed"]
-                                  if server_end is not None else None)
+            server_start_elapsed = (
+                server_start["elapsed"] if server_start is not None else None
+            )
+            server_end_elapsed = (
+                server_end["elapsed"] if server_end is not None else None
+            )
             server_duration = None
             post_server = None
             if server_start_elapsed is not None and server_end_elapsed is not None:
@@ -149,22 +150,26 @@ def summarize_turns(rows):
             if ack_latency is not None and answer_latency is not None:
                 silent_after_ack = answer_latency - ack_latency
 
-            completed.append({
-                "turn_id": turn_id,
-                "kind": kind,
-                "answer_latency": answer_latency,
-                "ack_latency": ack_latency,
-                "server_start": server_start_elapsed,
-                "server_duration": server_duration,
-                "post_server": post_server,
-                "silent_after_ack": silent_after_ack,
-            })
+            completed.append(
+                {
+                    "turn_id": turn_id,
+                    "kind": kind,
+                    "answer_latency": answer_latency,
+                    "ack_latency": ack_latency,
+                    "server_start": server_start_elapsed,
+                    "server_duration": server_duration,
+                    "post_server": post_server,
+                    "silent_after_ack": silent_after_ack,
+                }
+            )
         elif error is not None:
-            errors.append({
-                "turn_id": turn_id,
-                "kind": kind,
-                "error_latency": error["elapsed"],
-            })
+            errors.append(
+                {
+                    "turn_id": turn_id,
+                    "kind": kind,
+                    "error_latency": error["elapsed"],
+                }
+            )
 
     return completed, errors
 
@@ -178,7 +183,9 @@ def print_latency_summary(rows, completed, errors):
     print()
 
     print("## Main Table\n")
-    print("| Operation | n | Final answer median | Final answer mean +/- sd | Server time median | Pre-server median | Silent after ack median |")
+    print(
+        "| Operation | n | Final answer median | Final answer mean +/- sd | Server time median | Pre-server median | Silent after ack median |"
+    )
     print("|---|---:|---:|---:|---:|---:|---:|")
 
     labels = [
@@ -188,15 +195,18 @@ def print_latency_summary(rows, completed, errors):
     ]
     for kind, label in labels:
         items = [item for item in completed if item["kind"] == kind]
-        print("| %s | %d | %s | %s | %s | %s | %s |" % (
-            label,
-            len(items),
-            fmt(median([item["answer_latency"] for item in items])),
-            fmt_mean_sd([item["answer_latency"] for item in items]),
-            fmt(median([item["server_duration"] for item in items])),
-            fmt(median([item["server_start"] for item in items])),
-            fmt(median([item["silent_after_ack"] for item in items])),
-        ))
+        print(
+            "| %s | %d | %s | %s | %s | %s | %s |"
+            % (
+                label,
+                len(items),
+                fmt(median([item["answer_latency"] for item in items])),
+                fmt_mean_sd([item["answer_latency"] for item in items]),
+                fmt(median([item["server_duration"] for item in items])),
+                fmt(median([item["server_start"] for item in items])),
+                fmt(median([item["silent_after_ack"] for item in items])),
+            )
+        )
     print()
 
     print("## Error Turns\n")
@@ -208,8 +218,10 @@ def print_latency_summary(rows, completed, errors):
         for kind in sorted(set(item["kind"] for item in errors)):
             items = [item for item in errors if item["kind"] == kind]
             values = [item["error_latency"] for item in items]
-            print("| %s | %d | %s | %s |" %
-                  (kind, len(items), fmt(median(values)), fmt_mean_sd(values)))
+            print(
+                "| %s | %d | %s | %s |"
+                % (kind, len(items), fmt(median(values)), fmt_mean_sd(values))
+            )
         print()
 
     print("## Useful Interpretation\n")
@@ -234,8 +246,15 @@ def print_latency_summary(rows, completed, errors):
         "or pregenerated answers were effectively instant in this run (%s), "
         "which supports using pregenerated or administrator-provided Q&A items "
         "when immediate answers are important."
-        % (fmt(look_med), fmt(look_server), fmt(look_pre), fmt(ask_med),
-           fmt(ask_server), fmt(cached_med, digits=3)))
+        % (
+            fmt(look_med),
+            fmt(look_server),
+            fmt(look_pre),
+            fmt(ask_med),
+            fmt(ask_server),
+            fmt(cached_med, digits=3),
+        )
+    )
     print()
 
 
@@ -265,8 +284,11 @@ def parse_manual_notes(path):
         line = raw.strip()
 
         if looks_like_section(line):
-            if (current["phone_ranges"] or current["phone_singles"] or
-                    current["metrics"]):
+            if (
+                current["phone_ranges"]
+                or current["phone_singles"]
+                or current["metrics"]
+            ):
                 sections.append(current)
             current = {
                 "name": line,
@@ -279,8 +301,7 @@ def parse_manual_notes(path):
 
         metric = line
         if metric in METRIC_NAMES and i + 1 < len(lines):
-            value_match = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*s",
-                                    lines[i + 1])
+            value_match = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*s", lines[i + 1])
             if value_match:
                 current["metrics"][metric].append(float(value_match.group(1)))
                 i += 2
@@ -318,24 +339,29 @@ def print_manual_summary(sections):
         print("No manual notes parsed.\n")
         return
 
-    print("| Section | ranges n | feedback median | final median | silent median | singles n | single median | wall median | sgg median | qa median |")
+    print(
+        "| Section | ranges n | feedback median | final median | silent median | singles n | single median | wall median | sgg median | qa median |"
+    )
     print("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for section in sections:
         ranges = section["phone_ranges"]
         singles = section["phone_singles"]
         metrics = section["metrics"]
-        print("| %s | %d | %s | %s | %s | %d | %s | %s | %s | %s |" % (
-            section["name"].replace("|", "/"),
-            len(ranges),
-            fmt(median([item[0] for item in ranges])),
-            fmt(median([item[1] for item in ranges])),
-            fmt(median([item[2] for item in ranges])),
-            len(singles),
-            fmt(median(singles)),
-            fmt(median(metrics.get("wall_processing_time", []))),
-            fmt(median(metrics.get("scene_graph_generation_time", []))),
-            fmt(median(metrics.get("qa_generation_time", []))),
-        ))
+        print(
+            "| %s | %d | %s | %s | %s | %d | %s | %s | %s | %s |"
+            % (
+                section["name"].replace("|", "/"),
+                len(ranges),
+                fmt(median([item[0] for item in ranges])),
+                fmt(median([item[1] for item in ranges])),
+                fmt(median([item[2] for item in ranges])),
+                len(singles),
+                fmt(median(singles)),
+                fmt(median(metrics.get("wall_processing_time", []))),
+                fmt(median(metrics.get("scene_graph_generation_time", []))),
+                fmt(median(metrics.get("qa_generation_time", []))),
+            )
+        )
     print()
 
     fastest = []
@@ -348,8 +374,8 @@ def print_manual_summary(sections):
         wall, section = fastest[0]
         print(
             "Fastest backend setup in the manual notes: `%s`, with median "
-            "`wall_processing_time` %s."
-            % (section["name"], fmt(wall)))
+            "`wall_processing_time` %s." % (section["name"], fmt(wall))
+        )
         print()
 
 

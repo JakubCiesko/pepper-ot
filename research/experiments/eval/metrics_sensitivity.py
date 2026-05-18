@@ -6,6 +6,17 @@ from research.experiments.io import load_json
 
 
 def build_vocab_sensitivity_curve(context_rot_results: dict) -> dict:
+    """Build a vocabulary-size sensitivity curve from context-rot results.
+
+    Args:
+        context_rot_results: Parsed context_rot.json mapping level keys to
+            context-rot statistics.
+
+    Returns:
+        Dictionary with a sorted points list. Each point contains vocabulary
+        size, image count, average relationship count, and any available F1
+        metrics extracted from the level summary.
+    """
     points: list[dict] = []
     for key, value in context_rot_results.items():
         if not key.startswith("vocab_") or not isinstance(value, dict):
@@ -52,11 +63,23 @@ def build_vocab_sensitivity_curve(context_rot_results: dict) -> dict:
 
 
 def _prompt_fingerprint(system_prompt: str, user_prompt: str) -> str:
+    """Create a stable short identifier for a system/user prompt pair."""
     payload = f"{system_prompt}\n---\n{user_prompt}".encode()
     return md5(payload).hexdigest()[:12]
 
 
 def build_prompt_sensitivity_table(*, runs_root: Path) -> dict:
+    """Collect prompt and model sensitivity rows across completed runs.
+
+    Args:
+        runs_root: Directory containing experiment run subdirectories with
+            run_metadata.json and optional metrics_scene_graph_summary.json.
+
+    Returns:
+        Dictionary with rows. Each row records run ID, prompt fingerprint,
+        provider, model ID, and available scene-graph F1 metrics. Missing
+        runs_root returns an empty rows list.
+    """
     rows: list[dict] = []
     if not runs_root.exists():
         return {"rows": rows}

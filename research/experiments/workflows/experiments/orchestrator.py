@@ -9,6 +9,21 @@ from .vocabulary import run_vocabulary_mining
 
 
 async def run_all_phases(config: ExperimentConfig, run: RunContext) -> dict:
+    """Run enabled experiment phases in dependency order.
+
+    Args:
+        config: Validated experiment configuration controlling which phases are
+            enabled and where artifacts are read or written.
+        run: Run context containing the run directory and logger.
+
+    Returns:
+        Mapping from phase name to the Python payload returned by that phase.
+
+    Side Effects:
+        Executes enabled phases in the order descriptions, vocabulary,
+        draft_scene_graph, context_rot, and evaluation. Each phase writes its
+        own artifacts and stage metrics under run.run_dir.
+    """
     outputs: dict[str, dict] = {}
     if config.descriptions.enabled:
         outputs["descriptions"] = await run_descriptions(config, run)

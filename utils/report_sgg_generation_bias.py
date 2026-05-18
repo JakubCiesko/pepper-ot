@@ -11,13 +11,13 @@ against a ground-truth scene graph JSON and reports:
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import csv
+from dataclasses import dataclass
 import json
 import math
-import re
-from collections import Counter
-from dataclasses import dataclass
 from pathlib import Path
+import re
 
 
 @dataclass(frozen=True)
@@ -135,7 +135,9 @@ def add_label_counts(
         counter["pred"] += len(pred_subset)
 
 
-def evaluate_run(run_dir: Path, gt_items: dict) -> tuple[dict, dict[tuple[str, str], Counter]]:
+def evaluate_run(
+    run_dir: Path, gt_items: dict
+) -> tuple[dict, dict[tuple[str, str], Counter]]:
     pred_path = run_dir / "draft_scene_graph.json"
     if not pred_path.exists():
         raise FileNotFoundError(pred_path)
@@ -393,7 +395,9 @@ def main() -> None:
         if path.is_dir() and (path / "draft_scene_graph.json").exists()
     ]
     if not run_dirs:
-        raise SystemExit(f"No run directories with draft_scene_graph.json under {args.runs_dir}")
+        raise SystemExit(
+            f"No run directories with draft_scene_graph.json under {args.runs_dir}"
+        )
 
     run_summaries = []
     aggregate_counts: dict[tuple[str, str], Counter] = {}

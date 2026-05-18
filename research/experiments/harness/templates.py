@@ -9,6 +9,23 @@ from research.experiments.io import save_json
 def write_ground_truth_template(
     run_dir: Path, out: Path | None = None, *, prefill_draft: bool = False
 ) -> Path:
+    """Create a human-editable ground-truth scene graph template.
+
+    Args:
+        run_dir: Run directory containing detections.json and optionally
+            draft_scene_graph.json.
+        out: Optional destination path. Defaults to
+            ground_truth_scene_graph.template.json in run_dir.
+        prefill_draft: When true, copy draft relationships into each template
+            row; otherwise start with empty relationship lists.
+
+    Returns:
+        Path to the written template JSON.
+
+    Side Effects:
+        Writes a JSON object keyed by image, with detected objects,
+        relationships, annotation_source, and a short annotator comment.
+    """
     detections = load_json(run_dir / "detections.json", default={})
     drafts = load_json(run_dir / "draft_scene_graph.json", default={})
     if out is None:

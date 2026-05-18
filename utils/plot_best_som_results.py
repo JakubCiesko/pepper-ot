@@ -4,25 +4,28 @@
 from __future__ import annotations
 
 import argparse
-import json
 from collections import defaultdict
+import json
 from pathlib import Path
 
-
-MODEL_ORDER = ["gemini", "geminiR", 
-    #    "geminiPRO", 
-    "gpt", "gpt5"]
+MODEL_ORDER = [
+    "gemini",
+    "geminiR",
+    #    "geminiPRO",
+    "gpt",
+    "gpt5",
+]
 MODEL_LABELS = {
     "gemini": "gemini-3.1-flash-lite",
     "geminiR": "gemini-robotics-er-1.6-preview",
-#    "geminiPRO": "Gemini Pro",
+    #    "geminiPRO": "Gemini Pro",
     "gpt": "gpt-5-nano-2025-08-07",
     "gpt5": "gpt-5.5-2026-04-23",
 }
 MODEL_COLORS = {
     "gemini": "#4E79A7",
     "geminiR": "#59A14F",
- #   "geminiPRO": "#B07AA1",
+    #   "geminiPRO": "#B07AA1",
     "gpt": "#F28E2B",
     "gpt5": "#E15759",
 }
@@ -107,10 +110,7 @@ def available_settings(rows: list[dict]) -> list[str]:
 
 
 def metric_lookup(rows: list[dict], metric: str) -> dict[tuple[str, str], float]:
-    return {
-        (row["model"], row["setting"]): float(row[metric])
-        for row in rows
-    }
+    return {(row["model"], row["setting"]): float(row[metric]) for row in rows}
 
 
 def setting_averages(rows: list[dict], metric: str) -> dict[str, float]:
@@ -266,7 +266,14 @@ def plot_model_heatmap(rows: list[dict], out_dir: Path) -> None:
     cmap.set_bad(color="#F2F2F2")
     im = ax.imshow(matrix, aspect="auto", cmap=cmap, vmin=0.15, vmax=0.36)
     ax.set_xticks(np.arange(len(settings)))
-    ax.set_xticklabels([SETTING_LABELS.get(setting, setting).replace("\n", " ") for setting in settings], rotation=30, ha="right")
+    ax.set_xticklabels(
+        [
+            SETTING_LABELS.get(setting, setting).replace("\n", " ")
+            for setting in settings
+        ],
+        rotation=30,
+        ha="right",
+    )
     ax.set_yticks(np.arange(len(models)))
     ax.set_yticklabels([MODEL_LABELS.get(model, model) for model in models])
     ax.set_title("Strict triplet F1 by model and SoM rendering")

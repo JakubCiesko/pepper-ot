@@ -16,6 +16,27 @@ from research.experiments.schemas import ImagePredicatesAttributes
 
 
 async def run_vocabulary_mining(config: ExperimentConfig, run: RunContext) -> dict:
+    """Build the experiment vocabulary from captions or a frozen vocabulary file.
+
+    Args:
+        config: Experiment configuration containing vocabulary source mode,
+            target vocabulary sizes, LLM model settings, and prompt templates.
+        run: Run context containing prior description and detection artifacts.
+
+    Returns:
+        Final vocabulary dictionary with predicates, attributes, and provenance.
+
+    Raises:
+        RuntimeError: If frozen_file mode is selected without a valid frozen
+            vocabulary, or if current_run mode cannot find descriptions.
+
+    Side Effects:
+        In frozen_file mode, copies the frozen vocabulary into
+        vocabulary_final.json. In current_run mode, reads descriptions.json and
+        detections.json, writes vocabulary_candidates.json, consolidates
+        predicates and attributes through structured LLM calls, writes
+        vocabulary_final.json, and writes metrics_vocabulary.json.
+    """
     run.logger.info("Starting vocabulary mining phase")
     stage_metrics = StageMetrics(stage="vocabulary")
 

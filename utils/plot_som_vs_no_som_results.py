@@ -4,10 +4,9 @@
 from __future__ import annotations
 
 import argparse
-import json
 from collections import defaultdict
+import json
 from pathlib import Path
-
 
 MODEL_ORDER = ["geminiR", "gpt5"]
 MODEL_LABELS = {
@@ -84,10 +83,7 @@ def load_rows(runs_dir: Path) -> list[dict]:
 
 
 def metric_lookup(rows: list[dict], metric: str) -> dict[tuple[str, str], float]:
-    return {
-        (row["model"], row["condition"]): float(row[metric])
-        for row in rows
-    }
+    return {(row["model"], row["condition"]): float(row[metric]) for row in rows}
 
 
 def condition_averages(rows: list[dict], metric: str) -> dict[str, float]:

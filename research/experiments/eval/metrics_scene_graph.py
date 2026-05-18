@@ -10,10 +10,21 @@ from .normalization import split_unary_binary
 
 
 def _safe_div(num: float, den: float) -> float:
+    """Divide two numbers and return 0.0 for an empty denominator."""
     return (num / den) if den else 0.0
 
 
 def _prf(tp: int, fp: int, fn: int) -> dict[str, float | int]:
+    """Compute precision, recall, and F1 from true/false positive counts.
+
+    Args:
+        tp: True positive count.
+        fp: False positive count.
+        fn: False negative count.
+
+    Returns:
+        Dictionary containing tp, fp, fn, precision, recall, and f1.
+    """
     p = _safe_div(tp, tp + fp)
     r = _safe_div(tp, tp + fn)
     f1 = _safe_div(2 * p * r, p + r)
@@ -28,6 +39,16 @@ def _prf(tp: int, fp: int, fn: int) -> dict[str, float | int]:
 
 
 def _counter_prf(gt: Counter, pred: Counter) -> dict[str, float | int]:
+    """Compute PRF for multisets represented as Counters.
+
+    Args:
+        gt: Ground-truth item counts.
+        pred: Predicted item counts.
+
+    Returns:
+        Precision/recall/F1 dictionary where duplicates are counted by multiset
+        intersection and difference.
+    """
     tp = int(sum((gt & pred).values()))
     fp = int(sum((pred - gt).values()))
     fn = int(sum((gt - pred).values()))
@@ -37,6 +58,17 @@ def _counter_prf(gt: Counter, pred: Counter) -> dict[str, float | int]:
 def _normalized_ged(
     gt_edges: set[CanonicalEdge], pred_edges: set[CanonicalEdge]
 ) -> float:
+    """Approximate normalized graph edit distance between two edge sets.
+
+    Args:
+        gt_edges: Canonical ground-truth edges.
+        pred_edges: Canonical predicted edges.
+
+    Returns:
+        Node symmetric-difference plus edge symmetric-difference divided by the
+        combined graph size. This is a lightweight diagnostic proxy, not a full
+        graph edit solver.
+    """
     gt_nodes = {edge.sub for edge in gt_edges} | {edge.obj for edge in gt_edges}
     pred_nodes = {edge.sub for edge in pred_edges} | {edge.obj for edge in pred_edges}
     node_diff = len(gt_nodes.symmetric_difference(pred_nodes))
@@ -53,6 +85,23 @@ def evaluate_graph_pair(
     normalize_relations: bool = True,
     compute_ged: bool = False,
 ) -> dict:
+    """Evaluate one predicted scene graph against one ground-truth graph.
+
+    Args:
+        gt_payload: Ground-truth graph payload in a supported relationship
+            shape.
+        pred_payload: Predicted graph payload in a supported relationship shape.
+        normalize_ids: Normalize object IDs before matching.
+        normalize_relations: Normalize relation and attribute labels before
+            matching.
+        compute_ged: Include normalized_ged when true.
+
+    Returns:
+        Metric dictionary containing edge counts, strict_triplet,
+        binary_triplet, attribute, pair_ordered, pair_unordered,
+        predicate_only, overgeneration_rate, undergeneration_rate, and optional
+        normalized_ged.
+    """
     gt = canonicalize_edges(
         gt_payload,
         normalize_ids=normalize_ids,
@@ -124,6 +173,15 @@ def evaluate_graph_pair(
 
 
 def _relationship_rows(payload: object) -> list[dict]:
+    """Extract raw relationship rows for diagnostics.
+
+    Args:
+        payload: None, a list of rows, a graph dictionary with relationships,
+            edges, or no_label_edges, or a single {sub, rel, obj} row.
+
+    Returns:
+        List of dictionary rows with unsupported shapes filtered out.
+    """
     if payload is None:
         return []
     if isinstance(payload, list):
@@ -148,6 +206,22 @@ def graph_diagnostics(
     normalize_ids: bool = True,
     normalize_relations: bool = True,
 ) -> dict[str, int]:
+    """Compute non-PRF graph quality diagnostics for one prediction.
+
+    Args:
+        gt_payload: Ground-truth graph payload.
+        pred_payload: Predicted graph payload.
+        valid_object_ids: Object IDs allowed by detection results for the image.
+        vocabulary: Optional vocabulary containing allowed predicates and
+            attributes.
+        normalize_ids: Normalize IDs before checking references.
+        normalize_relations: Normalize labels before vocabulary checks.
+
+    Returns:
+        Counts for invalid object references, hallucinated object IDs,
+        duplicate relations, out-of-vocabulary predicates and attributes, and
+        direction errors where the reverse edge exists in ground truth.
+    """
     vocabulary = vocabulary or {}
     allowed_predicates = {
         normalize_relation(item, normalize_relations=normalize_relations)
@@ -212,16 +286,20 @@ def graph_diagnostics(
 
 @dataclass
 class PredicateStats:
+    """Mutable accumulator for per-predicate TP/FP/FN counts."""
+
     tp: int = 0
     fp: int = 0
     fn: int = 0
 
     def add(self, tp: int, fp: int, fn: int) -> None:
+        """Add counts from one image or batch into the accumulator."""
         self.tp += tp
         self.fp += fp
         self.fn += fn
 
     def to_dict(self) -> dict:
+        """Return accumulated counts with precision, recall, and F1."""
         out = _prf(self.tp, self.fp, self.fn)
         return out
 
@@ -231,6 +309,19 @@ def summarize_per_image(
     *,
     include_per_predicate: bool = True,
 ) -> dict:
+    """Aggregate per-image scene graph metrics into a run-level summary.
+
+    Args:
+        per_image: Mapping from image key to evaluate_graph_pair output,
+            optionally extended with diagnostics and per_predicate counts.
+        include_per_predicate: Whether to aggregate per-predicate counts and
+            compute predicate_macro_f1.
+
+    Returns:
+        Summary dictionary with image count, total ground-truth/predicted edges,
+        micro PRF groups, optional normalized_ged_avg, optional diagnostics, and
+        optional per-predicate metrics.
+    """
     total_gt = 0
     total_pred = 0
 
@@ -338,6 +429,20 @@ def bootstrap_metric_ci(
     rounds: int = 1000,
     seed: int = 42,
 ) -> dict[str, float]:
+    """Estimate a bootstrap confidence interval for one metric group.
+
+    Args:
+        per_image: Mapping from image key to per-image metric rows.
+        metric_group: Metric group to resample, such as strict_triplet or
+            attribute.
+        metric_name: Metric key inside the group, usually f1.
+        rounds: Number of bootstrap resampling rounds.
+        seed: Random seed for deterministic intervals.
+
+    Returns:
+        Dictionary with mean, ci95_low, and ci95_high. Returns an empty
+        dictionary when there are no rows or rounds is not positive.
+    """
     rows = list(per_image.values())
     if not rows or rounds <= 0:
         return {}
@@ -366,6 +471,17 @@ def per_predicate_counts(
     normalize_ids: bool = True,
     normalize_relations: bool = True,
 ) -> dict[str, dict[str, int]]:
+    """Compute TP/FP/FN counts for each relation or attribute label.
+
+    Args:
+        gt_payload: Ground-truth graph payload.
+        pred_payload: Predicted graph payload.
+        normalize_ids: Normalize object IDs before matching.
+        normalize_relations: Normalize labels before grouping by predicate.
+
+    Returns:
+        Mapping from predicate or attribute label to tp, fp, and fn counts.
+    """
     gt = canonicalize_edges(
         gt_payload,
         normalize_ids=normalize_ids,

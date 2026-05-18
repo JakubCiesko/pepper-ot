@@ -16,11 +16,42 @@ from research.experiments.io import save_json
 
 
 def _objects_from_detection_row(row: list[dict]) -> list[str]:
+    """Extract non-empty detection labels for use in caption prompts.
+
+    Args:
+        row: Detection rows loaded from detections.json for one image.
+
+    Returns:
+        A list of stripped object labels, preserving detection order.
+    """
     return [str(item.get("label", "")).strip() for item in row if item.get("label")]
 
 
 #  TODO: cache save?
 async def run_descriptions(config: ExperimentConfig, run: RunContext) -> dict:
+    """Generate image descriptions and optional object detections for a run.
+
+    Args:
+        config: Experiment configuration containing image paths, detection
+            settings, caption model settings, prompt templates, and concurrency
+            limits.
+        run: Run context whose directory receives the generated artifacts.
+
+    Returns:
+        Mapping from absolute image path to the caption adapter payload for that
+        image.
+
+    Raises:
+        Exceptions from image loading, detection, or captioning are captured per
+        image and recorded in stage metrics. Adapter initialization errors may
+        propagate before per-image processing starts.
+
+    Side Effects:
+        Discovers images from config paths, optionally writes detections.json,
+        writes descriptions.json, and writes metrics_descriptions.json. When
+        detection ran on CUDA, the function attempts best-effort VRAM cleanup
+        before caption generation.
+    """
     run.logger.info("Starting description phase")
     stage_metrics = StageMetrics(stage="descriptions")
     image_paths = list(

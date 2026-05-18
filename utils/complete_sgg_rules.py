@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 import sys
 
-
 INVERSE_RULES = {
     "left_of": "right_of",
     "right_of": "left_of",
@@ -175,8 +174,7 @@ def print_report(totals, added_by_rule, out_path):
     print("Images processed: %d" % totals["images"])
     print("Original edges: %d" % totals["original_edges"])
     print("Malformed skipped: %d" % totals["malformed_skipped"])
-    print("Duplicate existing/derived skipped: %d" %
-          totals["duplicate_skipped"])
+    print("Duplicate existing/derived skipped: %d" % totals["duplicate_skipped"])
     print("Added edges: %d" % totals["added_edges"])
     print("Final edges: %d" % totals["final_edges"])
     print("Output: %s" % out_path)

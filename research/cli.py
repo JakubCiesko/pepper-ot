@@ -17,14 +17,20 @@ def cli():
     """
     Pepper Research CLI.
 
-    Tools for Knowledge Distillation, Scene Graph Generation, and Model Training (VLM and OT).
+    Tools for knowledge distillation, synthetic scene graph data generation,
+    and model training. These commands are legacy entrypoints around the
+    research workflows and expect explicit YAML config files for each task.
     """
     pass
 
 
 @cli.group()
 def data():
-    """Tools for generating synthetic datasets."""
+    """Tools for generating synthetic datasets.
+
+    Commands in this group create training or evaluation data artifacts from raw
+    images, teacher models, and scene graph generation configs.
+    """
     pass
 
 
@@ -37,7 +43,16 @@ def data():
     show_default=True,
 )
 def cmd_distill(config):
-    """Run Grounding DINO to auto-label raw images."""
+    """Run Grounding DINO to auto-label raw images.
+
+    Args:
+        config: Distillation YAML describing input images, ontology labels,
+            teacher model settings, and output dataset paths.
+
+    Side Effects:
+        Runs the distillation workflow and writes YOLO-style labels and dataset
+        metadata according to the config.
+    """
     run_distillation(config)
 
 
@@ -50,12 +65,26 @@ def cmd_distill(config):
     show_default=True,
 )
 def cmd_scene_graph(config):
+    """Generate synthetic scene graph data from configured images.
+
+    Args:
+        config: Scene graph generation YAML describing image sources, SoM
+            rendering, teacher model settings, prompts, and output paths.
+
+    Side Effects:
+        Runs the configured scene graph generation workflow and writes generated
+        annotations according to the config.
+    """
     run_generation(config)
 
 
 @cli.group()
 def train():
-    """Tools for Fine-Tuning models."""
+    """Tools for fine-tuning research models.
+
+    Commands in this group start detector or VLM training jobs from local YAML
+    configs. They may require optional training dependencies and GPU support.
+    """
     pass
 
 
@@ -68,6 +97,16 @@ def train():
     show_default=True,
 )
 def cmd_train_detector(config):
+    """Train or fine-tune an RT-DETR detector.
+
+    Args:
+        config: Detector training YAML with model, dataset, and training output
+            settings.
+
+    Side Effects:
+        Starts the detector training workflow and writes checkpoints/logs as
+        configured by the training script.
+    """
     run_detector_training(config)
 
 
@@ -80,6 +119,16 @@ def cmd_train_detector(config):
     show_default=True,
 )
 def cmd_train_vlm(config):
+    """Train or fine-tune a VLM scene graph model.
+
+    Args:
+        config: VLM training YAML with dataset paths, system prompt, LoRA, and
+            trainer hyperparameters.
+
+    Side Effects:
+        Starts the VLM training workflow and writes model outputs according to
+        the config.
+    """
     run_vlm_training(config)
 
 

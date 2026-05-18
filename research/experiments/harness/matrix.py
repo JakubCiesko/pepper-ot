@@ -15,6 +15,16 @@ from research.experiments.workflows.experiments import run_all_phases
 
 
 def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge variant overrides into a base config dictionary.
+
+    Args:
+        base: Base config mapping.
+        overrides: Variant or common override mapping.
+
+    Returns:
+        New merged dictionary. Nested dictionaries are merged recursively;
+        non-dictionary values replace the base value.
+    """
     merged = deepcopy(base)
     for key, value in overrides.items():
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
@@ -25,11 +35,13 @@ def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, An
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
+    """Load a YAML file as a dictionary, treating empty files as empty configs."""
     with path.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
 
 def _write_variant_config(run_dir: Path, raw_config: dict[str, Any]) -> None:
+    """Write the resolved variant config into its run directory."""
     with (run_dir / "variant_config.yaml").open("w", encoding="utf-8") as f:
         yaml.safe_dump(raw_config, f, sort_keys=False, allow_unicode=True)
 
@@ -37,6 +49,21 @@ def _write_variant_config(run_dir: Path, raw_config: dict[str, Any]) -> None:
 def _copy_reusable_artifacts(
     run_dir: Path, reuse_config: dict[str, Any] | None
 ) -> tuple[str | None, list[str]]:
+    """Copy declared artifacts from a previous run into a variant run.
+
+    Args:
+        run_dir: Destination run directory for the current variant.
+        reuse_config: Optional matrix reuse_artifacts block with from_run and
+            files keys.
+
+    Returns:
+        Source run directory as text and the copied relative file names. Returns
+        None and an empty list when no reuse config is provided.
+
+    Raises:
+        RuntimeError: If the source run is missing, files is empty, a requested
+            file is missing, or a file path is absolute or escapes the run.
+    """
     if not reuse_config:
         return None, []
 
@@ -71,6 +98,22 @@ def _copy_reusable_artifacts(
 
 
 async def run_matrix(matrix_path: Path) -> list[dict[str, Any]]:
+    """Run each variant described by a matrix YAML file.
+
+    Args:
+        matrix_path: YAML file containing base_config, optional
+            common_overrides, optional reuse_artifacts, and a variants list.
+
+    Returns:
+        Result rows for every variant, including variant name, run ID, run
+        directory, success flag, outputs, reused artifacts, and error text when
+        a variant fails.
+
+    Side Effects:
+        Creates one run per variant, writes variant_config.yaml and
+        matrix_result.json, optionally copies reusable artifacts, and executes
+        all enabled experiment phases for each variant.
+    """
     matrix = _load_yaml(matrix_path)
     base_config_path = Path(matrix["base_config"])
     if not base_config_path.is_absolute():
@@ -141,4 +184,5 @@ async def run_matrix(matrix_path: Path) -> list[dict[str, Any]]:
 
 
 def run_matrix_sync(matrix_path: Path) -> list[dict[str, Any]]:
+    """Synchronous wrapper around run_matrix for non-async callers."""
     return asyncio.run(run_matrix(matrix_path))
